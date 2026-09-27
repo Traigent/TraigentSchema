@@ -11,21 +11,72 @@
         "summary": "List every project Agent's computed debt items, verdict and validate-first ranking",
         "operationId": "getProjectAgentReadinessFleetPosture",
         "x-asserted-against-backend": false,
-        "description": "Auth identical to the portfolio route: require_resource_read_access(ResourceType.AGENT, collection=True) + project_role_required('viewer'). Tenant/project are taken from the canonical auth context only, never from headers or query parameters. No request body. Paging mirrors the portfolio list route's page/per_page parameters (agent_readiness_endpoints.json); per_page shares the portfolio route's maximum of 100. The optional agent_id query parameter restricts the response to one Agent's row and, when present, makes page/per_page paging moot (see agent_id).",
+        "description": "Auth identical to the portfolio route: require_resource_read_access(ResourceType.AGENT, collection=True) + project_role_required('viewer'). Tenant/project are taken from the canonical auth context only, never from headers or query parameters. No request body. Paging mirrors the portfolio list route's page/per_page parameters (agent_readiness_endpoints.json); per_page shares the portfolio route's maximum of 100. The optional agent_id query parameter restricts the response to one Agent's row and, when present, makes page/per_page paging moot (see agent_id). Five additional optional filters -- verdict, stage, deployment_stage (each repeatable: OR within the parameter), search (substring on agent_name), and include_project_summary -- combine with each other and with agent_id by AND, and all of them apply BEFORE pagination: pagination.total/pagination.total_pages are always the FILTERED count, never the project's unfiltered total. A comma-separated value for a repeatable filter (verdict/stage/deployment_stage) is REJECTED, not parsed as a list -- each value must be its own query-string occurrence (e.g. ?verdict=STAY&verdict=INTERVENE_QUALITY). Any unknown/invalid filter value, a duplicate occurrence of the singleton search or include_project_summary parameters, or an out-of-bounds search yields the existing 400 envelope (see the route's 400 response) with the offending value never echoed. The agent_id no-existence-oracle privacy invariant (see agent_id) is unchanged by any of these filters: an unknown/inaccessible agent_id still returns the same 200 empty-fleet shape, never 404, regardless of what else is requested. See the route's 503 response for the bound on the enhanced path (any of these five parameters).",
         "parameters": [
           {"name": "project_id", "in": "path", "required": true, "schema": {"type": "string", "minLength": 1}},
           {"name": "page", "in": "query", "required": false, "description": "The page to return, 1-indexed. IGNORED when agent_id is present: the response then always reports page 1, since there is at most one row to page over. Unpaged calls return the first page (24 agents), the same as the endpoint's previous behaviour.", "schema": {"type": "integer", "minimum": 1, "default": 1}},
           {"name": "per_page", "in": "query", "required": false, "description": "The number of Agent rows per page (maximum 100, shared with the portfolio list route's per_page). When agent_id is present this stops controlling how many rows are returned (at most one), but the requested value (or the default of 24 if omitted) is still reported back unchanged in the response's pagination.per_page. Unpaged calls return the first page (24 agents), the same as the endpoint's previous behaviour.", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 24}},
-          {"name": "agent_id", "in": "query", "required": false, "description": "Restrict the response to this one Agent's row (page 1 of at most 1 total; page/per_page paging is IGNORED, see page/per_page). This is a collection filter, not a per-agent lookup: an unknown or inaccessible id returns 200, never 404, so the parameter carries no existence oracle. Unknown and inaccessible are INDISTINGUISHABLE: the response is exactly the empty-fleet shape -- `agents: []`, `failed_agent_ids: []`, `validate_first: []`, `summary.total: 0` with every counts_by_verdict member 0, and `pagination: {page: 1, per_page: <the requested or default per_page>, total: 0, total_pages: 0, has_next: false, has_prev: false}` -- and the requested id is never echoed anywhere in the response.", "schema": {"type": "string", "minLength": 1}}
+          {"name": "agent_id", "in": "query", "required": false, "description": "Restrict the response to this one Agent's row (page 1 of at most 1 total; page/per_page paging is IGNORED, see page/per_page). This is a collection filter, not a per-agent lookup: an unknown or inaccessible id returns 200, never 404, so the parameter carries no existence oracle. Unknown and inaccessible are INDISTINGUISHABLE: the response is exactly the empty-fleet shape -- `agents: []`, `failed_agent_ids: []`, `validate_first: []`, `summary.total: 0` with every counts_by_verdict member 0, and `pagination: {page: 1, per_page: <the requested or default per_page>, total: 0, total_pages: 0, has_next: false, has_prev: false}` -- and the requested id is never echoed anywhere in the response.", "schema": {"type": "string", "minLength": 1}},
+          {
+            "name": "verdict",
+            "in": "query",
+            "required": false,
+            "description": "Restrict returned rows to agents whose verdict is one of the given values (repeatable query parameter, e.g. ?verdict=STAY&verdict=INTERVENE_QUALITY -- OR within this parameter). A single comma-separated value (e.g. ?verdict=STAY,INTERVENE_QUALITY) is REJECTED as invalid, not parsed as a list. Combines by AND with stage, deployment_stage, search and agent_id. Applies before pagination: pagination.total is the count after this filter, not the project's unfiltered total. An unknown/invalid verdict value yields the existing 400 envelope (see the route's 400 response); the invalid value is never echoed back.",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {"$ref": "./fleet_posture_response_schema.json#/definitions/Verdict"}
+            }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "description": "Restrict returned rows to agents whose evaluation-progress stage (agent_readiness_common_schema.json ProcessStage: NO_RUNS | RUNS_RECORDED | EVALUATION_COMPLETED -- the same evaluation-progress vocabulary as the existing readiness-portfolio stage filter) is one of the given values (repeatable: OR within this parameter). A comma-separated value is REJECTED. Combines by AND with verdict, deployment_stage, search and agent_id. Applies before pagination: pagination.total is the filtered count. An unknown/invalid value yields the existing 400 envelope, never echoed.",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {"$ref": "./agent_readiness_common_schema.json#/definitions/ProcessStage"}
+            }
+          },
+          {
+            "name": "deployment_stage",
+            "in": "query",
+            "required": false,
+            "description": "Restrict returned rows to agents whose manager-declared deployment_stage (agent_posture_schema.json DeploymentStage, reusing the agent-deployment Environment enum: development | staging | production | testing) is one of the given values (repeatable: OR within this parameter). A comma-separated value is REJECTED. An agent with no declared posture (NONE_DECLARED) matches no deployment_stage value -- the same no-default rule as agent_posture_schema.json's AgentPosture. Combines by AND with verdict, stage, search and agent_id. Applies before pagination: pagination.total is the filtered count. An unknown/invalid value yields the existing 400 envelope, never echoed.",
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "array",
+              "items": {"$ref": "./agent_posture_schema.json#/definitions/DeploymentStage"}
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Case-folded substring filter on agent_name. The value is trimmed of leading/trailing whitespace before matching; a value that trims to empty (blank or whitespace-only) is treated as ABSENT (no filter applied), not as a 400. After trimming, length must be 1-200 characters -- a trimmed value longer than 200 characters is invalid (400). Matching is a literal, non-wildcard, casefolded substring match: the characters %, _ and \\ are matched literally, never interpreted as SQL/LIKE wildcards or escapes. Combines by AND with verdict, stage, deployment_stage and agent_id. Applies before pagination: pagination.total is the filtered count. An invalid (over-length) value yields the existing 400 envelope, never echoed.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 200}
+          },
+          {
+            "name": "include_project_summary",
+            "in": "query",
+            "required": false,
+            "description": "When true, the response's optional project_summary is populated: its total and counts_by_verdict cover every caller-visible, non-archived agent in the project, independent of every filter on this request -- including agent_id, verdict, stage, deployment_stage and search. project_summary is identical whether agent_id is omitted, matches a known agent, or matches none. Defaults to false (project_summary omitted from the response). Only a single literal true|false value is accepted; a duplicate occurrence or any other value is a 400, never echoed. The required, page-scoped summary is unaffected and always reflects only the agents returned on this page. See the route's 503 response for the bound on this computation (and on stage/verdict/deployment_stage/search) at 500 caller-visible agents.",
+            "schema": {"type": "boolean", "default": false}
+          }
         ],
         "responses": {
           "200": {
             "description": "Fleet posture computed successfully",
             "content": {"application/json": {"schema": {"$ref": "./fleet_posture_response_schema.json"}}}
           },
-          "400": {"description": "Invalid pagination parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "400": {"description": "Invalid pagination, filter (verdict/stage/deployment_stage), search, or include_project_summary parameters", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
           "401": {"description": "Unauthenticated", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
-          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}}
+          "403": {"description": "Project Agent-read access denied", "content": {"application/json": {"schema": {"$ref": "./agent_readiness_error_schema.json"}}}},
+          "503": {"description": "The enhanced path -- requested via any of verdict, stage, deployment_stage, search or include_project_summary -- is bounded at 500 caller-visible agents in the project: computing filtered rows and/or project_summary requires evaluating every caller-visible agent's verdict, so above that bound the request fails closed instead of ever returning a truncated or partial pagination.total or project_summary. An unfiltered, no-include_project_summary request (the pre-existing page-only path) is unaffected by this bound. Retry without the enhanced-path parameters, or narrow scope, and retry."}
         }
       }
     }

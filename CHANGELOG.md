@@ -8,6 +8,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GET /agent-readiness/fleet-posture` server-side filters + opt-in project-wide
+  verdict totals (additive).** Five new optional query parameters on
+  `agent_readiness/fleet_posture_endpoints.json`: `verdict`, `stage`, `deployment_stage`
+  (each repeatable -- `style: form`, `explode: true`; OR within the parameter, AND across
+  parameters and with the existing `agent_id`; a comma-separated value is REJECTED, not
+  parsed as a list), `search` (case-folded literal substring on `agent_name`, trimmed,
+  1-200 chars after trim, `%`/`_`/`\` matched literally, never as SQL/LIKE
+  wildcards/escapes), and `include_project_summary` (boolean, default `false`). Every
+  filter's enum is a `$ref` to the existing source-of-truth definition, never re-forked:
+  `verdict` to `fleet_posture_response_schema.json#/definitions/Verdict`, `stage` to
+  `agent_readiness_common_schema.json#/definitions/ProcessStage`, `deployment_stage` to
+  `agent_posture_schema.json#/definitions/DeploymentStage` (itself
+  `agents/agent_deployment_schema.json#/definitions/Environment`). All five apply BEFORE
+  pagination: `pagination.total`/`pagination.total_pages` become the filtered count, never
+  the project's unfiltered total. An unknown/invalid value for any of them yields the
+  existing `400` envelope with the offending value never echoed; the `agent_id`
+  no-existence-oracle privacy invariant is unchanged. New optional response property
+  `agent_readiness/fleet_posture_response_schema.json` `project_summary` (present only
+  when `include_project_summary=true`; reuses the existing closed `FleetSummary` shape --
+  `total` + `counts_by_verdict` over exactly the four `Verdict` members, all
+  `minimum: 0`): its scope is every caller-visible, non-archived agent in the project,
+  independent of every filter on the request including `agent_id` -- identical whether
+  `agent_id` is omitted, matches a known agent, or matches none. The required, page-scoped
+  `summary` is unaffected. New `503` response documents the enhanced-path bound: computing
+  filtered rows and/or `project_summary` requires evaluating every caller-visible agent, so
+  a project over 500 caller-visible agents fails closed instead of ever returning a
+  truncated/partial `pagination.total` or `project_summary`; the pre-existing unfiltered,
+  no-`include_project_summary` page-only path is unaffected. Two
+  `scripts/breaking_schema_allowlist.json` entries (`property_added` on
+  `fleet_posture_endpoints.json`'s `200` response and on
+  `fleet_posture_response_schema.json`'s root, both for `project_summary`) acknowledge the
+  resulting BREAKING findings on this already-closed response -- the same
+  closed-response-gains-an-optional-member shape as the prior `criticality_source` /
+  `verdict_reason` / `pagination` acknowledgements on this file; old strict response
+  validators must upgrade to accept one more optional top-level property. Tests: 20 new
+  tests in `test_fleet_posture_response_contract.py` (filter param declarations incl.
+  `style`/`explode` and enum provenance, the `503` documentation, `project_summary`'s
+  optionality/shape/independent-scope description, and fixture cases covering a valid
+  response with `project_summary`, a missing verdict key, an extra verdict key, and a
+  negative count) plus 4 new fixture cases in `fleet_posture_verdict_cases.json`; all
+  pre-existing paging/`agent_id`/verdict-reason tests unchanged and passing. Full repo
+  suite: 5207 passed, 2 skipped (was 5187 passed, 2 skipped before this change). Parity
+  manifest re-stamped.
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

@@ -399,6 +399,11 @@ def test_fleet_posture_route_is_registered_correctly() -> None:
         "page",
         "per_page",
         "agent_id",
+        "verdict",
+        "stage",
+        "deployment_stage",
+        "search",
+        "include_project_summary",
     ]
     assert operation["responses"]["200"]["content"]["application/json"]["schema"][
         "$ref"
@@ -413,6 +418,185 @@ def test_fleet_posture_route_is_registered_correctly() -> None:
     # return 200 with an empty `agents` array, per its own parameter description.
     assert "requestBody" not in operation
     assert "404" not in operation["responses"]
+    assert "503" in operation["responses"]
+
+
+# ---------------------------------------------------------------------------
+# New filters: verdict / stage / deployment_stage / search / include_project_summary
+# ---------------------------------------------------------------------------
+
+
+def _fleet_param(name: str) -> dict[str, Any]:
+    params = {
+        p["name"]: p for p in _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["parameters"]
+    }
+    return params[name]
+
+
+def _fleet_param_ref(parameter: dict[str, Any]) -> str:
+    file_part, fragment = parameter["schema"]["items"]["$ref"].split("#", 1)
+    target = (ENDPOINTS_PATH.parent / file_part).resolve()
+    return f"{_load(target)['$id']}#{fragment}"
+
+
+@pytest.mark.parametrize(
+    ("name", "accepted", "rejected"),
+    [
+        (
+            "verdict",
+            ["NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"],
+            ["not_yet_scored", "MAYBE", ""],
+        ),
+        (
+            "stage",
+            ["NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"],
+            ["no_runs", "IN_PROGRESS", ""],
+        ),
+        (
+            "deployment_stage",
+            ["development", "staging", "production", "testing"],
+            ["prod", "deployed", "PRODUCTION", ""],
+        ),
+    ],
+)
+def test_fleet_posture_repeatable_filters_are_form_explode_arrays_with_exact_enums(
+    name: str, accepted: list[str], rejected: list[str]
+) -> None:
+    """verdict/stage/deployment_stage are repeatable (style=form, explode=true) arrays
+    whose item enum is taken EXACTLY from the existing source-of-truth schema
+    definitions (never re-forked/hand-copied here)."""
+    parameter = _fleet_param(name)
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert parameter["style"] == "form"
+    assert parameter["explode"] is True
+    assert parameter["schema"]["type"] == "array"
+    ref = _fleet_param_ref(parameter)
+    for value in accepted:
+        assert _errors(ref, value) == [], value
+    for value in rejected:
+        assert _errors(ref, value), value
+
+
+def test_fleet_posture_verdict_filter_items_ref_the_response_schemas_own_verdict_enum() -> None:
+    parameter = _fleet_param("verdict")
+    assert parameter["schema"]["items"]["$ref"] == "./fleet_posture_response_schema.json#/definitions/Verdict"
+    verdict_enum = _load(RESPONSE_SCHEMA_PATH)["definitions"]["Verdict"]["enum"]
+    assert set(verdict_enum) == {"NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY"}
+
+
+def test_fleet_posture_stage_filter_items_ref_the_common_process_stage_enum() -> None:
+    parameter = _fleet_param("stage")
+    assert parameter["schema"]["items"]["$ref"] == "./agent_readiness_common_schema.json#/definitions/ProcessStage"
+    stage_enum = _load(READINESS / "agent_readiness_common_schema.json")["definitions"]["ProcessStage"]["enum"]
+    assert set(stage_enum) == {"NO_RUNS", "RUNS_RECORDED", "EVALUATION_COMPLETED"}
+
+
+def test_fleet_posture_deployment_stage_filter_items_ref_the_agent_posture_deployment_stage() -> None:
+    parameter = _fleet_param("deployment_stage")
+    assert parameter["schema"]["items"]["$ref"] == "./agent_posture_schema.json#/definitions/DeploymentStage"
+    # DeploymentStage itself $refs agents/agent_deployment_schema.json#/definitions/Environment
+    # (agent_posture_schema.json) -- never forked -- so resolve one hop further for the enum.
+    deployment_stage = _load(READINESS / "agent_posture_schema.json")["definitions"]["DeploymentStage"]
+    assert "enum" not in deployment_stage, "DeploymentStage must reference, not fork, the enum"
+    environment_enum = _load(SCHEMAS / "agents" / "agent_deployment_schema.json")["definitions"][
+        "Environment"
+    ]["enum"]
+    assert set(environment_enum) == {"development", "staging", "production", "testing"}
+
+
+def test_fleet_posture_search_param_is_a_bounded_singleton_string() -> None:
+    parameter = _fleet_param("search")
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert "style" not in parameter and "explode" not in parameter
+    assert parameter["schema"] == {"type": "string", "minLength": 1, "maxLength": 200}
+    for phrase in (
+        "trim", "casefold", "literal", "wildcard", "AND", "pagination", "400",
+    ):
+        assert phrase.lower() in parameter["description"].lower(), phrase
+
+
+def test_fleet_posture_include_project_summary_param_is_boolean_default_false() -> None:
+    parameter = _fleet_param("include_project_summary")
+    assert parameter["in"] == "query"
+    assert parameter["required"] is False
+    assert parameter["schema"] == {"type": "boolean", "default": False}
+    for phrase in ("independent of every filter", "agent_id", "identical whether"):
+        assert phrase in parameter["description"], phrase
+
+
+def test_fleet_posture_new_filters_apply_before_pagination_and_state_and_or_semantics() -> None:
+    description = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["description"]
+    for phrase in (
+        "BEFORE pagination",
+        "OR within",
+        "AND",
+        "REJECTED",
+        "never echoed",
+        "agent_id no-existence-oracle",
+    ):
+        assert phrase in description, phrase
+
+
+def test_fleet_posture_service_unavailable_documents_the_500_agent_bound() -> None:
+    response = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["responses"]["503"]
+    description = response["description"]
+    assert "500" in description
+    assert "truncat" in description.lower()
+    for phrase in ("verdict", "stage", "deployment_stage", "search", "include_project_summary"):
+        assert phrase in description, phrase
+
+
+# ---------------------------------------------------------------------------
+# project_summary (opt-in, project-wide, filter-independent verdict totals)
+# ---------------------------------------------------------------------------
+
+
+def test_project_summary_is_optional_and_reuses_the_fleet_summary_shape() -> None:
+    schema = _load(RESPONSE_SCHEMA_PATH)
+    assert "project_summary" not in schema["required"]
+    assert schema["properties"]["project_summary"]["$ref"] == "#/definitions/FleetSummary"
+
+
+def test_project_summary_description_states_the_independent_scope_invariant() -> None:
+    description = _load(RESPONSE_SCHEMA_PATH)["properties"]["project_summary"]["description"]
+    for phrase in (
+        "independent of every filter",
+        "agent_id",
+        "summary",
+        "500",
+    ):
+        assert phrase in description, phrase
+    assert "identical whether" in description.lower()
+
+
+def test_project_summary_fixture_case_counts_sum_to_total() -> None:
+    case = next(
+        c
+        for c in _CASES
+        if c["name"] == "fleet_posture_response_valid_with_project_summary"
+    )
+    project_summary = case["instance"]["project_summary"]
+    assert sum(project_summary["counts_by_verdict"].values()) == project_summary["total"]
+    assert _errors(
+        "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+        case["instance"],
+    ) == []
+
+
+@pytest.mark.parametrize(
+    "case_name",
+    [
+        "fleet_posture_response_invalid_project_summary_missing_verdict_key",
+        "fleet_posture_response_invalid_project_summary_extra_verdict_key",
+        "fleet_posture_response_invalid_project_summary_negative_count",
+    ],
+)
+def test_project_summary_malformed_fixture_cases_fail_validation(case_name: str) -> None:
+    case = next(c for c in _CASES if c["name"] == case_name)
+    assert case["valid"] is False
+    assert _errors(case["schema_ref"], case["instance"])
 
 
 def test_fleet_posture_paging_params_mirror_the_portfolio_route() -> None:

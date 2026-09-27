@@ -5778,6 +5778,40 @@
       "reason": "AccuracyEvaluation.ci_method was a const pinned to clt_mean_standard_error (mean +/- z*SE of the mean over per-example scores); the CLT interval collapses to zero width when every per-example score is identical, which is exactly what happens for binary (0/1) per-example accuracy scoring. The Backend now uses a 95% Wilson score interval on k/n instead when every per-example score is exactly 0 or 1, and keeps CLT for fractional scores (a zero-variance fractional sample still fails closed to CANNOT_DETERMINE, unchanged). Widening the const to a closed two-member enum lets the Backend publish the method it actually used instead of a false clt_mean_standard_error label on binary samples; both methods are Backend-computed and never client-supplied, so this is additive and reviewed, not a silent loosening. Fixture cases added: a valid DeclaredAccuracyTarget evaluation using wilson_score_binary, and a rejected unknown ci_method string.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-declared-policy-off branch, not yet opened)"
-  }
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/project_summary",
+          "role": "response",
+          "subject": "project_summary",
+          "old": false,
+          "new": true,
+          "fingerprint": "629fc5c707efdf6c8e8e5e1e348cc241d54bf031f4991a1e0dab1120dfff4b79"
+        }
+      ],
+      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); old strict validators must upgrade to accept an additional optional top-level property, same as before.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/project_summary",
+          "role": "conservative",
+          "subject": "project_summary",
+          "old": false,
+          "new": true,
+          "fingerprint": "ae681d2a48c5c166e7edb9c1d8cc40142790e9d47d24db8604f1249ab776f0f7"
+        }
+      ],
+      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); old strict validators must upgrade to accept an additional optional top-level property, same as before.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    }
   ]
 }

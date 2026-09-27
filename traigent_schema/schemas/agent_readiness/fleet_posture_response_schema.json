@@ -26,6 +26,10 @@
       "type": "array",
       "items": {"$ref": "#/definitions/OpaqueId"}
     },
+    "project_summary": {
+      "description": "Optional; present only when the request's include_project_summary=true (fleet_posture_endpoints.json). Same shape as FleetSummary (total + counts_by_verdict over exactly the four Verdict members), but a DIFFERENT scope: every caller-visible, non-archived agent in the project, independent of every filter on the request -- including agent_id, verdict, stage, deployment_stage and search. Identical whether the request's agent_id is omitted, matches a known agent, or matches none (the agent_id no-existence-oracle invariant extends to this field: its value never reveals whether agent_id existed). `summary` (required, always present) stays page-scoped as documented there -- project_summary never replaces or narrows it. Bounded at 500 caller-visible agents in the project; the endpoint returns 503 instead of a truncated project_summary above that bound (see fleet_posture_endpoints.json's 503 response).",
+      "$ref": "#/definitions/FleetSummary"
+    },
     "pagination": {
       "description": "Mirrors the portfolio list response's pagination block (agent_readiness_portfolio_response_schema.json) byte-for-byte: same pagination_schema.json base, same per_page maximum of 100. When the request's optional agent_id filter is present, the request's page/per_page are IGNORED for paging purposes (there is at most one row to page over): `page` is always 1, `per_page` is the requested value (or the endpoint default of 24 if omitted) reported back unchanged, and `total`/`total_pages` are 1/1 if agent_id matched an Agent visible to the caller or 0/0 if it did not -- an unknown id and an inaccessible one are indistinguishable (see the endpoint's agent_id parameter description for the full no-match response shape).",
       "allOf": [

@@ -2122,6 +2122,198 @@
           "has_prev": false
         }
       }
+    },
+    {
+      "name": "fleet_posture_response_valid_with_project_summary",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "include_project_summary=true: project_summary is a project-wide, filter-independent FleetSummary shape alongside the page-scoped summary",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_missing_verdict_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "project_summary.counts_by_verdict must carry all four Verdict members; INTERVENE_QUALITY is missing",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 4,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_extra_verdict_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "project_summary.counts_by_verdict is closed (additionalProperties: false); an undeclared verdict key is rejected",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1,
+            "UNKNOWN_VERDICT": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_negative_count",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "every project_summary.counts_by_verdict member has minimum: 0",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": -1,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1
+          }
+        }
+      }
     }
   ]
 }

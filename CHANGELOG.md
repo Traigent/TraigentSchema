@@ -114,6 +114,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition and the dedup wording from the bullet above are all unchanged and still
   apply. Full repo suite: 5215 passed, 2 skipped (net unchanged: five renamed/refocused
   tests). `bash scripts/local_gate.sh` re-verified green.
+- **`GET /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history`
+  (fleet agent page: recorded history).** The single-record READ route for an
+  agent-lifecycle-record already exists (`GET .../agent-lifecycle/agent-revisions/
+  {agent_revision_ref}/record`), but lifecycle records are grouped by an independent
+  `agent_ref` with no foreign key to a fleet `Agent.id`. This new route is the bridge:
+  a closed, paginated (`page` 1.., `per_page` 1..50, default 25) list of
+  `(agent_revision_ref, record_ref)` pairs included because the record's own
+  `experiment_run_id`, or one of that revision's run plans' `experiment_run_id`,
+  resolves to an `ExperimentRun` whose `Experiment.agent_id` matches the requested
+  fleet agent. `association_basis` is a single closed value, `EXPERIMENT_RUN_LINK`: a
+  derived association, never a causal ("caused"/"produced"/"improved") claim. The
+  response carries no attribution, actor/user identity, or record content -- only
+  opaque `agent_revision_ref`/`record_ref` handles, the record's own `created_at`, and
+  the closed association vocabulary. New
+  `agent_readiness/agent_lifecycle_history_response_schema.json`; the operation is
+  added to the existing `agent_readiness_endpoints.json` module (no new endpoints
+  file). An unknown or foreign `agent_id` returns the same generic readiness `404` as
+  the existing detail route. `x-asserted-against-backend: false` (no SDK calls the
+  underlying agent-lifecycle routes yet, so production volume through this bridge is
+  expected to be near zero at launch).
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

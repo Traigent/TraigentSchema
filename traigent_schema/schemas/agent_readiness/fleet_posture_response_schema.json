@@ -90,7 +90,7 @@
       "enum": ["fixed_default", "declared", "undeclared_fail_closed"]
     },
     "VerdictReason": {
-      "description": "The single rule that decided this row's verdict. The (verdict, verdict_reason) pairing is closed and enforced bidirectionally by AgentPostureEntry's allOf: NOT_YET_SCORED<->NO_ANCHOR_RUN, STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, and CANT_TELL<->{VALIDITY_BELOW_BAR, TARGET_NOT_DECLARED, TARGET_CANNOT_DETERMINE, INTERVAL_STRADDLES_TARGET, CRITICALITY_UNDECLARED, VALIDITY_BELOW_STAY_BAR, OPEN_EVALUATION_SYSTEM_DEBT} (any one of the seven). With today's TraigentBackend#3505 flag off, only NO_ANCHOR_RUN (paired with NOT_YET_SCORED) and TARGET_NOT_DECLARED (every CANT_TELL row, since no accuracy target is read yet) are ever observed; the remaining CANT_TELL-family members are kept in the vocabulary for the same reason Verdict keeps STAY/INTERVENE_QUALITY reachable only in principle -- the pure function encodes the whole rule and a later owner decision can make them reachable without a contract change.",
+      "description": "The single rule that decided this row's verdict. The (verdict, verdict_reason) pairing is closed and enforced bidirectionally by AgentPostureEntry's allOf: NOT_YET_SCORED<->NO_ANCHOR_RUN, STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, and CANT_TELL<->{VALIDITY_BELOW_BAR, TARGET_NOT_DECLARED, TARGET_CANNOT_DETERMINE, INTERVAL_STRADDLES_TARGET, CRITICALITY_UNDECLARED, VALIDITY_BELOW_STAY_BAR, OPEN_EVALUATION_SYSTEM_DEBT, DECLARED_POLICY_OFF} (any one of the eight). DECLARED_POLICY_OFF means this row's verdict did not evaluate the declared accuracy target because the declared-accuracy policy is not enabled -- it says nothing about whether a target actually exists, which is exactly what TARGET_NOT_DECLARED would wrongly imply if used while the policy is off; it only pairs with criticality_source: fixed_default (enforced below), since that is the same today's-legacy-behaviour flag-off world. With today's TraigentBackend#3505 flags off, only NO_ANCHOR_RUN (paired with NOT_YET_SCORED) and DECLARED_POLICY_OFF (every CANT_TELL row, since the declared-accuracy policy is not enabled) are ever observed; TARGET_NOT_DECLARED stays a valid member for the policy-on case, once the Backend actually reads the declared target and finds none. The remaining CANT_TELL-family members are kept in the vocabulary for the same reason Verdict keeps STAY/INTERVENE_QUALITY reachable only in principle -- the pure function encodes the whole rule and a later owner decision can make them reachable without a contract change.",
       "type": "string",
       "enum": [
         "NO_ANCHOR_RUN",
@@ -102,7 +102,8 @@
         "CRITICALITY_UNDECLARED",
         "VALIDITY_BELOW_STAY_BAR",
         "OPEN_EVALUATION_SYSTEM_DEBT",
-        "MEETS_TARGET"
+        "MEETS_TARGET",
+        "DECLARED_POLICY_OFF"
       ]
     },
     "Interval": {
@@ -275,7 +276,7 @@
           "then": {"properties": {"verdict": {"const": "INTERVENE_QUALITY"}}}
         },
         {
-          "description": "CANT_TELL pairs with exactly one of the seven CANT_TELL-family reasons (both directions); together with the three pairs above this exhausts every VerdictReason member, so every (verdict, verdict_reason) combination is closed.",
+          "description": "CANT_TELL pairs with exactly one of the eight CANT_TELL-family reasons (both directions); together with the three pairs above this exhausts every VerdictReason member, so every (verdict, verdict_reason) combination is closed.",
           "if": {"properties": {"verdict": {"const": "CANT_TELL"}}, "required": ["verdict"]},
           "then": {
             "properties": {
@@ -287,7 +288,8 @@
                   "INTERVAL_STRADDLES_TARGET",
                   "CRITICALITY_UNDECLARED",
                   "VALIDITY_BELOW_STAY_BAR",
-                  "OPEN_EVALUATION_SYSTEM_DEBT"
+                  "OPEN_EVALUATION_SYSTEM_DEBT",
+                  "DECLARED_POLICY_OFF"
                 ]
               }
             }
@@ -304,7 +306,8 @@
                   "INTERVAL_STRADDLES_TARGET",
                   "CRITICALITY_UNDECLARED",
                   "VALIDITY_BELOW_STAY_BAR",
-                  "OPEN_EVALUATION_SYSTEM_DEBT"
+                  "OPEN_EVALUATION_SYSTEM_DEBT",
+                  "DECLARED_POLICY_OFF"
                 ]
               }
             },
@@ -320,6 +323,11 @@
         {
           "if": {"properties": {"criticality_source": {"const": "undeclared_fail_closed"}}, "required": ["criticality_source"]},
           "then": {"properties": {"criticality_used": {"const": "high"}}}
+        },
+        {
+          "description": "DECLARED_POLICY_OFF only pairs with criticality_source: fixed_default (one-directional) -- both represent the same today's-legacy-behaviour flag-off world (the declared-accuracy policy and the declared-criticality path are off together). It says nothing about whether an accuracy target actually exists, unlike a genuine TARGET_NOT_DECLARED determination made once the policy is enabled.",
+          "if": {"properties": {"verdict_reason": {"const": "DECLARED_POLICY_OFF"}}, "required": ["verdict_reason"]},
+          "then": {"properties": {"criticality_source": {"const": "fixed_default"}}}
         },
         {
           "if": {"not": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}, "required": ["verdict"]}},

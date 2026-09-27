@@ -5693,40 +5693,6 @@
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
   },
   {
-      "file": "agent_readiness/fleet_posture_endpoints.json",
-      "rule": "allOf_branch_count_changed",
-      "findings": [
-            {
-                  "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/allOf",
-                  "role": "response",
-                  "subject": "allOf",
-                  "old": 6,
-                  "new": 17,
-                  "fingerprint": "0497da368bd06571402449059a1d41e26f714a0cd8a932e4a8ec88c5f018af98"
-            }
-      ],
-      "reason": "Reviewer follow-up on the same fleet-posture v2 paging change (supersedes the earlier 6->16 acknowledgement, now 6->17, left in place as a historical record): the closed AgentPostureEntry row's allOf gains one new branch -- a new CANT_TELL-family VerdictReason member DECLARED_POLICY_OFF (meaning this row's verdict did not evaluate the declared accuracy target because the declared-accuracy policy is not enabled; it says nothing about whether a target actually exists) now constrains criticality_source to fixed_default one-directionally, mirroring criticality_source's own existing constraint on criticality_used. DECLARED_POLICY_OFF replaces TARGET_NOT_DECLARED as the reason every current (flag-off) CANT_TELL row carries; TARGET_NOT_DECLARED stays a valid CANT_TELL-family member for the policy-on case. Additive over the existing invariants already in this allOf; no existing branch or condition changed.",
-      "version": "Unreleased",
-      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
-      "file": "agent_readiness/fleet_posture_response_schema.json",
-      "rule": "allOf_branch_count_changed",
-      "findings": [
-            {
-                  "pointer": "#/properties/agents/items/allOf",
-                  "role": "response",
-                  "subject": "allOf",
-                  "old": 6,
-                  "new": 17,
-                  "fingerprint": "dc5384c97a141e3182fe038d7f11969f11190411c7d5a18ae6f3304b169395ac"
-            }
-      ],
-      "reason": "Same change as the fleet_posture_endpoints.json allOf_branch_count_changed (6->17) entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: the closed AgentPostureEntry row's allOf gains one new branch constraining the new DECLARED_POLICY_OFF VerdictReason member to criticality_source: fixed_default, one-directionally, mirroring criticality_source's own existing constraint on criticality_used. Additive over the existing invariants already in this allOf; no existing branch changed.",
-      "version": "Unreleased",
-      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
       "file": "agent_readiness/fleet_posture_response_schema.json",
       "rule": "allOf_branch_count_changed",
       "findings": [

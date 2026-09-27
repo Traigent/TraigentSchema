@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_readiness/agent_readiness_error_schema.json",
   "title": "Agent Readiness Error Envelope",
-  "description": "Closed, content-free error envelope for Agent readiness routes, covering both 4xx client errors and the 503 service-unavailable case (fleet_posture_endpoints.json). Public strings are finite server-controlled values; details, request data, identifiers, exception text, and internal diagnostics are not representable.",
+  "description": "Closed, content-free 4xx error envelope for Agent readiness routes. Public strings are finite server-controlled values; details, request data, identifiers, exception text, and internal diagnostics are not representable.",
   "type": "object",
   "additionalProperties": false,
   "required": ["success", "message", "error", "error_code"],
@@ -15,8 +15,7 @@
         "Authentication required",
         "Authorization denied",
         "Not found",
-        "Project not found",
-        "Service unavailable"
+        "Project not found"
       ]
     },
     "error": {
@@ -25,8 +24,7 @@
         "invalid_request",
         "authentication_required",
         "authorization_denied",
-        "not_found",
-        "service_unavailable"
+        "not_found"
       ]
     },
     "error_code": {
@@ -39,8 +37,7 @@
         "PROJECT_ACCESS_DENIED",
         "PROJECT_NOT_FOUND",
         "TENANT_ACCESS_DENIED",
-        "TENANT_NOT_FOUND",
-        "service_unavailable"
+        "TENANT_NOT_FOUND"
       ]
     }
   },
@@ -52,8 +49,7 @@
     {"$ref": "#/definitions/ProjectAccessDenied"},
     {"$ref": "#/definitions/ProjectNotFound"},
     {"$ref": "#/definitions/TenantAccessDenied"},
-    {"$ref": "#/definitions/TenantNotFound"},
-    {"$ref": "#/definitions/ServiceUnavailable"}
+    {"$ref": "#/definitions/TenantNotFound"}
   ],
   "definitions": {
     "InvalidRequest": {
@@ -142,18 +138,6 @@
         "message": {"const": "Not found"},
         "error": {"const": "not_found"},
         "error_code": {"const": "TENANT_NOT_FOUND"}
-      }
-    },
-    "ServiceUnavailable": {
-      "description": "Fleet-posture's enhanced-path 503 (fleet_posture_endpoints.json): the caller-visible, non-archived agent universe is either over the 500-agent bound or a per-agent computation within it failed. No further detail is representable (which agent, which of the two triggers, or why).",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["success", "message", "error", "error_code"],
-      "properties": {
-        "success": {"const": false},
-        "message": {"const": "Service unavailable"},
-        "error": {"const": "service_unavailable"},
-        "error_code": {"const": "service_unavailable"}
       }
     }
   }

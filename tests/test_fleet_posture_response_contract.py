@@ -13,6 +13,7 @@ is pinned by test_endpoint_inventory_registers_project_scoped_read_and_target_ro
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -583,7 +584,14 @@ def test_fleet_posture_enhanced_path_definition_excludes_blank_search_and_false_
     assert "page-only path" in description
 
 
-def test_fleet_posture_service_unavailable_documents_both_triggers_and_reuses_the_error_envelope() -> None:
+def test_fleet_posture_service_unavailable_documents_both_triggers_and_uses_a_local_envelope() -> None:
+    """The 503 body is FLEET-POSTURE-LOCAL (FleetPostureUnavailable), NOT the shared
+    agent_readiness_error_schema.json: that file is shared across agent_readiness/
+    agent_posture/evaluation_system_validation routes, so widening its closed oneOf/
+    enums for one route's 503 would widen every OTHER route's 400/401/403 too (and
+    error_code: 'service_unavailable' would break its UPPER_SNAKE error_code
+    convention). agent_readiness_error_schema.json itself carries NO diff vs.
+    origin/develop -- this route's 400/401/403 keep using it unchanged."""
     response = _load(ENDPOINTS_PATH)["paths"][ROUTE]["get"]["responses"]["503"]
     description = response["description"]
     assert "500" in description
@@ -591,21 +599,40 @@ def test_fleet_posture_service_unavailable_documents_both_triggers_and_reuses_th
     for phrase in (
         "verdict", "stage", "deployment_stage", "search", "include_project_summary",
         "non-archived", "computation failure", "never partial", "page-only path",
+        "FleetPostureUnavailable",
     ):
         assert phrase in description, phrase
-    assert response["content"]["application/json"]["schema"]["$ref"] == "./agent_readiness_error_schema.json"
-    # The body must actually validate against that shared envelope as a real variant,
-    # not just be referenced in prose.
+    assert "not the shared" in description.lower()
+    assert response["content"]["application/json"]["schema"]["$ref"] == (
+        "./fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable"
+    )
+    repo_root = Path(__file__).resolve().parents[1]
+    diff = subprocess.run(
+        [
+            "git", "diff", "--quiet", "origin/develop", "--",
+            "traigent_schema/schemas/agent_readiness/agent_readiness_error_schema.json",
+        ],
+        cwd=repo_root,
+    )
+    assert diff.returncode == 0, (
+        "agent_readiness_error_schema.json must carry ZERO diff vs origin/develop -- "
+        "it is shared across agent_readiness/agent_posture/evaluation_system_validation "
+        "routes and must not be widened for this one route's 503"
+    )
+    # The body must actually validate against the NEW local envelope as a real variant.
     body = {
         "success": False,
         "message": "Service unavailable",
         "error": "service_unavailable",
-        "error_code": "service_unavailable",
+        "error_code": "FLEET_POSTURE_UNAVAILABLE",
     }
     assert _errors(
-        "https://schemas.traigent.ai/agent_readiness/agent_readiness_error_schema.json#",
+        "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable",
         body,
     ) == []
+    # And error_code follows the shared envelope's UPPER_SNAKE convention for a
+    # route-specific code (PROJECT_ACCESS_DENIED, TENANT_NOT_FOUND, ...).
+    assert body["error_code"].isupper()
 
 
 # ---------------------------------------------------------------------------
@@ -613,37 +640,47 @@ def test_fleet_posture_service_unavailable_documents_both_triggers_and_reuses_th
 # ---------------------------------------------------------------------------
 
 
-def test_project_summary_is_optional_and_uses_a_distinct_project_scoped_definition() -> None:
-    """project_summary $refs its OWN named definition (ProjectSummary), not
-    FleetSummary directly -- both wrap the scope-neutral VerdictTotals shape via
-    allOf, since generators may ignore a description placed beside a bare $ref
-    (a real risk: this is exactly why the property itself carries no sibling
-    description any more -- see summary/project_summary below)."""
+def test_project_summary_and_summary_both_ref_fleet_summary_directly() -> None:
+    """Minimised restructuring (sol review round 2): FleetSummary is back to its
+    ORIGINAL concrete closed shape (only its description became scope-neutral); no
+    VerdictTotals/ProjectSummary split, no allOf indirection, so this repo's own
+    breaking-change differ sees the exact same type/required/additionalProperties
+    it always did. Both summary and project_summary $ref FleetSummary directly,
+    each with its own scope-stating sibling description."""
     schema = _load(RESPONSE_SCHEMA_PATH)
     assert "project_summary" not in schema["required"]
-    assert schema["properties"]["project_summary"] == {"$ref": "#/definitions/ProjectSummary"}
-    assert schema["properties"]["summary"] == {"$ref": "#/definitions/FleetSummary"}
-    project_summary_def = schema["definitions"]["ProjectSummary"]
+    assert schema["properties"]["summary"]["$ref"] == "#/definitions/FleetSummary"
+    assert schema["properties"]["project_summary"]["$ref"] == "#/definitions/FleetSummary"
+    assert "description" in schema["properties"]["summary"]
+    assert "description" in schema["properties"]["project_summary"]
+    assert "ProjectSummary" not in schema["definitions"]
+    assert "VerdictTotals" not in schema["definitions"]
     fleet_summary_def = schema["definitions"]["FleetSummary"]
-    assert project_summary_def["allOf"] == [{"$ref": "#/definitions/VerdictTotals"}]
-    assert fleet_summary_def["allOf"] == [{"$ref": "#/definitions/VerdictTotals"}]
-    verdict_totals = schema["definitions"]["VerdictTotals"]
-    assert verdict_totals["additionalProperties"] is False
-    assert set(verdict_totals["required"]) == {"total", "counts_by_verdict"}
+    assert fleet_summary_def["type"] == "object"
+    assert fleet_summary_def["additionalProperties"] is False
+    assert set(fleet_summary_def["required"]) == {"total", "counts_by_verdict"}
+    assert "allOf" not in fleet_summary_def
+    counts = fleet_summary_def["properties"]["counts_by_verdict"]
+    assert counts["additionalProperties"] is False
+    assert set(counts["required"]) == {
+        "NOT_YET_SCORED", "CANT_TELL", "STAY", "INTERVENE_QUALITY",
+    }
 
 
-def test_fleet_summary_no_longer_claims_no_project_wide_equivalent_exists() -> None:
-    """P1 fix: FleetSummary's own description used to say there is NO project-wide
-    equivalent; that became false the moment project_summary shipped. It must now
-    point to project_summary instead of denying it exists."""
+def test_fleet_summary_description_is_scope_neutral_and_documents_both_scopes() -> None:
+    """FleetSummary's own description no longer claims there is NO project-wide
+    equivalent (that became false once project_summary shipped); it now states the
+    sum invariant and defers scope entirely to the referencing property."""
     description = _load(RESPONSE_SCHEMA_PATH)["definitions"]["FleetSummary"]["description"]
     assert "there is no" not in description.lower()
-    assert "project_summary" in description
-    assert "page-scoped" in description or "PAGE" in description.upper()
+    assert "sum" in description.lower()
+    for phrase in ("summary", "project_summary"):
+        assert phrase in description, phrase
+    assert "referencing property" in description.lower()
 
 
-def test_project_summary_description_states_the_independent_scope_invariant() -> None:
-    description = _load(RESPONSE_SCHEMA_PATH)["definitions"]["ProjectSummary"]["description"]
+def test_project_summary_property_description_states_the_independent_scope_invariant() -> None:
+    description = _load(RESPONSE_SCHEMA_PATH)["properties"]["project_summary"]["description"]
     for phrase in (
         "independent of every filter",
         "agent_id",
@@ -656,10 +693,11 @@ def test_project_summary_description_states_the_independent_scope_invariant() ->
     assert "never partial" in description.lower()
 
 
-def test_verdict_totals_documents_the_sum_invariant() -> None:
-    description = _load(RESPONSE_SCHEMA_PATH)["definitions"]["VerdictTotals"]["description"]
-    assert "sum" in description.lower()
-    assert "total" in description.lower()
+def test_summary_property_description_states_the_page_scope() -> None:
+    description = _load(RESPONSE_SCHEMA_PATH)["properties"]["summary"]["description"]
+    assert "page" in description.lower()
+    assert "project_summary" in description
+    assert "pagination.total" in description
 
 
 def test_project_summary_fixture_case_counts_sum_to_total() -> None:
@@ -706,9 +744,8 @@ _SUM_INVARIANT_KNOWN_VIOLATIONS = frozenset(
 
 def _summary_like_objects(instance: Any) -> list[dict[str, Any]]:
     """Extract every {total, counts_by_verdict}-shaped object reachable from a
-    fixture instance: the instance itself (a direct FleetSummary/ProjectSummary/
-    VerdictTotals-ref case), or its summary/project_summary members (a root
-    response case)."""
+    fixture instance: the instance itself (a direct FleetSummary-ref case), or its
+    summary/project_summary members (a root response case)."""
     if not isinstance(instance, dict):
         return []
     if "counts_by_verdict" in instance and "total" in instance:

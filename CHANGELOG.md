@@ -89,6 +89,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variant is a standard additive enum/oneOf widening, same shape as the `wilson_score_binary`
   precedent). Full repo suite: 5215 passed, 2 skipped. `bash scripts/local_gate.sh`
   (ruff, mypy, pytest, parity, breaking-schema gate) passed.
+- **Fleet-posture review round 2: narrowed blast radius (supersedes two mechanics from
+  the bullet above, same feature, follow-up commit).** Two changes from the prior
+  follow-up widened scope more than the additive change needed, per a second review
+  pass: (a) `agent_readiness_error_schema.json` -- shared across
+  `agent_readiness`/`agent_posture`/`evaluation_system_validation` routes -- is back to
+  byte-identical with `origin/develop` (verified by a dedicated `git diff --quiet` test);
+  the `503` body is now a fleet-posture-LOCAL closed envelope,
+  `fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable`
+  (`error_code: "FLEET_POSTURE_UNAVAILABLE"`, UPPER_SNAKE, matching the shared envelope's
+  own route-specific-code convention), so no other route's 400/401/403 is widened for
+  this one route's 503. (b) `FleetSummary` is back to its ORIGINAL concrete closed
+  `{total, counts_by_verdict}` structure (byte-identical `properties`/`required`/
+  `additionalProperties`) -- only its description became scope-neutral, stating the
+  `sum(counts_by_verdict) == total` invariant once and deferring which scope applies to
+  the referencing property (`summary` vs `project_summary`, each restating its own scope
+  in its own sibling description). The `VerdictTotals`/`ProjectSummary` split and its
+  `allOf` indirection are removed entirely, eliminating the 9 allowlist entries that
+  existed only to acknowledge this repo's own differ losing track of `$ref -> allOf ->
+  $ref`. Net allowlist count for this whole feature: 2 entries (`property_added` for
+  `project_summary` on both the endpoint's `200` response and the response schema root)
+  -- down from 13. The invariant test, the sum-mismatch fixture, the no-match+
+  project_summary fixture, the ordering/tiebreaker documentation, the enhanced-path
+  definition and the dedup wording from the bullet above are all unchanged and still
+  apply. Full repo suite: 5215 passed, 2 skipped (net unchanged: five renamed/refocused
+  tests). `bash scripts/local_gate.sh` re-verified green.
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

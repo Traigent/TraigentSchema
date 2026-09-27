@@ -5725,6 +5725,68 @@
       "reason": "Same change as the fleet_posture_endpoints.json allOf_branch_count_changed (6->17) entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: the closed AgentPostureEntry row's allOf gains one new branch constraining the new DECLARED_POLICY_OFF VerdictReason member to criticality_source: fixed_default, one-directionally, mirroring criticality_source's own existing constraint on criticality_used. Additive over the existing invariants already in this allOf; no existing branch changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+            {
+                  "pointer": "#/properties/agents/items/allOf",
+                  "role": "response",
+                  "subject": "allOf",
+                  "old": 16,
+                  "new": 17,
+                  "fingerprint": "cf9bea7787fe924ebf4838f66b4d02e3c3844cb5cf4d9e72d0117e5069911481"
+            }
+      ],
+      "reason": "Re-acknowledgement of the DECLARED_POLICY_OFF allOf branch (feat(agent-readiness): DECLARED_POLICY_OFF verdict reason, PR #524 follow-up) now that origin/develop already carries the fleet-posture v2 paging change's 16-branch AgentPostureEntry allOf (see the 6->16 entry above, merged via #524). This branch's own commit was originally written and acknowledged (entry below, fingerprint dc5384c9...) against a pre-rebase base that still had only 6 branches, producing a stale 6->17 fingerprint that no longer matches the real diff at the now-merged base. That 6->17 entry is left in place as a historical record of the original acknowledgement; this entry re-states the same reviewed, intentional change -- the new CANT_TELL-family VerdictReason member DECLARED_POLICY_OFF constrains criticality_source to fixed_default one-directionally, mirroring criticality_source's own existing constraint on criticality_used -- as the correct 16->17 delta against the current origin/develop base. Additive over the existing invariants already in this allOf; no existing branch or condition changed.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "enum",
+      "findings": [
+            {
+                  "pointer": "#/properties/agents/items/properties/verdict_reason",
+                  "role": "response",
+                  "subject": {
+                        "direction": "added",
+                        "values": [
+                              "\"DECLARED_POLICY_OFF\""
+                        ]
+                  },
+                  "old": [
+                        "\"BELOW_TARGET\"",
+                        "\"CRITICALITY_UNDECLARED\"",
+                        "\"INTERVAL_STRADDLES_TARGET\"",
+                        "\"MEETS_TARGET\"",
+                        "\"NO_ANCHOR_RUN\"",
+                        "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
+                        "\"TARGET_CANNOT_DETERMINE\"",
+                        "\"TARGET_NOT_DECLARED\"",
+                        "\"VALIDITY_BELOW_BAR\"",
+                        "\"VALIDITY_BELOW_STAY_BAR\""
+                  ],
+                  "new": [
+                        "\"BELOW_TARGET\"",
+                        "\"CRITICALITY_UNDECLARED\"",
+                        "\"DECLARED_POLICY_OFF\"",
+                        "\"INTERVAL_STRADDLES_TARGET\"",
+                        "\"MEETS_TARGET\"",
+                        "\"NO_ANCHOR_RUN\"",
+                        "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
+                        "\"TARGET_CANNOT_DETERMINE\"",
+                        "\"TARGET_NOT_DECLARED\"",
+                        "\"VALIDITY_BELOW_BAR\"",
+                        "\"VALIDITY_BELOW_STAY_BAR\""
+                  ],
+                  "fingerprint": "1f838d77d43a00df856d297975e531f1989c06579a66a86589f737428c1eedf9"
+            }
+      ],
+      "reason": "New CANT_TELL-family VerdictReason enum member DECLARED_POLICY_OFF, added by this branch's own commit (feat(agent-readiness): DECLARED_POLICY_OFF verdict reason). It means this row's verdict did not evaluate the declared accuracy target because the declared-accuracy policy is not enabled -- it says nothing about whether a target actually exists. Before this it was impossible to distinguish that case from TARGET_NOT_DECLARED, which the frontend read literally as 'no accuracy target has been set' even when a target was in fact declared, since the Backend simply never read it while the policy was off. TARGET_NOT_DECLARED stays a valid CANT_TELL-family member for the policy-on case, once the Backend actually reads the declared target and finds none. Purely additive enum member; no existing value removed, renamed, or reinterpreted. Fixture cases updated in tests/test_fleet_posture_response_contract.py and fleet_posture_verdict_cases.json cover both the accept and reject paths for the new member.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
   }
   ]
 }

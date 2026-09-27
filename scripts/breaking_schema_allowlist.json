@@ -5792,7 +5792,7 @@
           "fingerprint": "629fc5c707efdf6c8e8e5e1e348cc241d54bf031f4991a1e0dab1120dfff4b79"
         }
       ],
-      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); old strict validators must upgrade to accept an additional optional top-level property, same as before.",
+      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); existing callers that never send include_project_summary never receive the member; only adopters of the flag need validators that accept it.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
     },
@@ -5809,7 +5809,567 @@
           "fingerprint": "ae681d2a48c5c166e7edb9c1d8cc40142790e9d47d24db8604f1249ab776f0f7"
         }
       ],
-      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); old strict validators must upgrade to accept an additional optional top-level property, same as before.",
+      "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); existing callers that never send include_project_summary never receive the member; only adopters of the flag need validators that accept it.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/summary/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "c4db7f645134e71819c1f3c8c471fb150144368b926cbe451751b2043527ad60"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/summary",
+          "role": "conservative",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "78560e9e669249df9c4a88d349a51364dd9d37b09b1e4fd2a03a35c57e75ebe2"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/summary",
+          "role": "conservative",
+          "subject": "counts_by_verdict",
+          "old": true,
+          "new": false,
+          "fingerprint": "66e0268c0e539d3d835ea5768cf3237b4340b769b4433080368c4ba83d6d5ff1"
+        },
+        {
+          "pointer": "#/properties/summary",
+          "role": "conservative",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "e8a3f7aa00a86d343b50010167c77f31a6147e4278a7252785be307b3125ee44"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/summary",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "object"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "bb33460163fc69cd15af9076df419bf089e2108952c0195f06fd590fa1e7c408"
+        },
+        {
+          "pointer": "#/properties/summary",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "6d8fc6904fddd85d92d3e12f1160a2cb56f3c5a361ec87afbb136c48690631a2"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/summary",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "b7c7070af5b2c1a350e963a3eb8c2d2345182ee128cc40f66b8bdc68e4629b01"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property. These findings are the same false positive mirrored through the endpoint's own 200 response schema pointer (fleet_posture_endpoints.json's responses/200 $refs fleet_posture_response_schema.json, which the differ re-walks independently); see the sibling entries on fleet_posture_response_schema.json itself for the root-cause explanation.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/summary",
+          "role": "response",
+          "subject": "counts_by_verdict",
+          "old": true,
+          "new": false,
+          "fingerprint": "285925d07837775bf0ef2cd06fcbfdc899036d6a8238201cf3d31cf801538411"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/summary",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "f31325689c860b2b8dfdeb7d3da0dc46b1eeb66e1e1a0aca7d25bb5495589cff"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property. These findings are the same false positive mirrored through the endpoint's own 200 response schema pointer (fleet_posture_endpoints.json's responses/200 $refs fleet_posture_response_schema.json, which the differ re-walks independently); see the sibling entries on fleet_posture_response_schema.json itself for the root-cause explanation.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/summary",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "7b07780e16321f17a6c5399a49e6fffaa2dfb858b44e85ad3b21137611dfc665"
+        }
+      ],
+      "reason": "The tool's structural diff cannot see through this file's OWN $ref (summary now $refs FleetSummary, which wraps VerdictTotals via allOf instead of declaring type/properties/required/additionalProperties inline), so it reports the inline constraints as removed/unconstrained. This is the exact same false-positive shape already acknowledged in this file for the ConfidenceLabel split (2026-07-18, #314, 'this field's enum/type constraints are semantically unchanged... they now live behind an allOf $ref... so the tool's structural diff cannot see through the $ref and reports the inline enum/type as removed'): summary's effective constraints (object, additionalProperties: false, required: [total, counts_by_verdict]) are UNCHANGED end to end once a spec-compliant validator resolves $ref -> allOf -> $ref -> VerdictTotals, which is exactly how traigent_schema.SchemaValidator (via jsonschema/referencing) and every contract test in test_fleet_posture_response_contract.py already exercise it. The refactor itself (introducing the named VerdictTotals/FleetSummary/ProjectSummary split) is sol's own review fix: it moves summary's/project_summary's real description off of a bare $ref sibling -- which OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently drop -- onto allOf-wrapped named definitions, which is the OAS3.0-safe composition form already used by this same response schema's own `pagination` property. These findings are the same false positive mirrored through the endpoint's own 200 response schema pointer (fleet_posture_endpoints.json's responses/200 $refs fleet_posture_response_schema.json, which the differ re-walks independently); see the sibling entries on fleet_posture_response_schema.json itself for the root-cause explanation.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_error_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/error",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "d6c4cf95272e362a6ea066f8e6365cdb03283840e74ea10cb41cae20d96cb735"
+        },
+        {
+          "pointer": "#/properties/error_code",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "b2c50001adac1e04a33a4a69362e40c7d78a4bf835d27d27f1d16b7aad7b68a4"
+        },
+        {
+          "pointer": "#/properties/message",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"Service unavailable\""
+            ]
+          },
+          "old": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\""
+          ],
+          "new": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\"",
+            "\"Service unavailable\""
+          ],
+          "fingerprint": "050edbd6bacf234b6b77e345d69ef871eacf2c694a83a3da0bc7b8b3bc816be2"
+        }
+      ],
+      "reason": "Additive widening for the new fleet-posture 503 (sol review item 4e): the route's 503 must reuse the existing shared, closed agent_readiness_error_schema.json envelope (same as its 400/401/403 responses) rather than inventing an ad hoc body, so this adds one new closed variant (ServiceUnavailable: success=false, message 'Service unavailable', error 'service_unavailable', error_code 'service_unavailable') to the shared oneOf and its three top-level enums. Purely additive: every existing member of message/error/error_code/oneOf is retained unchanged, so an old client that never receives a 503 from this route is unaffected; only a NEW caller of the new 503 response needs to recognise the new closed variant. Same additive-enum-widening shape as the wilson_score_binary ci_method precedent already acknowledged in this file.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_error_schema.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 9,
+          "fingerprint": "adef48297261b8286db82c60354109d9c192da91a5fe5a3d25f16ddf8cb8ce25"
+        }
+      ],
+      "reason": "Additive widening for the new fleet-posture 503 (sol review item 4e): the route's 503 must reuse the existing shared, closed agent_readiness_error_schema.json envelope (same as its 400/401/403 responses) rather than inventing an ad hoc body, so this adds one new closed variant (ServiceUnavailable: success=false, message 'Service unavailable', error 'service_unavailable', error_code 'service_unavailable') to the shared oneOf and its three top-level enums. Purely additive: every existing member of message/error/error_code/oneOf is retained unchanged, so an old client that never receives a 503 from this route is unaffected; only a NEW caller of the new 503 response needs to recognise the new closed variant. Same additive-enum-widening shape as the wilson_score_binary ci_method precedent already acknowledged in this file.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/400/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "b4193bb95b92a81a2934af4245b23da185017ff53099ba9601ba604276eb6487"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/400/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "e1900ae2bfe0de976ce08ddac3ba95a0b57ce64f184ae3e967e38ea22862298f"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/400/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"Service unavailable\""
+            ]
+          },
+          "old": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\""
+          ],
+          "new": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\"",
+            "\"Service unavailable\""
+          ],
+          "fingerprint": "678360c903fb9e01fee41cf6363de12907616609a2aea8b92d34cd87a825f241"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/401/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "e3f22567ee020827bed35bdf3757cdb50db0c7c7d6168c523e62adca8e97b462"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/401/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "8cd8ec0142e50c0f810209adf7b4bb2376173ea0b78e197c638c40792b3ed834"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/401/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"Service unavailable\""
+            ]
+          },
+          "old": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\""
+          ],
+          "new": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\"",
+            "\"Service unavailable\""
+          ],
+          "fingerprint": "2af7b8bc5a334eaba5bcaccd2972bf40a02efb3b4d8b20b06e00ab46722a617e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/403/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "5ee1cc640917af1464dc11ae01b1c61d3b7ec16306cce1583fe70ecd0f4de06b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/403/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"service_unavailable\""
+            ]
+          },
+          "old": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\""
+          ],
+          "new": [
+            "\"PROJECT_ACCESS_DENIED\"",
+            "\"PROJECT_NOT_FOUND\"",
+            "\"TENANT_ACCESS_DENIED\"",
+            "\"TENANT_NOT_FOUND\"",
+            "\"authentication_required\"",
+            "\"authorization_denied\"",
+            "\"invalid_request\"",
+            "\"not_found\"",
+            "\"service_unavailable\""
+          ],
+          "fingerprint": "55dc885ef72ac48b20afaf9713319efa8eee1a76a77e2dc8df28051c706c504c"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/403/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"Service unavailable\""
+            ]
+          },
+          "old": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\""
+          ],
+          "new": [
+            "\"Authentication required\"",
+            "\"Authorization denied\"",
+            "\"Invalid request\"",
+            "\"Not found\"",
+            "\"Project not found\"",
+            "\"Service unavailable\""
+          ],
+          "fingerprint": "5bccc8a4260e6ea73c4ca7db8ea2733be4b470534773ee93929d76af3aae34df"
+        }
+      ],
+      "reason": "Additive widening for the new fleet-posture 503 (sol review item 4e): the route's 503 must reuse the existing shared, closed agent_readiness_error_schema.json envelope (same as its 400/401/403 responses) rather than inventing an ad hoc body, so this adds one new closed variant (ServiceUnavailable: success=false, message 'Service unavailable', error 'service_unavailable', error_code 'service_unavailable') to the shared oneOf and its three top-level enums. Purely additive: every existing member of message/error/error_code/oneOf is retained unchanged, so an old client that never receives a 503 from this route is unaffected; only a NEW caller of the new 503 response needs to recognise the new closed variant. Same additive-enum-widening shape as the wilson_score_binary ci_method precedent already acknowledged in this file. Mirrored through this route's own 400/401/403 responses, which all $ref the same shared envelope file; see the sibling entries on agent_readiness_error_schema.json itself for the root-cause explanation.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 9,
+          "fingerprint": "e580abfb897d639db43ba03ae8f423f3e6a555bce966c1a9eb14a484fb1e17fa"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/401/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 9,
+          "fingerprint": "e506ee96a4be69a49d08c5cc446fbab06bdfcc0683e1c2d3d52b0d6dcaf7747c"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/403/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 9,
+          "fingerprint": "f36df1292da549b3343728df6a735d16d82f1b01173621be0ad889f120fb2d82"
+        }
+      ],
+      "reason": "Additive widening for the new fleet-posture 503 (sol review item 4e): the route's 503 must reuse the existing shared, closed agent_readiness_error_schema.json envelope (same as its 400/401/403 responses) rather than inventing an ad hoc body, so this adds one new closed variant (ServiceUnavailable: success=false, message 'Service unavailable', error 'service_unavailable', error_code 'service_unavailable') to the shared oneOf and its three top-level enums. Purely additive: every existing member of message/error/error_code/oneOf is retained unchanged, so an old client that never receives a 503 from this route is unaffected; only a NEW caller of the new 503 response needs to recognise the new closed variant. Same additive-enum-widening shape as the wilson_score_binary ci_method precedent already acknowledged in this file. Mirrored through this route's own 400/401/403 responses, which all $ref the same shared envelope file; see the sibling entries on agent_readiness_error_schema.json itself for the root-cause explanation.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
     }

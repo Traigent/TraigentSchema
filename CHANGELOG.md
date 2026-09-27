@@ -51,6 +51,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pre-existing paging/`agent_id`/verdict-reason tests unchanged and passing. Full repo
   suite: 5207 passed, 2 skipped (was 5187 passed, 2 skipped before this change). Parity
   manifest re-stamped.
+- **Fleet-posture filters/project_summary review fixes (same feature, follow-up commit).**
+  `project_summary` and `summary` now `$ref` two distinct named definitions --
+  `ProjectSummary` and `FleetSummary` -- both `allOf`-wrapping a new scope-neutral
+  `VerdictTotals` definition, instead of a bare `$ref` carrying a sibling `description`
+  that OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently
+  drop; `FleetSummary`'s own description no longer claims "there is no" project-wide
+  equivalent (now false) and points to `project_summary` instead. `search`'s machine
+  schema now states exactly one rule matching the prose: `maxLength: 200` on the RAW
+  value, no `minLength` (a raw empty/blank string is schema-valid and semantically
+  ABSENT, never a 400; only a raw value over 200 chars is invalid). The `sum(counts_by_
+  verdict) == total` invariant (documented on `VerdictTotals`, not JSON-Schema-expressible)
+  now has a dedicated Python-level test over every valid fixture, plus one deliberately
+  schema-valid-but-invariant-violating fixture the test must catch. The `503` documents a
+  second trigger beyond the 500-agent bound -- ANY per-agent computation failure in the
+  enhanced-path universe fails the whole request closed, never partial, unlike the
+  page-only path's `failed_agent_ids` tolerance -- and now carries a real body: one new
+  additive `ServiceUnavailable` variant on the shared, closed
+  `agent_readiness_error_schema.json` envelope (`message`/`error`/`error_code` all
+  `"service_unavailable"`/`"Service unavailable"`), reused by the `503` response the same
+  way `400`/`401`/`403` already reuse that file. The operation description now pins:
+  Backend row ordering + tiebreaker (mirrors `AgentReadinessService.list_portfolio`'s
+  `stage_rank asc, last_activity asc nullsfirst, agent_id asc`, TraigentBackend
+  `src/services/analytics/agent_readiness_service.py:1143-1145`/`:1222-1224`, called from
+  `fleet_posture_service.get_fleet_posture`); repeated identical filter values are accepted
+  and de-duplicated; and a precise ENHANCED PATH definition (verdict/stage/deployment_stage
+  present, OR a non-blank search, OR `include_project_summary=true` -- a blank search and an
+  explicit `include_project_summary=false` do NOT trigger it or its 500-agent bound). New
+  fixture: an `agent_id` no-match response with `project_summary` still independently
+  populated. Allowlist reason wording corrected: existing callers that never send
+  `include_project_summary` never receive the member; only adopters of the flag need
+  validators that accept it. 11 new `scripts/breaking_schema_allowlist.json` entries cover
+  the resulting findings (the `summary`/`project_summary` restructuring reads as
+  type/required/additionalProperties loosened to this repo's own differ, which cannot see
+  through `$ref -> allOf -> $ref` -- the identical false-positive shape already
+  acknowledged here for the 2026-07-18 `ConfidenceLabel` split; the new `ServiceUnavailable`
+  variant is a standard additive enum/oneOf widening, same shape as the `wilson_score_binary`
+  precedent). Full repo suite: 5215 passed, 2 skipped. `bash scripts/local_gate.sh`
+  (ruff, mypy, pytest, parity, breaking-schema gate) passed.
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

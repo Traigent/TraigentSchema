@@ -5591,6 +5591,106 @@
       "reason": "This intentional Phase 4 additive enum expansion restores the canonical nine-value evaluation-set UseCase vocabulary on both the target request and immutable revision response. Existing strict validators that only know the two historical values may reject newly valid declarations and must upgrade. The exact Schema, Backend, and Frontend propagation was reviewed under the admitted Phase 4 supplement; this acknowledgement covers only the listed identities and fingerprints.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/512"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+          {
+              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/criticality_source",
+              "role": "response",
+              "subject": "criticality_source",
+              "old": false,
+              "new": true,
+              "fingerprint": "471f83e7e7904243e5f389be412aa84d69e23596e73761c47a255de83e14de82"
+          },
+          {
+              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/verdict_reason",
+              "role": "response",
+              "subject": "verdict_reason",
+              "old": false,
+              "new": true,
+              "fingerprint": "6302ca703cd80e455138d95d3fd1099c6835b40fd4f03cfa873dd72793183adb"
+          },
+          {
+              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/pagination",
+              "role": "response",
+              "subject": "pagination",
+              "old": false,
+              "new": true,
+              "fingerprint": "43665280d2f606cd5f758c75c6ad374b1d41c4b8f27d344d297049f9766d0358"
+          }
+      ],
+      "reason": "Owner-directed scope addition to the same fleet-posture v2 paging change: criticality_source and verdict_reason are new REQUIRED members on the closed AgentPostureEntry row. Both are populatable by every current backend row: criticality_source is always fixed_default today because the declared-criticality flag is off (criticality_used's own description already states it is always 'medium'), and verdict_reason is always NO_ANCHOR_RUN or TARGET_NOT_DECLARED today because only NOT_YET_SCORED and CANT_TELL are reachable (per Verdict's own description); the remaining enum members are kept unreachable-but-declared the same way Verdict already keeps STAY/INTERVENE_QUALITY. pagination is a new REQUIRED top-level member because the endpoint now paginates (page/per_page query params) instead of silently truncating the fleet at 24 agents; it mirrors the portfolio list response's pagination block byte-for-byte. Old strict response validators must upgrade to accept all three; no existing member's shape changed.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+          {
+              "pointer": "#/properties/agents/items/properties/criticality_source",
+              "role": "response",
+              "subject": "criticality_source",
+              "old": false,
+              "new": true,
+              "fingerprint": "865c7e058f95a2e4c4c6955cb086fde6a2f930478cbd4c76f688ac9fbad686d3"
+          },
+          {
+              "pointer": "#/properties/agents/items/properties/verdict_reason",
+              "role": "response",
+              "subject": "verdict_reason",
+              "old": false,
+              "new": true,
+              "fingerprint": "cb4414b854355e31535d3eb9b1f0ce80f5cecef1d8f764b5a3a628db6da992bd"
+          },
+          {
+              "pointer": "#/properties/pagination",
+              "role": "response",
+              "subject": "pagination",
+              "old": false,
+              "new": true,
+              "fingerprint": "f8b47c8cf0eef8533d77be5659ec57ae83bdd567e717d81aafdd6d6c3b995a54"
+          }
+      ],
+      "reason": "Same change as the fleet_posture_endpoints.json property_added entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: criticality_source and verdict_reason are new REQUIRED members every current backend row can already populate (fixed_default / NO_ANCHOR_RUN-or-TARGET_NOT_DECLARED under today's reachable verdicts and the flag-off criticality path), and pagination is a new REQUIRED top-level member mirroring the portfolio list response's pagination block byte-for-byte, added because the endpoint now paginates. Old strict response validators must upgrade to accept all three; no existing member's shape changed.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+          {
+              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/allOf",
+              "role": "response",
+              "subject": "allOf",
+              "old": 6,
+              "new": 16,
+              "fingerprint": "456531ac03a30ed4bc60440b8c02932036ce15965846d0afbcb4aadd99267b68"
+          }
+      ],
+      "reason": "Review-fix follow-up on the fleet-posture v2 paging change (supersedes the earlier 6->8 acknowledgement, now 6->16, left in place as a historical record): the closed AgentPostureEntry row's allOf gains the full bidirectional (verdict, verdict_reason) mapping -- NOT_YET_SCORED<->NO_ANCHOR_RUN, STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, CANT_TELL<->any of the seven CANT_TELL-family reasons (8 new branches) -- plus criticality_source's one-directional constraint on criticality_used (fixed_default=>medium, undeclared_fail_closed=>high; 2 new branches). All additive over the existing has_anchor_run/verdict and interval/accuracy invariants already in this allOf; no existing branch or condition changed.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+          {
+              "pointer": "#/properties/agents/items/allOf",
+              "role": "response",
+              "subject": "allOf",
+              "old": 6,
+              "new": 16,
+              "fingerprint": "645a5ed4ddcc50b3915849c77fbc34270d2623241e32eb093bc285ab13324e77"
+          }
+      ],
+      "reason": "Same change as the fleet_posture_endpoints.json allOf_branch_count_changed (6->16) entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: the closed AgentPostureEntry row's allOf gains the full bidirectional (verdict, verdict_reason) mapping for all four verdicts plus criticality_source's one-directional constraint on criticality_used. Additive over the existing invariants already in this allOf; no existing branch changed.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
   }
   ]
 }

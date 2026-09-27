@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json",
   "title": "Agent Readiness Fleet Posture Response",
-  "description": "The server-computed fleet debt view for a project. Every agent's debt items and verdict are computed here, server-side, from the same evidence the readiness portfolio/detail responses already serve; the frontend only displays. Behaviour-preserving port of TraigentFrontend src/utils/fleetPosture.ts (deriveAgentDebtItems / computeVerdict / wilsonInterval / rankValidateFirst / summarizeFleet). Content-free beyond the debt/verdict vocabulary itself: no free text, no scores framed as certified/verified.",
+  "description": "The server-computed fleet debt view for a project. Every agent's debt items and verdict are computed here, server-side, from the same evidence the readiness portfolio/detail responses already serve; the frontend only displays. Behaviour-preserving port of TraigentFrontend src/utils/fleetPosture.ts (deriveAgentDebtItems / computeVerdict / wilsonInterval / rankValidateFirst / summarizeFleet). Content-free beyond the debt/verdict vocabulary itself: no free text, no scores framed as certified/verified. Privacy invariant for the request's optional agent_id filter: when agent_id does not match an Agent visible to the caller (unknown OR inaccessible are indistinguishable), this response is EXACTLY the empty-fleet shape -- `agents: []`, `failed_agent_ids: []`, `validate_first: []`, `summary.total: 0` with every `summary.counts_by_verdict` member 0, and `pagination.total`/`pagination.total_pages` both 0 -- and the requested id is never echoed anywhere in this response, so the response alone can never be used as an existence oracle.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -13,7 +13,10 @@
       "type": "array",
       "items": {"$ref": "#/definitions/AgentPostureEntry"}
     },
-    "summary": {"$ref": "#/definitions/FleetSummary"},
+    "summary": {
+      "description": "summarizeFleet's per-verdict totals over the agents RETURNED IN THIS RESPONSE PAGE only (see FleetSummary) -- not the complete project portfolio. The portfolio response's total_agents (portfolio_counts) has no counterpart here: fleet posture computes debt/verdict per agent on demand, so a project-wide total would cost a full unpaged sweep this response does not do.",
+      "$ref": "#/definitions/FleetSummary"
+    },
     "validate_first": {
       "type": "array",
       "items": {"$ref": "#/definitions/ValidateFirstEntry"}
@@ -22,9 +25,16 @@
       "description": "Agents whose detail read raised while computing this response. Omitted from `agents` and from `summary`; the frontend shows its partial-failure banner for these. Always present, possibly empty.",
       "type": "array",
       "items": {"$ref": "#/definitions/OpaqueId"}
+    },
+    "pagination": {
+      "description": "Mirrors the portfolio list response's pagination block (agent_readiness_portfolio_response_schema.json) byte-for-byte: same pagination_schema.json base, same per_page maximum of 100. When the request's optional agent_id filter is present, the request's page/per_page are IGNORED for paging purposes (there is at most one row to page over): `page` is always 1, `per_page` is the requested value (or the endpoint default of 24 if omitted) reported back unchanged, and `total`/`total_pages` are 1/1 if agent_id matched an Agent visible to the caller or 0/0 if it did not -- an unknown id and an inaccessible one are indistinguishable (see the endpoint's agent_id parameter description for the full no-match response shape).",
+      "allOf": [
+        {"$ref": "../pagination_schema.json"},
+        {"properties": {"per_page": {"maximum": 100}}}
+      ]
     }
   },
-  "required": ["project_id", "computed_at", "policy", "agents", "summary", "validate_first", "failed_agent_ids"],
+  "required": ["project_id", "computed_at", "policy", "agents", "summary", "validate_first", "failed_agent_ids", "pagination"],
   "definitions": {
     "OpaqueId": {
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
@@ -73,6 +83,27 @@
     },
     "Criticality": {
       "$ref": "https://schemas.traigent.ai/agent_readiness/agent_posture_schema.json#/definitions/Criticality"
+    },
+    "CriticalitySource": {
+      "description": "Where criticality_used came from. Constrains criticality_used one-directionally (enforced by AgentPostureEntry's allOf): fixed_default: today's legacy behaviour, criticality_used is always exactly 'medium' (the TraigentBackend#3505 declared-criticality flag off). declared: the agent's declared posture (agent_posture_schema.json Criticality) was read and used -- criticality_used may be any Criticality value. undeclared_fail_closed: no posture was declared for this agent, so criticality_used is always exactly 'high' (fail-closed, never defaults low).",
+      "type": "string",
+      "enum": ["fixed_default", "declared", "undeclared_fail_closed"]
+    },
+    "VerdictReason": {
+      "description": "The single rule that decided this row's verdict. The (verdict, verdict_reason) pairing is closed and enforced bidirectionally by AgentPostureEntry's allOf: NOT_YET_SCORED<->NO_ANCHOR_RUN, STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, and CANT_TELL<->{VALIDITY_BELOW_BAR, TARGET_NOT_DECLARED, TARGET_CANNOT_DETERMINE, INTERVAL_STRADDLES_TARGET, CRITICALITY_UNDECLARED, VALIDITY_BELOW_STAY_BAR, OPEN_EVALUATION_SYSTEM_DEBT} (any one of the seven). With today's TraigentBackend#3505 flag off, only NO_ANCHOR_RUN (paired with NOT_YET_SCORED) and TARGET_NOT_DECLARED (every CANT_TELL row, since no accuracy target is read yet) are ever observed; the remaining CANT_TELL-family members are kept in the vocabulary for the same reason Verdict keeps STAY/INTERVENE_QUALITY reachable only in principle -- the pure function encodes the whole rule and a later owner decision can make them reachable without a contract change.",
+      "type": "string",
+      "enum": [
+        "NO_ANCHOR_RUN",
+        "VALIDITY_BELOW_BAR",
+        "TARGET_NOT_DECLARED",
+        "TARGET_CANNOT_DETERMINE",
+        "INTERVAL_STRADDLES_TARGET",
+        "BELOW_TARGET",
+        "CRITICALITY_UNDECLARED",
+        "VALIDITY_BELOW_STAY_BAR",
+        "OPEN_EVALUATION_SYSTEM_DEBT",
+        "MEETS_TARGET"
+      ]
     },
     "Interval": {
       "description": "A Wilson score interval (z = policy.interval_z) over accuracy/sample_size, per wilsonInterval in fleetPosture.ts. Not a CLT interval (agent_readiness_target_schema.json AccuracyEvaluation.ci_method) -- this is a hypothesis/estimate band for display, never a measured target evaluation.",
@@ -176,7 +207,9 @@
           "description": "The old frontend isScoreCredible(servedValidity), computed server-side from the same detail validity block that produced debt_items, so the label and the debt items can never disagree.",
           "type": "boolean"
         },
-        "pillar_review_status": {"$ref": "#/definitions/PillarReviewStatus"}
+        "pillar_review_status": {"$ref": "#/definitions/PillarReviewStatus"},
+        "criticality_source": {"$ref": "#/definitions/CriticalitySource"},
+        "verdict_reason": {"$ref": "#/definitions/VerdictReason"}
       },
       "required": [
         "agent_id",
@@ -195,7 +228,9 @@
         "evaluator_ref_id",
         "has_anchor_run",
         "score_credible",
-        "pillar_review_status"
+        "pillar_review_status",
+        "criticality_source",
+        "verdict_reason"
       ],
       "allOf": [
         {
@@ -211,6 +246,80 @@
               "has_anchor_run": {"const": false}
             }
           }
+        },
+        {
+          "description": "NO_ANCHOR_RUN and NOT_YET_SCORED are definitionally the same fact: this row's verdict is NOT_YET_SCORED exactly when its reason is NO_ANCHOR_RUN (both directions).",
+          "if": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}, "required": ["verdict"]},
+          "then": {"properties": {"verdict_reason": {"const": "NO_ANCHOR_RUN"}}}
+        },
+        {
+          "if": {"properties": {"verdict_reason": {"const": "NO_ANCHOR_RUN"}}, "required": ["verdict_reason"]},
+          "then": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}}
+        },
+        {
+          "description": "MEETS_TARGET and STAY are definitionally the same fact (both directions).",
+          "if": {"properties": {"verdict": {"const": "STAY"}}, "required": ["verdict"]},
+          "then": {"properties": {"verdict_reason": {"const": "MEETS_TARGET"}}}
+        },
+        {
+          "if": {"properties": {"verdict_reason": {"const": "MEETS_TARGET"}}, "required": ["verdict_reason"]},
+          "then": {"properties": {"verdict": {"const": "STAY"}}}
+        },
+        {
+          "description": "BELOW_TARGET and INTERVENE_QUALITY are definitionally the same fact (both directions).",
+          "if": {"properties": {"verdict": {"const": "INTERVENE_QUALITY"}}, "required": ["verdict"]},
+          "then": {"properties": {"verdict_reason": {"const": "BELOW_TARGET"}}}
+        },
+        {
+          "if": {"properties": {"verdict_reason": {"const": "BELOW_TARGET"}}, "required": ["verdict_reason"]},
+          "then": {"properties": {"verdict": {"const": "INTERVENE_QUALITY"}}}
+        },
+        {
+          "description": "CANT_TELL pairs with exactly one of the seven CANT_TELL-family reasons (both directions); together with the three pairs above this exhausts every VerdictReason member, so every (verdict, verdict_reason) combination is closed.",
+          "if": {"properties": {"verdict": {"const": "CANT_TELL"}}, "required": ["verdict"]},
+          "then": {
+            "properties": {
+              "verdict_reason": {
+                "enum": [
+                  "VALIDITY_BELOW_BAR",
+                  "TARGET_NOT_DECLARED",
+                  "TARGET_CANNOT_DETERMINE",
+                  "INTERVAL_STRADDLES_TARGET",
+                  "CRITICALITY_UNDECLARED",
+                  "VALIDITY_BELOW_STAY_BAR",
+                  "OPEN_EVALUATION_SYSTEM_DEBT"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict_reason": {
+                "enum": [
+                  "VALIDITY_BELOW_BAR",
+                  "TARGET_NOT_DECLARED",
+                  "TARGET_CANNOT_DETERMINE",
+                  "INTERVAL_STRADDLES_TARGET",
+                  "CRITICALITY_UNDECLARED",
+                  "VALIDITY_BELOW_STAY_BAR",
+                  "OPEN_EVALUATION_SYSTEM_DEBT"
+                ]
+              }
+            },
+            "required": ["verdict_reason"]
+          },
+          "then": {"properties": {"verdict": {"const": "CANT_TELL"}}}
+        },
+        {
+          "description": "criticality_source constrains criticality_used one-directionally: fixed_default always means today's legacy 'medium' default; undeclared_fail_closed always means the fail-closed 'high'. declared carries no constraint here (any Criticality value is a legitimate declaration).",
+          "if": {"properties": {"criticality_source": {"const": "fixed_default"}}, "required": ["criticality_source"]},
+          "then": {"properties": {"criticality_used": {"const": "medium"}}}
+        },
+        {
+          "if": {"properties": {"criticality_source": {"const": "undeclared_fail_closed"}}, "required": ["criticality_source"]},
+          "then": {"properties": {"criticality_used": {"const": "high"}}}
         },
         {
           "if": {"not": {"properties": {"verdict": {"const": "NOT_YET_SCORED"}}, "required": ["verdict"]}},
@@ -255,7 +364,7 @@
       ]
     },
     "FleetSummary": {
-      "description": "summarizeFleet's per-verdict totals over the agents in this response.",
+      "description": "summarizeFleet's per-verdict totals over the agents RETURNED ON THIS PAGE only (the `agents` array), now that the endpoint paginates -- not a project-wide total. The full-portfolio total (across every page) is `pagination.total`, mirroring the portfolio list response's pagination block; there is no per-page-independent equivalent of the portfolio response's `portfolio_counts` here.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

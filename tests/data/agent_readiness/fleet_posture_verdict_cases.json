@@ -31,7 +31,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -79,7 +81,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -127,7 +131,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -160,7 +166,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -191,7 +199,9 @@
         "pillar_review_status": {
           "evaluator": "reviewed",
           "evaluation_dataset": "reviewed"
-        }
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
       }
     },
     {
@@ -222,7 +232,9 @@
         "pillar_review_status": {
           "evaluator": "reviewed",
           "evaluation_dataset": "reviewed"
-        }
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
       }
     },
     {
@@ -255,7 +267,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -287,7 +301,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -318,7 +334,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -349,7 +367,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -382,7 +402,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -413,7 +435,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -444,7 +468,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -475,7 +501,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -509,7 +537,9 @@
           "evaluator": null,
           "evaluation_dataset": null
         },
-        "score_label": "unverified"
+        "score_label": "unverified",
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -742,7 +772,15 @@
           }
         },
         "validate_first": [],
-        "failed_agent_ids": []
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     },
     {
@@ -788,7 +826,9 @@
             "pillar_review_status": {
               "evaluator": null,
               "evaluation_dataset": null
-            }
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "NO_ANCHOR_RUN"
           },
           {
             "agent_id": "agent-2",
@@ -830,7 +870,9 @@
             "pillar_review_status": {
               "evaluator": "unreviewed",
               "evaluation_dataset": "unreviewed"
-            }
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "TARGET_NOT_DECLARED"
           }
         ],
         "summary": {
@@ -858,7 +900,15 @@
             ]
           }
         ],
-        "failed_agent_ids": []
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 2,
+          "total_pages": 1,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     },
     {
@@ -888,7 +938,15 @@
           }
         },
         "validate_first": [],
-        "failed_agent_ids": []
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     },
     {
@@ -920,7 +978,15 @@
         },
         "validate_first": [],
         "schema_version": "1.0.0",
-        "failed_agent_ids": []
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     },
     {
@@ -953,7 +1019,9 @@
         "pillar_review_status": {
           "evaluator": null,
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -1001,7 +1069,9 @@
         "pillar_review_status": {
           "evaluator": "unreviewed",
           "evaluation_dataset": "unreviewed"
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
       }
     },
     {
@@ -1034,7 +1104,9 @@
         "pillar_review_status": {
           "evaluator": "reviewed",
           "evaluation_dataset": null
-        }
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -1063,7 +1135,9 @@
         "dataset_ref_id": null,
         "evaluator_ref_id": null,
         "has_anchor_run": false,
-        "score_credible": false
+        "score_credible": false,
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
       }
     },
     {
@@ -1136,7 +1210,15 @@
         "validate_first": [],
         "failed_agent_ids": [
           "agent-9"
-        ]
+        ],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     },
     {
@@ -1166,7 +1248,670 @@
             "INTERVENE_QUALITY": 0
           }
         },
-        "validate_first": []
+        "validate_first": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "agent_entry_invalid_bad_criticality_source_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source must be one of fixed_default/declared/undeclared_fail_closed",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "manual_override",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_bad_verdict_reason_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason is not a member of the closed VerdictReason enum",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "SOMETHING_ELSE"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source is required",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason is required",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_not_yet_scored_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "NOT_YET_SCORED must pair with verdict_reason NO_ANCHOR_RUN (the two are definitionally the same fact)",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_no_anchor_run_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason NO_ANCHOR_RUN must pair with verdict NOT_YET_SCORED",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.2,
+          "upper": 0.8
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_valid_undeclared_fail_closed_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "undeclared_fail_closed: no posture declared, criticality_used fails closed to high",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "pagination_valid_first_page",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": true,
+      "why": "mirrors the portfolio pagination block: page/per_page within the shared per_page maximum of 100",
+      "instance": {
+        "page": 1,
+        "per_page": 24,
+        "total": 48,
+        "total_pages": 2,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "pagination_invalid_per_page_over_the_shared_maximum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": false,
+      "why": "per_page shares the portfolio route's maximum of 100",
+      "instance": {
+        "page": 1,
+        "per_page": 101,
+        "total": 200,
+        "total_pages": 2,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "pagination_invalid_missing_member",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": false,
+      "why": "pagination_schema.json requires total_pages",
+      "instance": {
+        "page": 1,
+        "per_page": 24,
+        "total": 48,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_missing_pagination",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "pagination is required now that the endpoint paginates",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": []
+      }
+    },
+    {
+      "name": "agent_entry_invalid_stay_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "STAY must pair with verdict_reason MEETS_TARGET (both directions); TARGET_NOT_DECLARED is a CANT_TELL-family reason",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_intervene_quality_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "INTERVENE_QUALITY must pair with verdict_reason BELOW_TARGET (both directions); MEETS_TARGET belongs to STAY",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "INTERVENE_QUALITY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_meets_target_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason MEETS_TARGET must pair with verdict STAY, not CANT_TELL",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_below_target_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason BELOW_TARGET must pair with verdict INTERVENE_QUALITY, not STAY",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_cant_tell_family_reason_with_stay_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "a CANT_TELL-family reason (VALIDITY_BELOW_BAR) must pair with verdict CANT_TELL, not STAY",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "VALIDITY_BELOW_BAR"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_fixed_default_criticality_source_with_wrong_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source fixed_default must pair with criticality_used medium",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.62,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_undeclared_fail_closed_criticality_source_with_wrong_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source undeclared_fail_closed must pair with criticality_used high",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": null,
+        "dataset_ref_id": "dataset-v2",
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_valid_declared_criticality_source_allows_any_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "criticality_source declared carries no constraint on criticality_used -- low is a legitimate declaration",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "INTERVENE_QUALITY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "low",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_agent_id_no_match",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "agent_id filter matched no Agent visible to the caller (unknown or inaccessible, indistinguishable): empty agents/failed_agent_ids/validate_first, summary all-zero, pagination total/total_pages 0 with per_page echoing the requested value (10 here) and page forced to 1",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 10,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
       }
     }
   ]

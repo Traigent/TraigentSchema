@@ -14,6 +14,7 @@ carries no attribution, actor identity, or record content).
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import pytest
@@ -210,6 +211,16 @@ def test_rejects_page_below_one() -> None:
     assert _errors(_RESPONSE_ID, instance)
 
 
+def test_rejects_page_above_int32_max() -> None:
+    instance = _response(items=[], page=2147483648)
+    assert _errors(_RESPONSE_ID, instance)
+
+
+def test_accepts_page_at_int32_max() -> None:
+    instance = _response(items=[], page=2147483647)
+    assert _errors(_RESPONSE_ID, instance) == []
+
+
 def test_rejects_negative_total() -> None:
     instance = _response(items=[])
     instance["pagination"]["total"] = -1
@@ -383,3 +394,50 @@ def test_no_attribution_or_actor_property_name_anywhere_in_the_schema() -> None:
 
     walk(_RESPONSE_SCHEMA)
     assert found == set()
+
+
+# ---------------------------------------------------------------------------
+# Neutral wording: no causal/outcome-claiming language in description strings
+# ---------------------------------------------------------------------------
+
+_CAUSAL_WORDING_PATTERN = re.compile(
+    r"\b(caused|cause|produced|improved|because|led to|resulted)\b", re.IGNORECASE
+)
+
+
+def _find_description_strings(node: Any) -> list[str]:
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "description" and isinstance(value, str):
+                found.append(value)
+            found.extend(_find_description_strings(value))
+    elif isinstance(node, list):
+        for value in node:
+            found.extend(_find_description_strings(value))
+    return found
+
+
+def test_schema_descriptions_contain_no_causal_or_outcome_wording() -> None:
+    """Even negated ("never caused", "not because") is disallowed -- these
+    handles must stay neutral (association, not outcome/origin) everywhere."""
+    hits = {
+        (text, match)
+        for text in _find_description_strings(_RESPONSE_SCHEMA)
+        for match in _CAUSAL_WORDING_PATTERN.findall(text)
+    }
+    assert hits == set()
+
+
+def test_endpoint_op_descriptions_contain_no_causal_or_outcome_wording() -> None:
+    inventory = _load(ENDPOINTS_PATH)
+    op = inventory["paths"][ROUTE]["get"]
+    hits = {
+        (text, match)
+        for text in _find_description_strings(op)
+        for match in _CAUSAL_WORDING_PATTERN.findall(text)
+    }
+    # "summary" is not named "description" but carries the same prose risk.
+    summary = op.get("summary", "")
+    hits |= {(summary, match) for match in _CAUSAL_WORDING_PATTERN.findall(summary)}
+    assert hits == set()

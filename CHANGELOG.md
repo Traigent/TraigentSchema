@@ -119,13 +119,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent-lifecycle-record already exists (`GET .../agent-lifecycle/agent-revisions/
   {agent_revision_ref}/record`), but lifecycle records are grouped by an independent
   `agent_ref` with no foreign key to a fleet `Agent.id`. This new route is the bridge:
-  a closed, paginated (`page` 1.., `per_page` 1..50, default 25) list of
-  `(agent_revision_ref, record_ref)` pairs included because the record's own
+  a closed, paginated (`page` 1..2147483647, `per_page` 1..50, default 25) list of
+  `(agent_revision_ref, record_ref)` pairs; the backend includes a pair when the record's own
   `experiment_run_id`, or one of that revision's run plans' `experiment_run_id`,
   resolves to an `ExperimentRun` whose `Experiment.agent_id` matches the requested
-  fleet agent. `association_basis` is a single closed value, `EXPERIMENT_RUN_LINK`: a
-  derived association, never a causal ("caused"/"produced"/"improved") claim. The
-  response carries no attribution, actor/user identity, or record content -- only
+  fleet agent. `association_basis` is a single closed value, `EXPERIMENT_RUN_LINK`: it
+  classifies how the pair is linked to the agent and makes no claim about outcomes or
+  origin. The response carries no attribution, actor/user identity, or record content -- only
   opaque `agent_revision_ref`/`record_ref` handles, the record's own `created_at`, and
   the closed association vocabulary. New
   `agent_readiness/agent_lifecycle_history_response_schema.json`; the operation is

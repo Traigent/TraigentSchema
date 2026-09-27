@@ -107,7 +107,7 @@
       ]
     },
     "Interval": {
-      "description": "A Wilson score interval (z = policy.interval_z) over accuracy/sample_size, per wilsonInterval in fleetPosture.ts. Not a CLT interval (agent_readiness_target_schema.json AccuracyEvaluation.ci_method) -- this is a hypothesis/estimate band for display, never a measured target evaluation.",
+      "description": "A Wilson score interval (z = policy.interval_z) over accuracy/sample_size, per wilsonInterval in fleetPosture.ts. Distinct from agent_readiness_target_schema.json AccuracyEvaluation.ci_method (which may itself be wilson_score_binary or clt_mean_standard_error) -- this is a hypothesis/estimate band for display, never a measured target evaluation.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

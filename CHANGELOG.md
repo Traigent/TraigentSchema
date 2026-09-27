@@ -100,6 +100,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cases cover `DECLARED_POLICY_OFF` with a non-`CANT_TELL` verdict and with
   `criticality_source: declared`. `scripts/breaking_schema_allowlist.json` and
   `parity/python-js-sdk.json` regenerated for the new enum member.
+- **`AccuracyEvaluation.ci_method` admits `wilson_score_binary` (agent readiness, review
+  follow-up).** The Backend's accuracy-target evaluation uses a 95% Wilson score interval on
+  k/n when every per-example score is exactly 0 or 1 (binary) — the CLT mean ± z·SE interval
+  collapses to zero width for identical observations. Fractional per-example scores keep
+  `clt_mean_standard_error` (zero-variance fractional samples still fail closed to
+  `CANNOT_DETERMINE`). `ci_method` was previously a `const` pinned to
+  `clt_mean_standard_error`, which would have forced the Backend to publish a false method
+  label for binary samples; it is now a closed two-member enum. Fixture cases added:
+  a valid `DeclaredAccuracyTarget` evaluation using `wilson_score_binary`, and a rejected
+  unknown `ci_method` string.
 - **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
   `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
   items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict
@@ -140,8 +150,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     observed mean outside `[0, 1]` is never rescaled but CANNOT_DETERMINE), its declaration,
     `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
     CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`; closed
-    `ci_method: clt_mean_standard_error` — mean ± z·SE over per-example scores (Miller 2024),
-    computed by the Backend from per-example evaluations, never client-supplied),
+    `ci_method` enum (`clt_mean_standard_error` / `wilson_score_binary`) — Wilson score interval
+    on k/n when every per-example score is binary, CLT mean ± z·SE over per-example scores
+    (Miller 2024) otherwise, computed by the Backend from per-example evaluations, never
+    client-supplied),
     `AccuracyTargetRevision` (also listed in the schema's root `oneOf`) and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
     and the POST 201 `DeclaredTarget` become unions of the unchanged latency shape (now also named
     `DeclaredLatencyTarget`) and the accuracy shape. Each metric keeps its own revision chain; the

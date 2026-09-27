@@ -5753,6 +5753,31 @@
       "reason": "New CANT_TELL-family VerdictReason enum member DECLARED_POLICY_OFF, added by this branch's own commit (feat(agent-readiness): DECLARED_POLICY_OFF verdict reason). It means this row's verdict did not evaluate the declared accuracy target because the declared-accuracy policy is not enabled -- it says nothing about whether a target actually exists. Before this it was impossible to distinguish that case from TARGET_NOT_DECLARED, which the frontend read literally as 'no accuracy target has been set' even when a target was in fact declared, since the Backend simply never read it while the policy was off. TARGET_NOT_DECLARED stays a valid CANT_TELL-family member for the policy-on case, once the Backend actually reads the declared target and finds none. Purely additive enum member; no existing value removed, renamed, or reinterpreted. Fixture cases updated in tests/test_fleet_posture_response_contract.py and fleet_posture_verdict_cases.json cover both the accept and reject paths for the new member.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
+  },
+  {
+      "file": "agent_readiness/agent_readiness_target_schema.json",
+      "rule": "enum",
+      "findings": [
+            {
+                  "pointer": "#/oneOf/4/oneOf/1/properties/evaluation/properties/ci_method",
+                  "role": "conservative",
+                  "subject": {
+                        "direction": "added",
+                        "values": [
+                              "<enum constraint added>"
+                        ]
+                  },
+                  "old": null,
+                  "new": [
+                        "\"clt_mean_standard_error\"",
+                        "\"wilson_score_binary\""
+                  ],
+                  "fingerprint": "b6b012067e6588be1739cb771f748558f2db991f3d6c59ce447a5ffaa448b519"
+            }
+      ],
+      "reason": "AccuracyEvaluation.ci_method was a const pinned to clt_mean_standard_error (mean +/- z*SE of the mean over per-example scores); the CLT interval collapses to zero width when every per-example score is identical, which is exactly what happens for binary (0/1) per-example accuracy scoring. The Backend now uses a 95% Wilson score interval on k/n instead when every per-example score is exactly 0 or 1, and keeps CLT for fractional scores (a zero-variance fractional sample still fails closed to CANNOT_DETERMINE, unchanged). Widening the const to a closed two-member enum lets the Backend publish the method it actually used instead of a false clt_mean_standard_error label on binary samples; both methods are Backend-computed and never client-supplied, so this is additive and reviewed, not a silent loosening. Fixture cases added: a valid DeclaredAccuracyTarget evaluation using wilson_score_binary, and a rejected unknown ci_method string.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fleet-v2-declared-policy-off branch, not yet opened)"
   }
   ]
 }

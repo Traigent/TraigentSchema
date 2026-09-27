@@ -255,8 +255,8 @@
         },
         "confidence_level": {"const": "0.95"},
         "ci_method": {
-          "description": "How the interval was computed. clt_mean_standard_error: mean +/- z * SE of the mean over the per-example scores (Miller 2024, 'Adding Error Bars to Evals'), z for confidence_level. The Backend computes the interval from the stored per-example evaluations; it is never client-supplied, so both SDKs get the same verdict for the same run. Closed: another method is a later, acknowledged widening.",
-          "const": "clt_mean_standard_error"
+          "description": "How the interval was computed: a Wilson score interval on k/n when every per-example score for this evaluation is exactly 0 or 1 (binary), CLT otherwise. clt_mean_standard_error: mean +/- z * SE of the mean over the per-example scores (Miller 2024, 'Adding Error Bars to Evals'), z for confidence_level; the CLT interval collapses to zero width when every per-example score is identical, so binary samples use wilson_score_binary instead. wilson_score_binary: the 95% Wilson score interval over k successes out of n binary (0/1) per-example scores, z for confidence_level. The Backend computes the interval from the stored per-example evaluations; it is never client-supplied, so both SDKs get the same verdict for the same run. Closed: another method is a later, acknowledged widening.",
+          "enum": ["clt_mean_standard_error", "wilson_score_binary"]
         },
         "unit": {"const": "PROPORTION"},
         "observation_basis": {

@@ -10,8 +10,12 @@ from pathlib import Path
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from tests._frozen_signatures_exception import CLAIM_PAYLOADS_REL as _CLAIM_PAYLOADS_REL
 from tests._frozen_signatures_exception import SIGNATURES_REL as _SIGNATURES_REL
-from tests._frozen_signatures_exception import assert_description_only_exception
+from tests._frozen_signatures_exception import (
+    assert_description_only_exception,
+    assert_workload_class_rename_exception,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "traigent_schema" / "schemas"
@@ -415,7 +419,7 @@ def test_frozen_v0_files_are_byte_identical_to_the_merge_base() -> None:
     assert v0_files
     for path in v0_files:
         rel = path.relative_to(ROOT).as_posix()
-        if rel == _SIGNATURES_REL:
+        if rel in (_SIGNATURES_REL, _CLAIM_PAYLOADS_REL):
             continue
         result = subprocess.run(
             ["git", "show", f"{MERGE_BASE}:{rel}"],
@@ -433,6 +437,16 @@ def test_certificate_signatures_v0_disclosed_exception() -> None:
     """
 
     assert_description_only_exception(MERGE_BASE, ROOT)
+
+
+def test_claim_payloads_workload_class_disclosed_exception() -> None:
+    """The other file test_frozen_v0_files_are_byte_identical_to_the_merge_base
+    exempts, and only by its ``workload_class`` enum member + description
+    (owner ruling 2026-09-28, "1A"). See tests/_frozen_signatures_exception.py
+    for the guard.
+    """
+
+    assert_workload_class_rename_exception(MERGE_BASE, ROOT)
 
 
 # --------------------------------------------------------------------------

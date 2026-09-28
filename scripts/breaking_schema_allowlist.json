@@ -5812,6 +5812,49 @@
       "reason": "Additive, opt-in project-wide verdict totals: project_summary is OPTIONAL and populated only when the new include_project_summary=true query parameter is sent, alongside the new verdict/stage/deployment_stage/search filters that apply before pagination (pagination.total becomes the filtered count). An old response consumer that never sends include_project_summary never sees the new member -- this is the same closed-response-gains-an-optional-member shape already acknowledged for criticality_source/verdict_reason/pagination on this file (see the prior fleet-v2-posture-paging entries above); existing callers that never send include_project_summary never receive the member; only adopters of the flag need validators that accept it.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feature/fleet-server-filters branch, not yet opened)"
+    },
+    {
+      "file": "certification/certificate_claim_payloads_v0_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf/3/properties/params/properties/workload_class",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"mock_grid_no_integrations_no_analytics_no_langfuse\""
+            ]
+          },
+          "old": [
+            "\"mock_grid_no_integrations_no_analytics_no_langfuse\""
+          ],
+          "new": [
+            "\"mock_grid_no_integrations_no_analytics_no_external_tracing\""
+          ],
+          "fingerprint": "4df6c3be5f122d668d51c21451a076487147df549ca0457697c41c860c5f4b86"
+        },
+        {
+          "pointer": "#/allOf/0/oneOf/3/properties/params/properties/workload_class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"mock_grid_no_integrations_no_analytics_no_external_tracing\""
+            ]
+          },
+          "old": [
+            "\"mock_grid_no_integrations_no_analytics_no_langfuse\""
+          ],
+          "new": [
+            "\"mock_grid_no_integrations_no_analytics_no_external_tracing\""
+          ],
+          "fingerprint": "419c1fef71fe7c9c2ab5ec73835891d6c73e4ac49b17d77d78425ffda76418b7"
+        }
+      ],
+      "reason": "Owner ruling 2026-09-28 (\"1A\"): a competitor's product name must not appear in our shipped source or contracts. The single witnessed workload_class enum member is renamed verbatim from mock_grid_no_integrations_no_analytics_no_langfuse to mock_grid_no_integrations_no_analytics_no_external_tracing -- same concept (mock-mode grid-search shape with no integrations, no analytics clients, no external tracing client), only the vendor-specific token is replaced with a neutral, generic name. No issued certificate ever carried the old literal, and no consumer references it: git grep -in no_langfuse @ origin/develop returns 0 hits in Traigent, traigent-js, TraigentFrontend, and traigent-smartopt; TraigentBackend's origin/develop still has 2 hits (its own vendored copy of this schema, and the WITNESSED_WORKLOAD_CLASS constant that stamps this value), both already renamed on TraigentBackend#3569, which this upstream rename unblocks via contract.installed_package_agreement. The frozen-v0 byte-identity gate (tests/test_agent_quality_v1_schema.py / tests/test_evaluator_quality_v1_schema.py, MERGE_BASE 3f0529c1ba94a21afbcee749d6543dd0c4778229) now carries its own disclosed, SHA-pinned exception for exactly this rename (tests/_frozen_signatures_exception.py: assert_workload_class_rename_exception), mirroring the existing D-T4.1 signatures-file exception; a negative control confirmed the frozen-v0 test still fails on any other v0 byte change.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, chore/neutral-workload-class-naming branch, not yet opened)"
     }
   ]
 }

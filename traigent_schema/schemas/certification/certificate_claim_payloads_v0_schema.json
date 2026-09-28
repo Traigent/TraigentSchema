@@ -189,10 +189,10 @@
               "$ref": "certification_common_v0_schema.json#/definitions/GitCommitSha"
             },
             "workload_class": {
-              "description": "Closed workload-class vocabulary. The only witnessed class today is the mock-mode grid-search shape with no integrations, no analytics clients, and no Langfuse (the truth-test scope, carried verbatim as the class definition).",
+              "description": "Closed workload-class vocabulary. The only witnessed class today is the mock-mode grid-search shape with no integrations, no analytics clients, and no external tracing client (the truth-test scope, carried verbatim as the class definition).",
               "type": "string",
               "enum": [
-                "mock_grid_no_integrations_no_analytics_no_langfuse"
+                "mock_grid_no_integrations_no_analytics_no_external_tracing"
               ]
             },
             "witness_bundle_digest": {

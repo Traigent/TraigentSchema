@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
+  resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
+  under the wrong tenant; this route lets the frontend resolve the experiment's actual
+  `tenant_id`/`project_id` once and switch, instead of showing a dead-end 404.
+  Authenticated but CONTEXT-INDEPENDENT: it does not require or consume
+  `X-Tenant-Id`/`X-Project-Id`. Human (JWT/cookie) sessions only -- an API-key principal
+  is rejected uniformly before any lookup (`403 CONTEXT_RESOLUTION_HUMAN_ONLY`), never
+  enumerated against its owner's memberships. The lookup is scoped to the caller's own
+  ACTIVE tenant memberships and reuses the experiment detail route's real visibility
+  policy per tenant (project read role + ownership visibility); there is no cross-tenant
+  admin bypass. An experiment that does not exist and one the caller cannot read in any
+  active tenant return the exact same closed `404`. The membership probe is bounded
+  (tenant count and wall time); exceeding it is a retryable `503`
+  (`CONTEXT_RESOLUTION_BUDGET_EXCEEDED`), never a false `404` from a silently truncated
+  search. The `200` body is bare (`x-wrap-status: bare`) and closed:
+  `{experiment_id, project_id, tenant_id, tenant_name?, project_name?}` -- the two names
+  are optional display strings for a "Opened in workspace X / project Y" toast only.
+  Every response carries `Cache-Control: private, no-store`. New
+  `evaluation/experiment_context_schema.json`; the operation is added to the existing
+  `execution/execution_endpoints.json` module (no new endpoints file, already wired into
+  `mep_endpoints.json`). Backend and Frontend implementation is separate, later work;
+  this contract lands first per workspace convention for a public repo.
 - **`GET /agent-readiness/fleet-posture` server-side filters + opt-in project-wide
   verdict totals (additive).** Five new optional query parameters on
   `agent_readiness/fleet_posture_endpoints.json`: `verdict`, `stage`, `deployment_stage`

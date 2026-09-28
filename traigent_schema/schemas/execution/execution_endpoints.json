@@ -111,6 +111,88 @@
         }
       }
     },
+    "/api/v1beta/experiments/{experiment_id}/context": {
+      "get": {
+        "summary": "Resolve an experiment's tenant/project context for cross-workspace deep links",
+        "description": "Declared ahead of the Backend (x-asserted-against-backend false): recovery route for SDK/Claude Code deep links of the form .../experiments/view/{id} that open under the wrong tenant. Authenticated but CONTEXT-INDEPENDENT -- excluded from X-Tenant-Id/X-Project-Id requirement and from stale tenant/project context middleware rejection; authentication is still required. Human (JWT/cookie) sessions only: an API-key principal is rejected uniformly before any lookup (403 CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against its owner's memberships. The lookup enumerates only the caller's own ACTIVE tenant memberships and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it; there is no cross-tenant admin bypass -- active membership is required even for platform admins. An experiment that does not exist and one the caller cannot read in any active tenant return the exact same closed 404. The membership probe is bounded (tenant count and wall time); exceeding the bound is a 503, never a false 404 from a silently truncated search. Every response carries Cache-Control: private, no-store.",
+        "operationId": "getExperimentContext",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "bare",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The experiment's resolved tenant/project scope, bare (no success/message/data envelope).",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always 'private, no-store'.",
+                "schema": {"type": "string", "const": "private, no-store"}
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextResponse"}
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: no human or API-key session on the request.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextAuthenticationRequiredError"}
+              }
+            }
+          },
+          "403": {
+            "description": "The caller authenticated with an API key rather than a human session; rejected uniformly before any membership lookup.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextApiKeyRejectedError"}
+              }
+            }
+          },
+          "404": {
+            "description": "The experiment does not exist, or exists but is not visible to the caller in any of their active tenant memberships -- the two are deliberately indistinguishable.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextNotFoundError"}
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (per authenticated user + IP).",
+            "headers": {
+              "Retry-After": {"description": "Seconds until a retry may succeed.", "schema": {"type": "string"}},
+              "X-RateLimit-Limit": {"schema": {"type": "string"}},
+              "X-RateLimit-Remaining": {"schema": {"type": "string"}},
+              "X-RateLimit-Reset": {"schema": {"type": "string"}}
+            },
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../rate_limit_info_schema.json"}
+              }
+            }
+          },
+          "503": {
+            "description": "The bounded membership probe (tenant count and/or wall-time cap) was exhausted before the lookup could complete. Retryable -- never sent as a false 404 from a silently truncated search.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextBudgetExceededError"}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/experiment-groups": {
       "get": {
         "summary": "List additive experiment groups by shared agent and canonical dataset",

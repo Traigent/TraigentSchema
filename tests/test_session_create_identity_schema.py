@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from jsonschema import Draft7Validator
+
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -296,7 +298,72 @@ def test_existing_evaluator_id_is_not_redefined() -> None:
     assert evaluator_id["maxLength"] == 200
 
 
+def test_response_agent_id_is_the_resolved_backend_row_not_the_declared_identity() -> None:
+    """The create response's `agent_id` is a different field from the request's.
+
+    The request's `agent_id` (tested throughout this file) is a caller-declared,
+    free-form identity string used for cohort grouping (max 255 chars, no
+    reference semantics). The response's `agent_id` is the server's OWN
+    resolution of the backend Agent row (agents.id) for this session -- the SDK
+    needs it, unmodified, to call POST /best-configs (X-Traigent-Agent-Id
+    header) and GET /best-configs/agent-heads/<agent_id>. The two must never be
+    confused: this test locks the response field to reference the Agent
+    resource's primary key rather than redeclaring the request's free-text
+    identity shape.
+    """
+    schema_path = get_schemas_dir() / "optimization" / "optimization_endpoints.json"
+    document = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    response_properties = _session_create_response_properties(document)
+    assert "agent_id" in response_properties, "session-create response must expose agent_id"
+
+    response_agent_id = response_properties["agent_id"]
+    assert response_agent_id["type"] == ["string", "null"]
+    assert response_agent_id.get("x-reference") == "../agents/agent_schema.json#/properties/id"
+
+    # It must not carry the request field's free-text constraints (a 255-char
+    # cap and x-content) -- those would misdescribe a resolved backend id.
+    assert "maxLength" not in response_agent_id
+    assert "x-content" not in response_agent_id
+
+
+def test_response_agent_id_is_additive_and_optional() -> None:
+    """New field, old servers: absence must stay schema-valid.
+
+    The 201 response object declares no `required` list at all (session_id and
+    status are equally unenforced today), so adding `agent_id` without a
+    `required` entry keeps a caller that omits it -- e.g. a server build that
+    predates this feature -- schema-valid.
+    """
+    schema_path = get_schemas_dir() / "optimization" / "optimization_endpoints.json"
+    document = json.loads(schema_path.read_text(encoding="utf-8"))
+
+    response_schema = document["paths"]["/api/v1/sessions"]["post"]["responses"]["201"][
+        "content"
+    ]["application/json"]["schema"]
+
+    assert "required" not in response_schema
+    assert response_schema["additionalProperties"] is True
+
+    Draft7Validator.check_schema(response_schema)
+    validator = Draft7Validator(response_schema)
+
+    with_agent_id = {"session_id": "s1", "status": "created", "agent_id": "agt_01HZY8Q4"}
+    without_agent_id = {"session_id": "s1", "status": "created"}
+    explicit_null = {"session_id": "s1", "status": "created", "agent_id": None}
+
+    for payload in (with_agent_id, without_agent_id, explicit_null):
+        errors = list(validator.iter_errors(payload))
+        assert errors == [], f"Expected clean validation, got: {errors}"
+
+
 def _session_create_properties(document: dict[str, Any]) -> dict[str, Any]:
     """Locate the session-create request properties block."""
     node = document["paths"]["/api/v1/sessions"]["post"]["requestBody"]["content"]
+    return node["application/json"]["schema"]["properties"]
+
+
+def _session_create_response_properties(document: dict[str, Any]) -> dict[str, Any]:
+    """Locate the session-create 201 response properties block."""
+    node = document["paths"]["/api/v1/sessions"]["post"]["responses"]["201"]["content"]
     return node["application/json"]["schema"]["properties"]

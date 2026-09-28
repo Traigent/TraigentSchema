@@ -134,6 +134,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the existing detail route. `x-asserted-against-backend: false` (no SDK calls the
   underlying agent-lifecycle routes yet, so production volume through this bridge is
   expected to be near zero at launch).
+- **`POST /api/v1/sessions` response gains an optional, additive `agent_id`.**
+  The server already resolves the owning Agent row (`agents.id`) at session
+  create to persist the experiment record; this exposes that SAME resolution
+  in the create response instead of making the SDK re-derive or guess it, so
+  the SDK can promote a best config against the agent head via
+  compare-and-set (`POST /best-configs` with `X-Traigent-Agent-Id` +
+  `X-Traigent-Expected-Head-Generation`, `GET
+  /best-configs/agent-heads/<agent_id>`). Deliberately distinct from the
+  request's existing `agent_id` (a caller-declared free-text cohort-grouping
+  string, see `test_session_create_identity_schema.py`) and from
+  `agent_key` (the resolution key): the response field is the resolved row's
+  own primary key, `x-reference`'d to `agents/agent_schema.json#/properties/id`.
+  No new route, no second resolution path, no `required` entry added (the
+  201 response declares none today), so an old server that omits it stays
+  schema-valid.
+
 - **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
   verdict server-side).** The Backend computes
   each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving

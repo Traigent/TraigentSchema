@@ -8,7 +8,7 @@
   "entity_id": "link_tr_123_obs_llm_1_support",
   "data": {
     "prompt": {
-      "name": "langfuse.prompt.support",
+      "name": "acme.prompt.support",
       "version": 3,
       "label": "production"
     },

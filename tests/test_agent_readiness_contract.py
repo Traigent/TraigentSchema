@@ -357,6 +357,7 @@ def test_schema_files_are_valid_draft7_and_discoverable() -> None:
         "agent_readiness_portfolio_response_schema",
         "agent_readiness_detail_response_schema",
         "agent_readiness_error_schema",
+        "agent_lifecycle_history_response_schema",
     ):
         assert name in validator.available_schemas
         schema = json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8"))
@@ -990,6 +991,7 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
     assert set(paths) == {
         "/api/v1beta/projects/{project_id}/agent-readiness",
         "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}",
+        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history",
         "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
     }
     assert paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
@@ -1026,6 +1028,31 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
     assert paths[target_path]["post"]["responses"]["201"]["content"]["application/json"][
         "schema"
     ]["$ref"].endswith("agent_readiness_target_schema.json#/definitions/DeclaredTarget")
+
+    history_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history"
+    history_get = paths[history_path]["get"]
+    assert history_get["x-asserted-against-backend"] is False
+    assert history_get["responses"]["200"]["content"]["application/json"]["schema"][
+        "$ref"
+    ].endswith("agent_lifecycle_history_response_schema.json")
+    history_params = {p["name"]: p for p in history_get["parameters"]}
+    assert history_params["page"]["schema"] == {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647,
+        "default": 1,
+    }
+    assert history_params["per_page"]["schema"] == {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "default": 25,
+    }
+    for status in ("400", "401", "403", "404"):
+        assert history_get["responses"][status]["content"]["application/json"]["schema"][
+            "$ref"
+        ] == "./agent_readiness_error_schema.json"
+
     for path in paths.values():
         for operation in path.values():
             if not isinstance(operation, dict) or "responses" not in operation:
@@ -1044,6 +1071,9 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
                             )
                             or schema["$ref"].endswith(
                                 "agent_readiness_target_schema.json#/definitions/DeclaredTarget"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_lifecycle_history_response_schema.json"
                             )
                         )
                     else:
@@ -1093,5 +1123,6 @@ def test_response_objects_are_closed_and_forbidden_content_names_are_absent() ->
         "agent_readiness_common_schema",
         "agent_readiness_portfolio_response_schema",
         "agent_readiness_detail_response_schema",
+        "agent_lifecycle_history_response_schema",
     ):
         walk(json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8")))

@@ -10,16 +10,15 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 409
+      "refOrEndpointGraph": 411
     },
-    "reachableCount": 442,
-    "schemaFileCount": 484,
-    "unreachableCount": 42
+    "reachableCount": 444,
+    "schemaFileCount": 485,
+    "unreachableCount": 41
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
-    "agent_lifecycle_record/agent_lifecycle_common_schema.json",
     "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_measurement_contract_register_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",

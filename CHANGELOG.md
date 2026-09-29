@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OTel attribute contract v1** (`traigent_schema/data/observability/otel_attribute_contract_v1.json`):
+  shared by the Backend OTLP receiver and SDK exporters. Content-mode declaration
+  (`traigent.content_mode.v1`), content-key list, typed metadata allowlist, usage classes,
+  observation-type mapping and the OpenInference-vs-GenAI precedence table with vectors.
+  Additive data file; no existing schema changed.
 - **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
   resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
   under the wrong tenant; this route lets the frontend resolve the experiment's actual

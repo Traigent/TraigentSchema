@@ -1434,7 +1434,7 @@
       "rule": "minimum",
       "pointer_prefix": "#/properties/weight",
       "reason": "Replaces minimum: 0 with exclusiveMinimum: 0 to correctly enforce that objective weights must be strictly positive (>0, not >=0). Zero weight on an objective is meaningless in multi-objective optimization and should be rejected; this change prevents silent validation of invalid weight configurations. The breaking-schema-check tool does not dereference the substitution, reporting it as a constraint removal rather than a tightening, but the wire behavior is tightened as intended.",
-      "version": "5.9.0",
+      "version": "Unreleased",
       "pr": "#431"
     },
     {
@@ -5855,6 +5855,305 @@
       "reason": "Owner ruling 2026-09-28 (\"1A\"): a competitor's product name must not appear in our shipped source or contracts. The single witnessed workload_class enum member is renamed verbatim from mock_grid_no_integrations_no_analytics_no_langfuse to mock_grid_no_integrations_no_analytics_no_external_tracing -- same concept (mock-mode grid-search shape with no integrations, no analytics clients, no external tracing client), only the vendor-specific token is replaced with a neutral, generic name. No issued certificate ever carried the old literal, and no consumer references it: git grep -in no_langfuse @ origin/develop returns 0 hits in Traigent, traigent-js, TraigentFrontend, and traigent-smartopt; TraigentBackend's origin/develop still has 2 hits (its own vendored copy of this schema, and the WITNESSED_WORKLOAD_CLASS constant that stamps this value), both already renamed on TraigentBackend#3569, which this upstream rename unblocks via contract.installed_package_agreement. The frozen-v0 byte-identity gate (tests/test_agent_quality_v1_schema.py / tests/test_evaluator_quality_v1_schema.py, MERGE_BASE 3f0529c1ba94a21afbcee749d6543dd0c4778229) now carries its own disclosed, SHA-pinned exception for exactly this rename (tests/_frozen_signatures_exception.py: assert_workload_class_rename_exception), mirroring the existing D-T4.1 signatures-file exception; a negative control confirmed the frozen-v0 test still fails on any other v0 byte change.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, chore/neutral-workload-class-naming branch, not yet opened)"
+    },
+    {
+        "file": "costs/cost_user_usage_item_schema.json",
+        "rule": "enum",
+        "findings": [
+            {
+                "pointer": "#/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "93506d747b71c4d2947b3df42e6123bacda69d88cb78b4c5758be890724853a2"
+            }
+        ],
+        "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+        "version": "Unreleased",
+        "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+        "file": "costs/cost_user_usage_item_schema.json",
+        "rule": "property_added",
+        "findings": [
+            {
+                "pointer": "#/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "28e8ede76b62d10647204906ddda17c84aedef29788d36662f938b0b3db2a64a"
+            }
+        ],
+        "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+        "version": "Unreleased",
+        "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+        "file": "observability/observation_ingest_schema.json",
+        "rule": "enum",
+        "findings": [
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "a287783e7a5e1d59bc5217b8df09bba840807e7d51c9b3dc15f3a93fa45a5992"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "240a29a4b4c55b46bc664d1721e164bbbcf2746941736ba7f7bad3f78e21c303"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "1516caeb3f438ed5d43fe2711ba9efdf98401fc6b27b2d204105e2e52c8af342"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "9b0a1c14867cbc585d9604d1b9407d897b4b5ddeb840d9a2fec186ebea93381b"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "745d21f7fc521b1162c40ee14a7a385d2d6bb31b238f25bdd69cc89705b98e3d"
+            },
+            {
+                "pointer": "#/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "62dc2f67086a4844ea36d8bdcfc0fe632cee320abfaff0b8db51aa62948917bd"
+            }
+        ],
+        "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+        "version": "Unreleased",
+        "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+        "file": "observability/observation_ingest_schema.json",
+        "rule": "property_added",
+        "findings": [
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "748ee6ebb270a30e94b7293b444e63c01e3f23010b36c2b0e936f2ae8660a9e9"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "72dcf3f8c76d1176040c322676e8349c140e1b6666f18c97fcbc0674e7682cf6"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "397630fa0b22a0a72cc64e6ef0bb4a1196ef08aebc13d3ee3eabd0264f6fc8f0"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/children/items/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "50699d13a1859407dbd520560fa7df24ee27721d8f3278c3cce8d43a2673b56e"
+            },
+            {
+                "pointer": "#/properties/children/items/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "c729a1e55c1e6e934908a582473ce4e681b4ec53c1963db87c1621ce7cc5d2c2"
+            },
+            {
+                "pointer": "#/properties/reasoning_tokens",
+                "role": "conservative",
+                "subject": "reasoning_tokens",
+                "old": false,
+                "new": true,
+                "fingerprint": "2ba1206adcb1d879e7f0396e036baeb370c589aa14f5f763073106c3c7205782"
+            }
+        ],
+        "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+        "version": "Unreleased",
+        "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+        "file": "observability/observation_schema.json",
+        "rule": "enum",
+        "findings": [
+            {
+                "pointer": "#/properties/children/items/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "a92a70c1ea348e4a29db83b1d3197165f91dbe9808a07b59cd8ba10f826dec89"
+            },
+            {
+                "pointer": "#/properties/unreported_usage_fields/items",
+                "role": "conservative",
+                "subject": {
+                    "direction": "added",
+                    "values": [
+                        "\"reasoning_tokens\""
+                    ]
+                },
+                "old": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\""
+                ],
+                "new": [
+                    "\"cache_creation_tokens\"",
+                    "\"cache_creation_tokens_by_ttl\"",
+                    "\"cache_read_tokens\"",
+                    "\"reasoning_tokens\""
+                ],
+                "fingerprint": "ae3cefb33acb43d24e1f5c32466681ed2b405c357eee21b7ef1eba0da8a738f1"
+            }
+        ],
+        "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+        "version": "Unreleased",
+        "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
     }
   ]
 }

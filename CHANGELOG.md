@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cost-accounting usage and read fields (additive, nullable).** New canonical
+  `ReasoningTokens` (nullable integer, absent is not zero) on the observation read
+  schema, all six `observation_ingest_schema.json` depth levels and the cost usage
+  item; `reasoning_tokens` joins the `unreported_usage_fields` vocabulary (that is
+  the existing name of the "which usage fields were withheld" list from #382; no
+  second `withheld_usage_fields` spelling is introduced). The observation read
+  schema gains optional server-computed `cost_status`
+  (`priced|unpriced|partial|not_applicable`), `cost_source`
+  (`declared|computed|none`), `cost_usd_declared`, `cost_usd_computed`,
+  `priced_cost_usd`, `priced_model`, `price_catalogue_version`. Documented FUTURE
+  change, not made here (owner decision pending): trace-level `total_cost_usd`
+  becoming nullable.
 - **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
   resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
   under the wrong tenant; this route lets the frontend resolve the experiment's actual

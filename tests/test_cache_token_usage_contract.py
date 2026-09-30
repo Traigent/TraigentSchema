@@ -27,7 +27,7 @@ CANONICAL_DEFINITIONS = (
 )
 
 CACHE_FIELDS = ("cache_read_tokens", "cache_creation_tokens")
-USAGE_STATUS_FIELDS = (*CACHE_FIELDS, "cache_creation_tokens_by_ttl")
+USAGE_STATUS_FIELDS = (*CACHE_FIELDS, "cache_creation_tokens_by_ttl", "reasoning_tokens")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 

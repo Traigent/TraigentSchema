@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Backend already serializes null, so the Schema now describes shipped behaviour.
   No `cost_source` is defined for trace/session/summary because the Backend does not emit
   one there. Backend/FE/SDK consumers must treat null as unknown, never zero.
+- **Observability summary `activity_trend[]` cost and status (additive, nullable).**
+  Each `activity_trend` bucket in `project_scoped_observability_summary_dashboard_schema.json`
+  now declares a nullable `total_cost_usd` (number|null, >=0; null when the bucket's cost is
+  unknown, never 0) and an optional `cost_status`
+  (`priced|unpriced|partial|not_applicable`, `CostRollupStatus`). Consumers must treat
+  null as unknown, never zero. The breaking-schema allowlist entries for this change were
+  added by the owner.
 
 ### Changed
 - **Observation `input_tokens` / `output_tokens` are nullable (MT3-07).** null means the

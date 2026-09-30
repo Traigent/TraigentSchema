@@ -180,3 +180,38 @@ def test_analytics_summary_rejects_bad_status_and_negative_totals():
     assert v.validate_json(_summary({**good, "cost_status": "free"}, []), name) != []
     assert v.validate_json(_summary({**good, "total_cost_usd": -1}, []), name) != []
     assert v.validate_json(_summary(good, [_top("bogus", 1.0)]), name) != []
+
+
+def _bucket(status, total, **extra):
+    return {
+        "bucket_start": TS,
+        "bucket_label": "2026-09-30",
+        "traces": 2,
+        "observations": 4,
+        "total_cost_usd": total,
+        "cost_status": status,
+        "priced_cost_usd": 0.004,
+        "unpriced_trace_count": 0 if status in ("priced", "not_applicable") else 1,
+        "total_tokens": 10,
+        **extra,
+    }
+
+
+@pytest.mark.parametrize(
+    "status,total",
+    [("priced", 1.25), ("partial", None), ("unpriced", None), ("not_applicable", None)],
+)
+def test_activity_trend_bucket_cost_rollup_validates(status, total):
+    doc = _summary({"total_cost_usd": 1.0, "total_cost_usd_in_range": 1.0, "cost_status": "priced"}, [])
+    doc["activity_trend"] = [_bucket(status, total)]
+    name = "project_scoped_observability_summary_dashboard_schema"
+    assert SchemaValidator().validate_json(doc, name) == []
+
+
+def test_activity_trend_rejects_bad_bucket_cost_values():
+    v = SchemaValidator()
+    name = "project_scoped_observability_summary_dashboard_schema"
+    for bad in ({"cost_status": "free"}, {"total_cost_usd": -1}, {"unpriced_trace_count": -1}):
+        doc = _summary({"total_cost_usd": 1.0, "total_cost_usd_in_range": 1.0, "cost_status": "priced"}, [])
+        doc["activity_trend"] = [_bucket("priced", 1.0, **bad)]
+        assert v.validate_json(doc, name) != []

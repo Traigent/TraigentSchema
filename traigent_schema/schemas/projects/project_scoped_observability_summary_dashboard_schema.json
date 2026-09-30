@@ -72,7 +72,10 @@
           "bucket_label": { "type": "string" },
           "traces": { "type": "integer", "minimum": 0 },
           "observations": { "type": "integer", "minimum": 0 },
-          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "total_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Bucket cost in USD; null unless every counted trace in the bucket is fully priced (null means unknown, never zero)." },
+          "cost_status": { "$ref": "../common_types_schema.json#/definitions/CostRollupStatus" },
+          "priced_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Priced portion of the bucket cost; a lower bound when cost_status is not priced." },
+          "unpriced_trace_count": { "type": "integer", "minimum": 0, "description": "Traces in the bucket whose cost_status is unpriced or partial." },
           "total_tokens": { "type": "integer", "minimum": 0 }
         },
         "required": [

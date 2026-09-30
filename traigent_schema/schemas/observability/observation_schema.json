@@ -26,7 +26,7 @@
     "cache_creation_tokens_by_ttl": { "$ref": "../common_types_schema.json#/definitions/CacheCreationTokensByTtl" },
     "reasoning_tokens": { "$ref": "../common_types_schema.json#/definitions/ReasoningTokens" },
     "unreported_usage_fields": { "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields" },
-    "cost_usd": { "type": "number", "minimum": 0 },
+    "cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Observation cost in USD; null when the cost is unknown (cost_status unpriced or partial). Never 0 for unknown." },
     "cost_status": { "$ref": "../common_types_schema.json#/definitions/ObservationCostStatus" },
     "cost_source": { "$ref": "../common_types_schema.json#/definitions/ObservationCostSource" },
     "cost_usd_declared": { "type": ["number", "null"], "minimum": 0, "description": "Cost the caller declared for this observation; null when none was declared. Stored alongside cost_usd_computed; never overwritten by the server." },

@@ -124,6 +124,26 @@ def test_read_schema_cost_fields_validate_and_reject_bad_status():
     assert validator.validate_json({**base, "cost_usd_computed": -1}, "observation_schema") != []
 
 
+def test_backend_shaped_unpriced_and_partial_observations_validate():
+    """The backend emits cost_usd: null for unpriced/partial observations."""
+    validator = SchemaValidator()
+    base = {"id": "o", "type": "generation", "name": "n", "cost_usd": None}
+    unpriced = {
+        **base,
+        "cost_status": "unpriced",
+        "cost_source": "none",
+        "cost_usd_declared": None,
+        "cost_usd_computed": None,
+        "priced_cost_usd": None,
+    }
+    partial = {**unpriced, "cost_status": "partial", "cost_source": "computed", "priced_cost_usd": 0.001}
+    assert validator.validate_json(unpriced, "observation_schema") == []
+    assert validator.validate_json(partial, "observation_schema") == []
+    # nullability is the only widening: a negative or non-numeric cost_usd is still rejected
+    assert validator.validate_json({**base, "cost_usd": -1}, "observation_schema") != []
+    assert validator.validate_json({**base, "cost_usd": "1"}, "observation_schema") != []
+
+
 def test_total_cost_usd_contract_is_unchanged_by_this_change():
     """Nullable trace/session total_cost_usd is a documented FUTURE change (owner)."""
     session = _schema("observability", "session_schema.json")["properties"]["total_cost_usd"]

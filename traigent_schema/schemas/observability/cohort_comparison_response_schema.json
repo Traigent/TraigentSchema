@@ -26,7 +26,9 @@
               "sample_count": { "type": "integer", "minimum": 0 },
               "mean": { "type": ["number", "null"] },
               "median": { "type": ["number", "null"] },
-              "p95": { "type": ["number", "null"] }
+              "p95": { "type": ["number", "null"] },
+              "unknown_count": { "type": "integer", "minimum": 0, "description": "cost_usd only: number of traces whose cost is unknown; they are excluded from the statistics, never averaged as 0." },
+              "cost_status": { "$ref": "../common_types_schema.json#/definitions/CostRollupStatus" }
             },
             "required": ["metric", "sample_count", "mean", "median", "p95"]
           }

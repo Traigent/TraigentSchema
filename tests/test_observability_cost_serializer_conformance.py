@@ -250,3 +250,64 @@ def test_activity_trend_rejects_bad_bucket_cost_values():
         doc = _summary({"total_cost_usd": 1.0, "total_cost_usd_in_range": 1.0, "cost_status": "priced"}, [])
         doc["activity_trend"] = [_bucket("priced", 1.0, **bad)]
         assert v.validate_json(doc, name) != []
+
+
+# --- tool analysis / cohort comparison producer payloads (Sol 6.1 P1-2) ---------------------
+
+def _tool_item(total, status, priced, unpriced):
+    return {
+        "normalized_tool_id": "search", "trace_count": 2, "attempt_count": 3,
+        "success_count": 3, "failure_count": 0, "retry_count": 0, "fallback_count": 0,
+        "failure_rate": 0.0, "retry_rate": 0.0, "fallback_rate": 0.0,
+        "p50_latency_ms": 10.0, "p95_latency_ms": 12.0,
+        "total_cost_usd": total, "cost_status": status, "priced_cost_usd": priced,
+        "unpriced_attempt_count": unpriced, "issue_ids": [],
+    }
+
+
+TOOL_ITEMS = {
+    "priced": _tool_item(0.03, "priced", 0.03, 0),
+    "partial": _tool_item(None, "partial", 0.02, 1),
+    "unpriced": _tool_item(None, "unpriced", 0.0, 3),
+}
+
+
+def _tool_response(item):
+    return {"project_id": "p1", "start_time": TS, "end_time": TS, "items": [item], "generated_at": TS}
+
+
+@pytest.mark.parametrize("name", sorted(TOOL_ITEMS))
+def test_tool_analysis_cost_shapes_validate(name):
+    assert SchemaValidator().validate_json(_tool_response(TOOL_ITEMS[name]), "tool_analysis_response_schema") == []
+
+
+def test_tool_analysis_rejects_bad_cost_and_unknown_fields():
+    v = SchemaValidator()
+    item = TOOL_ITEMS["partial"]
+    assert v.validate_json(_tool_response({**item, "cost_status": "free"}), "tool_analysis_response_schema") != []
+    assert v.validate_json(_tool_response({**item, "total_cost_usd": -1}), "tool_analysis_response_schema") != []
+    assert v.validate_json(_tool_response({**item, "surprise": 1}), "tool_analysis_response_schema") != []
+
+
+def _cohort(cost_metric):
+    return {"trace_count": 3, "metrics": [cost_metric]}
+
+
+COHORT_METRICS = {
+    "priced": {"metric": "cost_usd", "sample_count": 3, "mean": 0.01, "median": 0.01, "p95": 0.02,
+               "unknown_count": 0, "cost_status": "priced"},
+    "partial": {"metric": "cost_usd", "sample_count": 2, "mean": None, "median": None, "p95": None,
+                "unknown_count": 1, "cost_status": "partial"},
+    "unpriced": {"metric": "cost_usd", "sample_count": 0, "mean": None, "median": None, "p95": None,
+                 "unknown_count": 3, "cost_status": "unpriced"},
+}
+
+
+@pytest.mark.parametrize("name", sorted(COHORT_METRICS))
+def test_cohort_comparison_cost_shapes_validate(name):
+    payload = {
+        "project_id": "p1", "reference": _cohort(COHORT_METRICS[name]),
+        "comparison": _cohort(COHORT_METRICS[name]), "matched_pair_count": 0,
+        "deltas": [], "generated_at": TS,
+    }
+    assert SchemaValidator().validate_json(payload, "cohort_comparison_response_schema") == []

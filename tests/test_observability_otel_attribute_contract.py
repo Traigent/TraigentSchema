@@ -25,7 +25,7 @@ CONTRACT_PATH = (
 )
 PROVENANCE = ROOT / "docs" / "observability" / "otel_attribute_contract_v1.md"
 # Consumers pin this. Changing the contract means bumping it here deliberately.
-CONTRACT_SHA256 = "6515d3e0c8c7a758189bfd156fc18362df9ad492ec5db35b817b62f6263da962"
+CONTRACT_SHA256 = "ca27ffe64b71af0a2dfa1f35343a53448ae080beeb93ed17cca2d2e6fab4bc91"
 
 
 def _load() -> dict:
@@ -70,9 +70,47 @@ def map_observation_type(contract: dict, attributes: dict) -> str:
     if isinstance(kind, str) and kind in m["openinference_span_kind"]:
         return m["openinference_span_kind"][kind]
     for fb in m["fallback_attributes"]:
-        if fb["if_present"] in attributes:
+        value = attributes.get(fb["if_present"])
+        if isinstance(value, str) and value:
             return fb["type"]
     return m["default"]
+
+
+def resolve_content_mode(contract: dict, configured: str, declared: dict) -> str:
+    """Reference resolver: absent inherits, invalid fails closed, valid never loosens."""
+    cm = contract["content_mode"]
+    if not declared["present"]:
+        return configured
+    value = declared.get("value")
+    if not isinstance(value, str) or value not in cm["values"]:
+        return cm["default_when_missing_invalid_or_conflicting"]
+    order = cm["restrictiveness_order_most_to_least"]
+    return order[min(order.index(configured), order.index(value))]
+
+
+def normalise_usage(contract: dict, vector: dict) -> dict:
+    """Reference normaliser: inclusive wire usage to canonical disjoint buckets, once."""
+    semantics = vector.get("semantics")
+    marker = contract["usage_classes"]["semantics_marker"]
+    if semantics not in marker["values"]:
+        semantics = marker["default_when_absent"]
+    cr, cw, rs = vector["cache_read"], vector["cache_write"], vector["reasoning"]
+    inp, out = vector["input"], vector["output"]
+    if semantics == "inclusive":
+        fresh = inp - cr - cw
+        total_out = out
+        if fresh < 0 or rs > total_out:
+            fresh = None
+    else:
+        fresh = inp
+        total_out = out + rs
+    return {
+        "input_fresh": fresh,
+        "cache_read": cr,
+        "cache_write": cw,
+        "output_total": total_out,
+        "reasoning": rs,
+    }
 
 
 def validate_contract(c: dict) -> list[str]:
@@ -109,6 +147,28 @@ def validate_contract(c: dict) -> list[str]:
         errs.append("usage classes")
     if set(c["usage_classes"]["attributes"]) != set(c["usage_classes"]["classes"]):
         errs.append("usage attribute classes mismatch")
+    if c["usage_classes"].get("wire_semantics") != "inclusive":
+        errs.append("usage wire semantics must be inclusive")
+    usage_keys = {k for names in c["usage_classes"]["attributes"].values() for k in names}
+    usage_keys |= set(c["usage_classes"]["total_tokens"])
+    for k in sorted(usage_keys):
+        spec = allow.get(k)
+        if spec is None:
+            errs.append(f"usage key missing from metadata egress set: {k}")
+        elif (
+            spec.get("type") != "non_negative_integer"
+            or "minimum" not in spec
+            or "maximum" not in spec
+        ):
+            errs.append(f"usage key must be a bounded non_negative_integer: {k}")
+    marker = c["usage_classes"].get("semantics_marker", {})
+    if marker.get("attribute") not in allow:
+        errs.append("usage semantics marker must be in the metadata egress set")
+    if c["content_mode"]["resource_attribute"] not in allow:
+        errs.append("content mode declaration must be in the metadata egress set")
+    for name, spec in allow.items():
+        if "type" not in spec:
+            errs.append(f"egress entry without type: {name}")
     types = _observation_types()
     m = c["observation_type_mapping"]
     targets = set(m["gen_ai_operation_name"].values()) | set(m["openinference_span_kind"].values())
@@ -147,6 +207,69 @@ def test_precedence_vectors(vector):
 )
 def test_observation_type_vectors(vector):
     assert map_observation_type(_load(), vector["attributes"]) == vector["expected"]
+
+
+@pytest.mark.parametrize(
+    "vector", _load()["content_mode"]["resolution_vectors"], ids=lambda v: v["id"]
+)
+def test_content_mode_resolution_vectors(vector):
+    got = resolve_content_mode(_load(), vector["configured"], vector["declared"])
+    assert got == vector["expected"]
+
+
+@pytest.mark.parametrize(
+    "vector", _load()["usage_classes"]["normalisation_vectors"], ids=lambda v: v["id"]
+)
+def test_usage_normalisation_vectors(vector):
+    assert normalise_usage(_load(), vector) == vector["expected"]
+
+
+def test_inclusive_and_disjoint_representations_agree():
+    c = _load()
+    vecs = {v["id"]: v for v in c["usage_classes"]["normalisation_vectors"]}
+    a = normalise_usage(c, vecs["inclusive_cache_read_subtracted"])
+    b = normalise_usage(c, vecs["disjoint_same_usage_same_result"])
+    assert (
+        a
+        == b
+        == {
+            "input_fresh": 60,
+            "cache_read": 40,
+            "cache_write": 0,
+            "output_total": 50,
+            "reasoning": 0,
+        }
+    )
+
+
+def test_content_mode_vectors_cover_absent_invalid_and_each_valid_value():
+    c = _load()
+    vecs = c["content_mode"]["resolution_vectors"]
+    assert any(not v["declared"]["present"] for v in vecs)
+    for mode in c["content_mode"]["values"]:
+        assert any(v["declared"].get("value") == mode for v in vecs)
+    invalid = [
+        v
+        for v in vecs
+        if v["declared"]["present"] and v["declared"]["value"] not in c["content_mode"]["values"]
+    ]
+    assert {type(v["declared"]["value"]).__name__ for v in invalid} >= {
+        "str",
+        "NoneType",
+        "int",
+        "bool",
+    }
+    assert all(v["expected"] == "metadata" for v in invalid)
+
+
+def test_fallback_vectors_cover_null_empty_boolean_number():
+    ids = {v["id"] for v in _load()["observation_type_mapping"]["vectors"]}
+    assert {
+        "fallback_null_falls_through",
+        "fallback_empty_string_falls_through",
+        "fallback_boolean_falls_through",
+        "fallback_number_falls_through",
+    } <= ids
 
 
 def test_every_precedence_field_has_a_vector():
@@ -223,7 +346,9 @@ def test_nc_swapped_precedence_changes_vector_result():
 
 def test_nc_explicit_allowed_values_drift_rejected():
     assert _mut(
-        lambda c: c["observation_type_mapping"]["explicit_attribute"]["allowed_values"].append("llm")
+        lambda c: c["observation_type_mapping"]["explicit_attribute"]["allowed_values"].append(
+            "llm"
+        )
     )
 
 
@@ -244,3 +369,60 @@ def test_nc_explicit_losing_to_genai_changes_vector_result():
         if v["id"] == "explicit_wins_over_genai_operation"
     )
     assert map_observation_type(c, vec["attributes"]) != vec["expected"]
+
+
+def test_nc_usage_key_missing_from_egress_set_rejected():
+    assert _mut(
+        lambda c: c["metadata_allowlist"]["attributes"].pop(
+            "llm.token_count.prompt_details.cache_read"
+        )
+    )
+
+
+def test_nc_usage_key_wrong_type_rejected():
+    assert _mut(
+        lambda c: c["metadata_allowlist"]["attributes"]["gen_ai.usage.input_tokens"].update(
+            {"type": "string"}
+        )
+    )
+
+
+def test_nc_wire_semantics_disjoint_rejected():
+    assert _mut(lambda c: c["usage_classes"].update({"wire_semantics": "disjoint"}))
+
+
+def test_nc_invalid_declaration_not_failing_closed_changes_vector_result():
+    c = copy.deepcopy(_load())
+    c["content_mode"]["default_when_missing_invalid_or_conflicting"] = "record"
+    vec = next(
+        v
+        for v in c["content_mode"]["resolution_vectors"]
+        if v["id"] == "invalid_unknown_string_under_record"
+    )
+    assert resolve_content_mode(c, vec["configured"], vec["declared"]) != vec["expected"]
+
+
+def test_nc_subtracting_twice_changes_vector_result():
+    c = _load()
+    vec = dict(
+        next(
+            v
+            for v in c["usage_classes"]["normalisation_vectors"]
+            if v["id"] == "disjoint_same_usage_same_result"
+        )
+    )
+    vec["semantics"] = "inclusive"
+    assert normalise_usage(c, vec) != vec["expected"]
+
+
+def test_nc_presence_only_fallback_changes_vector_result():
+    vec = next(
+        v
+        for v in _load()["observation_type_mapping"]["vectors"]
+        if v["id"] == "fallback_null_falls_through"
+    )
+    assert any(
+        fb["if_present"] in vec["attributes"]
+        for fb in _load()["observation_type_mapping"]["fallback_attributes"]
+    )
+    assert vec["expected"] == "span"  # a presence-only check would return "generation"

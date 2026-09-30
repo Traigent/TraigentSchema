@@ -27,7 +27,7 @@ CANONICAL_DEFINITIONS = (
 )
 
 CACHE_FIELDS = ("cache_read_tokens", "cache_creation_tokens")
-USAGE_STATUS_FIELDS = (*CACHE_FIELDS, "cache_creation_tokens_by_ttl", "reasoning_tokens")
+USAGE_STATUS_FIELDS = (*CACHE_FIELDS, "cache_creation_tokens_by_ttl")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -150,7 +150,7 @@ def test_unreported_usage_fields_is_closed_unique_runtime_metadata():
         "UnreportedUsageFields"
     ]
 
-    assert definition["items"]["enum"] == list(USAGE_STATUS_FIELDS)
+    assert definition["items"]["enum"] == [*USAGE_STATUS_FIELDS, "reasoning_tokens"]
     assert definition["uniqueItems"] is True
     assert definition["x-privacy-classification"] == "sdk_runtime_metadata"
 

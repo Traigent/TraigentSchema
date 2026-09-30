@@ -99,7 +99,7 @@
     "ObservationCostStatus": {
       "type": "string",
       "enum": ["priced", "unpriced", "partial", "not_applicable"],
-      "description": "Server-computed cost state of one observation. priced: every reported token class has a price row and cost is known. unpriced: no usable price row (unknown or ambiguous model, or a token class with no price) -- cost is UNKNOWN, never zero. partial: some token classes were priced and at least one was not; priced_cost_usd carries the priced portion only. not_applicable: the observation carries no usage to price."
+      "description": "Completeness of the cost DISPLAYED for one observation (cost_usd); cost_source says where that cost came from (declared, computed or none), so a status does not by itself imply server pricing. priced: the displayed cost is complete and known (server-computed from a catalogue, or caller-declared when server computation is partial or unavailable). unpriced: no usable price row (unknown or ambiguous model, or a token class with no price) -- cost is UNKNOWN, never zero. partial: the displayed cost covers only some of the usage (some token classes priced, at least one not); priced_cost_usd carries the server-priced portion only. not_applicable: the observation carries no usage to price."
     },
     "CostRollupStatus": {
       "type": "string",

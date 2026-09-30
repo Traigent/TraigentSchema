@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Observation cost contract review fixes**: `cost_status` now documents the completeness of the displayed cost (with `cost_source` as provenance; `priced` no longer implies server pricing, and `priced_cost_usd` need not equal `cost_usd` for declared costs); new optional boolean `cost_mismatch` on observations; declared-cost and mismatch conformance tests.
 - **Cost-accounting usage and read fields (additive, nullable).** New canonical
   `ReasoningTokens` (nullable integer, absent is not zero) on the observation read
   schema, all six `observation_ingest_schema.json` depth levels and the cost usage

@@ -93,6 +93,41 @@ def test_observation_priced_partial_unpriced_validate():
         assert v.validate_json(obs, "observation_schema") == []
 
 
+def test_declared_cost_with_partial_or_unavailable_computation_validates():
+    """cost_status describes the displayed cost; cost_source is provenance (declared)."""
+    v = SchemaValidator()
+    declared_unavailable = _observation(
+        cost_usd=0.002,
+        cost_status="priced",
+        cost_source="declared",
+        cost_usd_declared=0.002,
+        cost_usd_computed=None,
+        priced_cost_usd=None,
+    )
+    declared_partial = _observation(
+        cost_usd=0.002,
+        cost_status="priced",
+        cost_source="declared",
+        cost_usd_declared=0.002,
+        cost_usd_computed=None,
+        priced_cost_usd=0.0005,
+    )
+    for obs in (declared_unavailable, declared_partial):
+        assert v.validate_json(obs, "observation_schema") == []
+        assert obs["priced_cost_usd"] != obs["cost_usd"]
+
+
+def test_cost_mismatch_true_false_omitted_and_string_rejected():
+    v = SchemaValidator()
+    base = _observation(cost_status="priced", cost_source="declared", cost_usd_declared=0.001)
+    assert v.validate_json({**base, "cost_mismatch": True}, "observation_schema") == []
+    assert v.validate_json({**base, "cost_mismatch": False}, "observation_schema") == []
+    assert v.validate_json(base, "observation_schema") == []
+    assert "cost_mismatch" not in base
+    assert v.validate_json({**base, "cost_mismatch": "true"}, "observation_schema") != []
+    assert v.validate_json({**base, "cost_mismatch": None}, "observation_schema") != []
+
+
 def test_non_usage_span_reports_null_tokens_not_zero():
     """OTLP tool/agent/chain/span observations carry no usage: tokens are null (MT3-07)."""
     v = SchemaValidator()

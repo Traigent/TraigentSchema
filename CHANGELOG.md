@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`traigent.content_mode.v1`), content-key list, typed metadata allowlist, usage classes,
   observation-type mapping and the OpenInference-vs-GenAI precedence table with vectors.
   Additive data file; no existing schema changed.
+- **OTel contract: `traigent.observation_type`** — typed metadata allowlist entry plus first-precedence
+  explicit observation-type mapping (valid enum members only; invalid values fall back to the existing
+  mapping) with executable vectors. Consumers must re-vendor the file and update their sha256 pin.
 - **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
   resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
   under the wrong tenant; this route lets the frontend resolve the experiment's actual

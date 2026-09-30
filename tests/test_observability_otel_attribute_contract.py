@@ -25,7 +25,7 @@ CONTRACT_PATH = (
 )
 PROVENANCE = ROOT / "docs" / "observability" / "otel_attribute_contract_v1.md"
 # Consumers pin this. Changing the contract means bumping it here deliberately.
-CONTRACT_SHA256 = "d4b260cabc3b45b00e0369ca2a70a7139981746d0c26670b04bcda8a2aa5aad0"
+CONTRACT_SHA256 = "6515d3e0c8c7a758189bfd156fc18362df9ad492ec5db35b817b62f6263da962"
 
 
 def _load() -> dict:
@@ -54,6 +54,25 @@ def resolve(contract: dict, field: str, attributes: dict):
             continue
         return value
     return None
+
+
+def map_observation_type(contract: dict, attributes: dict) -> str:
+    """Reference mapper: explicit traigent.observation_type (valid enum member) wins."""
+    m = contract["observation_type_mapping"]
+    ex = m["explicit_attribute"]
+    explicit = attributes.get(ex["name"])
+    if isinstance(explicit, str) and explicit in ex["allowed_values"]:
+        return explicit
+    op = attributes.get("gen_ai.operation.name")
+    if isinstance(op, str) and op in m["gen_ai_operation_name"]:
+        return m["gen_ai_operation_name"][op]
+    kind = attributes.get("openinference.span.kind")
+    if isinstance(kind, str) and kind in m["openinference_span_kind"]:
+        return m["openinference_span_kind"][kind]
+    for fb in m["fallback_attributes"]:
+        if fb["if_present"] in attributes:
+            return fb["type"]
+    return m["default"]
 
 
 def validate_contract(c: dict) -> list[str]:
@@ -96,6 +115,13 @@ def validate_contract(c: dict) -> list[str]:
     targets |= {f["type"] for f in m["fallback_attributes"]} | {m["default"]}
     if not targets <= types:
         errs.append(f"unknown observation types: {sorted(targets - types)}")
+    ex = m["explicit_attribute"]
+    if ex["name"] != "traigent.observation_type" or m["evaluation_order"][0] != ex["name"]:
+        errs.append("explicit observation type must be first in evaluation_order")
+    if set(ex["allowed_values"]) != types:
+        errs.append("explicit allowed_values must equal the ingest schema observation types")
+    if ex["name"] not in allow:
+        errs.append("explicit observation type attribute must be allowlisted metadata")
     for src in c["sources"]:
         if not src.get("url", "").startswith("https://") or not src.get("purpose"):
             errs.append("source provenance incomplete")
@@ -114,6 +140,13 @@ def test_contract_digest_is_pinned():
 @pytest.mark.parametrize("vector", _load()["precedence"]["vectors"], ids=lambda v: v["id"])
 def test_precedence_vectors(vector):
     assert resolve(_load(), vector["field"], vector["attributes"]) == vector["expected"]
+
+
+@pytest.mark.parametrize(
+    "vector", _load()["observation_type_mapping"]["vectors"], ids=lambda v: v["id"]
+)
+def test_observation_type_vectors(vector):
+    assert map_observation_type(_load(), vector["attributes"]) == vector["expected"]
 
 
 def test_every_precedence_field_has_a_vector():
@@ -186,3 +219,28 @@ def test_nc_swapped_precedence_changes_vector_result():
         v for v in c["precedence"]["vectors"] if v["id"] == "genai_beats_openinference_model"
     )
     assert resolve(c, vec["field"], vec["attributes"]) != vec["expected"]
+
+
+def test_nc_explicit_allowed_values_drift_rejected():
+    assert _mut(
+        lambda c: c["observation_type_mapping"]["explicit_attribute"]["allowed_values"].append("llm")
+    )
+
+
+def test_nc_explicit_not_first_rejected():
+    assert _mut(lambda c: c["observation_type_mapping"]["evaluation_order"].reverse())
+
+
+def test_nc_explicit_not_allowlisted_rejected():
+    assert _mut(lambda c: c["metadata_allowlist"]["attributes"].pop("traigent.observation_type"))
+
+
+def test_nc_explicit_losing_to_genai_changes_vector_result():
+    c = copy.deepcopy(_load())
+    c["observation_type_mapping"]["explicit_attribute"]["name"] = "traigent.other"
+    vec = next(
+        v
+        for v in c["observation_type_mapping"]["vectors"]
+        if v["id"] == "explicit_wins_over_genai_operation"
+    )
+    assert map_observation_type(c, vec["attributes"]) != vec["expected"]

@@ -2,8 +2,8 @@
 
 Pins: reasoning_tokens as a nullable usage class on every usage surface; the
 unreported-usage vocabulary naming it; and the additive read-side cost fields on
-the observation read schema.  ``total_cost_usd`` nullability is a documented
-FUTURE change (owner decision pending) and must NOT change here.
+the observation read schema; and nullable ``total_cost_usd`` on trace/session (the Backend
+ships null for unknown cost, so the Schema describes it).
 """
 
 import json
@@ -144,8 +144,10 @@ def test_backend_shaped_unpriced_and_partial_observations_validate():
     assert validator.validate_json({**base, "cost_usd": "1"}, "observation_schema") != []
 
 
-def test_total_cost_usd_contract_is_unchanged_by_this_change():
-    """Nullable trace/session total_cost_usd is a documented FUTURE change (owner)."""
-    session = _schema("observability", "session_schema.json")["properties"]["total_cost_usd"]
-    assert session == {"type": ["number", "null"], "minimum": 0}
-    assert "total_cost_usd" not in _schema("observability", "trace_schema.json")["properties"]
+def test_total_cost_usd_is_nullable_on_trace_and_session():
+    """Owner-deferred decision now made: the Backend ships null for unknown cost."""
+    for name in ("session_schema.json", "trace_schema.json"):
+        props = _schema("observability", name)["properties"]
+        assert props["total_cost_usd"]["type"] == ["number", "null"], name
+        assert props["total_cost_usd"]["minimum"] == 0, name
+        assert "total_cost_usd" not in _schema("observability", name).get("required", []), name

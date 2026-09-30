@@ -101,6 +101,11 @@
       "enum": ["priced", "unpriced", "partial", "not_applicable"],
       "description": "Server-computed cost state of one observation. priced: every reported token class has a price row and cost is known. unpriced: no usable price row (unknown or ambiguous model, or a token class with no price) -- cost is UNKNOWN, never zero. partial: some token classes were priced and at least one was not; priced_cost_usd carries the priced portion only. not_applicable: the observation carries no usage to price."
     },
+    "CostRollupStatus": {
+      "type": "string",
+      "enum": ["priced", "unpriced", "partial", "not_applicable"],
+      "description": "Server-computed cost state of a trace, session or analytics rollup (same vocabulary as ObservationCostStatus). priced: total_cost_usd is known. unpriced: cost is UNKNOWN and total_cost_usd is null, never 0. partial: some cost is priced and some is not; total_cost_usd is null and priced_cost_usd carries a lower bound (\"at least\"). not_applicable: nothing to price. A row that carries no cost_status is a legacy row whose numeric total is caller-declared."
+    },
     "ObservationCostSource": {
       "type": "string",
       "enum": ["declared", "computed", "none"],

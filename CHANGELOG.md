@@ -17,9 +17,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schema gains optional server-computed `cost_status`
   (`priced|unpriced|partial|not_applicable`), `cost_source`
   (`declared|computed|none`), `cost_usd_declared`, `cost_usd_computed`,
-  `priced_cost_usd`, `priced_model`, `price_catalogue_version`. Documented FUTURE
-  change, not made here (owner decision pending): trace-level `total_cost_usd`
-  becoming nullable.
+  `priced_cost_usd`, `priced_model`, `price_catalogue_version`.
+- **Trace, session and analytics-summary cost fields (MT3-06; nullable `total_cost_usd`
+  now made).** `trace_schema.json` and `session_schema.json` declare `total_cost_usd`
+  (number|null, >=0; null when cost is unknown, never 0), `cost_status`
+  (`priced|unpriced|partial|not_applicable`, new `CostRollupStatus` in
+  `common_types_schema.json`; absent means a legacy row whose total is caller-declared),
+  `priced_cost_usd` (lower bound when not priced) and `unpriced_observation_count`.
+  The observability summary dashboard (`summary_cards`, `top_traces[]`) documents
+  `total_cost_usd`, `cost_status`, `priced_cost_usd`, `unpriced_trace_count` and
+  `top_traces[].unpriced_observation_count`; `total_cost_usd_in_range` is retained as a
+  DEPRECATED alias of `total_cost_usd` and is now nullable. The earlier note that
+  trace-level nullable `total_cost_usd` was a deferred owner decision is superseded: the
+  Backend already serializes null, so the Schema now describes shipped behaviour.
+  No `cost_source` is defined for trace/session/summary because the Backend does not emit
+  one there. Backend/FE/SDK consumers must treat null as unknown, never zero.
+
+### Changed
+- **Observation `input_tokens` / `output_tokens` are nullable (MT3-07).** null means the
+  usage was not reported (see `unreported_usage_fields`), which is the normal case for
+  OTLP tool/agent/chain/span observations; it is never zero.
 - **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
   resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
   under the wrong tenant; this route lets the frontend resolve the experiment's actual

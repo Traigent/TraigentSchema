@@ -6517,6 +6517,107 @@
       "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/cohort_comparison_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/comparison/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "0fe265953f72ecf3993ae7ac0f8d65c925a213c62d4ee9d2e2ebd85874aedb04"
+        },
+        {
+          "pointer": "#/properties/comparison/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "481aa0420b579a93328914a647de7133303b2d096ca3945c6a25d0691337d1e1"
+        },
+        {
+          "pointer": "#/properties/reference/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "e83b7025969210cc69815c7eee7a23dc8418738c983830324a281e35f48ad6d1"
+        },
+        {
+          "pointer": "#/properties/reference/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "c15c715790cb90491aa7a36897012b1423b1ac9bb1e89b2dc229d1c7cd32aa3d"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/tool_analysis_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "bd178059296c82dac0b04956965a4725fbdb83ca83ed6b46f41d43f6fc5aa049"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/priced_cost_usd",
+          "role": "response",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "1dfede28cf7de16f5ea66a47e3c88f636311c40e2189844bfd2f97ea5b41a157"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/unpriced_attempt_count",
+          "role": "response",
+          "subject": "unpriced_attempt_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "396f853a24866c7472f1615956f82496a747f2e9f7b82431757d2ce84f7e7a8b"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/tool_analysis_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "0b366c4e8d9746c09ca82f88c6eb8ec29bcce836741e4407a59175d85ee50ee9"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
     }
   ]
 }

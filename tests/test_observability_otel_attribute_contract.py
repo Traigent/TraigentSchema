@@ -25,7 +25,7 @@ CONTRACT_PATH = (
 )
 PROVENANCE = ROOT / "docs" / "observability" / "otel_attribute_contract_v1.md"
 # Consumers pin this. Changing the contract means bumping it here deliberately.
-CONTRACT_SHA256 = "ca27ffe64b71af0a2dfa1f35343a53448ae080beeb93ed17cca2d2e6fab4bc91"
+CONTRACT_SHA256 = "0ce328a0cd9c9206573b34fdd5b63cf79897e132ce88d6f915fea6101b9b6900"
 
 
 def _load() -> dict:
@@ -48,7 +48,8 @@ def resolve(contract: dict, field: str, attributes: dict):
         if isinstance(value, bool):
             continue
         if field.startswith("usage_"):
-            if not isinstance(value, int) or value < 0:
+            spec = contract["metadata_allowlist"]["attributes"][name]
+            if not isinstance(value, int) or not spec["minimum"] <= value <= spec["maximum"]:
                 continue
         elif not isinstance(value, str) or not value:
             continue
@@ -89,12 +90,23 @@ def resolve_content_mode(contract: dict, configured: str, declared: dict) -> str
 
 
 def normalise_usage(contract: dict, vector: dict) -> dict:
-    """Reference normaliser: inclusive wire usage to canonical disjoint buckets, once."""
-    semantics = vector.get("semantics")
+    """Reference normaliser: inclusive wire usage to canonical disjoint buckets, once.
+
+    Absent counters default to 0 for arithmetic but are reported in
+    unreported_usage_fields; an invalid semantics marker is UNKNOWN (inclusive upper bound).
+    """
     marker = contract["usage_classes"]["semantics_marker"]
-    if semantics not in marker["values"]:
+    semantics = vector.get("semantics")
+    unreported: list[str] = []
+    if semantics is None:
         semantics = marker["default_when_absent"]
-    cr, cw, rs = vector["cache_read"], vector["cache_write"], vector["reasoning"]
+    elif semantics not in marker["values"]:
+        semantics = "inclusive"
+        unreported = ["cache_read_tokens", "cache_creation_tokens"]
+    for key, name in (("cache_read", "cache_read_tokens"), ("cache_write", "cache_creation_tokens")):
+        if vector.get(key) is None and name not in unreported:
+            unreported.append(name)
+    cr, cw, rs = vector.get("cache_read") or 0, vector.get("cache_write") or 0, vector.get("reasoning") or 0
     inp, out = vector["input"], vector["output"]
     if semantics == "inclusive":
         fresh = inp - cr - cw
@@ -110,6 +122,7 @@ def normalise_usage(contract: dict, vector: dict) -> dict:
         "cache_write": cw,
         "output_total": total_out,
         "reasoning": rs,
+        "unreported_usage_fields": unreported,
     }
 
 
@@ -238,8 +251,47 @@ def test_inclusive_and_disjoint_representations_agree():
             "cache_write": 0,
             "output_total": 50,
             "reasoning": 0,
+            "unreported_usage_fields": [],
         }
     )
+
+
+def test_omitted_and_explicit_zero_share_arithmetic_but_only_omitted_is_unreported():
+    c = _load()
+    vecs = {v["id"]: v for v in c["usage_classes"]["normalisation_vectors"]}
+    omitted = normalise_usage(c, vecs["inclusive_cache_omitted_vs_explicit_zero_omitted"])
+    explicit = normalise_usage(c, vecs["inclusive_cache_omitted_vs_explicit_zero_explicit"])
+    assert {k: v for k, v in omitted.items() if k != "unreported_usage_fields"} == {
+        k: v for k, v in explicit.items() if k != "unreported_usage_fields"
+    }
+    assert omitted["unreported_usage_fields"] == ["cache_read_tokens"]
+    assert explicit["unreported_usage_fields"] == []
+
+
+def test_unreported_vocabulary_is_the_common_types_enum():
+    common = json.loads((get_schemas_dir() / "common_types_schema.json").read_text("utf-8"))
+    vocab = set(common["definitions"]["UnreportedUsageFields"]["items"]["enum"])
+    for v in _load()["usage_classes"]["normalisation_vectors"]:
+        assert set(v["expected"]["unreported_usage_fields"]) <= vocab
+
+
+def test_nc_invalid_semantics_silently_valid_changes_vector_result():
+    c = _load()
+    vec = next(
+        v for v in c["usage_classes"]["normalisation_vectors"]
+        if v["id"] == "invalid_semantics_is_unknown_inclusive"
+    )
+    silent = dict(vec, semantics="inclusive")
+    assert normalise_usage(c, silent) != vec["expected"]
+
+
+def test_nc_bounds_after_precedence_changes_vector_result():
+    c = copy.deepcopy(_load())
+    for spec in c["metadata_allowlist"]["attributes"].values():
+        spec.pop("maximum", None)
+        spec["maximum"] = 10**30  # simulates applying no bound before precedence
+    vec = next(v for v in c["precedence"]["vectors"] if v["id"] == "over_max_first_alias_skipped")
+    assert resolve(c, vec["field"], vec["attributes"]) != vec["expected"]
 
 
 def test_content_mode_vectors_cover_absent_invalid_and_each_valid_value():

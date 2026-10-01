@@ -311,3 +311,47 @@ def test_cohort_comparison_cost_shapes_validate(name):
         "deltas": [], "generated_at": TS,
     }
     assert SchemaValidator().validate_json(payload, "cohort_comparison_response_schema") == []
+
+
+# --- negative controls for the tool / cohort additions (each must fail if its constraint is removed)
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"cost_status": "free"},
+        {"cost_status": None},
+        {"cost_status": 1},
+        {"priced_cost_usd": -0.01},
+        {"priced_cost_usd": "0.02"},
+        {"unpriced_attempt_count": -1},
+        {"unpriced_attempt_count": 1.5},
+        {"unpriced_attempt_count": "1"},
+        {"unpriced_attempt_count": None},
+        {"total_cost_usd": "0.03"},
+    ],
+    ids=lambda p: next(iter(p)) + "=" + repr(next(iter(p.values()))),
+)
+def test_tool_analysis_rejects_invalid_cost_additions(patch):
+    item = {**TOOL_ITEMS["partial"], **patch}
+    assert SchemaValidator().validate_json(_tool_response(item), "tool_analysis_response_schema") != []
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"cost_status": "free"},
+        {"cost_status": 1},
+        {"unknown_count": -1},
+        {"unknown_count": 1.5},
+        {"unknown_count": "2"},
+        {"unknown_count": None},
+    ],
+    ids=lambda p: next(iter(p)) + "=" + repr(next(iter(p.values()))),
+)
+def test_cohort_comparison_rejects_invalid_cost_additions(patch):
+    metric = {**COHORT_METRICS["partial"], **patch}
+    payload = {
+        "project_id": "p1", "reference": _cohort(metric), "comparison": _cohort(metric),
+        "matched_pair_count": 0, "deltas": [], "generated_at": TS,
+    }
+    assert SchemaValidator().validate_json(payload, "cohort_comparison_response_schema") != []

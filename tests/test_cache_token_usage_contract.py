@@ -150,7 +150,7 @@ def test_unreported_usage_fields_is_closed_unique_runtime_metadata():
         "UnreportedUsageFields"
     ]
 
-    assert definition["items"]["enum"] == list(USAGE_STATUS_FIELDS)
+    assert definition["items"]["enum"] == [*USAGE_STATUS_FIELDS, "reasoning_tokens"]
     assert definition["uniqueItems"] is True
     assert definition["x-privacy-classification"] == "sdk_runtime_metadata"
 

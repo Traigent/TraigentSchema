@@ -5487,293 +5487,293 @@
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/511"
     },
-  {
+    {
       "file": "agent_readiness/agent_readiness_target_schema.json",
       "rule": "enum",
       "findings": [
-          {
-              "pointer": "#/oneOf/0/properties/use_case",
-              "role": "conservative",
-              "subject": {
-                  "direction": "added",
-                  "values": [
-                      "\"chat\"",
-                      "\"classification\"",
-                      "\"code-generation\"",
-                      "\"extraction\"",
-                      "\"generation\"",
-                      "\"other\"",
-                      "\"translation\""
-                  ]
-              },
-              "old": [
-                  "\"question-answering\"",
-                  "\"summarization\""
-              ],
-              "new": [
-                  "\"chat\"",
-                  "\"classification\"",
-                  "\"code-generation\"",
-                  "\"extraction\"",
-                  "\"generation\"",
-                  "\"other\"",
-                  "\"question-answering\"",
-                  "\"summarization\"",
-                  "\"translation\""
-              ],
-              "fingerprint": "2d4a0f4d2f536235d729ad229ee95916f5d14f4ac8857b6b2d8cd87a3ca5fbe5"
+        {
+          "pointer": "#/oneOf/0/properties/use_case",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"chat\"",
+              "\"classification\"",
+              "\"code-generation\"",
+              "\"extraction\"",
+              "\"generation\"",
+              "\"other\"",
+              "\"translation\""
+            ]
           },
-          {
-              "pointer": "#/oneOf/1/properties/use_case",
-              "role": "conservative",
-              "subject": {
-                  "direction": "added",
-                  "values": [
-                      "\"chat\"",
-                      "\"classification\"",
-                      "\"code-generation\"",
-                      "\"extraction\"",
-                      "\"generation\"",
-                      "\"other\"",
-                      "\"translation\""
-                  ]
-              },
-              "old": [
-                  "\"question-answering\"",
-                  "\"summarization\""
-              ],
-              "new": [
-                  "\"chat\"",
-                  "\"classification\"",
-                  "\"code-generation\"",
-                  "\"extraction\"",
-                  "\"generation\"",
-                  "\"other\"",
-                  "\"question-answering\"",
-                  "\"summarization\"",
-                  "\"translation\""
-              ],
-              "fingerprint": "9b6de475ca9fcb91cf0312371b30d85a70dc4e0e4a739169d8b5af36a842c93f"
+          "old": [
+            "\"question-answering\"",
+            "\"summarization\""
+          ],
+          "new": [
+            "\"chat\"",
+            "\"classification\"",
+            "\"code-generation\"",
+            "\"extraction\"",
+            "\"generation\"",
+            "\"other\"",
+            "\"question-answering\"",
+            "\"summarization\"",
+            "\"translation\""
+          ],
+          "fingerprint": "2d4a0f4d2f536235d729ad229ee95916f5d14f4ac8857b6b2d8cd87a3ca5fbe5"
+        },
+        {
+          "pointer": "#/oneOf/1/properties/use_case",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"chat\"",
+              "\"classification\"",
+              "\"code-generation\"",
+              "\"extraction\"",
+              "\"generation\"",
+              "\"other\"",
+              "\"translation\""
+            ]
           },
-          {
-              "pointer": "#/oneOf/3/properties/revision/properties/use_case",
-              "role": "conservative",
-              "subject": {
-                  "direction": "added",
-                  "values": [
-                      "\"chat\"",
-                      "\"classification\"",
-                      "\"code-generation\"",
-                      "\"extraction\"",
-                      "\"generation\"",
-                      "\"other\"",
-                      "\"translation\""
-                  ]
-              },
-              "old": [
-                  "\"question-answering\"",
-                  "\"summarization\""
-              ],
-              "new": [
-                  "\"chat\"",
-                  "\"classification\"",
-                  "\"code-generation\"",
-                  "\"extraction\"",
-                  "\"generation\"",
-                  "\"other\"",
-                  "\"question-answering\"",
-                  "\"summarization\"",
-                  "\"translation\""
-              ],
-              "fingerprint": "f9c084f40895da972c0f07e2d9a277c19eb69b974c74e49210364f0f89e064b7"
-          }
+          "old": [
+            "\"question-answering\"",
+            "\"summarization\""
+          ],
+          "new": [
+            "\"chat\"",
+            "\"classification\"",
+            "\"code-generation\"",
+            "\"extraction\"",
+            "\"generation\"",
+            "\"other\"",
+            "\"question-answering\"",
+            "\"summarization\"",
+            "\"translation\""
+          ],
+          "fingerprint": "9b6de475ca9fcb91cf0312371b30d85a70dc4e0e4a739169d8b5af36a842c93f"
+        },
+        {
+          "pointer": "#/oneOf/3/properties/revision/properties/use_case",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"chat\"",
+              "\"classification\"",
+              "\"code-generation\"",
+              "\"extraction\"",
+              "\"generation\"",
+              "\"other\"",
+              "\"translation\""
+            ]
+          },
+          "old": [
+            "\"question-answering\"",
+            "\"summarization\""
+          ],
+          "new": [
+            "\"chat\"",
+            "\"classification\"",
+            "\"code-generation\"",
+            "\"extraction\"",
+            "\"generation\"",
+            "\"other\"",
+            "\"question-answering\"",
+            "\"summarization\"",
+            "\"translation\""
+          ],
+          "fingerprint": "f9c084f40895da972c0f07e2d9a277c19eb69b974c74e49210364f0f89e064b7"
+        }
       ],
       "reason": "This intentional Phase 4 additive enum expansion restores the canonical nine-value evaluation-set UseCase vocabulary on both the target request and immutable revision response. Existing strict validators that only know the two historical values may reject newly valid declarations and must upgrade. The exact Schema, Backend, and Frontend propagation was reviewed under the admitted Phase 4 supplement; this acknowledgement covers only the listed identities and fingerprints.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/512"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_endpoints.json",
       "rule": "property_added",
       "findings": [
-          {
-              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/criticality_source",
-              "role": "response",
-              "subject": "criticality_source",
-              "old": false,
-              "new": true,
-              "fingerprint": "471f83e7e7904243e5f389be412aa84d69e23596e73761c47a255de83e14de82"
-          },
-          {
-              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/verdict_reason",
-              "role": "response",
-              "subject": "verdict_reason",
-              "old": false,
-              "new": true,
-              "fingerprint": "6302ca703cd80e455138d95d3fd1099c6835b40fd4f03cfa873dd72793183adb"
-          },
-          {
-              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/pagination",
-              "role": "response",
-              "subject": "pagination",
-              "old": false,
-              "new": true,
-              "fingerprint": "43665280d2f606cd5f758c75c6ad374b1d41c4b8f27d344d297049f9766d0358"
-          }
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/criticality_source",
+          "role": "response",
+          "subject": "criticality_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "471f83e7e7904243e5f389be412aa84d69e23596e73761c47a255de83e14de82"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/properties/verdict_reason",
+          "role": "response",
+          "subject": "verdict_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "6302ca703cd80e455138d95d3fd1099c6835b40fd4f03cfa873dd72793183adb"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "pagination",
+          "old": false,
+          "new": true,
+          "fingerprint": "43665280d2f606cd5f758c75c6ad374b1d41c4b8f27d344d297049f9766d0358"
+        }
       ],
       "reason": "Owner-directed scope addition to the same fleet-posture v2 paging change: criticality_source and verdict_reason are new REQUIRED members on the closed AgentPostureEntry row. Both are populatable by every current backend row: criticality_source is always fixed_default today because the declared-criticality flag is off (criticality_used's own description already states it is always 'medium'), and verdict_reason is always NO_ANCHOR_RUN or TARGET_NOT_DECLARED today because only NOT_YET_SCORED and CANT_TELL are reachable (per Verdict's own description); the remaining enum members are kept unreachable-but-declared the same way Verdict already keeps STAY/INTERVENE_QUALITY. pagination is a new REQUIRED top-level member because the endpoint now paginates (page/per_page query params) instead of silently truncating the fleet at 24 agents; it mirrors the portfolio list response's pagination block byte-for-byte. Old strict response validators must upgrade to accept all three; no existing member's shape changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_response_schema.json",
       "rule": "property_added",
       "findings": [
-          {
-              "pointer": "#/properties/agents/items/properties/criticality_source",
-              "role": "response",
-              "subject": "criticality_source",
-              "old": false,
-              "new": true,
-              "fingerprint": "865c7e058f95a2e4c4c6955cb086fde6a2f930478cbd4c76f688ac9fbad686d3"
-          },
-          {
-              "pointer": "#/properties/agents/items/properties/verdict_reason",
-              "role": "response",
-              "subject": "verdict_reason",
-              "old": false,
-              "new": true,
-              "fingerprint": "cb4414b854355e31535d3eb9b1f0ce80f5cecef1d8f764b5a3a628db6da992bd"
-          },
-          {
-              "pointer": "#/properties/pagination",
-              "role": "response",
-              "subject": "pagination",
-              "old": false,
-              "new": true,
-              "fingerprint": "f8b47c8cf0eef8533d77be5659ec57ae83bdd567e717d81aafdd6d6c3b995a54"
-          }
+        {
+          "pointer": "#/properties/agents/items/properties/criticality_source",
+          "role": "response",
+          "subject": "criticality_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "865c7e058f95a2e4c4c6955cb086fde6a2f930478cbd4c76f688ac9fbad686d3"
+        },
+        {
+          "pointer": "#/properties/agents/items/properties/verdict_reason",
+          "role": "response",
+          "subject": "verdict_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "cb4414b854355e31535d3eb9b1f0ce80f5cecef1d8f764b5a3a628db6da992bd"
+        },
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "pagination",
+          "old": false,
+          "new": true,
+          "fingerprint": "f8b47c8cf0eef8533d77be5659ec57ae83bdd567e717d81aafdd6d6c3b995a54"
+        }
       ],
       "reason": "Same change as the fleet_posture_endpoints.json property_added entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: criticality_source and verdict_reason are new REQUIRED members every current backend row can already populate (fixed_default / NO_ANCHOR_RUN-or-TARGET_NOT_DECLARED under today's reachable verdicts and the flag-off criticality path), and pagination is a new REQUIRED top-level member mirroring the portfolio list response's pagination block byte-for-byte, added because the endpoint now paginates. Old strict response validators must upgrade to accept all three; no existing member's shape changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_endpoints.json",
       "rule": "allOf_branch_count_changed",
       "findings": [
-          {
-              "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/allOf",
-              "role": "response",
-              "subject": "allOf",
-              "old": 6,
-              "new": 16,
-              "fingerprint": "456531ac03a30ed4bc60440b8c02932036ce15965846d0afbcb4aadd99267b68"
-          }
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/fleet-posture/get/responses/200/content/application/json/schema/properties/agents/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 6,
+          "new": 16,
+          "fingerprint": "456531ac03a30ed4bc60440b8c02932036ce15965846d0afbcb4aadd99267b68"
+        }
       ],
       "reason": "Review-fix follow-up on the fleet-posture v2 paging change (supersedes the earlier 6->8 acknowledgement, now 6->16, left in place as a historical record): the closed AgentPostureEntry row's allOf gains the full bidirectional (verdict, verdict_reason) mapping -- NOT_YET_SCORED<->NO_ANCHOR_RUN, STAY<->MEETS_TARGET, INTERVENE_QUALITY<->BELOW_TARGET, CANT_TELL<->any of the seven CANT_TELL-family reasons (8 new branches) -- plus criticality_source's one-directional constraint on criticality_used (fixed_default=>medium, undeclared_fail_closed=>high; 2 new branches). All additive over the existing has_anchor_run/verdict and interval/accuracy invariants already in this allOf; no existing branch or condition changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_response_schema.json",
       "rule": "allOf_branch_count_changed",
       "findings": [
-          {
-              "pointer": "#/properties/agents/items/allOf",
-              "role": "response",
-              "subject": "allOf",
-              "old": 6,
-              "new": 16,
-              "fingerprint": "645a5ed4ddcc50b3915849c77fbc34270d2623241e32eb093bc285ab13324e77"
-          }
+        {
+          "pointer": "#/properties/agents/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 6,
+          "new": 16,
+          "fingerprint": "645a5ed4ddcc50b3915849c77fbc34270d2623241e32eb093bc285ab13324e77"
+        }
       ],
       "reason": "Same change as the fleet_posture_endpoints.json allOf_branch_count_changed (6->16) entry above, acknowledged again here because breaking_schema_check.py diffs the schema file directly as well as through the endpoint's response $ref: the closed AgentPostureEntry row's allOf gains the full bidirectional (verdict, verdict_reason) mapping for all four verdicts plus criticality_source's one-directional constraint on criticality_used. Additive over the existing invariants already in this allOf; no existing branch changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_response_schema.json",
       "rule": "allOf_branch_count_changed",
       "findings": [
-            {
-                  "pointer": "#/properties/agents/items/allOf",
-                  "role": "response",
-                  "subject": "allOf",
-                  "old": 16,
-                  "new": 17,
-                  "fingerprint": "cf9bea7787fe924ebf4838f66b4d02e3c3844cb5cf4d9e72d0117e5069911481"
-            }
+        {
+          "pointer": "#/properties/agents/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 16,
+          "new": 17,
+          "fingerprint": "cf9bea7787fe924ebf4838f66b4d02e3c3844cb5cf4d9e72d0117e5069911481"
+        }
       ],
       "reason": "Re-acknowledgement of the DECLARED_POLICY_OFF allOf branch (feat(agent-readiness): DECLARED_POLICY_OFF verdict reason, PR #524 follow-up) now that origin/develop already carries the fleet-posture v2 paging change's 16-branch AgentPostureEntry allOf (see the 6->16 entry above, merged via #524). This branch's own commit was originally written and acknowledged (entry below, fingerprint dc5384c9...) against a pre-rebase base that still had only 6 branches, producing a stale 6->17 fingerprint that no longer matches the real diff at the now-merged base. That 6->17 entry is left in place as a historical record of the original acknowledgement; this entry re-states the same reviewed, intentional change -- the new CANT_TELL-family VerdictReason member DECLARED_POLICY_OFF constrains criticality_source to fixed_default one-directionally, mirroring criticality_source's own existing constraint on criticality_used -- as the correct 16->17 delta against the current origin/develop base. Additive over the existing invariants already in this allOf; no existing branch or condition changed.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/fleet_posture_response_schema.json",
       "rule": "enum",
       "findings": [
-            {
-                  "pointer": "#/properties/agents/items/properties/verdict_reason",
-                  "role": "response",
-                  "subject": {
-                        "direction": "added",
-                        "values": [
-                              "\"DECLARED_POLICY_OFF\""
-                        ]
-                  },
-                  "old": [
-                        "\"BELOW_TARGET\"",
-                        "\"CRITICALITY_UNDECLARED\"",
-                        "\"INTERVAL_STRADDLES_TARGET\"",
-                        "\"MEETS_TARGET\"",
-                        "\"NO_ANCHOR_RUN\"",
-                        "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
-                        "\"TARGET_CANNOT_DETERMINE\"",
-                        "\"TARGET_NOT_DECLARED\"",
-                        "\"VALIDITY_BELOW_BAR\"",
-                        "\"VALIDITY_BELOW_STAY_BAR\""
-                  ],
-                  "new": [
-                        "\"BELOW_TARGET\"",
-                        "\"CRITICALITY_UNDECLARED\"",
-                        "\"DECLARED_POLICY_OFF\"",
-                        "\"INTERVAL_STRADDLES_TARGET\"",
-                        "\"MEETS_TARGET\"",
-                        "\"NO_ANCHOR_RUN\"",
-                        "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
-                        "\"TARGET_CANNOT_DETERMINE\"",
-                        "\"TARGET_NOT_DECLARED\"",
-                        "\"VALIDITY_BELOW_BAR\"",
-                        "\"VALIDITY_BELOW_STAY_BAR\""
-                  ],
-                  "fingerprint": "1f838d77d43a00df856d297975e531f1989c06579a66a86589f737428c1eedf9"
-            }
+        {
+          "pointer": "#/properties/agents/items/properties/verdict_reason",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"DECLARED_POLICY_OFF\""
+            ]
+          },
+          "old": [
+            "\"BELOW_TARGET\"",
+            "\"CRITICALITY_UNDECLARED\"",
+            "\"INTERVAL_STRADDLES_TARGET\"",
+            "\"MEETS_TARGET\"",
+            "\"NO_ANCHOR_RUN\"",
+            "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
+            "\"TARGET_CANNOT_DETERMINE\"",
+            "\"TARGET_NOT_DECLARED\"",
+            "\"VALIDITY_BELOW_BAR\"",
+            "\"VALIDITY_BELOW_STAY_BAR\""
+          ],
+          "new": [
+            "\"BELOW_TARGET\"",
+            "\"CRITICALITY_UNDECLARED\"",
+            "\"DECLARED_POLICY_OFF\"",
+            "\"INTERVAL_STRADDLES_TARGET\"",
+            "\"MEETS_TARGET\"",
+            "\"NO_ANCHOR_RUN\"",
+            "\"OPEN_EVALUATION_SYSTEM_DEBT\"",
+            "\"TARGET_CANNOT_DETERMINE\"",
+            "\"TARGET_NOT_DECLARED\"",
+            "\"VALIDITY_BELOW_BAR\"",
+            "\"VALIDITY_BELOW_STAY_BAR\""
+          ],
+          "fingerprint": "1f838d77d43a00df856d297975e531f1989c06579a66a86589f737428c1eedf9"
+        }
       ],
       "reason": "New CANT_TELL-family VerdictReason enum member DECLARED_POLICY_OFF, added by this branch's own commit (feat(agent-readiness): DECLARED_POLICY_OFF verdict reason). It means this row's verdict did not evaluate the declared accuracy target because the declared-accuracy policy is not enabled -- it says nothing about whether a target actually exists. Before this it was impossible to distinguish that case from TARGET_NOT_DECLARED, which the frontend read literally as 'no accuracy target has been set' even when a target was in fact declared, since the Backend simply never read it while the policy was off. TARGET_NOT_DECLARED stays a valid CANT_TELL-family member for the policy-on case, once the Backend actually reads the declared target and finds none. Purely additive enum member; no existing value removed, renamed, or reinterpreted. Fixture cases updated in tests/test_fleet_posture_response_contract.py and fleet_posture_verdict_cases.json cover both the accept and reject paths for the new member.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fleet-v2-posture-paging branch, not yet opened)"
-  },
-  {
+    },
+    {
       "file": "agent_readiness/agent_readiness_target_schema.json",
       "rule": "enum",
       "findings": [
-            {
-                  "pointer": "#/oneOf/4/oneOf/1/properties/evaluation/properties/ci_method",
-                  "role": "conservative",
-                  "subject": {
-                        "direction": "added",
-                        "values": [
-                              "<enum constraint added>"
-                        ]
-                  },
-                  "old": null,
-                  "new": [
-                        "\"clt_mean_standard_error\"",
-                        "\"wilson_score_binary\""
-                  ],
-                  "fingerprint": "b6b012067e6588be1739cb771f748558f2db991f3d6c59ce447a5ffaa448b519"
-            }
+        {
+          "pointer": "#/oneOf/4/oneOf/1/properties/evaluation/properties/ci_method",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"clt_mean_standard_error\"",
+            "\"wilson_score_binary\""
+          ],
+          "fingerprint": "b6b012067e6588be1739cb771f748558f2db991f3d6c59ce447a5ffaa448b519"
+        }
       ],
       "reason": "AccuracyEvaluation.ci_method was a const pinned to clt_mean_standard_error (mean +/- z*SE of the mean over per-example scores); the CLT interval collapses to zero width when every per-example score is identical, which is exactly what happens for binary (0/1) per-example accuracy scoring. The Backend now uses a 95% Wilson score interval on k/n instead when every per-example score is exactly 0 or 1, and keeps CLT for fractional scores (a zero-variance fractional sample still fails closed to CANNOT_DETERMINE, unchanged). Widening the const to a closed two-member enum lets the Backend publish the method it actually used instead of a false clt_mean_standard_error label on binary samples; both methods are Backend-computed and never client-supplied, so this is additive and reviewed, not a silent loosening. Fixture cases added: a valid DeclaredAccuracyTarget evaluation using wilson_score_binary, and a rejected unknown ci_method string.",
       "version": "Unreleased",
@@ -5855,6 +5855,769 @@
       "reason": "Owner ruling 2026-09-28 (\"1A\"): a competitor's product name must not appear in our shipped source or contracts. The single witnessed workload_class enum member is renamed verbatim from mock_grid_no_integrations_no_analytics_no_langfuse to mock_grid_no_integrations_no_analytics_no_external_tracing -- same concept (mock-mode grid-search shape with no integrations, no analytics clients, no external tracing client), only the vendor-specific token is replaced with a neutral, generic name. No issued certificate ever carried the old literal, and no consumer references it: git grep -in no_langfuse @ origin/develop returns 0 hits in Traigent, traigent-js, TraigentFrontend, and traigent-smartopt; TraigentBackend's origin/develop still has 2 hits (its own vendored copy of this schema, and the WITNESSED_WORKLOAD_CLASS constant that stamps this value), both already renamed on TraigentBackend#3569, which this upstream rename unblocks via contract.installed_package_agreement. The frozen-v0 byte-identity gate (tests/test_agent_quality_v1_schema.py / tests/test_evaluator_quality_v1_schema.py, MERGE_BASE 3f0529c1ba94a21afbcee749d6543dd0c4778229) now carries its own disclosed, SHA-pinned exception for exactly this rename (tests/_frozen_signatures_exception.py: assert_workload_class_rename_exception), mirroring the existing D-T4.1 signatures-file exception; a negative control confirmed the frozen-v0 test still fails on any other v0 byte change.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, chore/neutral-workload-class-naming branch, not yet opened)"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "93506d747b71c4d2947b3df42e6123bacda69d88cb78b4c5758be890724853a2"
+        }
+      ],
+      "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "costs/cost_user_usage_item_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "28e8ede76b62d10647204906ddda17c84aedef29788d36662f938b0b3db2a64a"
+        }
+      ],
+      "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "a287783e7a5e1d59bc5217b8df09bba840807e7d51c9b3dc15f3a93fa45a5992"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "240a29a4b4c55b46bc664d1721e164bbbcf2746941736ba7f7bad3f78e21c303"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "1516caeb3f438ed5d43fe2711ba9efdf98401fc6b27b2d204105e2e52c8af342"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "9b0a1c14867cbc585d9604d1b9407d897b4b5ddeb840d9a2fec186ebea93381b"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "745d21f7fc521b1162c40ee14a7a385d2d6bb31b238f25bdd69cc89705b98e3d"
+        },
+        {
+          "pointer": "#/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "62dc2f67086a4844ea36d8bdcfc0fe632cee320abfaff0b8db51aa62948917bd"
+        }
+      ],
+      "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/observation_ingest_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "748ee6ebb270a30e94b7293b444e63c01e3f23010b36c2b0e936f2ae8660a9e9"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "72dcf3f8c76d1176040c322676e8349c140e1b6666f18c97fcbc0674e7682cf6"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/children/items/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "397630fa0b22a0a72cc64e6ef0bb4a1196ef08aebc13d3ee3eabd0264f6fc8f0"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/children/items/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "50699d13a1859407dbd520560fa7df24ee27721d8f3278c3cce8d43a2673b56e"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "c729a1e55c1e6e934908a582473ce4e681b4ec53c1963db87c1621ce7cc5d2c2"
+        },
+        {
+          "pointer": "#/properties/reasoning_tokens",
+          "role": "conservative",
+          "subject": "reasoning_tokens",
+          "old": false,
+          "new": true,
+          "fingerprint": "2ba1206adcb1d879e7f0396e036baeb370c589aa14f5f763073106c3c7205782"
+        }
+      ],
+      "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/observation_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/children/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "a92a70c1ea348e4a29db83b1d3197165f91dbe9808a07b59cd8ba10f826dec89"
+        },
+        {
+          "pointer": "#/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "ae3cefb33acb43d24e1f5c32466681ed2b405c357eee21b7ef1eba0da8a738f1"
+        }
+      ],
+      "reason": "Intentionally adds reasoning_tokens (nullable usage class, absent-is-not-zero) and the matching 'reasoning_tokens' member of the unreported_usage_fields vocabulary so server-side cost accounting can price reasoning tokens explicitly instead of silently folding or dropping them. Optional and additive; existing producers need not emit it. A strict consumer of the closed shape must adopt this contract before producer emission; Backend acceptance lands before any SDK emits it. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/observation_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/children/items/properties/cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "e4329dc0f3dee595522917f1c05dcf8029d4f2c0840ad3feee4c6ee7ec21eabb"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/input_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "78ec0bb02fa271b0828a3eac58a8624d4dddb8aa7b4212642748640374f236ee"
+        },
+        {
+          "pointer": "#/properties/children/items/properties/output_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "c9b61beb30fb9228d27afe51114e31a18a077cd6f13cfe78fb0af44464b5b849"
+        },
+        {
+          "pointer": "#/properties/cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "29505aa6347ae09fc5bac392223ec7e0ed0278ce0e0920939ceaa16075119a6d"
+        },
+        {
+          "pointer": "#/properties/input_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "212adecb696ef8de38e5d92d9d809c5aa7f6f08a5a24665079ce3d6661f03d26"
+        },
+        {
+          "pointer": "#/properties/output_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "b21d3707b6f86cb8035afe6a6cf46d31858a79068f8543890f04a276691770b8"
+        }
+      ],
+      "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/trace_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/observations/items/properties/unreported_usage_fields/items",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"reasoning_tokens\""
+            ]
+          },
+          "old": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\""
+          ],
+          "new": [
+            "\"cache_creation_tokens\"",
+            "\"cache_creation_tokens_by_ttl\"",
+            "\"cache_read_tokens\"",
+            "\"reasoning_tokens\""
+          ],
+          "fingerprint": "120b643b1a060500e009582ce96f5e9d0b946c612f7b576b93ba6bce6e1a51e7"
+        }
+      ],
+      "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/trace_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/observations/items/properties/cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "9a904a460be7711090535534e0ff1e765ad476225f4fd62b1712a3768edacf05"
+        },
+        {
+          "pointer": "#/properties/observations/items/properties/input_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "ec33f51c4bbaf18ed74cf184e20da9b778f91fca21709cfe85787fba2303ef36"
+        },
+        {
+          "pointer": "#/properties/observations/items/properties/output_tokens",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "integer"
+          ],
+          "new": [
+            "integer",
+            "null"
+          ],
+          "fingerprint": "9ae4c7f2b6567baf83d490c3d4cb5260893ca4aadb36d45ca3da95829165c444"
+        }
+      ],
+      "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_observability_summary_dashboard_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/activity_trend/items/properties/cost_status",
+          "role": "conservative",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "edbe25156d4d140635e72d6e89fbbdc07b4d3d4ebc16c8b62d941c86aa8bef39"
+        },
+        {
+          "pointer": "#/properties/activity_trend/items/properties/priced_cost_usd",
+          "role": "conservative",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "8f0dbc45057e66c6d4b66454703cbcbf34c7ee5cb33324225691a1544c2ef777"
+        },
+        {
+          "pointer": "#/properties/activity_trend/items/properties/unpriced_trace_count",
+          "role": "conservative",
+          "subject": "unpriced_trace_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "eaa5e167e225cfa3b27ecae8877b6d1b71b3b539b6dbb64fc0398ade97b5256c"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/cost_status",
+          "role": "conservative",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "33fa0ca70704c66f4fc14d3dc831083b5a574cc240d02234d9f41abca1cd47e1"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/priced_cost_usd",
+          "role": "conservative",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "03e730ad6ec68421d698cb08f39e78c292f86c648101e4be901a9416de66c79c"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": "total_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "d30c29e26b05dfe876db1c96b52aa32401950934f67928376df433fb6b76b2e4"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/unpriced_trace_count",
+          "role": "conservative",
+          "subject": "unpriced_trace_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "67cd72a0adf40878f5ddd3afbbf59b00592d7aaa0630a7b921455c7652aae2df"
+        },
+        {
+          "pointer": "#/properties/top_traces/items/properties/cost_status",
+          "role": "conservative",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "d1dc063e68c435e474f7627875f1d14f6408bc2888c44e6e25b804579fdf8a26"
+        },
+        {
+          "pointer": "#/properties/top_traces/items/properties/priced_cost_usd",
+          "role": "conservative",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "b6d6c2d152865e6470085ef3aba37735183fb71ced1b6f80c0f69265e02a60ed"
+        },
+        {
+          "pointer": "#/properties/top_traces/items/properties/unpriced_observation_count",
+          "role": "conservative",
+          "subject": "unpriced_observation_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "abdaff552c62e8bb1de3b8f859fdcbd1ed795edfdb94bd8a5df3c7d79b04af53"
+        }
+      ],
+      "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_observability_summary_dashboard_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/activity_trend/items/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "00f98ad692a3a089769978e47a5a38de1b3e4cd20163dd4e0328dcb34c3227f8"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "44cbe38f7c2035d2aa05c742425503afca86d799abcae2d1f744bee8d1e48a26"
+        },
+        {
+          "pointer": "#/properties/top_traces/items/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "6ebadf413d1501bd3d16396c219fac29f80345e34fe5f142baa51af37aec5665"
+        }
+      ],
+      "reason": "Owner-approved 2026-09-30 (observability cost accounting): the Backend already ships these fields and null values; null means unknown (unpriced / not reported), never zero. Consumers updated: Python SDK fix/core-metrics-nullable-observability-cost, FE feat/observability-cost-display; JS types regenerate from this schema. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/cohort_comparison_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/comparison/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "0fe265953f72ecf3993ae7ac0f8d65c925a213c62d4ee9d2e2ebd85874aedb04"
+        },
+        {
+          "pointer": "#/properties/comparison/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "481aa0420b579a93328914a647de7133303b2d096ca3945c6a25d0691337d1e1"
+        },
+        {
+          "pointer": "#/properties/reference/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "e83b7025969210cc69815c7eee7a23dc8418738c983830324a281e35f48ad6d1"
+        },
+        {
+          "pointer": "#/properties/reference/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "c15c715790cb90491aa7a36897012b1423b1ac9bb1e89b2dc229d1c7cd32aa3d"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/tool_analysis_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "bd178059296c82dac0b04956965a4725fbdb83ca83ed6b46f41d43f6fc5aa049"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/priced_cost_usd",
+          "role": "response",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "1dfede28cf7de16f5ea66a47e3c88f636311c40e2189844bfd2f97ea5b41a157"
+        },
+        {
+          "pointer": "#/properties/items/items/properties/unpriced_attempt_count",
+          "role": "response",
+          "subject": "unpriced_attempt_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "396f853a24866c7472f1615956f82496a747f2e9f7b82431757d2ce84f7e7a8b"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "observability/tool_analysis_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/items/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "0b366c4e8d9746c09ca82f88c6eb8ec29bcce836741e4407a59175d85ee50ee9"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
     }
   ]
 }

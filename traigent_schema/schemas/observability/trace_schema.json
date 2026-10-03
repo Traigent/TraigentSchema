@@ -20,6 +20,10 @@
       "additionalProperties": true,
       "description": "Opaque user-supplied annotations. Do NOT place structured platform data here — correlation_ids and prompt_reference are dedicated top-level fields, never sub-keys of metadata."
     },
+    "total_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Total cost in USD; null when the cost is unknown (cost_status unpriced or partial). Never 0 for unknown." },
+    "cost_status": { "$ref": "../common_types_schema.json#/definitions/CostRollupStatus" },
+    "priced_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Priced portion of the cost only; a lower bound (\"at least\") when cost_status is partial or unpriced." },
+    "unpriced_observation_count": { "type": ["integer", "null"], "minimum": 0, "description": "Number of observations without a price; emitted only when the server recorded a cost marker." },
     "input_data": {
       "description": "Raw user-supplied input payload for this trace (e.g. the prompt). Unconstrained JSON.",
       "x-content": true,

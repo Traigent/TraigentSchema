@@ -40,6 +40,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`priced|unpriced|partial|not_applicable`, `CostRollupStatus`). Consumers must treat
   null as unknown, never zero. The breaking-schema allowlist entries for this change were
   added by the owner.
+- **OTel attribute contract v1** (`traigent_schema/data/observability/otel_attribute_contract_v1.json`):
+  shared by the Backend OTLP receiver and SDK exporters. Content-mode declaration
+  (`traigent.content_mode.v1`), content-key list, typed metadata allowlist, usage classes,
+  observation-type mapping and the OpenInference-vs-GenAI precedence table with vectors.
+  Additive data file; no existing schema changed.
+- **OTel contract: `traigent.observation_type`** — typed metadata allowlist entry plus first-precedence
+  explicit observation-type mapping (valid enum members only; invalid values fall back to the existing
+  mapping) with executable vectors. Consumers must re-vendor the file and update their sha256 pin.
+- **OTel contract revision (review fixes)** — usage wire semantics are inclusive (input includes cache reads;
+  `traigent.usage.semantics` marks legacy disjoint sources) with normalisation vectors; invalid content-mode
+  declarations resolve to `metadata`, absent inherit (shared vectors); one typed metadata-egress set now includes all
+  usage keys and aliases; fallback attributes count only as non-empty strings. Consumers must re-vendor and re-pin.
 
 ### Changed
 - **Observation `input_tokens` / `output_tokens` are nullable (MT3-07).** null means the

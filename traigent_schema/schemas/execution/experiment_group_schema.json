@@ -186,6 +186,15 @@
           "maxLength": 255,
           "description": "Canonical agent id used for grouping within the caller's visible tenant/project/user scope. Null is permitted only when identity_state is 'unidentified'."
         },
+        "agent_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Human-readable display name of the agent (Agent.name) for an identified cohort's agent_id, resolved within the caller's visible tenant/project scope; null when the group has no agent, the agent row is not visible, or no name is available. Display-only: never part of group identity, grouping, sorting or pagination."
+        },
         "dataset_id": {
           "$ref": "#/definitions/CanonicalDatasetId"
         },

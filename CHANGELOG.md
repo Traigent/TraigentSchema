@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`agent_name` on `ExperimentGroupOverview` (optimization-history display name).**
+  New optional, nullable `agent_name` (`schemas/execution/experiment_group_schema.json`)
+  carries the human-readable display name of the group's agent (`Agent.name`) for the
+  group-list and group-detail overview; `null` when the group has no agent or no name is
+  visible. Purely additive and display-only, mirroring `dataset_label` — never part of
+  group identity, `identity_state`, sort vocabulary, or pagination/cursor keys, and old
+  readers that ignore it are unaffected. Fixes the portal's optimization-history Agent
+  column showing the opaque `agent_id` UUID.
 - **Observation cost contract review fixes**: `cost_status` now documents the completeness of the displayed cost (with `cost_source` as provenance; `priced` no longer implies server pricing, and `priced_cost_usd` need not equal `cost_usd` for declared costs); new optional boolean `cost_mismatch` on observations; declared-cost and mismatch conformance tests.
 - **Cost-accounting usage and read fields (additive, nullable).** New canonical
   `ReasoningTokens` (nullable integer, absent is not zero) on the observation read

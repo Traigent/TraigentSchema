@@ -6618,6 +6618,23 @@
       "reason": "Owner-approved 2026-10-01 (observability cost accounting, Sol 6.1 review): analytics responses (tool analysis, cohort compare, dashboards) return null for unknown cost plus cost_status / priced lower bound / unknown counts; null means unknown, never zero. Backend feat/observability-round1-integration, FE feat/observability-cost-display. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "branch feat/observability-cost-usage-fields, Spine-Trail st_ac9bcf51e84a (PR number pending)"
+    },
+    {
+      "file": "execution/experiment_group_schema.json",
+      "rule": "property_added",
+      "reason": "agent_name is a new optional, nullable member on ExperimentGroupOverview added to let the portal's optimization-history table show the agent's human-readable name (Agent.name) instead of the opaque agent_id UUID. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key. Same shape and rationale as the dataset_label acknowledgement (#472).",
+      "version": "Unreleased",
+      "pr": "branch fix/agent-name-optimization-history, Spine-Trail st_9ca8039ca435 (PR number pending)",
+      "findings": [
+        {
+          "pointer": "#/properties/group/properties/agent_name",
+          "role": "conservative",
+          "subject": "agent_name",
+          "old": false,
+          "new": true,
+          "fingerprint": "0354fd33c3290395cc70611814e56ba6f0772a00b1b62fed82960f37bdfbb39b"
+        }
+      ]
     }
   ]
 }

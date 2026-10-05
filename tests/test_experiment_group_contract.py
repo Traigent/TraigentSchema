@@ -243,6 +243,35 @@ def test_dataset_label_is_never_required_or_identity_constrained() -> None:
     assert "dataset_label" not in sort_field["enum"]
 
 
+def test_agent_name_is_optional_display_only_and_nullable() -> None:
+    with_name = _group(agent_name="Support Triage Agent")
+    with_null_name = _group(agent_name=None)
+    without_name = _group()
+    empty_name = _group(agent_name="")
+
+    assert _errors("ExperimentGroupOverview", with_name) == []
+    assert _errors("ExperimentGroupOverview", with_null_name) == []
+    assert "agent_name" not in without_name
+    assert _errors("ExperimentGroupOverview", without_name) == []
+    assert _errors("ExperimentGroupOverview", empty_name)
+
+
+def test_agent_name_is_never_required_or_identity_constrained() -> None:
+    schema = _load_schema("execution/experiment_group_schema.json")
+    overview = schema["definitions"]["ExperimentGroupOverview"]
+
+    assert "agent_name" not in overview["required"]
+
+    # agent_name is display-only and orthogonal to group identity: it must not
+    # be pinned by any identity_state discriminator branch.
+    for branch in overview["allOf"]:
+        for clause in ("if", "then"):
+            assert "agent_name" not in branch.get(clause, {}).get("properties", {})
+
+    sort_field = schema["definitions"]["ExperimentGroupSortField"]
+    assert "agent_name" not in sort_field["enum"]
+
+
 def test_group_id_is_opaque_url_safe_lookup_token_only() -> None:
     assert _errors("ExperimentGroupOverview", _group(group_id="group_AbC-123")) == []
     assert _errors("ExperimentGroupOverview", _group(group_id="../tenant-a"))

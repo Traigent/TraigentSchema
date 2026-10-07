@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_create_response_schema.json",
+  "title": "SessionCreateResponseDTO",
+  "description": "Response of POST /api/v1/sessions (TraigentBackend InteractiveSessionService.create_session typed return; route docstring in src/routes/traigent_session_routes.py create_session). Carries the new session_id and status, plus the experiment's server-issued owning scope (project_id, tenant_id) which the Python and JS SDKs combine with metadata.experiment_id to build the portal link /experiments/view/<experiment_id>?run_id=..&project_id=..&tenant_id=... The legacy route path additionally wraps the payload in success/data and adds message and total_configurations; those keys stay permitted so existing consumers do not break.",
+  "type": "object",
+  "required": [
+    "session_id",
+    "status"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "description": "Session lifecycle status; 'created' on success."
+    },
+    "message": {
+      "type": "string",
+      "description": "Legacy human-readable message; not part of the typed contract and not to be parsed."
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Server-issued id of the project that owns the experiment (the caller's own context, no customer content). Exists so SDKs can build the portal link, which is scoped by project_id and tenant_id. OPTIONAL: omitted, never null, when the scope is absent; consumers must degrade to a link without it. Present values are non-empty strings."
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Server-issued id of the tenant that owns the experiment (the caller's own context, no customer content). Exists so SDKs can build the portal link, which is scoped by project_id and tenant_id. OPTIONAL: omitted, never null, when the scope is absent; consumers must degrade to a link without it. Present values are non-empty strings."
+    },
+    "agent_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Backend identifier of the Agent row (agents.id) this session was resolved against, using the SAME resolution the server already performs to persist the session (function_name / agent_key / declared identity) -- not a second lookup. This is NOT the request's `agent_id` (a caller-declared, human-chosen identity string used for cohort grouping -- see the identity contract on this same endpoint) and not `agent_key` (the resolution key); it is the resolved row's own primary key, the value an SDK sends back as the X-Traigent-Agent-Id header when promoting a best config via POST /best-configs and reading GET /best-configs/agent-heads/{agent_id}. Optional and additive: absent on servers that have not yet been updated to resolve and return it, and a caller must not infer identity from its absence.",
+      "x-reference": "../agents/agent_schema.json#/properties/id"
+    },
+    "optimization_strategy": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Strategy state echoed by the server (algorithm, resolved_sampler, ...)."
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "experiment_id": {
+          "type": "string",
+          "description": "Experiment the session belongs to; present together with experiment_run_id."
+        },
+        "experiment_run_id": {
+          "type": "string",
+          "description": "Experiment run backing the session; present together with experiment_id."
+        },
+        "total_configurations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Agent bound to the session (session_agent_bindings) for an API-key caller; null for a JWT caller, who never gets a binding."
+        },
+        "function_name": {
+          "type": "string"
+        },
+        "dataset_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warm_start_transfer": {
+          "$ref": "./warm_start_transfer_schema.json"
+        }
+      },
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Optional non-fatal create-time warnings; omitted when there are none."
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Legacy envelope flag (legacy route path only)."
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Legacy envelope payload (legacy route path only)."
+    }
+  },
+  "additionalProperties": true
+}

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`session_create_response_schema.json` (`SessionCreateResponseDTO`): POST `/api/v1/sessions`
+  response contract.** Required `session_id` and `status`; new optional non-empty `project_id`
+  and `tenant_id` (server-issued owning scope the SDKs use to build the portal link; omitted,
+  never null, when absent); `metadata` types `experiment_id`, `experiment_run_id` and
+  `agent_id` (string or null). Additive and permissive (`additionalProperties: true`) so legacy
+  `success`/`data`/`message` keys keep validating. The session-create 201 in
+  `optimization_endpoints.json` also gains the same optional `project_id`/`tenant_id`
+  (its inline object is otherwise unchanged). Closes the
+  producer/consumer gap where no create-session response schema existed.
 - **`agent_name` on `ExperimentGroupOverview` (optimization-history display name).**
   New optional, nullable `agent_name` (`schemas/execution/experiment_group_schema.json`)
   carries the human-readable display name of the group's agent (`Agent.name`) for the

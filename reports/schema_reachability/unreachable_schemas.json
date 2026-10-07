@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 412
     },
     "reachableCount": 445,
-    "schemaFileCount": 486,
-    "unreachableCount": 41
+    "schemaFileCount": 487,
+    "unreachableCount": 42
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -51,6 +51,7 @@
     "optimization/guarantee_certificate_v2_delta_schema.json",
     "optimization/guarantee_certificate_v2_schema.json",
     "optimization/optimization_trace_signature_schema.json",
+    "optimization/session_create_response_schema.json",
     "optimization/tunable_schema.json",
     "results/comparison_schema.json",
     "results/report_request_schema.json",

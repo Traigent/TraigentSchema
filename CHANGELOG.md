@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Connector summary schemas (`schemas/connectors/`).** Three new closed
+  (`additionalProperties: false`) draft-07 schemas for customer-side connector
+  runs: `connector_run_summary.json` (command, status, fixed integer counts,
+  per-operation guarantees, closed `error_code` enum),
+  `dataset_revision_summary.json` (counts, approval, sampling policy, score
+  semantics) and `correlation_summary.json` (trial link counts per tier plus
+  optional code identity: `agent_function_ref` and a repo-relative
+  `agent_file_path`). Identifiers are opaque per-connection tokens
+  (`^[a-z0-9_-]{8,64}$`); no free text, URLs or platform identifiers. Purely
+  additive.
 - **`session_create_response_schema.json` (`SessionCreateResponseDTO`): POST `/api/v1/sessions`
   response contract.** Required `session_id` and `status`; new optional non-empty `project_id`
   and `tenant_id` (server-issued owning scope the SDKs use to build the portal link; omitted,

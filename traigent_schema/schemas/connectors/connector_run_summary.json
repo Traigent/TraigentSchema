@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Connector Run Summary",
+  "description": "Closed summary of one connector command run, produced customer-side. Carries only enums, counts, timestamps and opaque per-connection tokens; never platform identifiers, names, URLs, prompts, answers or free text.",
+  "version": "1.0.0",
+  "definitions": {
+    "OpaqueToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{8,64}$",
+      "description": "Per-connection opaque token minted customer-side. Never a raw platform identifier."
+    },
+    "ConnectorKind": {
+      "type": "string",
+      "enum": ["langfuse", "bedrock", "traigent_cloud", "mlflow", "wandb", "langsmith", "n8n", "git_file"]
+    },
+    "ConnectorCommand": {
+      "type": "string",
+      "enum": ["check", "bootstrap_dataset", "correlate", "report_experiment", "write_scores", "promote"]
+    },
+    "RunStatus": {
+      "type": "string",
+      "enum": ["queued", "running", "cancelled", "failed", "partial", "succeeded"]
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": ["auth_failed", "rate_limited", "not_found", "timeout", "invalid_response", "cancelled", "budget_exceeded", "internal"],
+      "description": "Closed error vocabulary. Never free text."
+    },
+    "GuaranteeOperation": {
+      "type": "string",
+      "enum": ["read_observations", "read_scores", "read_dataset", "write_scores", "write_dataset", "write_experiment", "paginate", "filter_server_side"]
+    },
+    "GuaranteeSupport": {
+      "type": "string",
+      "enum": ["native", "emulated", "none"]
+    },
+    "GuaranteeReason": {
+      "type": "string",
+      "enum": ["supported_by_platform", "emulated_client_side", "platform_limitation", "not_implemented", "not_permitted", "not_applicable"]
+    },
+    "Guarantee": {
+      "type": "object",
+      "properties": {
+        "operation": {"$ref": "#/definitions/GuaranteeOperation"},
+        "support": {"$ref": "#/definitions/GuaranteeSupport"},
+        "reason": {"$ref": "#/definitions/GuaranteeReason"}
+      },
+      "required": ["operation", "support", "reason"],
+      "additionalProperties": false
+    },
+    "Counts": {
+      "type": "object",
+      "properties": {
+        "observations_read": {"type": "integer", "minimum": 0},
+        "scores_read": {"type": "integer", "minimum": 0},
+        "rows_dropped_invalid": {"type": "integer", "minimum": 0},
+        "pages": {"type": "integer", "minimum": 0},
+        "items_written": {"type": "integer", "minimum": 0}
+      },
+      "required": ["observations_read", "scores_read", "rows_dropped_invalid", "pages", "items_written"],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schema_version": {"type": "string", "const": "1"},
+    "run_token": {"$ref": "#/definitions/OpaqueToken"},
+    "connector_kind": {"$ref": "#/definitions/ConnectorKind"},
+    "connection_token": {"$ref": "#/definitions/OpaqueToken"},
+    "command": {"$ref": "#/definitions/ConnectorCommand"},
+    "status": {"$ref": "#/definitions/RunStatus"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "counts": {"$ref": "#/definitions/Counts"},
+    "guarantees": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/Guarantee"},
+      "maxItems": 64
+    },
+    "error_code": {"$ref": "#/definitions/ErrorCode"}
+  },
+  "required": ["schema_version", "run_token", "connector_kind", "connection_token", "command", "status", "started_at", "counts", "guarantees"],
+  "additionalProperties": false
+}

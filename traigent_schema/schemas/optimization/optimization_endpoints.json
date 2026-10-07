@@ -613,6 +613,16 @@
                     "status": {
                       "type": "string"
                     },
+                    "project_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Server-issued id of the project that owns the experiment, used by SDKs to build the portal link. Optional: omitted, never null, when absent. See session_create_response_schema.json."
+                    },
+                    "tenant_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Server-issued id of the tenant that owns the experiment, used by SDKs to build the portal link. Optional: omitted, never null, when absent. See session_create_response_schema.json."
+                    },
                     "agent_id": {
                       "type": ["string", "null"],
                       "description": "Backend identifier of the Agent row (agents.id) this session was resolved against, using the SAME resolution the server already performs to persist the session (function_name / agent_key / declared identity) -- not a second lookup. This is NOT the request's `agent_id` (a caller-declared, human-chosen identity string used for cohort grouping -- see the identity contract on this same endpoint) and not `agent_key` (the resolution key); it is the resolved row's own primary key, the value an SDK sends back as the X-Traigent-Agent-Id header when promoting a best config via POST /best-configs and reading GET /best-configs/agent-heads/{agent_id}. Optional and additive: absent on servers that have not yet been updated to resolve and return it, and a caller must not infer identity from its absence.",

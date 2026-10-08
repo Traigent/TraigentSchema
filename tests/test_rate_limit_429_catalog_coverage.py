@@ -6,7 +6,8 @@ route; only kube-probe/metrics paths (``/health``, ``/status``,
 declares no 429 under-documents a response the client really receives.
 
 ``FULLY_COVERED`` is the set of catalogs #271 verified and fixed: every operation in them
-that declares responses must declare ``429`` -> ``rate_limit_info_schema.json``.
+that declares responses must declare ``429`` -> ``rate_limit_info_schema.json``, except the
+operations named in ``DELIBERATE_EXCEPTIONS``.
 ``KNOWN_UNCOVERED`` records how many operations in every other catalog still lack a 429.
 Operations that declare no ``responses`` at all are a separate gap and are not counted.
 The budget may only shrink: a new operation without a 429 fails here instead of drifting silently.
@@ -45,9 +46,9 @@ FULLY_COVERED = (
     "security/security_endpoints.json",
 )
 
-# Operations in the fixed catalogs that deliberately carry no 429, each pinned by its
-# own contract test. They are rate-limited at runtime; giving them a 429 needs an owner
-# decision on the envelope, so they are excluded here rather than silently counted.
+# Operations in the fixed catalogs that deliberately carry no 429. They are rate-limited
+# at runtime; giving them a 429 needs an owner decision on the envelope, so they are
+# excluded here rather than silently counted. The reason for each group is noted inline.
 DELIBERATE_EXCEPTIONS = {
     # Every experiment-group 4xx/5xx must reference the strict ExperimentGroupErrorEnvelope
     # subtype (test_experiment_group_contract.py), which has no 429 variant yet.

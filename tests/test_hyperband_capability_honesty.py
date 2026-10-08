@@ -22,6 +22,8 @@ def test_hyperband_is_advertised_as_planned_without_breaking_wire_acceptance() -
     validator = SchemaValidator()
     assert validator.validate_json("hyperband", "optimization_strategy_schema") == []
     assert (
-        validator.validate_json({"algorithm": "hyperband"}, "optimization_strategy_schema")
+        validator.validate_json(
+            {"algorithm": "hyperband"}, "optimization_strategy_schema"
+        )
         == []
     )

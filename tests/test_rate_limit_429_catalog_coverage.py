@@ -86,6 +86,7 @@ DELIBERATE_EXCEPTIONS = {
     ),
     # A subscription quota breach answers 429 with billing/quota_exceeded_error_schema.json
     # (and generate-examples also has a legacy limiter body with a top-level rate_limit):
+    ("datasets/datasets_endpoints.json", "post", "/api/v1/datasets"),
     ("datasets/datasets_endpoints.json", "post", "/api/v1/datasets/{dataset_id}/generate-examples"),
     (
         "observability/observability_endpoints.json",

@@ -596,7 +596,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the ranking was correct. Description-only; no shape change.
 
 ### Fixed
-- **Endpoint catalogs declare the canonical `429` (#271).** 174 operations across the 16
+- **Endpoint catalogs declare the canonical `429` (#271).** 173 operations across the 16
   catalogs that declared no `429` (`audit`, `billing/{paddle,spend_controls,subscription_lifecycle,wallet}`,
   `costs`, `datasets`, `execution/{best_config,execution}`, `measures`, `observability`,
   `planned_projects`, `planner`, `prompts`, `results`, `security`) now declare
@@ -608,13 +608,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   left untouched, and six operations whose own contract tests pin their error set (the
   four experiment-group routes, which must use the strict group error envelope, and the
   two pre-release v1beta ingest routes, pinned to exactly `202`/`410`) are named
-  exceptions in the new test. Six more operations are named exceptions because they can
+  exceptions in the new test. Seven more operations are named exceptions because they can
   answer `429` with a body that does not match `rate_limit_info_schema.json`: a per-route
   limiter adds `details.remaining` and an integer `details.limit` (`POST /api/v1/experiments`,
   `POST /api/v1/experiment-runs/{experiment_id}/runs`, `POST /api/v1/traces/ingest`,
   `POST /api/v1beta/annotation-queues/{queue_id}/items`), and a subscription quota breach
-  answers with `billing/quota_exceeded_error_schema.json`
-  (`POST /api/v1/datasets/{dataset_id}/generate-examples`,
+  answers with `billing/quota_exceeded_error_schema.json` (`POST /api/v1/datasets`,
+  `POST /api/v1/datasets/{dataset_id}/generate-examples`,
   `POST /api/v1beta/evaluators/{evaluator_id}/execute`). Which `429` envelope they declare is
   left open.
 - **`funnel.v1` `meta` bounds key length (#363, item 1).** `meta` bounded the key count

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Hyperband capability metadata now states `planned` and explicitly describes it
+  as not currently executable. The accepted algorithm vocabulary remains unchanged;
+  runtime dispatch continues to reject unsupported Hyperband execution (#277).
+
 ### Added
 - **`session_create_response_schema.json` (`SessionCreateResponseDTO`): POST `/api/v1/sessions`
   response contract.** Required `session_id` and `status`; new optional non-empty `project_id`

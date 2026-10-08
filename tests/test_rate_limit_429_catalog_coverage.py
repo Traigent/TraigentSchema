@@ -71,6 +71,27 @@ DELIBERATE_EXCEPTIONS = {
         "post",
         "/api/v1beta/projects/{project_id}/observability/ingest",
     ),
+    # These operations can return a 429 whose body does NOT match rate_limit_info, so
+    # declaring that envelope would mis-document them. Which envelope they declare is an
+    # owner decision (widen rate_limit_info, a oneOf, or align the backend bodies).
+    # A per-route limiter adds details.remaining and an integer details.limit, which the
+    # closed rate_limit_info details block rejects:
+    ("execution/execution_endpoints.json", "post", "/api/v1/experiments"),
+    ("execution/execution_endpoints.json", "post", "/api/v1/experiment-runs/{experiment_id}/runs"),
+    ("execution/execution_endpoints.json", "post", "/api/v1/traces/ingest"),
+    (
+        "observability/observability_endpoints.json",
+        "post",
+        "/api/v1beta/annotation-queues/{queue_id}/items",
+    ),
+    # A subscription quota breach answers 429 with billing/quota_exceeded_error_schema.json
+    # (and generate-examples also has a legacy limiter body with a top-level rate_limit):
+    ("datasets/datasets_endpoints.json", "post", "/api/v1/datasets/{dataset_id}/generate-examples"),
+    (
+        "observability/observability_endpoints.json",
+        "post",
+        "/api/v1beta/evaluators/{evaluator_id}/execute",
+    ),
 }
 
 # The v1 envelope, plus the v2 observability API's own error envelope (pre-existing on

@@ -74,16 +74,6 @@
         "responses": {
           "201": {
             "description": "Experiment created successfully"
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
           }
         }
       }
@@ -763,16 +753,6 @@
         "responses": {
           "201": {
             "description": "Experiment run created successfully"
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
           }
         }
       }
@@ -1279,16 +1259,6 @@
         "responses": {
           "201": {
             "description": "Traces ingested successfully"
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
           }
         }
       }

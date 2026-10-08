@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime dispatch continues to reject unsupported Hyperband execution (#277).
 
 ### Added
+- **Connector summary schemas (`schemas/connectors/`).** Three new closed
+  (`additionalProperties: false`) draft-07 schemas for customer-side connector
+  runs: `connector_run_summary.json` (command, status, fixed integer counts,
+  per-operation guarantees, closed `error_code` enum),
+  `dataset_revision_summary.json` (counts, approval, sampling policy, score
+  semantics) and `correlation_summary.json` (trial link counts per tier plus
+  optional code identity: `agent_function_ref` and a repo-relative
+  `agent_file_path`). Identifiers are opaque fixed-format tokens
+  (`^tk_[0-9a-hjkmnp-tv-z]{26}$`, a random 128-bit value minted customer-side);
+  timestamps are RFC 3339 UTC with an explicit pattern; run status drives which
+  timestamps are required; code identity uses a strict module/qualname and
+  source-file path grammar; no free text, URLs or platform identifiers. Each
+  schema `$id` carries a `/connectors/v1/` version segment. Purely additive.
 - **`session_create_response_schema.json` (`SessionCreateResponseDTO`): POST `/api/v1/sessions`
   response contract.** Required `session_id` and `status`; new optional non-empty `project_id`
   and `tenant_id` (server-issued owning scope the SDKs use to build the portal link; omitted,

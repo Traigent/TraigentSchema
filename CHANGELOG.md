@@ -596,6 +596,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the ranking was correct. Description-only; no shape change.
 
 ### Fixed
+- **Endpoint catalogs declare the canonical `429` (#271).** 180 operations across the 16
+  catalogs that declared no `429` (`audit`, `billing/{paddle,spend_controls,subscription_lifecycle,wallet}`,
+  `costs`, `datasets`, `execution/{best_config,execution}`, `measures`, `observability`,
+  `planned_projects`, `planner`, `prompts`, `results`, `security`) now declare
+  `429` -> `rate_limit_info_schema.json`. The backend's global default limiter covers
+  every one of these routes (only `/health`, `/status` and `/metrics` probe paths are
+  exempt). Additive, response-side only. New `tests/test_rate_limit_429_catalog_coverage.py`
+  pins the fixed catalogs and records the remaining uncovered operations per catalog as a
+  shrink-only budget. Three observability operations that declare no `responses` at all are
+  left untouched, and six operations whose own contract tests pin their error set (the
+  four experiment-group routes, which must use the strict group error envelope, and the
+  two pre-release v1beta ingest routes, pinned to exactly `202`/`410`) are named
+  exceptions in the new test.
+- **`funnel.v1` `meta` bounds key length (#363, item 1).** `meta` bounded the key count
+  and each value's length but not each key's length, so a one-million-character property
+  name validated. `propertyNames` now requires 1-128 characters. The `event`
+  closed-vs-free question in #363 is unchanged.
 - **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
   `summary_stats`, `execution_mode`, and `execution_environment` on
   `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
@@ -839,6 +856,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `evaluator_config` reference new `generator_config_update_request_schema.json` /
   `evaluator_config_update_request_schema.json` (same field set, no `required[]`); the create
   path (`POST /api/v1/datasets`) is unchanged and keeps requiring both fields.
+
 
 ## [7.0.0] - 2026-09-17
 

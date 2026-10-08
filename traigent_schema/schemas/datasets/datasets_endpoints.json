@@ -12,6 +12,16 @@
         "responses": {
           "200": {
             "description": "Datasets retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -30,6 +40,16 @@
         "responses": {
           "201": {
             "description": "Dataset created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -44,6 +64,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./dataset_detail_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -65,6 +95,16 @@
         "responses": {
           "200": {
             "description": "Dataset updated successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -73,6 +113,16 @@
         "responses": {
           "204": {
             "description": "Dataset deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -83,6 +133,16 @@
         "responses": {
           "200": {
             "description": "Dataset examples retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -102,6 +162,16 @@
         "responses": {
           "201": {
             "description": "Dataset example created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -119,6 +189,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./example_set_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -175,6 +255,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "BARE `{\"error\": \"Failed to fetch examples\"}` — src/routes/example_set_routes.py:359-361. Note this route's failure body differs from GET /api/v1/example-sets's, which also carries `success: false`.",
             "content": {
@@ -194,6 +284,16 @@
         "responses": {
           "200": {
             "description": "Dataset examples uploaded successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -204,6 +304,16 @@
         "responses": {
           "204": {
             "description": "Dataset example deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -246,6 +356,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -297,6 +417,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error.",
             "content": {
@@ -330,6 +460,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -380,6 +520,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -397,6 +547,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }

@@ -35,13 +35,13 @@
       },
       "js": {
         "entryPoints": [
-          "@traigent/sdk optimize({ objectives }) result best trial"
+          "@traigent/sdk scoreTrials(trials, objectives)",
+          "@traigent/sdk optimize({ objectives }) result best config"
         ]
       },
-      "disposition": "planned",
-      "rationale": "Both SDKs document the normative formula in optimization/multi_objective_semantics_schema.json v1.0.0 and carry JSON-equal repo-local cross-SDK fixtures. This fixture is re-derived by hand from that contract; tie-breaking and failed-trial handling are deliberately out of scope. Conformance adapters for both SDKs are pending. JS exposes only the selected best trial publicly; per-trial scores are not a public JS surface (gap), so the JS adapter can assert best-trial selection but not per-trial scores until a public surface exists.",
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through public APIs: Python SDK tests/unit/parity/test_conformance_multi_objective.py (Traigent develop f7f0f47d) via ObjectiveSchema.from_objectives, OptimizationResult.score_trials and traigent.optimize; JS SDK parity conformance test (develop 25e4a855) via the public scoreTrials export and optimize. Both assert normalized weights, per-trial normalized and weighted scores within 1e-9, the unique-max best trial, and the 0.99 dominance guard.",
       "owner": "sdk-maintainers",
-      "targetMilestone": "SDKS-3: Python and JS conformance adapters",
       "fixtures": [
         "multi-objective.normalization-selection.v1"
       ]

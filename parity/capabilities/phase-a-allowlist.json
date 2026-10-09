@@ -1,5 +1,11 @@
 {
   "allowlistVersion": "1",
-  "capabilityIds": ["optimizer.grid-enumeration"],
-  "fixtures": ["optimizer.grid-enumeration.v1"]
+  "capabilityIds": [
+    "optimizer.grid-enumeration",
+    "multi-objective.normalization-selection"
+  ],
+  "fixtures": [
+    "optimizer.grid-enumeration.v1",
+    "multi-objective.normalization-selection.v1"
+  ]
 }

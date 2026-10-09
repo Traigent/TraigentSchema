@@ -1,0 +1,28 @@
+{
+  "registryVersion": "1",
+  "capabilities": [
+    {
+      "id": "optimizer.grid-enumeration",
+      "title": "Grid search enumerates the full cartesian product of a discrete configuration space",
+      "area": "optimizer",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(algorithm=\"grid\")",
+          "traigent.optimizers.GridSearchOptimizer"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ algorithm: \"grid\" })"
+        ]
+      },
+      "disposition": "planned",
+      "rationale": "Both SDKs expose grid search through their public optimize entry point (Python: traigent.optimize with algorithm \"grid\"; JS: optimize with algorithm 'grid'). Parity pending conformance results. Parameter ordering is not part of the contract, so the fixture compares as a set plus a raw count.",
+      "owner": "sdk-maintainers",
+      "fixtures": [
+        "optimizer.grid-enumeration.v1"
+      ],
+      "targetMilestone": "SDKS-3: Python and JS conformance adapters"
+    }
+  ]
+}

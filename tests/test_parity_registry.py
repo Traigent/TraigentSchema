@@ -42,6 +42,15 @@ def _registry(tree: Path, mutate) -> None:
     _rw(tree / "capabilities" / "registry.v1.json", lambda d: mutate(d["capabilities"][0], d))
 
 
+def _set_planned(c: dict) -> None:
+    """Turn the copied grid row into a planned row so the planned-only mutations apply to it."""
+    c.update(
+        disposition="planned",
+        owner="sdk-maintainers",
+        targetMilestone="SDKS-3: Python and JS conformance adapters",
+    )
+
+
 def _reindex(tree: Path) -> None:
     def fix(d):
         for entry in d.values():
@@ -64,6 +73,7 @@ def test_happy_path_copy(tree: Path):
 
 
 def test_planned_row_may_list_fixtures(tree: Path):
+    _registry(tree, lambda c, d: _set_planned(c))
     row = json.loads((tree / "capabilities" / "registry.v1.json").read_text())["capabilities"][0]
     assert row["disposition"] == "planned" and row["fixtures"]
     assert _errors(tree) == []
@@ -88,12 +98,20 @@ def test_idiomatic_equivalent_without_fixtures_fails(tree: Path):
 
 
 def test_planned_row_requires_target_milestone(tree: Path):
-    _registry(tree, lambda c, d: c.pop("targetMilestone"))
+    def mutate(c, d):
+        _set_planned(c)
+        c.pop("targetMilestone")
+
+    _registry(tree, mutate)
     assert any(e.startswith("schema:") for e in _errors(tree))
 
 
 def test_planned_with_empty_owner_fails(tree: Path):
-    _registry(tree, lambda c, d: c.update(owner=""))
+    def mutate(c, d):
+        _set_planned(c)
+        c.update(owner="")
+
+    _registry(tree, mutate)
     assert any(e.startswith("schema:") for e in _errors(tree))
 
 

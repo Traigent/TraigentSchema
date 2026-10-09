@@ -16,13 +16,12 @@
           "@traigent/sdk optimize({ algorithm: \"grid\" })"
         ]
       },
-      "disposition": "planned",
-      "rationale": "Both SDKs expose grid search through their public optimize entry point (Python: traigent.optimize with algorithm \"grid\"; JS: optimize with algorithm 'grid'). Parity pending conformance results. Parameter ordering is not part of the contract, so the fixture compares as a set plus a raw count.",
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through their public optimize entry point with algorithm \"grid\": Python SDK tests/unit/parity/test_conformance_grid.py (Traigent develop bf57c2b5) and the JS SDK parity conformance test (develop cb4fa5de). Both assert raw invocation count, no duplicates, set equality, and max-trials truncation. Parameter ordering is not part of the contract.",
       "owner": "sdk-maintainers",
       "fixtures": [
         "optimizer.grid-enumeration.v1"
-      ],
-      "targetMilestone": "SDKS-3: Python and JS conformance adapters"
+      ]
     }
   ]
 }

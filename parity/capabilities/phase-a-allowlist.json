@@ -1,0 +1,5 @@
+{
+  "allowlistVersion": "1",
+  "capabilityIds": ["optimizer.grid-enumeration"],
+  "fixtures": ["optimizer.grid-enumeration.v1"]
+}

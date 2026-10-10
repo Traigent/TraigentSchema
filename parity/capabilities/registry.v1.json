@@ -45,6 +45,28 @@
       "fixtures": [
         "multi-objective.normalization-selection.v1"
       ]
+    },
+    {
+      "id": "optimize.stop-limits",
+      "title": "Stop limits: maximum trials, cumulative cost cap and maximum total examples",
+      "area": "budget-stop",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(max_trials=..., cost_limit=..., max_total_examples=...)"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ budget: { maxCostUsd }, execution: { maxTotalExamples } }) with maxTrials"
+        ]
+      },
+      "disposition": "planned",
+      "rationale": "The fixture states the stop rules directly: a trial limit, a cost cap where the crossing trial finishes and counts, and an example cap that truncates the last trial. Invalid limit values and negative trial costs are asserted only as rejections. Plateau stopping, cost estimation, a default cost cap, failed-trial handling, a grid exhausted exactly at a limit and precedence between simultaneous limits are open product decisions and deliberately out of scope. Conformance adapters for both SDKs are pending.",
+      "owner": "sdk-maintainers",
+      "targetMilestone": "SDKS-3: Python and JS conformance adapters",
+      "fixtures": [
+        "optimize.stop-limits.v1"
+      ]
     }
   ]
 }

@@ -290,3 +290,55 @@ def test_trial_response_rejects_additional_properties():
     v = SchemaValidator()
     payload = {**_valid_trial_response(), "weighted_score": 0.91}
     assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_accepts_null_total_cost_with_unpriced_status():
+    v = SchemaValidator()
+    payload = {
+        **_valid_trial_response(),
+        "total_cost_usd": None,
+        "cost_status": "unpriced",
+        "unpriced_span_count": 3,
+    }
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA) == []
+
+
+def test_trial_response_cost_status_and_unpriced_count_are_optional():
+    v = SchemaValidator()
+    assert v.validate_json(_valid_trial_response(), TRIAL_RESPONSE_SCHEMA) == []
+
+
+def test_trial_response_rejects_negative_total_cost():
+    v = SchemaValidator()
+    payload = {**_valid_trial_response(), "total_cost_usd": -0.01}
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_rejects_missing_total_cost_key():
+    v = SchemaValidator()
+    payload = _valid_trial_response()
+    del payload["total_cost_usd"]
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_rejects_unknown_cost_status():
+    v = SchemaValidator()
+    payload = {**_valid_trial_response(), "cost_status": "free"}
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_rejects_negative_unpriced_span_count():
+    v = SchemaValidator()
+    payload = {**_valid_trial_response(), "unpriced_span_count": -1}
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)
+
+
+def test_trial_response_still_rejects_unknown_extra_key_with_cost_fields():
+    v = SchemaValidator()
+    payload = {
+        **_valid_trial_response(),
+        "total_cost_usd": None,
+        "cost_status": "unpriced",
+        "unexpected_cost_field": 1,
+    }
+    assert v.validate_json(payload, TRIAL_RESPONSE_SCHEMA)

@@ -6635,6 +6635,58 @@
           "fingerprint": "0354fd33c3290395cc70611814e56ba6f0772a00b1b62fed82960f37bdfbb39b"
         }
       ]
+    },
+    {
+      "file": "execution/workflow_trace_trial_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "4ac26c27d17602e33e37bad2b093b988d4405cd271431cd6570bcf5ed54f7e5e"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-10: the workflow-trace trial response total_cost_usd becomes number|null (minimum 0) so an unknown cost is reported as null instead of a false 0, matching the MT3-06 trace/session precedent in CHANGELOG [Unreleased]. Response-only widening; the key stays required and a priced trial still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "branch feat/trial-cost-nullable (PR number pending)"
+    },
+    {
+      "file": "execution/workflow_trace_trial_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "2b2f4c86c93b4bc6221897b27bac275b29dbf9851f9b6690cbab2f10a9b952f8"
+        },
+        {
+          "pointer": "#/properties/unpriced_span_count",
+          "role": "response",
+          "subject": "unpriced_span_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "d12f1526d539cd60b0a722dd54beff3bda69e8aa39979cd4283a84eb443401f5"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-10: cost_status (CostRollupStatus) and unpriced_span_count are new optional response members on the workflow-trace trial response, which has additionalProperties:false, so a strict old response consumer could reject them. Neither is in required; both mirror the MT3-06 trace/session cost fields and are emitted only by the Backend when it records a cost marker. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/trial-cost-nullable (PR number pending)"
     }
   ]
 }

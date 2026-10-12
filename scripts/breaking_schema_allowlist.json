@@ -6687,6 +6687,72 @@
       "reason": "Owner-approved 2026-10-10: cost_status (CostRollupStatus) and unpriced_span_count are new optional response members on the workflow-trace trial response, which has additionalProperties:false, so a strict old response consumer could reject them. Neither is in required; both mirror the MT3-06 trace/session cost fields and are emitted only by the Backend when it records a cost marker. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "branch feat/trial-cost-nullable (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_evaluator_quality_dashboard_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/recent_evaluators/items/properties/priced_configuration_runs",
+          "role": "conservative",
+          "subject": "priced_configuration_runs",
+          "old": false,
+          "new": true,
+          "fingerprint": "ef3ba7a0479a02b0d2e0d21670a7bcbb8abfeb6102e4f0a7b903a12717fdc9d1"
+        },
+        {
+          "pointer": "#/properties/recent_evaluators/items/properties/unpriced_configuration_runs",
+          "role": "conservative",
+          "subject": "unpriced_configuration_runs",
+          "old": false,
+          "new": true,
+          "fingerprint": "30b94d1518dc20096ab47040f39a2587994132571486a4b690a8d72cf1d850e6"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/priced_configuration_runs_in_range",
+          "role": "conservative",
+          "subject": "priced_configuration_runs_in_range",
+          "old": false,
+          "new": true,
+          "fingerprint": "5a150521e37ca50a2a5c8c074025dcac270df2d43a776640c19a50d71304ad72"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/unpriced_configuration_runs_in_range",
+          "role": "conservative",
+          "subject": "unpriced_configuration_runs_in_range",
+          "old": false,
+          "new": true,
+          "fingerprint": "0e3b2ad1937bcc790ce9aa25329daa6debed645780b5888c23ccfb9da045c1c6"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-13 (chat go 'go public cost'; allowlist entries approved in chat: 'allowlist ok'): optional pricing-coverage counts (priced_/unpriced_configuration_runs, *_in_range on summary cards) are new optional response members on objects with additionalProperties:false, so a strict old consumer could reject them. Not in required; total_cost_usd unchanged. They let clients tell an unmeasured cost (priced 0, unpriced > 0) from a real $0. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/dashboard-cost-pricing-counts (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_project_usage_dashboard_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/top_experiments/items/properties/priced_configuration_runs",
+          "role": "conservative",
+          "subject": "priced_configuration_runs",
+          "old": false,
+          "new": true,
+          "fingerprint": "88f9f09b87210f0bcf22d18805f2537dea8db23423e549dfc898d1b07d90b221"
+        },
+        {
+          "pointer": "#/properties/top_experiments/items/properties/unpriced_configuration_runs",
+          "role": "conservative",
+          "subject": "unpriced_configuration_runs",
+          "old": false,
+          "new": true,
+          "fingerprint": "465e96ae78f8dd8b36e9803970192d6d99c3ea55e8896bcae38e99ab42feeead"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-13 (chat go 'go public cost'; allowlist entries approved in chat: 'allowlist ok'): optional pricing-coverage counts (priced_/unpriced_configuration_runs, *_in_range on summary cards) are new optional response members on objects with additionalProperties:false, so a strict old consumer could reject them. Not in required; total_cost_usd unchanged. They let clients tell an unmeasured cost (priced 0, unpriced > 0) from a real $0. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch feat/dashboard-cost-pricing-counts (PR number pending)"
     }
   ]
 }

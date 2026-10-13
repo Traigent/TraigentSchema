@@ -6709,9 +6709,9 @@
           "fingerprint": "465e96ae78f8dd8b36e9803970192d6d99c3ea55e8896bcae38e99ab42feeead"
         }
       ],
-      "reason": "Owner-approved 2026-10-13 (chat go 'go public cost'; allowlist entries approved in chat: 'allowlist ok'): optional pricing-coverage counts (priced_/unpriced_configuration_runs, *_in_range on summary cards) are new optional response members on objects with additionalProperties:false, so a strict old consumer could reject them. Not in required; total_cost_usd unchanged. They let clients tell an unmeasured cost (priced 0, unpriced > 0) from a real $0. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
+      "reason": "Owner-approved 2026-10-13 (chat go 'go public cost'; allowlist entries approved in chat: 'allowlist ok'): optional pricing-coverage counts priced_/unpriced_configuration_runs on top_experiments[] items are new optional response members on objects with additionalProperties:false, so a strict old consumer could reject them. Not in required; total_cost_usd unchanged. They let clients tell an unmeasured cost (priced 0, unpriced > 0) from a real $0. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
       "version": "Unreleased",
-      "pr": "branch feat/dashboard-cost-pricing-counts (PR number pending)"
+      "pr": "Traigent/TraigentSchema#546"
     }
   ]
 }

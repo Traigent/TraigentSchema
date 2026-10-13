@@ -81,10 +81,9 @@
           "@traigent/sdk optimize({ budget: { maxCostUsd } }) with maxTrials and .optimize({ plateau: { window, minImprovement } })"
         ]
       },
-      "disposition": "planned",
-      "rationale": "The fixture states the owner-ruled target stop rules directly: a crashed trial is recorded as failed and the run continues, a default 2.0 USD cumulative cost cap applies when none is set, plateau stops when the last N running-best values span no more than the tolerance (0 treated as 1e-6), a hard limit wins over plateau on the same trial, the pre-trial cost estimate is the mean of completed trial costs, and a cost cap with no reported cost is refused. Expected values are derived from these rules, not from running an SDK. The label of a stop when the grid is exhausted, wallclock limits and Python-only stop conditions are deliberately not asserted. Conformance adapters for both SDKs are pending.",
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through public APIs: Python SDK tests/unit/parity/test_conformance_stop_rules.py (Traigent develop 1e7e30bf) via traigent.optimize(max_trials, cost_limit, max_total_examples, plateau_window, plateau_epsilon); JS SDK tests/parity/conformance-stop-rules.test.ts (traigent-js develop 94c2710e) via optimize with maxTrials, budget.maxCostUsd, execution.maxTotalExamples and plateau. Both assert trial counts, stop reasons, trial statuses, rows per trial and best accuracy within 1e-9, and reject a capped run with no reported cost. Not asserted: the label of a stop when the grid is exhausted exactly at a limit, wallclock limits, Python-only stop conditions, and sub-tolerance running-best improvements, where Python gates its best by the tolerance and JS keeps a plain running best.",
       "owner": "sdk-maintainers",
-      "targetMilestone": "SDKS-5: stop-rule convergence",
       "fixtures": [
         "optimize.stop-rules.v1"
       ]

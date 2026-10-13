@@ -66,6 +66,28 @@
       "fixtures": [
         "optimize.stop-limits.v1"
       ]
+    },
+    {
+      "id": "optimize.stop-rules",
+      "title": "Stop rules: failed trials, default cost cap, plateau, stop precedence and pre-trial cost estimate",
+      "area": "budget-stop",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(max_trials=..., cost_limit=..., plateau_window=..., plateau_epsilon=...)"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ budget: { maxCostUsd } }) with maxTrials and .optimize({ plateau: { window, minImprovement } })"
+        ]
+      },
+      "disposition": "planned",
+      "rationale": "The fixture states the owner-ruled target stop rules directly: a crashed trial is recorded as failed and the run continues, a default 2.0 USD cumulative cost cap applies when none is set, plateau stops when the last N running-best values span no more than the tolerance (0 treated as 1e-6), a hard limit wins over plateau on the same trial, the pre-trial cost estimate is the mean of completed trial costs, and a cost cap with no reported cost is refused. Expected values are derived from these rules, not from running an SDK. The label of a stop when the grid is exhausted, wallclock limits and Python-only stop conditions are deliberately not asserted. Conformance adapters for both SDKs are pending.",
+      "owner": "sdk-maintainers",
+      "targetMilestone": "SDKS-5: stop-rule convergence",
+      "fixtures": [
+        "optimize.stop-rules.v1"
+      ]
     }
   ]
 }

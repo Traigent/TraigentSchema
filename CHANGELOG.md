@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime dispatch continues to reject unsupported Hyperband execution (#277).
 
 ### Added
+- **Optional pricing-coverage counts on the project-usage dashboard (additive).**
+  `project_scoped_project_usage_dashboard_schema.json` gains optional
+  `priced_configuration_runs` / `unpriced_configuration_runs` on each `top_experiments[]` item
+  (integer, >=0, not required). When priced is 0 and unpriced > 0 the total cost is unmeasured,
+  not zero. `total_cost_usd` is unchanged. The evaluator-quality dashboard is unchanged:
+  evaluator runs store cost as a non-null 0, so an unpriced count there would be fake.
 - **Connector summary schemas (`schemas/connectors/`).** Three new closed
   (`additionalProperties: false`) draft-07 schemas for customer-side connector
   runs: `connector_run_summary.json` (command, status, fixed integer counts,

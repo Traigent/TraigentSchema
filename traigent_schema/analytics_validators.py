@@ -108,22 +108,7 @@ class AnalyticsValidator:
         elif not self.validate_example_id_format(data["example_id"]):
             errors.append(f"Invalid example_id format: {data['example_id']}")
 
-        # Check required field: metrics
-        if "metrics" not in data:
-            errors.append("Missing required field: metrics")
-        elif not isinstance(data["metrics"], dict):
-            errors.append("metrics must be a dict")
-        elif len(data["metrics"]) > 50:
-            errors.append(f"Too many metrics ({len(data['metrics'])}): max 50 allowed")
-        else:
-            # Validate each metric value is numeric or null
-            for key, value in data["metrics"].items():
-                if value is not None and (
-                    isinstance(value, bool) or not isinstance(value, (int, float))
-                ):
-                    errors.append(
-                        f"Metric '{key}' must be numeric or null, got {type(value).__name__}"
-                    )
+        _append_example_metric_errors(data, errors)
 
         return errors
 
@@ -227,3 +212,23 @@ class AnalyticsValidator:
             "next_steps_schema",
             "curation_advice_schema",
         ]
+
+
+def _append_example_metric_errors(data: dict[str, Any], errors: list[str]) -> None:
+    """Append nested metric errors without changing their order or precedence."""
+    # Check required field: metrics
+    if "metrics" not in data:
+        errors.append("Missing required field: metrics")
+    elif not isinstance(data["metrics"], dict):
+        errors.append("metrics must be a dict")
+    elif len(data["metrics"]) > 50:
+        errors.append(f"Too many metrics ({len(data['metrics'])}): max 50 allowed")
+    else:
+        # Validate each metric value is numeric or null
+        for key, value in data["metrics"].items():
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, (int, float))
+            ):
+                errors.append(
+                    f"Metric '{key}' must be numeric or null, got {type(value).__name__}"
+                )

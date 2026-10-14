@@ -4,6 +4,13 @@
   "title": "Observability Session Schema",
   "type": "object",
   "additionalProperties": true,
+  "definitions": {
+    "ObservabilityOutcomeKind": {
+      "type": "string",
+      "enum": ["conversion", "resolution", "csat", "custom"],
+      "description": "Closed vocabulary for the kind of outcome attached to an observability session. Used by the outcome_kind filter on the project trace and session lists."
+    }
+  },
   "properties": {
     "id": { "type": "string", "minLength": 1, "maxLength": 128 },
     "user_id": { "type": ["string", "null"], "maxLength": 255 },

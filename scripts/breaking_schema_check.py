@@ -1729,17 +1729,12 @@ def _stored_identity_matches(
         return False
     stored_fingerprint = stored_identity.get("fingerprint")
     if not (
-        isinstance(stored_fingerprint, str)
-        and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
+        isinstance(stored_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
     ):
         return False
-    identity = {
-        key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS
-    }
+    identity = {key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS}
     try:
-        expected_fingerprint = _fingerprint_for_identity(
-            entry["file"], entry["rule"], identity
-        )
+        expected_fingerprint = _fingerprint_for_identity(entry["file"], entry["rule"], identity)
     except (TypeError, ValueError):
         return False
     if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
@@ -1755,11 +1750,7 @@ def _stored_identity_matches(
 def _structured_entry_matches(entry: dict[str, Any], finding: Finding) -> bool:
     # Structured acknowledgements are exact by construction: a missing, empty,
     # or non-string rule must never become a wildcard.
-    if (
-        not isinstance(entry.get("rule"), str)
-        or not entry["rule"]
-        or entry["rule"] != finding.rule
-    ):
+    if not isinstance(entry.get("rule"), str) or not entry["rule"] or entry["rule"] != finding.rule:
         return False
     exact_findings = entry["findings"]
     # New acknowledgements must name every accepted finding identity explicitly.
@@ -1999,9 +1990,7 @@ def _print_summary(report: Report) -> None:
 
 
 def _print_near_misses(report: Report) -> None:
-    near_miss_ids = {id(f) for f in report.breaking_unacked} & set(
-        report.near_miss_allow_entries
-    )
+    near_miss_ids = {id(f) for f in report.breaking_unacked} & set(report.near_miss_allow_entries)
     if not near_miss_ids:
         return
     print(

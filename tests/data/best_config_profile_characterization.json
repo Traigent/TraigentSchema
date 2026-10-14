@@ -1,0 +1,492 @@
+{
+ "load_contract/definitions_is_list": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: list indices must be integers or slices, not str"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/file_missing": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: [Errno 2] No such file or directory: '<tmp>/optimization/best_config_hash_contract_schema.json'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_bytes_bool": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_canonical_spec_bytes must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_bytes_float": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_canonical_spec_bytes must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_bytes_str": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_canonical_spec_bytes must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_bytes_zero": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_canonical_spec_bytes must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_depth_bool": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_depth must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_depth_negative": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_depth must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_depth_null": {
+  "raises": [
+   "BestConfigProfileError",
+   "canonicalization.max_depth must be a positive integer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/max_depth_other_value": {
+  "return": {
+   "__dict__": [
+    [
+     "max_canonical_spec_bytes",
+     262144
+    ],
+    [
+     "max_depth",
+     7
+    ],
+    [
+     "config_tag",
+     "traigent.best_config.config.v1"
+    ],
+    [
+     "spec_tag",
+     "traigent.best_config.spec.v1"
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/no_definitions": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: 'definitions'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/no_domain_tag": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: 'domain_tag'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/no_max_bytes_const": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: 'const'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/no_max_depth": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: 'max_depth'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/not_json": {
+  "raises": [
+   "BestConfigProfileError",
+   "best_config_hash_contract_schema.json is missing or malformed; cannot derive normative best-config hash profile constants: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/not_utf8": {
+  "raises": [
+   "UnicodeDecodeError",
+   "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/packaged_contract": {
+  "return": {
+   "__dict__": [
+    [
+     "max_canonical_spec_bytes",
+     262144
+    ],
+    [
+     "max_depth",
+     100
+    ],
+    [
+     "config_tag",
+     "traigent.best_config.config.v1"
+    ],
+    [
+     "spec_tag",
+     "traigent.best_config.spec.v1"
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/real_contract_copy": {
+  "return": {
+   "__dict__": [
+    [
+     "max_canonical_spec_bytes",
+     262144
+    ],
+    [
+     "max_depth",
+     100
+    ],
+    [
+     "config_tag",
+     "traigent.best_config.config.v1"
+    ],
+    [
+     "spec_tag",
+     "traigent.best_config.spec.v1"
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_empty": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must declare exactly one *.config.v1 tag and exactly one *.spec.v1 tag"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_no_spec": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must declare exactly one *.config.v1 tag and exactly one *.spec.v1 tag"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_non_string": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must be a list of strings"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_not_list": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must be a list of strings"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_two_config": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must declare exactly one *.config.v1 tag and exactly one *.spec.v1 tag"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_two_spec": {
+  "raises": [
+   "BestConfigProfileError",
+   "domain_tag.enum must declare exactly one *.config.v1 tag and exactly one *.spec.v1 tag"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "load_contract/tags_with_extra": {
+  "return": {
+   "__dict__": [
+    [
+     "max_canonical_spec_bytes",
+     262144
+    ],
+    [
+     "max_depth",
+     100
+    ],
+    [
+     "config_tag",
+     "a.config.v1"
+    ],
+    [
+     "spec_tag",
+     "a.spec.v1"
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/bytes_root": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/dag_shared_child": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/dicts_over_depth_limit": {
+  "raises": [
+   "ExceedsMaxDepthError",
+   "$[0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0]: nests deeper than the profile limit of 100"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/document": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/empty_containers": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/error_location_order": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$[1]: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_fraction_large": {
+  "raises": [
+   "UnsafeIntegralValueError",
+   "$: integral value outside the IEEE-754 safe integer range (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_inf": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_integral_safe": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_integral_unsafe": {
+  "raises": [
+   "UnsafeIntegralValueError",
+   "$[0][1]: integral value outside the IEEE-754 safe integer range (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_nan": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/float_subclass": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$[0]: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/int_key": {
+  "raises": [
+   "NonStringKeyError",
+   "$[1][1]: object key is not a plain string"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/int_safe": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/int_subclass": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$[0]: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/int_unsafe": {
+  "raises": [
+   "UnsafeIntegralValueError",
+   "$: integral value outside the IEEE-754 safe integer range (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/int_unsafe_negative": {
+  "raises": [
+   "UnsafeIntegralValueError",
+   "$[0]: integral value outside the IEEE-754 safe integer range (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/lists_at_depth_limit": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/lists_over_depth_limit": {
+  "raises": [
+   "ExceedsMaxDepthError",
+   "$[0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0][0]: nests deeper than the profile limit of 100"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/none": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/self_reference": {
+  "raises": [
+   "CircularReferenceError",
+   "$[1][0]: circular reference"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/str": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/str_subclass_key": {
+  "raises": [
+   "NonStringKeyError",
+   "$[0][0]: object key is not a plain string"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/str_subclass_value": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$[1][1]: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/true": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate/tuple": {
+  "raises": [
+   "UnsupportedProfileTypeError",
+   "$[0]: value is not one of the admissible exact JSON built-in types"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

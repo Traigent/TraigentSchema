@@ -1,0 +1,383 @@
+{
+ "canonicalize/mixed": {
+  "return": "{\"a\":null,\"z\":[1.25,\"x\"]}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "canonicalize/unhashable_foreign": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Marker"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/bad_key_after_good_members": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "object key is not a plain string: int"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/bad_value_after_good_members": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: tuple"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/bytes_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: bytes"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dag_shared_child": {
+  "return": "{\"a\":{\"x\":[1,2]},\"b\":[{\"x\":[1,2]},{\"x\":[1,2]}]}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dict_sorted_members": {
+  "return": "{\"\":4,\"A\":3,\"a\":2,\"b\":1}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dict_subclass_root": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Dict"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dict_utf16_order": {
+  "return": "{\"z\":3,\"\ud83d\ude00\":2,\"\uffff\":1}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dicts_at_depth_limit": {
+  "return": "{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{\"k\":{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/dicts_over_depth_limit": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "manifest nests deeper than the fp2 limit of 100"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/empty_dict": {
+  "return": "{}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/empty_list": {
+  "return": "[]",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/false": {
+  "return": "false",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_fraction": {
+  "return": "1.5",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_inf": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "non-finite number (NaN or Infinity)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_integral": {
+  "return": "3",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_large": {
+  "return": "1e+21",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_nan": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "non-finite number (NaN or Infinity)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_negative_zero": {
+  "return": "0",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_small": {
+  "return": "1e-7",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_subclass_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Float"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/float_zero": {
+  "return": "0",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/int_enum_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Color"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/int_key": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "object key is not a plain string: int"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/int_subclass_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Int"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/list_mixed": {
+  "return": "[1,\"a\",null,true,2.5,[],{}]",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/list_subclass_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _List"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/lists_at_depth_limit": {
+  "return": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/lists_over_depth_limit": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "manifest nests deeper than the fp2 limit of 100"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/max_safe_int": {
+  "return": "9007199254740991",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/min_safe_int": {
+  "return": "-9007199254740991",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/negative_int": {
+  "return": "-42",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/nested_mixed": {
+  "return": "{\"list\":[{\"y\":[1,{\"z\":null}]},\"s\"],\"n\":{\"m\":{}}}",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/none": {
+  "return": "null",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/object_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Marker"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/self_referencing_dict": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "circular reference"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/self_referencing_list": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "circular reference"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/set_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: set"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/str_subclass_key": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "object key is not a plain string: _Str"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/str_subclass_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: _Str"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/string_escapes": {
+  "return": "\"q\\\"\\\\\\n\\t\\u0001\u007f\"",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/string_lone_surrogate": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "string is not encodable text (lone surrogate at index 0)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/string_plain": {
+  "return": "\"hello\"",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/string_unicode": {
+  "return": "\"caf\u00e9 \ud83d\ude00 \u2028\"",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/true": {
+  "return": "true",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/tuple_value": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "unsupported type: tuple"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/unsafe_int": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "integer outside the IEEE-754 safe range, not representable as a JavaScript Number (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/unsafe_int_nested": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "integer outside the IEEE-754 safe range, not representable as a JavaScript Number (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/unsafe_negative_int": {
+  "raises": [
+   "Fp2UnsupportedValue",
+   "integer outside the IEEE-754 safe range, not representable as a JavaScript Number (limit 9007199254740991)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "encode/zero": {
+  "return": "0",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

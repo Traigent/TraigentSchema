@@ -1,0 +1,551 @@
+{
+ "prevalidate_canonical/bad_type_after_good_siblings": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/bytes": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/dag_shared_child": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/dict_subclass": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/dicts_at_depth_limit": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/dicts_over_depth_limit": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison exceeded the maximum nesting depth"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/empty_containers": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/false": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/float": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/float_inf_nested": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a non-finite float"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/float_nan": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a non-finite float"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/int": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/int_key": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains an object key that is not a plain string"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/int_subclass": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/lists_at_depth_limit": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/lists_over_depth_limit": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison exceeded the maximum nesting depth"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/mixed_document": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains an object key that is not a plain string"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/nested_at_node_budget": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/nested_over_node_budget": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison exceeded the maximum number of discovered nodes"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/none": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/plain_document": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/scalar_below_depth_limit_container": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/self_referencing_dict": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison found a circular reference"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/self_referencing_list": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison found a circular reference"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/set_nested": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/str": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/str_subclass_key": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains an object key that is not a plain string"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/str_subclass_value": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/true": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/tuple": {
+  "raises": [
+   "InvariantNoncanonicalPayloadError",
+   "a compared subtree contains a value that is not an exact JSON built-in type"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/width_at_node_budget": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "prevalidate_canonical/width_over_node_budget": {
+  "raises": [
+   "InvariantComparisonBoundError",
+   "invariant comparison exceeded the maximum number of discovered nodes"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/dict_subclass_not_followed": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/empty_pointer_returns_root": {
+  "return": {
+   "__dict__": [
+    [
+     "a",
+     {
+      "__dict__": [
+       [
+        "b",
+        {
+         "__list__": [
+          10,
+          {
+           "__dict__": [
+            [
+             "c",
+             "deep"
+            ]
+           ]
+          },
+          {
+           "__list__": [
+            true,
+            null
+           ]
+          }
+         ]
+        }
+       ]
+      ]
+     }
+    ],
+    [
+     "a/b",
+     "slash key"
+    ],
+    [
+     "m~n",
+     "tilde key"
+    ],
+    [
+     "~1",
+     "literal tilde-one key"
+    ],
+    [
+     "",
+     {
+      "__dict__": [
+       [
+        "",
+        "empty keys"
+       ]
+      ]
+     }
+    ],
+    [
+     7,
+     "int key"
+    ],
+    [
+     "list",
+     {
+      "__list__": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       9,
+       10,
+       11
+      ]
+     }
+    ],
+    [
+     "scalar",
+     5
+    ],
+    [
+     "null",
+     null
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/empty_segment_key": {
+  "return": "empty keys",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/eq_override_key_never_compared": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/escaped_slash_key": {
+  "return": "slash key",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/escaped_tilde_key": {
+  "return": "tilde key",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/escaped_tilde_one_literal": {
+  "return": "literal tilde-one key",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/first_plain_key_wins": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_dash_append": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_decimal": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_eleven": {
+  "return": 11,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_huge_digits": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_leading_zero": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_negative": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_non_ascii_digit": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_on_nested_list": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_out_of_range": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_plus_sign": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/index_zero": {
+  "return": 0,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/int_key_not_matched": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/list_subclass_not_followed": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/member": {
+  "return": {
+   "__dict__": [
+    [
+     "b",
+     {
+      "__list__": [
+       10,
+       {
+        "__dict__": [
+         [
+          "c",
+          "deep"
+         ]
+        ]
+       },
+       {
+        "__list__": [
+         true,
+         null
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/missing_member": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/nested_member_index_member": {
+  "return": "deep",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/relative_pointer_on_scalar": {
+  "raises": [
+   "InvariantDeclarationError",
+   "a declared pointer is not an RFC 6901 absolute pointer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/relative_pointer_rejected": {
+  "raises": [
+   "InvariantDeclarationError",
+   "a declared pointer is not an RFC 6901 absolute pointer"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/str_subclass_key_skipped": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/through_null": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/through_scalar": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/tuple_container_not_followed": {
+  "return": "<missing sentinel>",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "resolve_pointer/value_is_null": {
+  "return": null,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

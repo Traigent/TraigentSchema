@@ -51,6 +51,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from pathlib import Path
 from typing import Any
 
 from . import fp2
@@ -191,14 +192,8 @@ class MalformedJsonError(BestConfigProfileError):
     code = "malformed_json"
 
 
-def _load_contract() -> dict[str, Any]:
-    """Read the normative constants from the packaged contract schema.
-
-    Raises BestConfigProfileError rather than falling back to a literal:
-    a normative value that this module cannot verify against the shipped
-    schema must not be guessed.
-    """
-    contract_path = get_schemas_dir() / "optimization" / _CONTRACT_FILENAME
+def _read_contract_constants(contract_path: Path) -> tuple[Any, Any, Any]:
+    """Return the raw (max bytes, max depth, domain tags) values from the contract file."""
     try:
         raw = contract_path.read_text(encoding="utf-8")
         contract = json.loads(raw)
@@ -212,15 +207,15 @@ def _load_contract() -> dict[str, Any]:
             f"{_CONTRACT_FILENAME} is missing or malformed; cannot derive "
             f"normative best-config hash profile constants: {error}"
         ) from error
+    return max_bytes, max_depth, domain_tags
 
-    if not isinstance(max_bytes, int) or isinstance(max_bytes, bool) or max_bytes <= 0:
-        raise BestConfigProfileError(
-            "canonicalization.max_canonical_spec_bytes must be a positive integer"
-        )
 
-    if not isinstance(max_depth, int) or isinstance(max_depth, bool) or max_depth <= 0:
-        raise BestConfigProfileError("canonicalization.max_depth must be a positive integer")
+def _is_positive_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
+
+def _domain_tag_pair(domain_tags: Any) -> tuple[str, str]:
+    """The single ``*.config.v1`` and single ``*.spec.v1`` tag of the declared enum."""
     if not isinstance(domain_tags, list) or not all(isinstance(t, str) for t in domain_tags):
         raise BestConfigProfileError("domain_tag.enum must be a list of strings")
 
@@ -230,12 +225,33 @@ def _load_contract() -> dict[str, Any]:
         raise BestConfigProfileError(
             "domain_tag.enum must declare exactly one *.config.v1 tag and exactly one *.spec.v1 tag"
         )
+    return config_tags[0], spec_tags[0]
 
+
+def _load_contract() -> dict[str, Any]:
+    """Read the normative constants from the packaged contract schema.
+
+    Raises BestConfigProfileError rather than falling back to a literal:
+    a normative value that this module cannot verify against the shipped
+    schema must not be guessed.
+    """
+    contract_path = get_schemas_dir() / "optimization" / _CONTRACT_FILENAME
+    max_bytes, max_depth, domain_tags = _read_contract_constants(contract_path)
+
+    if not _is_positive_int(max_bytes):
+        raise BestConfigProfileError(
+            "canonicalization.max_canonical_spec_bytes must be a positive integer"
+        )
+
+    if not _is_positive_int(max_depth):
+        raise BestConfigProfileError("canonicalization.max_depth must be a positive integer")
+
+    config_tag, spec_tag = _domain_tag_pair(domain_tags)
     return {
         "max_canonical_spec_bytes": max_bytes,
         "max_depth": max_depth,
-        "config_tag": config_tags[0],
-        "spec_tag": spec_tags[0],
+        "config_tag": config_tag,
+        "spec_tag": spec_tag,
     }
 
 
@@ -345,56 +361,73 @@ def _prevalidate(root: Any) -> None:
             open_ids.discard(node)
             continue
 
-        if node is None:
+        if _is_admissible_scalar(node, path):
             continue
+        _open_profile_container(node, depth, path, open_ids, work)
 
-        # Exact types only. isinstance() would admit a subclass, and a
-        # subclass decides its own __iter__/items()/__int__/__float__ -- so
-        # user code, not this function, would choose what gets hashed. This
-        # mirrors fp2._encode's own exact-type dispatch (see fp2.py) for
-        # exactly the same reason.
-        node_type = type(node)
 
-        if node_type is bool:
-            continue
-        if node_type is int or node_type is float:
-            if _is_unsafe_integral(node):
-                raise UnsafeIntegralValueError(
-                    f"{_location(path)}: integral value outside the IEEE-754 "
-                    f"safe integer range (limit {_MAX_SAFE_INTEGER})"
+def _is_admissible_scalar(node: Any, path: tuple[int, ...]) -> bool:
+    """True for an admissible scalar, False for an exact dict/list; raise for anything else."""
+    if node is None:
+        return True
+
+    # Exact types only. isinstance() would admit a subclass, and a
+    # subclass decides its own __iter__/items()/__int__/__float__ -- so
+    # user code, not this function, would choose what gets hashed. This
+    # mirrors fp2._encode's own exact-type dispatch (see fp2.py) for
+    # exactly the same reason.
+    node_type = type(node)
+
+    if node_type is bool:
+        return True
+    if node_type is int or node_type is float:
+        if _is_unsafe_integral(node):
+            raise UnsafeIntegralValueError(
+                f"{_location(path)}: integral value outside the IEEE-754 "
+                f"safe integer range (limit {_MAX_SAFE_INTEGER})"
+            )
+        return True
+    if node_type is str:
+        return True
+
+    if node_type is not dict and node_type is not list:
+        raise UnsupportedProfileTypeError(
+            f"{_location(path)}: value is not one of the admissible exact JSON built-in types"
+        )
+    return False
+
+
+def _open_profile_container(
+    node: Any,
+    depth: int,
+    path: tuple[int, ...],
+    open_ids: set[int],
+    work: list[tuple[int, Any, int, tuple[int, ...]]],
+) -> None:
+    """Check depth and cycles for an exact container, then schedule its children."""
+    if depth > MAX_DEPTH:
+        raise ExceedsMaxDepthError(
+            f"{_location(path)}: nests deeper than the profile limit of {MAX_DEPTH}"
+        )
+
+    identity = id(node)
+    if identity in open_ids:
+        raise CircularReferenceError(f"{_location(path)}: circular reference")
+    open_ids.add(identity)
+    # Pushed before the children: LIFO means it pops only after every
+    # child (and its full subtree) has already been popped and validated.
+    work.append((_CLOSE, identity, 0, ()))
+
+    if type(node) is dict:
+        for index, (key, item) in enumerate(node.items()):
+            if type(key) is not str:
+                raise NonStringKeyError(
+                    f"{_location(path + (index,))}: object key is not a plain string"
                 )
-            continue
-        if node_type is str:
-            continue
-
-        if node_type is not dict and node_type is not list:
-            raise UnsupportedProfileTypeError(
-                f"{_location(path)}: value is not one of the admissible exact JSON built-in types"
-            )
-
-        if depth > MAX_DEPTH:
-            raise ExceedsMaxDepthError(
-                f"{_location(path)}: nests deeper than the profile limit of {MAX_DEPTH}"
-            )
-
-        identity = id(node)
-        if identity in open_ids:
-            raise CircularReferenceError(f"{_location(path)}: circular reference")
-        open_ids.add(identity)
-        # Pushed before the children: LIFO means it pops only after every
-        # child (and its full subtree) has already been popped and validated.
-        work.append((_CLOSE, identity, 0, ()))
-
-        if node_type is dict:
-            for index, (key, item) in enumerate(node.items()):
-                if type(key) is not str:
-                    raise NonStringKeyError(
-                        f"{_location(path + (index,))}: object key is not a plain string"
-                    )
-                work.append((_VALUE, item, depth + 1, path + (index,)))
-        else:
-            for index, item in enumerate(node):
-                work.append((_VALUE, item, depth + 1, path + (index,)))
+            work.append((_VALUE, item, depth + 1, path + (index,)))
+    else:
+        for index, item in enumerate(node):
+            work.append((_VALUE, item, depth + 1, path + (index,)))
 
 
 def _canonical_bytes(value: Any) -> bytes:

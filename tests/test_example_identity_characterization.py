@@ -300,6 +300,9 @@ PROOF_CASES.update(
         "tree_size_float": _proof_case(2, 0, tree_size=2.0),
         "leaf_index_negative": _proof_case(3, 0, leaf_index=-1),
         "leaf_index_equals_size": _proof_case(3, 2, leaf_index=3),
+        "leaf_index_equals_size_single_leaf": _proof_case(1, 0, leaf_index=1),
+        "tree_size_inflated_single_leaf": _proof_case(1, 0, tree_size=2),
+        "tree_size_inflated_unconsumed": _proof_case(2, 0, tree_size=4),
         "leaf_index_wrong": _proof_case(4, 1, leaf_index=2),
         "tree_size_wrong": _proof_case(5, 4, tree_size=6),
         "audit_node_not_str": _proof_with(

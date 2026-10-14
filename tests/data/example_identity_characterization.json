@@ -536,6 +536,12 @@
   "stdout": "",
   "warnings": []
  },
+ "inclusion_proof/leaf_index_equals_size_single_leaf": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
  "inclusion_proof/leaf_index_negative": {
   "return": false,
   "stderr": "",
@@ -585,6 +591,18 @@
   "warnings": []
  },
  "inclusion_proof/tree_size_float": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_inflated_single_leaf": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_inflated_unconsumed": {
   "return": false,
   "stderr": "",
   "stdout": "",

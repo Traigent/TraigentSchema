@@ -2146,6 +2146,13 @@ loosening, not breaking.
 ## [Unreleased]
 
 ### Added
+- **`trial_number` on `GroupedConfigurationRun` (and so `GroupedConfigurationRunBrowseRow`).**
+  New optional, nullable integer `trial_number` (minimum 1) in
+  `schemas/execution/experiment_group_schema.json`: the 1-based order in which the
+  configuration run was issued within its optimization run; `null` when not recorded.
+  Purely additive and not in `required`, so existing producers and readers are unaffected;
+  the browse row inherits it through its `allOf`. Pinned by
+  `tests/test_experiment_group_contract.py`.
 - **Agent tuning-history browse surface (experiment groups, Wave A).** Additive
   read-only enrichment of `execution/experiment_group_schema.json` and the
   `execution/execution_endpoints.json` experiment-group routes: complete browse

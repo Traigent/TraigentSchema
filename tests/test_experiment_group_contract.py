@@ -316,6 +316,34 @@ def test_grouped_configuration_rows_keep_source_identity_and_parameters() -> Non
     assert _errors("GroupedConfigurationRun", without_source)
 
 
+def test_grouped_configuration_run_trial_number_is_optional_nullable_positive() -> None:
+    row = {
+        "configuration_run_id": "config_run_1",
+        "experiment_run_id": "experiment_run_1",
+        "experiment_id": "experiment_1",
+        "run_label": None,
+        "run_name": None,
+        "status": "COMPLETED",
+        "created_at": "2026-06-30T08:10:00Z",
+        "started_at": None,
+        "completed_at": None,
+        "updated_at": "2026-06-30T08:20:00Z",
+        "configuration": {},
+        "parameters": {},
+    }
+    schema = _load_schema("execution/experiment_group_schema.json")
+    run = schema["definitions"]["GroupedConfigurationRun"]
+
+    assert "trial_number" not in run["required"]
+    assert _errors("GroupedConfigurationRun", row) == []
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": 1}) == []
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": None}) == []
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": 0})
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": -3})
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": 1.5})
+    assert _errors("GroupedConfigurationRun", {**row, "trial_number": "2"})
+
+
 def test_grouped_configuration_run_list_is_paginated() -> None:
     data = {
         "items": [

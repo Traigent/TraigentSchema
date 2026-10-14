@@ -74,6 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Backend already serializes null, so the Schema now describes shipped behaviour.
   No `cost_source` is defined for trace/session/summary because the Backend does not emit
   one there. Backend/FE/SDK consumers must treat null as unknown, never zero.
+- **Project-scoped dashboard cost fields are nullable.** In
+  `project_scoped_evaluator_quality_dashboard_schema.json`,
+  `project_scoped_optimization_overview_dashboard_schema.json`,
+  `project_scoped_project_usage_dashboard_schema.json` and the `usage_summary` of
+  `project_scoped_analytics_summary_schema.json`, every USD cost field (`total_cost_usd_in_range`,
+  `total_cost_usd`, `cost_usd`, `avg_cost_usd`) is now number|null, >=0 on the number branch: null
+  means cost unknown (no priced usage) and is never 0. Keys stay required. Acknowledged in
+  `scripts/breaking_schema_allowlist.json`. Backend/FE/SDK consumers must treat null as unknown,
+  never zero.
 - **Workflow-trace trial response cost (nullable `total_cost_usd`).**
   `workflow_trace_trial_response_schema.json` (GET `/api/v1/experiment-runs/runs/{run_id}/traces`)
   now declares `total_cost_usd` as number|null, >=0: null means the trial cost is unknown and is

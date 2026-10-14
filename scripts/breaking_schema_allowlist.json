@@ -6712,6 +6712,204 @@
       "reason": "Owner-approved 2026-10-13 (chat go 'go public cost'; allowlist entries approved in chat: 'allowlist ok'): optional pricing-coverage counts priced_/unpriced_configuration_runs on top_experiments[] items are new optional response members on objects with additionalProperties:false, so a strict old consumer could reject them. Not in required; total_cost_usd unchanged. They let clients tell an unmeasured cost (priced 0, unpriced > 0) from a real $0. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#546"
+    },
+    {
+      "file": "projects/project_scoped_analytics_summary_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/usage_summary/properties/avg_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "6839ba0c11dbd8b0e0724fa0fa1515c6ac11fef35252b289b2d5fb6a27a80fba"
+        },
+        {
+          "pointer": "#/properties/usage_summary/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "1ed7d326261fbccf1788570851bcbd1150c1c396ae4f18a2779a266be3fb5538"
+        }
+      ],
+      "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_evaluator_quality_dashboard_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/recent_evaluators/items/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "a00f7f6f8b5ec31f43f2d8416794e3c55dc1a8dccd137ce0b120261f83e25f59"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "389783821219909253230c67c9b2df2c5b75bf1c7e516e8ba64db9baf99841b8"
+        }
+      ],
+      "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_optimization_overview_dashboard_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/recent_experiments/items/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "a66cebb7c549b7b5b32f9b63352d1f21724e61e35aab7160d3863d36fd2ce488"
+        },
+        {
+          "pointer": "#/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "31d7fec583ab3b5764d99e88765d99e080a8de76c5ca2b9b8726f5abfa5912d0"
+        }
+      ],
+      "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+    },
+    {
+      "file": "projects/project_scoped_project_usage_dashboard_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "1ec11bec3f644d709f9cbc03cbc6c16f34f7c3430edbb354ea66a9b25d77d42a"
+        },
+        {
+          "pointer": "#/properties/top_experiments/items/properties/total_cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "2168c859689a7b7656f9351efcc26793dd10612a1231a671dfbcbfa338987187"
+        },
+        {
+          "pointer": "#/properties/usage_trend/items/properties/cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "ca812b2437ac75d2a9b7dfc9212af12cf449d35cc0f065dbbd181d404311c066"
+        }
+      ],
+      "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
     }
   ]
 }

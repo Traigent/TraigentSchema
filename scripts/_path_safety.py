@@ -174,6 +174,21 @@ def _prevalidate_tar_members(
     members = tar.getmembers()
     _validate_tar_members_stay_within(members, resolved_dest)
 
+    plans, planned_by_destination = _plan_tar_members(
+        members, resolved_dest, special_member_policy
+    )
+    _reject_non_directory_parents(plans, planned_by_destination, resolved_dest)
+    _require_tar_directories(plans, required_paths)
+    return plans
+
+
+def _plan_tar_members(
+    members: list[tarfile.TarInfo],
+    resolved_dest: Path,
+    special_member_policy: Literal["reject", "skip"],
+) -> tuple[list[tuple[tarfile.TarInfo, Path, PurePosixPath]], dict[Path, tarfile.TarInfo]]:
+    """Plan regular files and directories in archive order, applying the special-member
+    policy and refusing two members with one destination."""
     plans: list[tuple[tarfile.TarInfo, Path, PurePosixPath]] = []
     planned_by_destination: dict[Path, tarfile.TarInfo] = {}
     for member in members:
@@ -186,7 +201,14 @@ def _prevalidate_tar_members(
             raise ValueError(f"duplicate tar member destination: {member.name!r}")
         planned_by_destination[member_path] = member
         plans.append((member, member_path, relative_path))
+    return plans, planned_by_destination
 
+
+def _reject_non_directory_parents(
+    plans: list[tuple[tarfile.TarInfo, Path, PurePosixPath]],
+    planned_by_destination: dict[Path, tarfile.TarInfo],
+    resolved_dest: Path,
+) -> None:
     for member, member_path, _ in plans:
         parent = member_path.parent
         while parent != resolved_dest:
@@ -198,13 +220,16 @@ def _prevalidate_tar_members(
                 )
             parent = parent.parent
 
+
+def _require_tar_directories(
+    plans: list[tuple[tarfile.TarInfo, Path, PurePosixPath]], required_paths: tuple[str, ...]
+) -> None:
     required_relative_paths = tuple(
         _safe_tar_relative_path(path, "required path") for path in required_paths
     )
     for required_path in required_relative_paths:
         if not any(path == required_path and member.isdir() for member, _, path in plans):
             raise ValueError(f"required tar directory is missing: {required_path.as_posix()!r}")
-    return plans
 
 
 def extract_validated_tar_members(

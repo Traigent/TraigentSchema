@@ -1,0 +1,126 @@
+{
+ "child_not_json": {
+  "return": {
+   "__set__": [
+    "'bad.json'",
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "graph": {
+  "return": {
+   "__set__": [
+    "'lists/item.json'",
+    "'mod/a_endpoints.json'",
+    "'root_endpoints.json'",
+    "'schemas/req.json'",
+    "'shared/common.json'",
+    "'shared/deep/leaf.json'",
+    "'shared/http_target.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "graph_two_roots_one_missing": {
+  "return": {
+   "__set__": [
+    "'lists/item.json'",
+    "'mod/a_endpoints.json'",
+    "'root_endpoints.json'",
+    "'schemas/req.json'",
+    "'shared/common.json'",
+    "'shared/deep/leaf.json'",
+    "'shared/http_target.json'",
+    "'unreached.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "module_paths_file_escapes": {
+  "return": {
+   "__set__": [
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "modules_empty_string": {
+  "return": {
+   "__set__": [
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "modules_null": {
+  "return": {
+   "__set__": [
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "no_roots_exist": {
+  "return": {
+   "__set__": []
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "ref_to_directory": {
+  "return": {
+   "__set__": [
+    "'dir'",
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "root_is_list": {
+  "return": {
+   "__set__": [
+    "'a.json'",
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "root_not_json": {
+  "return": {
+   "__set__": [
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "self_reference": {
+  "return": {
+   "__set__": [
+    "'root_endpoints.json'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

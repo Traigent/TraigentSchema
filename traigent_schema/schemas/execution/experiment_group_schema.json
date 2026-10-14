@@ -756,6 +756,14 @@
           "minLength": 1,
           "description": "Human label for the source run when available; null when not set."
         },
+        "trial_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "1-based order in which this configuration run was issued within its optimization run; null when not recorded."
+        },
         "run_name": {
           "type": [
             "string",

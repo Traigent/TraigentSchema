@@ -1715,76 +1715,100 @@ class AllowMatch:
     rejected: list[tuple[dict[str, Any], str]]
 
 
+def _stored_identity_matches(
+    entry: dict[str, Any],
+    stored_identity: dict[str, Any],
+    current_identity: dict[str, Any],
+    current_fingerprint: str,
+) -> bool:
+    """True when one stored structured identity verifies and names exactly this finding."""
+    # A structured acknowledgement is valid only when it contains exactly the
+    # canonical identity fields plus a verified SHA-256 digest.  In particular,
+    # a digest cannot be used to bless a later semantic edit to the identity.
+    if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
+        return False
+    stored_fingerprint = stored_identity.get("fingerprint")
+    if not (
+        isinstance(stored_fingerprint, str)
+        and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
+    ):
+        return False
+    identity = {
+        key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS
+    }
+    try:
+        expected_fingerprint = _fingerprint_for_identity(
+            entry["file"], entry["rule"], identity
+        )
+    except (TypeError, ValueError):
+        return False
+    if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
+        return False
+    if not hmac.compare_digest(stored_fingerprint, current_fingerprint):
+        return False
+    try:
+        return _canonical_json_bytes(current_identity) == _canonical_json_bytes(identity)
+    except (TypeError, ValueError):
+        return False
+
+
+def _structured_entry_matches(entry: dict[str, Any], finding: Finding) -> bool:
+    # Structured acknowledgements are exact by construction: a missing, empty,
+    # or non-string rule must never become a wildcard.
+    if (
+        not isinstance(entry.get("rule"), str)
+        or not entry["rule"]
+        or entry["rule"] != finding.rule
+    ):
+        return False
+    exact_findings = entry["findings"]
+    # New acknowledgements must name every accepted finding identity explicitly.
+    # Invalid values fail closed and cannot accidentally become a wildcard.
+    if not (
+        isinstance(exact_findings, list)
+        and all(isinstance(identity, dict) for identity in exact_findings)
+    ):
+        return False
+    current_identity = finding.identity()
+    current_fingerprint = finding.fingerprint()
+    return any(
+        _stored_identity_matches(entry, stored_identity, current_identity, current_fingerprint)
+        for stored_identity in exact_findings
+    )
+
+
+def _entry_matches_finding(entry: dict[str, Any], finding: Finding) -> bool:
+    """True when ``entry`` names ``finding`` (before its reason/version are judged)."""
+    if entry.get("file") != finding.file:
+        return False
+    if "findings" in entry:
+        return _structured_entry_matches(entry, finding)
+    if "pointers" in entry or "pointer" in entry:
+        # Pointer-only acknowledgements are intentionally no longer accepted: they
+        # cannot distinguish same-pointer semantic changes.
+        return False
+    # Preserve the legacy optional-rule/prefix arm for historical entries.
+    if entry.get("rule") and entry["rule"] != finding.rule:
+        return False
+    return finding.pointer.startswith(entry.get("pointer_prefix", ""))
+
+
+def _entry_problems(entry: dict[str, Any]) -> list[str]:
+    """Why a matching entry does not count as an acknowledgement (empty when it does)."""
+    problems = []
+    if bad_reason := reason_rejection(entry.get("reason")):
+        problems.append(bad_reason)
+    if not entry.get("version"):
+        problems.append("version is missing — which contract version does this ship in?")
+    return problems
+
+
 def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMatch:
     rejected: list[tuple[dict[str, Any], str]] = []
     for e in entries:
-        if e.get("file") != finding.file:
+        if not _entry_matches_finding(e, finding):
             continue
-        if "findings" in e:
-            # Structured acknowledgements are exact by construction: a missing, empty,
-            # or non-string rule must never become a wildcard.
-            if not isinstance(e.get("rule"), str) or not e["rule"] or e["rule"] != finding.rule:
-                continue
-            exact_findings = e["findings"]
-            # New acknowledgements must name every accepted finding identity explicitly.
-            # Invalid values fail closed and cannot accidentally become a wildcard.
-            if not (
-                isinstance(exact_findings, list)
-                and all(isinstance(identity, dict) for identity in exact_findings)
-            ):
-                continue
-            current_identity = finding.identity()
-            current_fingerprint = finding.fingerprint()
-            matched = False
-            for stored_identity in exact_findings:
-                # A structured acknowledgement is valid only when it contains exactly the
-                # canonical identity fields plus a verified SHA-256 digest.  In particular,
-                # a digest cannot be used to bless a later semantic edit to the identity.
-                if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
-                    continue
-                stored_fingerprint = stored_identity.get("fingerprint")
-                if not (
-                    isinstance(stored_fingerprint, str)
-                    and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
-                ):
-                    continue
-                identity = {
-                    key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS
-                }
-                try:
-                    expected_fingerprint = _fingerprint_for_identity(
-                        e["file"], e["rule"], identity
-                    )
-                except (TypeError, ValueError):
-                    continue
-                if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
-                    continue
-                if not hmac.compare_digest(stored_fingerprint, current_fingerprint):
-                    continue
-                try:
-                    if _canonical_json_bytes(current_identity) != _canonical_json_bytes(identity):
-                        continue
-                except (TypeError, ValueError):
-                    continue
-                matched = True
-                break
-            if not matched:
-                continue
-        elif "pointers" in e or "pointer" in e:
-            # Pointer-only acknowledgements are intentionally no longer accepted: they
-            # cannot distinguish same-pointer semantic changes.
-            continue
-        else:
-            # Preserve the legacy optional-rule/prefix arm for historical entries.
-            if e.get("rule") and e["rule"] != finding.rule:
-                continue
-            if not finding.pointer.startswith(e.get("pointer_prefix", "")):
-                continue
-        problems = []
-        if bad_reason := reason_rejection(e.get("reason")):
-            problems.append(bad_reason)
-        if not e.get("version"):
-            problems.append("version is missing — which contract version does this ship in?")
+        problems = _entry_problems(e)
         if problems:
             rejected.append((e, "; ".join(problems)))
             continue
@@ -1946,29 +1970,23 @@ def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding])
     return "\n".join(lines)
 
 
-def print_report(report: Report, *, quiet_info: bool) -> None:
-    print(f"breaking_schema_check: {report.base_label}  ->  {report.head_label}")
-    if not report.changed:
-        print("  no traigent_schema/schemas/**/*.json changes between base and head.")
-        return
-
+def _print_findings_by_file(report: Report, *, quiet_info: bool) -> None:
     by_file: dict[str, list[Finding]] = defaultdict(list)
     for f in report.findings:
         by_file[f.file].append(f)
 
     for relpath in sorted(by_file):
-        role_line = ""
+        print(f"\n{relpath}")
         if relpath in report.role_notes:
             role, why = report.role_notes[relpath]
-            role_line = f"  role={role} — {why}\n"
-        print(f"\n{relpath}")
-        if role_line:
-            print(role_line, end="")
+            print(f"  role={role} — {why}")
         for f in sorted(by_file[relpath], key=lambda x: (x.severity != "BREAKING", x.pointer)):
             if quiet_info and f.severity != "BREAKING":
                 continue
             print(f.line())
 
+
+def _print_summary(report: Report) -> None:
     print("\n" + "-" * 72)
     print(f"files changed:        {len(report.changed)}")
     print(f"findings:             {len(report.findings)}")
@@ -1979,37 +1997,54 @@ def print_report(report: Report, *, quiet_info: bool) -> None:
         reason = entry.get("reason", "")
         print(f"  - {f.file}{f.pointer} ({f.rule}) — allowed by {pr}: {reason}")
 
+
+def _print_near_misses(report: Report) -> None:
+    near_miss_ids = {id(f) for f in report.breaking_unacked} & set(
+        report.near_miss_allow_entries
+    )
+    if not near_miss_ids:
+        return
+    print(
+        "\nYou already have scripts/breaking_schema_allowlist.json entries for some of "
+        "these, but they don't count yet:"
+    )
+    for f in report.breaking_unacked:
+        for _entry, why in report.near_miss_allow_entries.get(id(f), []):
+            print(f"  - {f.file}{f.pointer} ({f.rule}): existing entry rejected — {why}")
+
+
+def _print_allowlist_suggestions(report: Report) -> None:
+    groups: dict[tuple[str, str], list[Finding]] = defaultdict(list)
+    for f in report.breaking_unacked:
+        groups[(f.file, f.rule)].append(f)
+
+    print(
+        f"\nAdd {len(groups)} entr{'y' if len(groups) == 1 else 'ies'} to "
+        'scripts/breaking_schema_allowlist.json\'s "entries" array — fill in reason/'
+        "version/pr, then re-run:\n"
+    )
+    for (file, rule), group_findings in sorted(groups.items()):
+        print(_suggest_allowlist_json(file, rule, group_findings))
+        print()
+
+
+def print_report(report: Report, *, quiet_info: bool) -> None:
+    print(f"breaking_schema_check: {report.base_label}  ->  {report.head_label}")
+    if not report.changed:
+        print("  no traigent_schema/schemas/**/*.json changes between base and head.")
+        return
+
+    _print_findings_by_file(report, quiet_info=quiet_info)
+    _print_summary(report)
+
     if report.breaking_unacked:
         print("\nFAILED: un-acknowledged BREAKING contract changes found (see above).")
         print(
             'This is not "you may not break the contract" — it is "you may not break it '
             'silently". The change stays allowed; write the acknowledgement.'
         )
-
-        near_miss_ids = {id(f) for f in report.breaking_unacked} & set(
-            report.near_miss_allow_entries
-        )
-        if near_miss_ids:
-            print(
-                "\nYou already have scripts/breaking_schema_allowlist.json entries for some of "
-                "these, but they don't count yet:"
-            )
-            for f in report.breaking_unacked:
-                for _entry, why in report.near_miss_allow_entries.get(id(f), []):
-                    print(f"  - {f.file}{f.pointer} ({f.rule}): existing entry rejected — {why}")
-
-        groups: dict[tuple[str, str], list[Finding]] = defaultdict(list)
-        for f in report.breaking_unacked:
-            groups[(f.file, f.rule)].append(f)
-
-        print(
-            f"\nAdd {len(groups)} entr{'y' if len(groups) == 1 else 'ies'} to "
-            'scripts/breaking_schema_allowlist.json\'s "entries" array — fill in reason/'
-            "version/pr, then re-run:\n"
-        )
-        for (file, rule), group_findings in sorted(groups.items()):
-            print(_suggest_allowlist_json(file, rule, group_findings))
-            print()
+        _print_near_misses(report)
+        _print_allowlist_suggestions(report)
     else:
         print("\nPASSED: no un-acknowledged BREAKING contract changes.")
 

@@ -111,6 +111,7 @@ TAR_CASES: dict[str, Case] = {
     "duplicate_via_dot_segment": _plan([(DIR, "d", ""), (DIR, "./d", "")]),
     "file_parent_of_file": _plan([(FILE, "a", ""), (FILE, "a/b", "")]),
     "file_grandparent": _plan([(FILE, "a", ""), (DIR, "a/b", ""), (FILE, "a/b/c", "")]),
+    "file_grandparent_implicit_parent": _plan([(FILE, "a", ""), (FILE, "a/b/c", "")]),
     "implicit_parent_dirs": _plan([(FILE, "x/y/z.json", "")], required=("x",)),
     "skipped_member_not_a_parent": _plan(
         [(FIFO, "p", ""), (FILE, "p/f", "")], policy="skip"

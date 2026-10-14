@@ -139,6 +139,15 @@
   "stdout": "",
   "warnings": []
  },
+ "file_grandparent_implicit_parent": {
+  "raises": [
+   "ValueError",
+   "tar member has a non-directory parent: 'a/b/c' under 'a'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
  "file_parent_of_file": {
   "raises": [
    "ValueError",

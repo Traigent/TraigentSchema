@@ -421,7 +421,45 @@
   "stdout": "",
   "warnings": []
  },
+ "find_allow_entry/structured_current_fingerprint_differs": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
  "find_allow_entry/structured_empty_findings": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_empty_rule_on_both_sides": {
   "return": {
    "__dict__": [
     [

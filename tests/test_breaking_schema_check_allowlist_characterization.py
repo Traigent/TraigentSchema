@@ -143,6 +143,33 @@ def _skewed_identity_bytes(mode: str) -> Case:
     return run
 
 
+def _current_fingerprint_differs(m: ModuleType) -> Any:
+    """Skew only the first fingerprint computed: the finding's own, taken before the loop.
+
+    The stored fingerprint then verifies against its identity but not against the
+    finding, which is the comparison this case pins.
+    """
+    original = m._fingerprint_for_identity
+    calls: list[int] = []
+
+    def skewed(file: str, rule: str, identity: dict[str, Any]) -> str:
+        calls.append(1)
+        if len(calls) == 1:
+            return "f" * 64
+        return original(file, rule, identity)
+
+    def build(mod: ModuleType) -> Any:
+        finding = _finding(mod)
+        entry = _structured(mod, finding)
+        mod._fingerprint_for_identity = skewed
+        return finding, [entry]
+
+    try:
+        return _match(build)(m)
+    finally:
+        m._fingerprint_for_identity = original
+
+
 MATCH_CASES: dict[str, Case] = {
     "structured_exact": _one(lambda m, f: _structured(m, f)),
     "structured_second_identity_matches": _one(
@@ -206,6 +233,10 @@ MATCH_CASES: dict[str, Case] = {
     ),
     "structured_identity_bytes_raise": _skewed_identity_bytes("raise"),
     "structured_identity_bytes_differ": _skewed_identity_bytes("differ"),
+    "structured_current_fingerprint_differs": _current_fingerprint_differs,
+    "structured_empty_rule_on_both_sides": _one(
+        lambda m, f: _structured(m, f, rule=""), rule=""
+    ),
     "pointer_only_entry": _one(lambda m, f: _legacy(pointer=f.pointer, rule=f.rule)),
     "pointers_entry": _one(lambda m, f: _legacy(pointers=[f.pointer])),
     "legacy_no_rule_no_prefix": _one(lambda m, f: _legacy()),

@@ -1,0 +1,2680 @@
+{
+ "evaluate/all_success": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/allowlisted_jobs_missing": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "UNCONDITIONAL_SKIP_OK names 'test', which is not a declared dependency of this job (absent from `needs`). The allowlist is stale -- most likely the job was renamed -- and the real job it used to cover is now unguarded.",
+     "UNCONDITIONAL_SKIP_OK names 'package', which is not a declared dependency of this job (absent from `needs`). The allowlist is stale -- most likely the job was renamed -- and the real job it used to cover is now unguarded."
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/breaking_job_missing": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "'breaking-schema-check' is not a declared dependency of this job (absent from `needs`). check_required_gate.py's classifier-gated verification is dead code if this job was renamed -- fix the name here and in ci.yml together."
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/empty_needs": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "needs map is empty -- this job has no declared dependencies to verify, which is never correct for a required gate. Check the `needs:` list on this job in the workflow."
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/info_not_dict": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test=None",
+     "package=None",
+     "breaking-schema-check=None"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_failure_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_skipped_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_cancelled_test_success_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='cancelled'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_failure_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_skipped_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_failure_test_success_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_failure_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_skipped_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_skipped_test_success_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "lint-type='skipped'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'",
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_failure_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_skipped_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_failure_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_failure_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_failure_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_skipped_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'",
+     "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_skipped_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": [
+     "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+    ]
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_skipped_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_success_changes_failed": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "changes='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_success_changes_safe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/lint_success_test_success_breaking_success_changes_unsafe": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": true,
+   "problems": {
+    "__list__": []
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/only_unrelated_job": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "UNCONDITIONAL_SKIP_OK names 'test', which is not a declared dependency of this job (absent from `needs`). The allowlist is stale -- most likely the job was renamed -- and the real job it used to cover is now unguarded.",
+     "UNCONDITIONAL_SKIP_OK names 'package', which is not a declared dependency of this job (absent from `needs`). The allowlist is stale -- most likely the job was renamed -- and the real job it used to cover is now unguarded.",
+     "'breaking-schema-check' is not a declared dependency of this job (absent from `needs`). check_required_gate.py's classifier-gated verification is dead code if this job was renamed -- fix the name here and in ci.yml together.",
+     "other='failure'"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluate/result_missing": {
+  "return": {
+   "__type__": "GateResult",
+   "justifications": {
+    "__list__": []
+   },
+   "ok": false,
+   "problems": {
+    "__list__": [
+     "test=None",
+     "package=''",
+     "breaking-schema-check=None"
+    ]
+   }
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/changes_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes' did not succeed (result=None) -- its outputs cannot be trusted to justify this skip"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/changes_failed": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes' did not succeed (result='failure') -- its outputs cannot be trusted to justify this skip"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/changes_not_dict": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes' did not succeed (result=None) -- its outputs cannot be trusted to justify this skip"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/changes_result_missing": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes' did not succeed (result=None) -- its outputs cannot be trusted to justify this skip"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_bool_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=1)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_bool_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=1)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_bool_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='yes' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_bool_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='true' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_float_str_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='1.5' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_float_str_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='1.5' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_float_str_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='1.5' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_float_str_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='1.5' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_int_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=3)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_int_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=3)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_int_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='yes' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_int_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='true' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_list_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'=[1] is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_list_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'=[1] is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_list_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'=[1] is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_list_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'=[1] is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-2 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-2 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-2 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-2 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=3)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=3)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='yes' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='true' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_padded_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=4)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_padded_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (schema_relevant='false', changed_file_count=4)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_padded_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='yes' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_str_padded_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.ancestry_only'='true' with a non-zero changed_file_count"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_word_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='many' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_word_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='many' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_word_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='many' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_word_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count'='many' is not a valid integer"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe for declared ancestry-only topology (changes.outputs.ancestry_only='true', changes.outputs.changed_file_count=0)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_int_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_int_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_int_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=0 -- the classifier saw zero changed files in a PR/merge_group range, which is a broken/empty range, not a legitimate 'nothing schema-relevant changed' verdict"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_zero_int_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe for declared ancestry-only topology (changes.outputs.ancestry_only='true', changes.outputs.changed_file_count=0)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/event_applicable_bool": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.event_applicable'=True, expected the literal string 'true' or 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/event_applicable_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.event_applicable'='yes', expected the literal string 'true' or 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/event_not_applicable": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/event_not_applicable_ignores_rest": {
+  "return": {
+   "__tuple__": [
+    true,
+    "breaking-schema-check: skip verified safe (changes.outputs.event_applicable='false' -- no PR/merge_group diff range exists for this event)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/file_count_missing": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.changed_file_count' is missing entirely"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/outputs_missing": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.event_applicable'=None, expected the literal string 'true' or 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/outputs_not_dict": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.event_applicable'=None, expected the literal string 'true' or 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/schema_relevant_empty": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='', expected the literal string 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/schema_relevant_missing": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant' is missing entirely"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/schema_relevant_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, but 'changes.outputs.schema_relevant'='true', expected the literal string 'false'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

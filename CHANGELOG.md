@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Observability trace/session list query parameters now match the backend (#550).
+  Additive only.** `tags` stays a comma-separated string (`?tags=vip,beta`); its new
+  description says repeated `tags=` keys are also accepted and that a tag containing a comma
+  cannot be filtered with the comma form. Both lists gain `outcome_kind` (new
+  `session_schema.json#/definitions/ObservabilityOutcomeKind`:
+  `conversion|resolution|csat|custom`) and `has_outcome`. The trace list gains `q`, the
+  cost/token/latency `min_`/`max_` ranges, `sort_by` and `order`. The session list gains
+  `model`, `session_id` and `status`. The trace list's `metadata.<key>=<value>` filters are
+  not declared yet (a dynamic parameter name needs a new governed extension). Pinned by
+  `tests/test_observability_list_query_contract.py`.
 - Hyperband capability metadata now states `planned` and explicitly describes it
   as not currently executable. The accepted algorithm vocabulary remains unchanged;
   runtime dispatch continues to reject unsupported Hyperband execution (#277).

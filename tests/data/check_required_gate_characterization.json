@@ -2347,6 +2347,50 @@
   "stdout": "",
   "warnings": []
  },
+ "verify_skip/count_negative_one_ancestry_absent": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-1 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_one_ancestry_false": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-1 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_one_ancestry_other": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-1 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "verify_skip/count_negative_one_ancestry_true": {
+  "return": {
+   "__tuple__": [
+    false,
+    "breaking-schema-check=skipped, and 'changes.outputs.changed_file_count'=-1 -- the classifier saw a negative changed-file count, which is invalid"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
  "verify_skip/count_str_ancestry_absent": {
   "return": {
    "__tuple__": [

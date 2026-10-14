@@ -53,6 +53,17 @@
   "stdout": "",
   "warnings": []
  },
+ "file_missing_then_later_entries": {
+  "return": {
+   "__list__": [
+    "fixture multi-objective.normalization-selection.v1: file missing: multi-objective/normalization-selection.v1.json",
+    "fixture optimize.stop-rules.v1: sha256 mismatch (index eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, file b9ea0559dae523fc95c66e3cab422b1712234d7dd296caccc4df777b3ec39362)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
  "fixture_capability_mismatch": {
   "return": {
    "__list__": [

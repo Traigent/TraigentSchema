@@ -176,6 +176,10 @@ ALL_CASES: dict[str, Case] = {
     "fixture_not_allowlisted": _case(_allowlist(lambda d: d["fixtures"].remove(STOP))),
     "path_escapes": _case(_index(lambda d: d[GRID].__setitem__("path", "../outside.json"))),
     "file_missing": _case(_delete(GRID_REL)),
+    "file_missing_then_later_entries": _case(
+        _delete(_fixture_rel("multi-objective.normalization-selection.v1")),
+        _index(lambda d: d[STOP].__setitem__("sha256", "e" * 64)),
+    ),
     "sha_mismatch": _case(_index(lambda d: d[GRID].__setitem__("sha256", "0" * 64))),
     "fixture_not_json": _case(_write(GRID_REL, "{not json"), _reindex),
     "fixture_json_list": _case(_write(GRID_REL, "[1, 2]"), _reindex),

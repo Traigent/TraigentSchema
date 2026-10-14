@@ -65,6 +65,7 @@ for _label, _count in {
     "word": "many",
     "list": [1],
     "negative": "-2",
+    "negative_one": "-1",
     "zero": "0",
     "zero_int": 0,
     "bool": True,

@@ -893,7 +893,7 @@ def _decode_audit_path(audit_path: Any) -> list[bytes] | None:
 
 
 def _fold_audit_path(r: bytes, path: list[bytes], fn: int, sn: int) -> bytes | None:
-    """RFC 9162 section 2.1.3.2 steps over ``path``; ``None`` if the path does not fit.
+    """RFC 9162 inclusion-proof verification steps over ``path``; ``None`` if the path does not fit.
 
     ``fn`` is the leaf index and ``sn`` the last index of the tree. The computed root is
     returned only when the path is consumed exactly as the tree shape requires.
@@ -915,7 +915,7 @@ def _fold_audit_path(r: bytes, path: list[bytes], fn: int, sn: int) -> bytes | N
 
 
 def verify_inclusion_proof(proof: InclusionProof) -> bool:
-    """RFC 9162 section 2.1.3.2 verification. Needs no key. Never raises on a bad proof."""
+    """RFC 9162 inclusion-proof verification. Needs no key. Never raises on a bad proof."""
     root_match = _ROOT_RE.fullmatch(proof.root) if isinstance(proof.root, str) else None
     if root_match is None or root_match.group(1) != proof.member.key_id:
         return False

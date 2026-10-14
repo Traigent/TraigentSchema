@@ -31,7 +31,7 @@ CONTRACT_FILENAME = "best_config_hash_contract_schema.json"
 REAL_CONTRACT = json.loads(
     (get_schemas_dir() / "optimization" / CONTRACT_FILENAME).read_text(encoding="utf-8")
 )
-TMP_TOKEN = "<tmp>"
+TMP_PATH_PLACEHOLDER = "<tmp>"
 
 
 def _contract_case(text: str | bytes | None) -> Case:
@@ -55,7 +55,7 @@ def _contract_case(text: str | bytes | None) -> Case:
             try:
                 return m._load_contract()
             except m.BestConfigProfileError as exc:
-                raise type(exc)(str(exc).replace(tmp, TMP_TOKEN)) from None
+                raise type(exc)(str(exc).replace(tmp, TMP_PATH_PLACEHOLDER)) from None
             finally:
                 m.get_schemas_dir = original
 

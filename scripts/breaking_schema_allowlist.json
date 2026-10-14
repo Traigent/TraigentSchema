@@ -6756,7 +6756,7 @@
       ],
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
-      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+      "pr": "Traigent/TraigentSchema#554"
     },
     {
       "file": "projects/project_scoped_evaluator_quality_dashboard_schema.json",
@@ -6801,7 +6801,7 @@
       ],
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
-      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+      "pr": "Traigent/TraigentSchema#554"
     },
     {
       "file": "projects/project_scoped_optimization_overview_dashboard_schema.json",
@@ -6846,7 +6846,7 @@
       ],
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
-      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+      "pr": "Traigent/TraigentSchema#554"
     },
     {
       "file": "projects/project_scoped_project_usage_dashboard_schema.json",
@@ -6909,7 +6909,7 @@
       ],
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
-      "pr": "branch fix/nullable-dashboard-cost (PR number pending)"
+      "pr": "Traigent/TraigentSchema#554"
     }
   ]
 }

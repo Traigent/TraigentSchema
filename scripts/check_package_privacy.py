@@ -8,11 +8,13 @@ import tarfile
 import zipfile
 from pathlib import Path
 
+UNSAFE_MEMBER = "unsafe archive member"
+
 
 def _validate_member_syntax(name: str) -> None:
     """Reject empty names and non-portable raw archive path syntax."""
     if not name or name.startswith("/") or "\\" in name or "\x00" in name:
-        raise ValueError("unsafe archive member")
+        raise ValueError(UNSAFE_MEMBER)
 
 
 def _member_parts(name: str) -> list[str]:
@@ -20,10 +22,10 @@ def _member_parts(name: str) -> list[str]:
     _validate_member_syntax(name)
     parts = name.rstrip("/").split("/")
     if any(part in ("", "..") or ":" in part for part in parts):
-        raise ValueError("unsafe archive member")
+        raise ValueError(UNSAFE_MEMBER)
     normalized = [part for part in parts if part != "."]
     if not normalized:
-        raise ValueError("unsafe archive member")
+        raise ValueError(UNSAFE_MEMBER)
     return normalized
 
 
@@ -75,12 +77,20 @@ def check_artifact(path: Path) -> None:
 
 
 def main(args: list[str]) -> int:
-    """Fail closed with no artifact names or private member names in diagnostics."""
+    """Check artifacts within the invocation workspace with generic diagnostics."""
     try:
         if not args:
             raise ValueError("missing package artifacts")
+        workspace = Path.cwd().resolve()
         for argument in args:
-            check_artifact(Path(argument))
+            try:
+                artifact = Path(argument).resolve(strict=True)
+            except RuntimeError as error:
+                raise ValueError("invalid artifact path") from error
+            artifact.relative_to(workspace)
+            if not artifact.is_file():
+                raise ValueError("not a regular artifact file")
+            check_artifact(artifact)
     except (OSError, ValueError, tarfile.TarError, zipfile.BadZipFile, EOFError):
         print("Package artifact privacy check failed.", file=sys.stderr)
         return 1

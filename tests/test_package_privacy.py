@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 import sys
 import tarfile
@@ -15,12 +16,15 @@ SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_package_privac
 FAILURE = "Package artifact privacy check failed.\n"
 
 
-def run_guard(*paths: Path) -> subprocess.CompletedProcess[str]:
+def run_guard(
+    *paths: Path, workspace: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), *(str(path) for path in paths)],
         capture_output=True,
         text=True,
         check=False,
+        cwd=workspace if workspace is not None else paths[0].parent if paths else None,
     )
 
 
@@ -198,4 +202,66 @@ def test_rejects_dot_only_wheel_members(tmp_path: Path, name: str) -> None:
     write_archive(path, [name])
     result = run_guard(path)
     assert result.returncode == 1
+    assert result.stderr == FAILURE
+
+
+@pytest.mark.parametrize("suffix", [".tar.gz", ".whl"])
+@pytest.mark.parametrize("route", ["parent", "absolute", "symlink"])
+def test_rejects_artifacts_outside_workspace(
+    tmp_path: Path, suffix: str, route: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / f"example-1.0{suffix}"
+    name = "example-1.0/README.md" if suffix == ".tar.gz" else "README.md"
+    write_archive(outside, [name])
+    if route == "parent":
+        argument = Path("..") / outside.name
+    elif route == "symlink":
+        argument = workspace / outside.name
+        argument.symlink_to(outside)
+    else:
+        argument = outside
+    result = run_guard(argument, workspace=workspace)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == FAILURE
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO files are unavailable")
+def test_rejects_fifo_artifact_before_opening(tmp_path: Path) -> None:
+    path = tmp_path / "example-1.0.whl"
+    os.mkfifo(path)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(path)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert result.stderr == FAILURE
+
+
+@pytest.mark.parametrize("suffix", [".tar.gz", ".whl"])
+def test_accepts_relative_artifacts_inside_workspace(
+    tmp_path: Path, suffix: str
+) -> None:
+    path = tmp_path / f"example-1.0{suffix}"
+    name = "example-1.0/README.md" if suffix == ".tar.gz" else "README.md"
+    write_archive(path, [name])
+    result = run_guard(Path(path.name), workspace=tmp_path)
+    assert result.returncode == 0
+    assert result.stdout == "Package artifact privacy check passed.\n"
+    assert result.stderr == ""
+
+
+def test_rejects_symlink_loop_with_generic_diagnostic(tmp_path: Path) -> None:
+    path = tmp_path / "example-1.0.whl"
+    path.symlink_to(path.name)
+    result = run_guard(path)
+    assert result.returncode == 1
+    assert result.stdout == ""
     assert result.stderr == FAILURE

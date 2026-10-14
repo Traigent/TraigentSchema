@@ -205,31 +205,45 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
 
     current = payload
     for raw_segment in pointer.split("/")[1:]:
-        segment = _unescape_segment(raw_segment)
-        if type(current) is dict:
-            match = _MISSING
-            for key, value in current.items():
-                if type(key) is not str:
-                    continue
-                if key == segment:
-                    match = value
-                    break
-            if match is _MISSING:
-                return _MISSING
-            current = match
-        elif type(current) is list:
-            if not _ARRAY_INDEX_SEGMENT.fullmatch(segment):
-                return _MISSING
-            try:
-                index = int(segment)
-            except ValueError:
-                return _MISSING
-            if index >= len(current):
-                return _MISSING
-            current = current[index]
-        else:
+        current = _pointer_step(current, _unescape_segment(raw_segment))
+        if current is _MISSING:
             return _MISSING
     return current
+
+
+def _object_member(current: dict[Any, Any], segment: str) -> Any:
+    """The value of the first exact-``str`` key equal to ``segment``, else ``_MISSING``.
+
+    A non-``str`` key is skipped before any comparison, so its ``__eq__`` never runs.
+    """
+    for key, value in current.items():
+        if type(key) is not str:
+            continue
+        if key == segment:
+            return value
+    return _MISSING
+
+
+def _array_item(current: list[Any], segment: str) -> Any:
+    """The item at a canonical ASCII index ``segment``, else ``_MISSING``."""
+    if not _ARRAY_INDEX_SEGMENT.fullmatch(segment):
+        return _MISSING
+    try:
+        index = int(segment)
+    except ValueError:
+        return _MISSING
+    if index >= len(current):
+        return _MISSING
+    return current[index]
+
+
+def _pointer_step(current: Any, segment: str) -> Any:
+    """Follow one unescaped pointer segment from ``current``, or return ``_MISSING``."""
+    if type(current) is dict:
+        return _object_member(current, segment)
+    if type(current) is list:
+        return _array_item(current, segment)
+    return _MISSING
 
 
 # Work-stack entry tags for the iterative prevalidation walk.
@@ -289,51 +303,68 @@ def _prevalidate_canonical(root: Any) -> None:
             open_ids.discard(node)
             continue
 
-        if node is None or node is True or node is False:
+        if _is_canonical_scalar(node):
             continue
-        node_type = type(node)
-        if node_type is str or node_type is int:
-            continue
-        if node_type is float:
-            if not math.isfinite(node):
-                raise InvariantNoncanonicalPayloadError(
-                    "a compared subtree contains a non-finite float"
-                )
-            continue
+        remaining = _reserve_container(node, depth, open_ids, remaining)
+        work.append((_LEAVE, id(node), 0))
+        _push_canonical_children(node, depth, work)
 
-        if node_type is not dict and node_type is not list:
+
+def _is_canonical_scalar(node: Any) -> bool:
+    """True for an exact JSON scalar, False for an exact dict/list; raise for anything else."""
+    if node is None or node is True or node is False:
+        return True
+    node_type = type(node)
+    if node_type is str or node_type is int:
+        return True
+    if node_type is float:
+        if not math.isfinite(node):
             raise InvariantNoncanonicalPayloadError(
-                "a compared subtree contains a value that is not an exact JSON built-in type"
+                "a compared subtree contains a non-finite float"
             )
+        return True
 
-        if depth > _MAX_COMPARISON_DEPTH:
-            raise InvariantComparisonBoundError(
-                "invariant comparison exceeded the maximum nesting depth"
-            )
+    if node_type is not dict and node_type is not list:
+        raise InvariantNoncanonicalPayloadError(
+            "a compared subtree contains a value that is not an exact JSON built-in type"
+        )
+    return False
 
-        identity = id(node)
-        if identity in open_ids:
-            raise InvariantComparisonBoundError("invariant comparison found a circular reference")
 
-        size = len(node)
-        if size > remaining:
-            raise InvariantComparisonBoundError(
-                "invariant comparison exceeded the maximum number of discovered nodes"
-            )
-        remaining -= size
-        open_ids.add(identity)
-        work.append((_LEAVE, identity, 0))
+def _reserve_container(node: Any, depth: int, open_ids: set[int], remaining: int) -> int:
+    """Check depth, cycle and node budget for an exact container; return the budget left.
 
-        if node_type is dict:
-            for key, item in node.items():
-                if type(key) is not str:
-                    raise InvariantNoncanonicalPayloadError(
-                        "a compared subtree contains an object key that is not a plain string"
-                    )
-                work.append((_VALIDATE, item, depth + 1))
-        else:
-            for item in node:
-                work.append((_VALIDATE, item, depth + 1))
+    The container's identity is added to ``open_ids``; the caller schedules its removal.
+    """
+    if depth > _MAX_COMPARISON_DEPTH:
+        raise InvariantComparisonBoundError(
+            "invariant comparison exceeded the maximum nesting depth"
+        )
+
+    identity = id(node)
+    if identity in open_ids:
+        raise InvariantComparisonBoundError("invariant comparison found a circular reference")
+
+    size = len(node)
+    if size > remaining:
+        raise InvariantComparisonBoundError(
+            "invariant comparison exceeded the maximum number of discovered nodes"
+        )
+    open_ids.add(identity)
+    return remaining - size
+
+
+def _push_canonical_children(node: Any, depth: int, work: list[tuple[int, Any, int]]) -> None:
+    if type(node) is dict:
+        for key, item in node.items():
+            if type(key) is not str:
+                raise InvariantNoncanonicalPayloadError(
+                    "a compared subtree contains an object key that is not a plain string"
+                )
+            work.append((_VALIDATE, item, depth + 1))
+    else:
+        for item in node:
+            work.append((_VALIDATE, item, depth + 1))
 
 
 def _compare_validated(left: Any, right: Any) -> bool:

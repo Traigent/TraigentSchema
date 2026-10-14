@@ -171,7 +171,7 @@ def _current_fingerprint_differs(m: ModuleType) -> Any:
 
 
 MATCH_CASES: dict[str, Case] = {
-    "structured_exact": _one(lambda m, f: _structured(m, f)),
+    "structured_exact": _one(_structured),
     "structured_second_identity_matches": _one(
         lambda m, f: _structured(m, f, _stored(m, f, pointer="#/other"), _stored(m, f))
     ),
@@ -225,9 +225,7 @@ MATCH_CASES: dict[str, Case] = {
     "structured_stored_for_other_finding": _one(
         lambda m, f: _structured(m, f, _stored(m, _finding(m, subject="size")))
     ),
-    "structured_set_values_canonical": _one(
-        lambda m, f: _structured(m, f), subject={"b", "a"}, old=("x", 1)
-    ),
+    "structured_set_values_canonical": _one(_structured, subject={"b", "a"}, old=("x", 1)),
     "structured_finding_unserializable": _one(
         lambda m, f: _structured(m, f, {"pointer": "#"}), old=float("inf")
     ),

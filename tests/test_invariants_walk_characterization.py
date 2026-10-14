@@ -155,7 +155,7 @@ PREVALIDATE_CASES: dict[str, Case] = {
     "tuple": _prevalidate(lambda: (1,)),
     "set_nested": _prevalidate(lambda: [[{1}]]),
     "bytes": _prevalidate(lambda: b""),
-    "dict_subclass": _prevalidate(lambda: type("D", (dict,), {})()),
+    "dict_subclass": _prevalidate(type("D", (dict,), {})),
     "empty_containers": _prevalidate(lambda: {"a": [], "b": {}}),
     "mixed_document": _prevalidate(lambda: DOC | {7: None}),
     "plain_document": _prevalidate(lambda: {"a": [1, 2.5, "x", None, True, {"b": []}]}),

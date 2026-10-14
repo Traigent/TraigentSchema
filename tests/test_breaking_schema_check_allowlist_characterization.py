@@ -10,6 +10,7 @@ every branch of both functions.
 
 from __future__ import annotations
 
+import json
 from types import ModuleType
 from typing import Any
 
@@ -394,4 +395,12 @@ def test_recorded_cases_match_case_list() -> None:
 
 @pytest.mark.parametrize("case_id", sorted(ALL_CASES))
 def test_case_matches_recorded_output(case_id: str) -> None:
-    assert observe(ALL_CASES[case_id], TARGET) == _golden()[case_id]
+    expected = _golden()[case_id]
+    if case_id == "find_allow_entry/structured_finding_unserializable":
+        # The ValueError text comes from the stdlib json encoder and differs between
+        # Python versions, so derive the platform's native message instead of
+        # hard-coding the recorded one. Type and every other field stay as recorded.
+        with pytest.raises(ValueError) as native:
+            json.dumps(float("inf"), allow_nan=False)
+        expected = {**expected, "raises": [expected["raises"][0], str(native.value)]}
+    assert observe(ALL_CASES[case_id], TARGET) == expected

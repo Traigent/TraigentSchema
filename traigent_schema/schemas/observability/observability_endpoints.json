@@ -243,7 +243,7 @@
           {
             "name": "tags",
             "in": "query",
-            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. The value is a comma-separated list of tags (?tags=vip,beta). Repeated tags= keys are also accepted (?tags=vip&tags=beta). With repeated keys each value is one whole tag (not split on commas; surrounding whitespace is trimmed). A tag that itself contains a comma cannot be filtered with the comma form.",
+            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. Each tags= occurrence is ONE whole tag, taken literally: a comma is part of the tag and is never a delimiter, so ?tags=vip,beta (or ?tags=vip%2Cbeta) filters for the single tag \"vip,beta\". Send one tags= key per tag, including for a single tag: ?tags=vip for one tag, ?tags=vip&tags=beta for two. Surrounding whitespace is trimmed and a blank value is ignored.",
             "schema": {
               "type": "string",
               "maxLength": 4096
@@ -564,7 +564,7 @@
           {
             "name": "tags",
             "in": "query",
-            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. The value is a comma-separated list of tags (?tags=vip,beta). Repeated tags= keys are also accepted (?tags=vip&tags=beta). With repeated keys each value is one whole tag (not split on commas; surrounding whitespace is trimmed). A tag that itself contains a comma cannot be filtered with the comma form.",
+            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. Each tags= occurrence is ONE whole tag, taken literally: a comma is part of the tag and is never a delimiter, so ?tags=vip,beta (or ?tags=vip%2Cbeta) filters for the single tag \"vip,beta\". Send one tags= key per tag, including for a single tag: ?tags=vip for one tag, ?tags=vip&tags=beta for two. Surrounding whitespace is trimmed and a blank value is ignored.",
             "schema": {
               "type": "string",
               "maxLength": 4096

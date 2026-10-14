@@ -4,9 +4,9 @@
 
 The backend reads both list endpoints through one query model (the trace list adds numeric
 ranges, a sort choice and content search). The expected sets below are a copy of those model
-fields, kept here because this repository cannot import the backend. ``tags`` stays one
-comma-separated string, the shape every client sends; its description now says so, and says
-that repeated ``tags=`` keys are also accepted.
+fields, kept here because this repository cannot import the backend. ``tags`` stays a string
+schema that describes ONE tag per ``tags=`` occurrence: the value is taken literally (a comma is
+part of the tag, never a delimiter), and several tags are sent as repeated ``tags=`` keys.
 """
 
 from __future__ import annotations
@@ -84,19 +84,23 @@ def test_list_query_parameters_match_the_backend_query_model(path: str) -> None:
 
 
 @pytest.mark.parametrize("path", [TRACES, SESSIONS])
-def test_tags_is_a_comma_separated_string_with_its_encoding_described(path: str) -> None:
+def test_tags_is_one_literal_tag_per_occurrence_with_repeated_keys_for_many(path: str) -> None:
     tags = _params(path)["tags"]
     assert tags["schema"] == {"type": "string", "maxLength": 4096}
     assert "style" not in tags and "explode" not in tags
     validator = Draft7Validator(tags["schema"])
-    assert validator.is_valid("vip,beta")
+    assert validator.is_valid("vip")
+    assert validator.is_valid("vip,beta")  # one literal tag that contains a comma
     assert not validator.is_valid(["vip", "beta"])
     description = tags["description"]
-    assert "comma-separated" in description
-    assert "?tags=vip,beta" in description
-    assert "?tags=vip&tags=beta" in description
-    assert "not split on commas" in description
-    assert "cannot be filtered with the comma form" in description
+    assert "ONE whole tag, taken literally" in description
+    assert "never a delimiter" in description
+    assert 'single tag "vip,beta"' in description
+    assert "?tags=vip for one tag" in description
+    assert "?tags=vip&tags=beta for two" in description
+    # Singleton comma-list semantics are not offered, so the description never claims them.
+    assert "comma-separated" not in description
+    assert "comma form" not in description
 
 
 @pytest.mark.parametrize("path", [TRACES, SESSIONS])

@@ -125,6 +125,9 @@ jobs:
         run: |
           python -m build
 
+      - name: Check package privacy
+        run: python scripts/check_package_privacy.py dist/*
+
       - name: Check package with twine
         run: |
           twine check dist/*

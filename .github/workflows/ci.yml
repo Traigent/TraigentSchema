@@ -411,7 +411,14 @@ jobs:
 
       - name: Build package
         run: |
+          set -o noclobber
+          mkdir -p reports/private-package-probe
+          printf '%s\n' 'Synthetic package privacy regression witness' > reports/private-package-probe/README.md
+          printf '%s\n' 'Synthetic package privacy regression witness' > reports/private-package-probe/LICENSE
           python -m build
+
+      - name: Check package privacy
+        run: python scripts/check_package_privacy.py dist/*
 
       - name: Check package metadata
         run: |

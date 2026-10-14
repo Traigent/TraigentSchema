@@ -39,7 +39,7 @@ dev = [
     "tomli>=2.0; python_version < '3.11'",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-cov>=4.0",
-    "ruff==0.16.9",  # Exact pin (parity with TraigentBackend/traigent-smartopt): reproducible `ruff check` across machines/CI. Lint-only gate; not format-gated.
+    "ruff==0.16.9",  # Exact lint pin keeps local and CI checks reproducible.
     "mypy>=1.0,<3",
 ]
 
@@ -57,6 +57,7 @@ path = "traigent_schema/version.py"
 packages = ["traigent_schema"]
 
 [tool.hatch.build.targets.sdist]
+exclude = ["/reports/**"]
 include = [
     "CHANGELOG.md",
     "LICENSE",

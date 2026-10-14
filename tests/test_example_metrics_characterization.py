@@ -176,7 +176,8 @@ def test_example_id_override_exception_propagates_without_mutating_payload() -> 
 
     payload = {"example_id": VALID_ID, "metrics": {"invalid": True}}
     original = deepcopy(payload)
+    validator = Override()
     with pytest.raises(RuntimeError) as caught:
-        Override().validate_example_metrics(payload)
+        validator.validate_example_metrics(payload)
     assert caught.value is failure
     assert payload == original

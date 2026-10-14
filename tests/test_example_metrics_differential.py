@@ -3,13 +3,26 @@
 from copy import deepcopy
 from decimal import Decimal
 from fractions import Fraction
+from hashlib import sha256
 from itertools import product
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tests._example_metrics_e344708 import validate_example_metrics as original
 from traigent_schema.analytics_validators import AnalyticsValidator
+
+# This is immutable historical test data, not a second live implementation.
+# Verify the bundled reference before executing its exact pinned baseline bytes.
+_REFERENCE = Path(__file__).parent / "data" / "example_metrics_e344708.py.txt"
+_REFERENCE_BYTES = _REFERENCE.read_bytes()
+if sha256(_REFERENCE_BYTES).hexdigest() != (
+    "c636c7b380f1b932da1b293838ffe83fabcef97ddd31fb41cbc3076104a7f690"
+):
+    raise RuntimeError("Historical example metrics reference integrity failure")
+_REFERENCE_NAMESPACE: dict[str, Any] = {"__name__": "historical_example_metrics"}
+exec(compile(_REFERENCE_BYTES, str(_REFERENCE), "exec"), _REFERENCE_NAMESPACE)
+original = _REFERENCE_NAMESPACE["validate_example_metrics"]
 
 
 def observe(validator: AnalyticsValidator, payload: Any, legacy: bool) -> tuple:

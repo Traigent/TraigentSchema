@@ -1249,7 +1249,10 @@ class Legend:
         for k, v in (override or {}).items():
             merged[k] = v
         replaced = {REPLACES[role] for (role, _, _) in merged if role in REPLACES}
-        return {k: v for k, v in merged.items() if k[0] not in replaced or k[1] == "trial"}
+        kept = {k: v for k, v in merged.items() if k[0] not in replaced or k[1] == "trial"}
+        return dict(
+            sorted(kept.items(), key=lambda kv: (ROLE_ORDER.index(kv[0][0]), kv[0][1], kv[0][2]))
+        )
 
     @staticmethod
     def tuple_digest(effective: dict[tuple[str, str, int], str]) -> str:
@@ -1678,7 +1681,7 @@ def test_model_role_kind_matrix_configuration_roles_and_replacement_within_pilla
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
     led.propose("r", "t1", "evaluator", 0, ent("E1"), "E1")
     keys = [k for k in led.effective("r", "t1") if k[0] == "evaluator"]
-    assert keys == [("evaluator", "run", 0), ("evaluator", "trial", 0)] or len(keys) == 2
+    assert keys == [("evaluator", "run", 0), ("evaluator", "trial", 0)]
 
 
 def test_model_contexts_freeze_separately_and_emit_binding_evidence_with_final_digest() -> None:

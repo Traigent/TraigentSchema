@@ -1050,9 +1050,6 @@ def test_axis_state_has_no_singular_version_availability() -> None:
 
 
 # ---- reference model: the section-9 transition table ------------------------------------
-import copy as _copy  # noqa: E402
-
-
 class Refused(ValueError):
     """A refusal. The model guarantees no state change when this is raised."""
 
@@ -1072,6 +1069,16 @@ REPLACES = {"trial_candidate": "base_agent", "trial_configuration": "run_base_co
 TRIAL_ONLY = {"trial_candidate", "trial_configuration"}
 RUN_ONLY = {"base_agent", "run_base_configuration", "dataset", "search_set", "search_space"}
 STRENGTH = {"stored_unverified": 1, "round_trip_verified": 2}
+PREDICATES = (
+    "declared",
+    "captured",
+    "restorable_now",
+    "restore_verified_client_reported",
+    "restore_verified_backend_matched",
+    "bound_to_run",
+    "evaluated_client_reported",
+    "evaluated_traigent_witnessed",
+)
 
 
 def _digest(*parts: Any) -> str:
@@ -1081,29 +1088,35 @@ def _digest(*parts: Any) -> str:
 class Legend:
     """Transition-table model of section 9 (single ledger, single committer).
 
-    Deliberate abstractions: hashes are sha256 of a canonical JSON string; the ledger lock is the
-    single-threaded commit (positions are allocated at commit, so the sealed high-water mark is the
-    committed length); crypto, tenants and the wire schemas are out of scope. All state lives in
-    ``self.__dict__`` and refusals are checked against a deep copy of all of it.
+    Deliberate abstractions: hashes are sha256 of canonical JSON; the single-threaded commit stands
+    for the per-ledger lock (positions are allocated at commit, so the sealed high-water mark is the
+    committed length); artifact bytes are an opaque digest; tenants, signatures and wire validation
+    are out of scope. Every piece of state lives in ``self.__dict__`` and refusals are compared
+    against a deep copy of all of it.
     """
 
     def __init__(self) -> None:
         self.entities: dict[str, dict[str, Any]] = {}
+        self.group_entities: dict[tuple[str, str], str] = {}
         self.versions: dict[tuple[str, str], dict[str, Any]] = {}
         self.links: dict[tuple[str, str], tuple[str, str]] = {}
+        self.entity_links: dict[str, tuple[str, str]] = {}
         self.authority_rows: dict[tuple[str, str, str], bool] = {}
         self.ledger: list[dict[str, Any]] = []
-        self.requests: dict[str, tuple[str, Any]] = {}
+        self.requests: dict[tuple[str, str], tuple[str, Any]] = {}
         self.proposals: dict[tuple[Any, ...], str] = {}
-        self.started: dict[tuple[str, str | None], str] = {}
-        self.staged: dict[tuple[str, str], str] = {}
+        self.contexts: dict[tuple[str, str | None], dict[str, Any]] = {}
+        self.captures: dict[tuple[str, str, str], dict[str, Any]] = {}
+        self.artifacts: dict[tuple[str, str], str] = {}
+        self.activated: dict[tuple[str, str], str] = {}
         self.instructions: dict[str, dict[str, Any]] = {}
         self.results: dict[str, tuple[str, Any]] = {}
+        self.cursors: dict[str, tuple[str, int]] = {}
         self.next_entity = 1
 
     # -- infrastructure -------------------------------------------------------------------
     def state(self) -> dict[str, Any]:
-        return _copy.deepcopy(self.__dict__)
+        return copy.deepcopy(self.__dict__)
 
     def _append(self, **event: Any) -> int:
         self.ledger.append({**event, "position": len(self.ledger) + 1})
@@ -1113,8 +1126,19 @@ class Legend:
     def high_water(self) -> int:
         return len(self.ledger)
 
-    def _digest_of(self, body: dict[str, Any]) -> str:
-        return _digest({k: v for k, v in body.items() if k not in ("key", "digest")})
+    def _idem(self, endpoint: str, key: str, body: dict[str, Any]) -> tuple[str, Any]:
+        """Endpoint-scoped key/digest check. Returns (digest, saved response or None)."""
+        digest = _digest(endpoint, body)
+        saved = self.requests.get((endpoint, key))
+        if saved is not None:
+            if saved[0] != digest:
+                raise Refused("conflicting_idempotency_payload")
+            return digest, saved[1]
+        return digest, None
+
+    def _save(self, endpoint: str, key: str, digest: str, response: Any) -> Any:
+        self.requests[(endpoint, key)] = (digest, response)
+        return response
 
     def _version(self, entity: str, fp: str) -> dict[str, Any]:
         if (entity, fp) not in self.versions:
@@ -1134,6 +1158,9 @@ class Legend:
         return v["kind"] == "search_space" or (
             v["kind"] == "evaluator" and v["fmt"] in ("keyed", "unknown")
         )
+
+    def format_known(self, entity: str, fp: str) -> bool:
+        return self._version(entity, fp)["fmt"] != "unknown"
 
     # -- declare / link ---------------------------------------------------------------------
     def declare(
@@ -1158,18 +1185,20 @@ class Legend:
             fmt=fmt,
             group=group,
         )
-        digest = self._digest_of(body)
-        if key in self.requests:
-            if self.requests[key][0] != digest:
-                raise Refused("conflicting_idempotency_payload")
-            return self.requests[key][1]
+        digest, saved = self._idem("declare", key, body)
+        if saved is not None:
+            return saved
         if kind == "search_space" and source != "client_declared":
             raise Refused("invalid_request")
-        if entity is not None and (
-            entity not in self.entities or self.entities[entity]["kind"] != kind
+        target = entity
+        if target is None and group is not None and (kind, group) in self.group_entities:
+            target = self.group_entities[(kind, group)]  # reverse uniqueness: reuse the entity
+        if target is not None and (
+            target not in self.entities or self.entities[target]["kind"] != kind
         ):
             raise Refused("foreign_ref")
-        target = entity
+        if target is not None and group is not None and self.entities[target]["group"] != group:
+            raise Refused("foreign_ref")
         first = target is None or (target, fp) not in self.versions
         if target is not None and not first:
             v = self.versions[(target, fp)]
@@ -1187,31 +1216,37 @@ class Legend:
             raise Refused("invalid_request" if initial_parent == fp else "unknown_ref")
         if previous is not None and (target is None or (target, previous) not in self.versions):
             raise Refused("unknown_ref")
-        # ---- commit (entity creation, version, event, cached response: one atomic step) ----
-        if target is None:
+        created_entity = target is None
+        if created_entity:  # entity creation, version, event and response commit together
             target = f"ent{self.next_entity}"
             self.next_entity += 1
             self.entities[target] = {"kind": kind, "group": group}
+            if group is not None:
+                self.group_entities[(kind, group)] = target
         if first:
             self.versions[(target, fp)] = dict(kind=kind, ip=initial_parent, source=source, fmt=fmt)
         pos = self._append(type="declared", entity=target, fp=fp, previous=previous)
-        response = {"entity": target, "created": first, "position": pos}
-        self.requests[key] = (digest, response)
-        return response
+        return self._save(
+            "declare", key, digest, {"entity": target, "created": first, "position": pos}
+        )
 
     def link_authority(self, entity: str, fp: str, authority: str, group: str) -> None:
         v = self._version(entity, fp)
         if (authority, group, fp) not in self.authority_rows:
             raise Refused("unknown_ref")
-        if self.entities[entity]["group"] != group:
-            raise Refused("foreign_ref")  # another entity's authority group (shared build digest)
+        if (
+            self.entities[entity]["group"] != group
+            or self.group_entities.get((v["kind"], group)) != entity
+        ):
+            raise Refused("foreign_ref")  # another entity's authority group
+        existing = self.entity_links.get(entity)
+        if existing is not None and existing != (authority, group):
+            raise Refused("conflicting_report")  # association holds across all versions
         if (entity, fp) in self.links:
-            if self.links[(entity, fp)] == (authority, group):
-                return  # unique immutable association; identical replay is a no-op
-            raise Refused("conflicting_report")
+            return  # unique immutable association; identical replay is a no-op
         self.links[(entity, fp)] = (authority, group)
+        self.entity_links[entity] = (authority, group)
         self._append(type="authority_linked", entity=entity, fp=fp, authority=authority)
-        assert v["kind"]
 
     # -- bindings and execution -------------------------------------------------------------
     def propose(
@@ -1227,25 +1262,28 @@ class Legend:
         version = f"{entity}:{fp}"
         if self.proposals.get(slot_key) == version:
             return  # identical replay: a no-op, even after freezing
-        if (run, None) in self.started and scope == "run":
+        if scope == "run" and (run, None) in self.contexts:
             raise Refused("conflicting_report")
-        if trial is not None and (run, trial) in self.started:
-            raise Refused("conflicting_report")
-        if slot_key in self.proposals and self._consumed(slot_key):
+        if trial is not None and (run, trial) in self.contexts:
             raise Refused("conflicting_report")
         self.proposals[slot_key] = version
-
-    def _consumed(self, slot_key: tuple[Any, ...]) -> bool:
-        run, scope, trial, _, _ = slot_key
-        return (run, None) in self.started if scope == "run" else (run, trial) in self.started
 
     def effective(
         self, run: str, trial: str | None, override: dict[tuple[str, str, int], str] | None = None
     ) -> dict[tuple[str, str, int], str]:
         merged: dict[tuple[str, str, int], str] = {}
+        base = self.contexts.get((run, None))
         for (r, scope, t, role, slot), version in self.proposals.items():
-            if r == run and (scope == "run" or t == trial):
+            if r != run:
+                continue
+            if scope == "run" and base is None:
                 merged[(role, scope, slot)] = version
+            elif scope == "trial" and t == trial:
+                merged[(role, scope, slot)] = version
+        if base is not None:  # inherited run-scope slots come from the frozen snapshot
+            for k, v in base["snapshot"].items():
+                if k[1] == "run":
+                    merged[k] = v
         for k, v in (override or {}).items():
             merged[k] = v
         replaced = {REPLACES[role] for (role, _, _) in merged if role in REPLACES}
@@ -1263,28 +1301,33 @@ class Legend:
         self, run: str, trial: str | None, observed: dict[tuple[str, str, int], str], mode: str
     ) -> str:
         context = (run, trial)
-        if trial is not None and (run, None) not in self.started:
+        if context in self.contexts:  # replay: completeness first, then identity with the snapshot
+            snap = self.contexts[context]["snapshot"]
+            if set(observed) != set(snap):
+                raise Refused("manifest_mismatch")
+            if observed != snap:
+                raise Refused("conflicting_report")  # already bound: use a fresh run/trial
+            return self.contexts[context]["digest"]
+        if trial is not None and (run, None) not in self.contexts:
             raise Refused("invalid_request")  # the run-base context freezes first
         expected = self.effective(run, trial)
-        if context in self.started:
-            if self.tuple_digest(self.effective(run, trial, observed)) == self.started[context]:
-                return self.started[context]  # identical replay
-            raise Refused("conflicting_report")  # already bound: use a fresh context
         if set(observed) != set(expected):
             raise Refused("manifest_mismatch")  # complete observation: key-set equality
         drift = {k: v for k, v in observed.items() if expected[k] != v}
         if drift and mode == "strict":
             raise Refused("manifest_mismatch")  # refuse before execution, nothing changes
-        for k, v in drift.items():  # permitted drift: declared, in the matrix, then bound
+        for (role, scope, _slot), v in drift.items():
+            if trial is not None and scope == "run":
+                raise Refused("conflicting_report")  # inherited frozen slots never drift
             entity, fp = v.split(":")
-            if self._version(entity, fp)["kind"] != ROLE_KIND[k[0]]:
+            if self._version(entity, fp)["kind"] != ROLE_KIND[role]:
                 raise Refused("invalid_request")
         final = self.effective(run, trial, observed)
         digest = self.tuple_digest(final)
-        for (role, scope, slot), v in drift.items():
+        for (role, scope, slot), v in drift.items():  # only context-local slots are rewritten
             self.proposals[(run, scope, trial if scope == "trial" else None, role, slot)] = v
-        self.started[context] = digest
-        for (role, scope, slot), v in sorted(final.items()):
+        self.contexts[context] = {"digest": digest, "snapshot": dict(final)}
+        for (role, scope, slot), v in final.items():
             self._append(
                 type="bound_to_run",
                 run=run,
@@ -1298,14 +1341,20 @@ class Legend:
         return digest
 
     def evaluate(
-        self, run: str, trial: str | None, subject: str, tuple_digest: str, origin: str
+        self,
+        run: str,
+        trial: str | None,
+        subject: str,
+        tuple_digest: str,
+        origin: str,
+        subset: str = "msr-all",
+        protocol: str = "full_dataset",
     ) -> int:
-        if (run, trial) not in self.started:
+        ctx = self.contexts.get((run, trial))
+        if ctx is None or tuple_digest != ctx["digest"]:
             raise Refused("manifest_mismatch")  # must reference a started context
-        if tuple_digest != self.started[(run, trial)]:
-            raise Refused("manifest_mismatch")
-        if subject not in self.effective(run, trial).values():
-            raise Refused("foreign_ref")
+        if subject not in ctx["snapshot"].values():
+            raise Refused("foreign_ref")  # membership comes from the persisted snapshot
         source = "traigent_witnessed" if origin == "server" else "client_reported"
         return self._append(
             type="evaluated",
@@ -1314,21 +1363,38 @@ class Legend:
             subject=subject,
             tuple=tuple_digest,
             source=source,
+            subset=subset,
+            protocol=protocol,
         )
 
     # -- recovery -------------------------------------------------------------------------
-    def identity_verify(self, entity: str, fp: str, commitment: str, matched: bool) -> int:
+    @staticmethod
+    def commitment(representations: tuple[str, ...]) -> str:
+        return _digest("traigent.legend.representation_commitment", list(representations))
+
+    def identity_verify(
+        self,
+        entity: str,
+        fp: str,
+        representations: tuple[str, ...],
+        matched: bool,
+        recomputed: bool = True,
+    ) -> int:
         self._version(entity, fp)
+        if self.backend_keyed(entity, fp) and not self.format_known(entity, fp):
+            raise Refused("store_unavailable")  # unknown format can never reach match
         return self._append(
             type="identity_verified",
             entity=entity,
             fp=fp,
-            commitment=commitment,
+            commitment=self.commitment(representations),
+            recomputed=recomputed,
             result="match" if matched else "mismatch",
         )
 
     def capture(
         self,
+        key: str,
         entity: str,
         fp: str,
         manifest: str,
@@ -1338,7 +1404,23 @@ class Legend:
         reproduced: bool,
         claimed_keyed: bool,
         verification: int | None,
-    ) -> None:
+        representations: tuple[str, ...] = ("r0",),
+    ) -> Any:
+        body = dict(
+            entity=entity,
+            fp=fp,
+            manifest=manifest,
+            state=state,
+            conf=conformance,
+            complete=complete,
+            reproduced=reproduced,
+            keyed=claimed_keyed,
+            proof=verification,
+            reps=representations,
+        )
+        digest, saved = self._idem("capture", key, body)
+        if saved is not None:
+            return saved
         self._version(entity, fp)
         if manifest.startswith("rmfc0"):
             raise Refused("invalid_request")
@@ -1348,50 +1430,115 @@ class Legend:
             raise Refused("conformance_failed")
         if complete and not reproduced:
             raise Refused("coverage_insufficient")
+        meta = dict(
+            complete=complete,
+            reproduced=reproduced,
+            proof=verification,
+            commitment=self.commitment(representations),
+            state=state,
+        )
         if complete and claimed_keyed:
-            ok_event = (
-                verification is not None
-                and 0 < verification <= len(self.ledger)
-                and any(
-                    e["position"] == verification
-                    and e["type"] == "identity_verified"
-                    and (e["entity"], e["fp"]) == (entity, fp)
-                    and e["result"] == "match"
-                    for e in self.ledger
+            proof = (
+                next(
+                    (
+                        e
+                        for e in self.ledger
+                        if e["position"] == verification and e["type"] == "identity_verified"
+                    ),
+                    None,
                 )
+                if verification
+                else None
             )
-            if not ok_event:
-                raise Refused("coverage_insufficient")
-        self._append(type="captured", entity=entity, fp=fp, manifest=manifest, state=state)
+            if (
+                proof is None
+                or (proof["entity"], proof["fp"]) != (entity, fp)
+                or proof["result"] != "match"
+                or not proof["recomputed"]
+                or proof["commitment"] != meta["commitment"]
+            ):
+                raise Refused("coverage_insufficient")  # proof must cover THESE representations
+        existing = self.captures.get((entity, fp, manifest))
+        if existing is not None and existing != meta:
+            raise Refused("store_key_conflict")  # a manifest fingerprint is immutable
+        pos = self._append(type="captured", entity=entity, fp=fp, manifest=manifest, state=state)
+        self.captures[(entity, fp, manifest)] = meta
+        return self._save("capture", key, digest, {"position": pos})
 
-    def record_availability(self, entity: str, fp: str, manifest: str, status: str) -> None:
+    def record_availability(
+        self, key: str, entity: str, fp: str, manifest: str, status: str
+    ) -> Any:
+        digest, saved = self._idem("availability", key, dict(e=entity, f=fp, m=manifest, s=status))
+        if saved is not None:
+            return saved
         if not self._captured(entity, fp, manifest):
             raise Refused("unknown_ref")
-        self._append(
+        pos = self._append(
             type="availability_changed", entity=entity, fp=fp, manifest=manifest, status=status
         )
+        return self._save("availability", key, digest, {"position": pos})
 
     def exact_prerequisites(
-        self, complete: bool, equal: bool, isolated: bool, key_ok: bool, deps_ok: bool
+        self,
+        entity: str,
+        fp: str,
+        manifest: str,
+        equal: bool,
+        isolated: bool,
+        key_ok: bool,
+        deps_ok: bool,
     ) -> None:
-        """ExactPrerequisites: the one predicate both restore paths apply."""
-        if not (complete and equal and isolated and key_ok and deps_ok):
+        """ExactPrerequisites(version, immutable capture metadata, restore-time measurements)."""
+        meta = self.captures.get((entity, fp, manifest))
+        if meta is None:
+            raise Refused("unknown_ref")
+        if not (meta["complete"] and meta["reproduced"]):
+            raise Refused(
+                "coverage_insufficient"
+            )  # read from the immutable manifest, not the caller
+        if self.backend_keyed(entity, fp) and (
+            meta["proof"] is None or not self.format_known(entity, fp)
+        ):
             raise Refused("coverage_insufficient")
+        if not (equal and isolated and key_ok and deps_ok):
+            raise Refused("coverage_insufficient")
+
+    def _stage(self, entity: str, manifest: str, artifact: str) -> None:
+        if self.artifacts.get((entity, manifest), artifact) != artifact:
+            raise Refused("conflicting_report")  # one verified artifact digest per manifest
+        self.artifacts[(entity, manifest)] = artifact
 
     def record_restore(
         self,
+        key: str,
         entity: str,
         fp: str,
         kind: str,
         manifest: str,
         outcome: str,
-        complete: bool,
         equal: bool,
         isolated: bool,
         key_ok: bool,
         deps_ok: bool,
         claimed_keyed: bool,
-    ) -> None:
+        artifact: str,
+    ) -> Any:
+        body = dict(
+            e=entity,
+            f=fp,
+            k=kind,
+            m=manifest,
+            o=outcome,
+            eq=equal,
+            iso=isolated,
+            key=key_ok,
+            deps=deps_ok,
+            ck=claimed_keyed,
+            a=artifact,
+        )
+        digest, saved = self._idem("restore", key, body)
+        if saved is not None:
+            return saved
         v = self._version(entity, fp)
         if kind != v["kind"] or claimed_keyed != self.backend_keyed(entity, fp):
             raise Refused("invalid_request")
@@ -1400,8 +1547,9 @@ class Legend:
         if outcome == "exact":
             if self.backend_keyed(entity, fp):
                 raise Refused("coverage_insufficient")  # needs the server recompute
-            self.exact_prerequisites(complete, equal, isolated, key_ok, deps_ok)
-        self._append(
+            self.exact_prerequisites(entity, fp, manifest, equal, isolated, key_ok, deps_ok)
+            self._stage(entity, manifest, artifact)
+        pos = self._append(
             type="restore_verified",
             entity=entity,
             fp=fp,
@@ -1410,8 +1558,7 @@ class Legend:
             origin="client",
             match="not_checked",
         )
-        if outcome == "exact":
-            self.staged[(entity, manifest)] = "verified"
+        return self._save("restore", key, digest, {"position": pos})
 
     def server_match(
         self,
@@ -1420,34 +1567,34 @@ class Legend:
         manifest: str,
         backend_has_key: bool,
         matched: bool,
-        complete: bool,
         equal: bool,
         isolated: bool,
         deps_ok: bool,
+        artifact: str,
     ) -> None:
         self._version(entity, fp)
         if not self._captured(entity, fp, manifest):
             raise Refused("unknown_ref")
-        if not backend_has_key:
-            raise Refused("store_unavailable")  # unknown format / no key: never exact
+        if not self.format_known(entity, fp) or not backend_has_key:
+            raise Refused("store_unavailable")  # key availability alone is not format availability
         if matched:
-            self.exact_prerequisites(complete, equal, isolated, True, deps_ok)
-        outcome = "exact" if matched else "substituted"
+            self.exact_prerequisites(entity, fp, manifest, equal, isolated, True, deps_ok)
+            self._stage(entity, manifest, artifact)
         self._append(
             type="restore_verified",
             entity=entity,
             fp=fp,
             manifest=manifest,
-            outcome=outcome,
+            outcome="exact" if matched else "substituted",
             origin="server",
             match="match" if matched else "mismatch",
         )
-        if matched:
-            self.staged[(entity, manifest)] = "verified"
 
-    def activate(self, entity: str, manifest: str, staged_digest: str) -> None:
-        if self.staged.get((entity, manifest)) != "verified" or staged_digest != "verified":
-            raise Refused("manifest_mismatch")
+    def activate(self, entity: str, manifest: str, artifact: str) -> None:
+        staged = self.artifacts.get((entity, manifest))
+        if staged is None or artifact != staged:
+            raise Refused("manifest_mismatch")  # the very artifact that was verified
+        self.activated[(entity, manifest)] = artifact
 
     # -- axes and predicates ----------------------------------------------------------------
     def restorable_now(
@@ -1486,43 +1633,85 @@ class Legend:
         manifest: str | None = None,
         tuple_digest: str | None = None,
         trial: str | None = None,
+        subset: str | None = None,
+        protocol: str | None = None,
     ) -> bool:
         entity, fp, kind = subject
         v = self._version(entity, fp)
-        if v["kind"] != kind:
+        if v["kind"] != kind or ptype not in PREDICATES:
             raise Refused("invalid_request")  # subject must equal the authoritative projection
         if not 0 < cutoff <= self.high_water:
             raise Refused("invalid_request")  # cutoff must be inside the sealed committed prefix
-        events = self.ledger[:cutoff]
-        if ptype == "restorable_now":
+        ev = self.ledger[:cutoff]
+        ref = f"{entity}:{fp}"
+        if ptype == "declared":
+            found = any(
+                e["type"] == "declared" and (e["entity"], e["fp"]) == (entity, fp) for e in ev
+            )
+        elif ptype == "captured":
+            found = manifest is not None and self._captured(entity, fp, manifest, cutoff)
+        elif ptype == "restorable_now":
             if manifest is None or not self.restorable_now(entity, fp, manifest, cutoff):
                 raise Refused("coverage_insufficient")
             return True
-        if ptype in ("restore_verified_client_reported", "restore_verified_backend_matched"):
+        elif ptype.startswith("restore_verified"):
             origin = "client" if ptype.endswith("client_reported") else "server"
-            if not any(
+            meta = self.captures.get((entity, fp, manifest or ""))
+            found = bool(meta and meta["complete"]) and any(
                 e["type"] == "restore_verified"
                 and e["outcome"] == "exact"
                 and e["origin"] == origin
                 and (e["entity"], e["fp"], e["manifest"]) == (entity, fp, manifest)
-                for e in events
-            ):
-                raise Refused("unknown_ref")
-            return True
-        if ptype == "evaluated_traigent_witnessed":
-            if not any(
-                e["type"] == "evaluated"
-                and e["subject"] == f"{entity}:{fp}"
+                for e in ev
+            )
+        elif ptype == "bound_to_run":
+            found = any(
+                e["type"] == "bound_to_run"
+                and e["version"] == ref
                 and e["tuple"] == tuple_digest
                 and e["trial"] == trial
-                and e["source"] == "traigent_witnessed"
-                for e in events
-            ):
-                raise Refused("unknown_ref")
-            return True
-        raise Refused("invalid_request")
+                for e in ev
+            )
+        else:  # evaluated_*
+            source = (
+                "client_reported" if ptype.endswith("client_reported") else "traigent_witnessed"
+            )
+            found = (
+                subset is not None
+                and protocol is not None
+                and any(
+                    e["type"] == "evaluated"
+                    and e["subject"] == ref
+                    and e["tuple"] == tuple_digest
+                    and e["trial"] == trial
+                    and e["source"] == source
+                    and e["subset"] == subset
+                    and e["protocol"] == protocol
+                    for e in ev
+                )
+            )
+        if not found:
+            raise Refused("unknown_ref")
+        return True
 
     # -- Director ---------------------------------------------------------------------------
+    def _ordered(self, entity: str) -> list[str]:
+        """Deterministic order: by the ledger position of the version's first declaration."""
+        first: dict[str, int] = {}
+        for e in self.ledger:
+            if e["type"] == "declared" and e["entity"] == entity:
+                first.setdefault(e["fp"], e["position"])
+        return [fp for fp, _ in sorted(first.items(), key=lambda kv: kv[1])]
+
+    @staticmethod
+    def _token(entity: str, boundary: int) -> str:
+        return "cursor_" + _digest("cursor", entity, boundary)[:32]
+
+    def _cursor(self, entity: str, boundary: int) -> str:
+        token = self._token(entity, boundary)
+        self.cursors[token] = (entity, boundary)
+        return token
+
     def director_instruction(self, op: str, **refs: Any) -> str:
         if op not in (
             "declare_version",
@@ -1532,12 +1721,25 @@ class Legend:
             "restore_version",
         ):
             raise Refused("invalid_request")
+        refs = dict(refs)
         if op in ("capture_version", "verify_restore", "restore_version"):
             self._version(refs["entity"], refs["fp"])
         if op in ("verify_restore", "restore_version") and not self._captured(
             refs["entity"], refs["fp"], refs["manifest"]
         ):
             raise Refused("unknown_ref")
+        if op == "query_versions":
+            size = refs.get("page_size", 0)
+            if not 1 <= size <= 100:
+                raise Refused("invalid_request")
+            start = 0
+            if refs.get("cursor") is not None:
+                bound = self.cursors.get(refs["cursor"])
+                if bound is None or bound[0] != refs["entity"]:
+                    raise Refused("invalid_request")  # only an issued cursor for this entity
+                start = bound[1]
+            refs["snapshot"] = self._ordered(refs["entity"])  # snapshot at instruction time
+            refs["start"] = start
         ident = f"ins{len(self.instructions) + 1}"
         self.instructions[ident] = {"op": op, **refs}
         return ident
@@ -1552,6 +1754,7 @@ class Legend:
                 return self.results[ident][1]  # identical retry returns the saved result
             raise Refused("conflicting_report")
         op, ok_ = ins["op"], result.get("outcome") == "succeeded"
+        cursor = None
         if ok_ and op == "declare_version":
             ent = result.get("entity")
             if (
@@ -1562,21 +1765,26 @@ class Legend:
             ):
                 raise Refused("manifest_mismatch")
         if ok_ and op == "query_versions":
-            known = {fp for (e, fp) in self.versions if e == ins["entity"]}
-            if not set(result.get("fps", ())) <= known:
-                raise Refused("foreign_ref")
+            order, start, size = ins["snapshot"], ins["start"], ins["page_size"]
+            if list(result.get("fps", ())) != order[start : start + size]:
+                raise Refused("foreign_ref")  # exact slice of the issued page
+            end = start + size
+            expected = self._token(ins["entity"], end) if end < len(order) else None
+            if result.get("next_cursor") != expected:
+                raise Refused("invalid_request")
+            cursor = expected
         if ok_ and op == "capture_version":
             if not self._captured(ins["entity"], ins["fp"], result.get("manifest", "")):
                 raise Refused("manifest_mismatch")  # needs the capture evidence on the ledger
         if ok_ and op in ("verify_restore", "restore_version"):
-            if result.get("manifest") != ins["manifest"]:
-                raise Refused("manifest_mismatch")
+            # the manifest comes ONLY from the saved instruction (results carry none)
+            manifest = ins["manifest"]
             if result.get("restore_outcome") == "exact":
                 have = any(
                     e["type"] == "restore_verified"
                     and e["outcome"] == "exact"
                     and (e["entity"], e["fp"], e["manifest"])
-                    == (ins["entity"], ins["fp"], ins["manifest"])
+                    == (ins["entity"], ins["fp"], manifest)
                     for e in self.ledger
                 )
                 if (
@@ -1585,6 +1793,8 @@ class Legend:
                     or result.get("backend_match_result") == "mismatch"
                 ):
                     raise Refused("manifest_mismatch")  # an agent-supplied match is not evidence
+        if cursor is not None:
+            self._cursor(ins["entity"], ins["start"] + ins["page_size"])  # issue on commit
         self.results[ident] = (digest, result)
         return result
 
@@ -1594,6 +1804,10 @@ def _atomic(led: Legend, code: str, fn: Any, *args: Any, **kwargs: Any) -> None:
     with pytest.raises(Refused, match=code):
         fn(*args, **kwargs)
     assert led.state() == before, "refusal changed state"
+
+
+def _ent(led: Legend, fp: str) -> str:
+    return next(e for (e, f) in led.versions if f == fp)
 
 
 def _seed() -> Legend:
@@ -1641,29 +1855,38 @@ def test_model_declare_creates_entities_atomically_and_never_mutates_on_refusal(
     for i, (fp, prev) in enumerate([("v2", "v1"), ("v1", "v2"), ("v2", "v1")]):
         led.declare(f"f{i}", ent, "agent", fp, "client_declared", None, prev)
     assert [e["fp"] for e in led.ledger[-3:]] == ["v2", "v1", "v2"]
+    # the same key on another endpoint is a different request scope
+    led.requests[("capture", "k1")] = ("x", None)
+    assert led.declare("k1", None, "agent", "v1", "client_declared") is first
 
 
-def test_model_authority_link_uses_full_group_key_and_is_unique_and_immutable() -> None:
+def test_model_authority_uniqueness_is_two_directional() -> None:
     led = Legend()
     a = led.declare("a", None, "agent", "SAME", "client_declared", group="agent-1")["entity"]
+    again = led.declare("a2", None, "agent", "OTHER", "client_declared", group="agent-1")
+    assert again["entity"] == a and len(led.entities) == 1  # null ref reuses the grouped entity
     b = led.declare("b", None, "agent", "SAME", "client_declared", group="agent-2")["entity"]
-    led.authority_rows[("agent_builds", "agent-1", "SAME")] = True
-    led.authority_rows[("agent_builds", "agent-2", "SAME")] = True
+    assert a != b
+    for g in ("agent-1", "agent-2", "agent-9"):
+        led.authority_rows[("agent_builds", g, "SAME")] = True
+    led.authority_rows[("agent_builds", "agent-1", "OTHER")] = True
     _atomic(led, "foreign_ref", led.link_authority, a, "SAME", "agent_builds", "agent-2")
-    _atomic(led, "unknown_ref", led.link_authority, a, "SAME", "agent_builds", "agent-9")
+    _atomic(led, "unknown_ref", led.link_authority, a, "SAME", "agent_builds", "agent-8")
     led.link_authority(a, "SAME", "agent_builds", "agent-1")
     n = len(led.ledger)
     led.link_authority(a, "SAME", "agent_builds", "agent-1")  # identical replay: no-op
     assert len(led.ledger) == n
-    led.authority_rows[("agent_builds", "agent-1b", "SAME")] = True
-    led.entities[a]["group"] = "agent-1b"
-    _atomic(led, "conflicting_report", led.link_authority, a, "SAME", "agent_builds", "agent-1b")
+    led.link_authority(a, "OTHER", "agent_builds", "agent-1")  # another version, same group
+    # the entity is bound to one group across ALL its versions
+    led.entities[a]["group"] = "agent-9"
+    led.group_entities[("agent", "agent-9")] = a
+    _atomic(led, "conflicting_report", led.link_authority, a, "SAME", "agent_builds", "agent-9")
     led.link_authority(b, "SAME", "agent_builds", "agent-2")
 
 
 def test_model_role_kind_matrix_configuration_roles_and_replacement_within_pillar() -> None:
     led = _seed()
-    ent = lambda fp: next(e for (e, f) in led.versions if f == fp)  # noqa: E731
+    ent = lambda fp: _ent(led, fp)  # noqa: E731
     led.propose("r", None, "base_agent", 0, ent("A"), "A")
     led.propose("r", None, "run_base_configuration", 0, ent("C"), "C")
     _atomic(led, "invalid_request", led.propose, "r", None, "base_agent", 1, ent("C"), "C")
@@ -1677,16 +1900,15 @@ def test_model_role_kind_matrix_configuration_roles_and_replacement_within_pilla
     assert eff[("run_base_configuration", "run", 0)].endswith("C")  # config survives agent swap
     led.propose("r", "t1", "trial_configuration", 0, ent("C"), "C")
     assert ("run_base_configuration", "run", 0) not in led.effective("r", "t1")  # same pillar only
-    # run- and trial-level evaluator slots with the same slot number coexist
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
     led.propose("r", "t1", "evaluator", 0, ent("E1"), "E1")
     keys = [k for k in led.effective("r", "t1") if k[0] == "evaluator"]
     assert keys == [("evaluator", "run", 0), ("evaluator", "trial", 0)]
 
 
-def test_model_contexts_freeze_separately_and_emit_binding_evidence_with_final_digest() -> None:
+def test_model_contexts_freeze_separately_and_persist_their_snapshot() -> None:
     led = _seed()
-    ent = lambda fp: next(e for (e, f) in led.versions if f == fp)  # noqa: E731
+    ent = lambda fp: _ent(led, fp)  # noqa: E731
     led.propose("r", None, "base_agent", 0, ent("A"), "A")
     led.propose("r", None, "dataset", 0, ent("D"), "D")
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
@@ -1695,82 +1917,150 @@ def test_model_contexts_freeze_separately_and_emit_binding_evidence_with_final_d
     td = led.start_execution("r", None, observed, "strict")
     bound = [e for e in led.ledger if e["type"] == "bound_to_run"]
     assert len(bound) == 3 and {e["tuple"] for e in bound} == {td}
+    assert led.contexts[("r", None)]["snapshot"] == observed
     n = len(led.ledger)
     assert led.start_execution("r", None, observed, "strict") == td  # identical replay: no-op
     assert len(led.ledger) == n
+    _atomic(
+        led, "manifest_mismatch", led.start_execution, "r", None, {}, "strict"
+    )  # replay completeness
     led.propose("r", None, "dataset", 0, ent("D"), "D")  # identical replay after freezing: no-op
     _atomic(led, "conflicting_report", led.propose, "r", None, "evaluator", 1, ent("E1"), "E1")
-    # a trial generated after the run started can still bind its own candidate and start
     led.propose("r", "t1", "trial_candidate", 0, ent("B"), "B")
     t_obs = dict(led.effective("r", "t1"))
     t1 = led.start_execution("r", "t1", t_obs, "strict")
     assert t1 != td and any(e.get("trial") == "t1" and e.get("tuple") == t1 for e in led.ledger)
     _atomic(led, "conflicting_report", led.propose, "r", "t1", "trial_candidate", 0, ent("A"), "A")
-    # a trial cannot start before the run-base context
     led.propose("q", "t9", "trial_candidate", 0, ent("B"), "B")
     _atomic(led, "invalid_request", led.start_execution, "q", "t9", {}, "strict")
 
 
-def test_model_start_execution_requires_complete_observation_and_resolves_drift_first() -> None:
+def test_model_drift_never_rewrites_inherited_frozen_slots() -> None:
     led = _seed()
-    ent = lambda fp: next(e for (e, f) in led.versions if f == fp)  # noqa: E731
+    ent = lambda fp: _ent(led, fp)  # noqa: E731
     led.propose("r", None, "base_agent", 0, ent("A"), "A")
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
-    led.propose("r", None, "evaluator", 1, ent("E1"), "E1")
     exp = led.effective("r", None)
-    _atomic(led, "manifest_mismatch", led.start_execution, "r", None, {}, "strict")  # empty
-    only_e1 = {k: v for k, v in exp.items() if k == ("evaluator", "run", 1)}
-    _atomic(led, "manifest_mismatch", led.start_execution, "r", None, only_e1, "strict")
+    _atomic(led, "manifest_mismatch", led.start_execution, "r", None, {}, "strict")
+    only = {k: v for k, v in exp.items() if k == ("evaluator", "run", 0)}
+    _atomic(led, "manifest_mismatch", led.start_execution, "r", None, only, "strict")
     drifted = {**exp, ("base_agent", "run", 0): f"{ent('B')}:B"}
     _atomic(led, "manifest_mismatch", led.start_execution, "r", None, drifted, "strict")
-    assert ("r", None) not in led.started and led.proposals[("r", "run", None, "base_agent", 0)]
-    bad = {**exp, ("base_agent", "run", 0): "ghost:X"}
-    _atomic(led, "unknown_ref", led.start_execution, "r", None, bad, "permitted")
-    wrong_kind = {**exp, ("base_agent", "run", 0): f"{ent('C')}:C"}
-    _atomic(led, "invalid_request", led.start_execution, "r", None, wrong_kind, "permitted")
-    td = led.start_execution("r", None, drifted, "permitted")  # declared B replaces A, then binds
-    assert led.proposals[("r", "run", None, "base_agent", 0)].endswith("B") and td
+    assert ("r", None) not in led.contexts
     _atomic(
-        led, "conflicting_report", led.start_execution, "r", None, exp, "permitted"
-    )  # fresh ctx
+        led,
+        "unknown_ref",
+        led.start_execution,
+        "r",
+        None,
+        {**exp, ("base_agent", "run", 0): "ghost:X"},
+        "permitted",
+    )
+    _atomic(
+        led,
+        "invalid_request",
+        led.start_execution,
+        "r",
+        None,
+        {**exp, ("base_agent", "run", 0): f"{ent('C')}:C"},
+        "permitted",
+    )
+    dA = led.start_execution("r", None, drifted, "permitted")  # run-base drift: A -> B, then bind
+    assert led.proposals[("r", "run", None, "base_agent", 0)].endswith("B")
+    _atomic(led, "conflicting_report", led.start_execution, "r", None, exp, "permitted")
+    # trial context: inherited run slots can never drift; only trial-local slots may
+    base = dict(led.effective("r", "t1"))
+    inherited = {**base, ("base_agent", "run", 0): f"{ent('A')}:A"}
+    before = led.state()
+    _atomic(led, "conflicting_report", led.start_execution, "r", "t1", inherited, "permitted")
+    assert led.state() == before
+    led.propose("r", "t1", "trial_candidate", 0, ent("A"), "A")
+    expected = dict(led.effective("r", "t1"))
+    drift_local = {**expected, ("trial_candidate", "trial", 0): f"{ent('B')}:B"}
+    t = led.start_execution("r", "t1", drift_local, "permitted")
+    # the shared run proposal and the run-base evidence are untouched; evaluation uses snapshots
+    assert led.proposals[("r", "run", None, "base_agent", 0)].endswith("B")
+    assert led.contexts[("r", None)]["digest"] == dA
+    _atomic(led, "foreign_ref", led.evaluate, "r", None, f"{ent('A')}:A", dA, "server")
+    assert led.evaluate("r", "t1", f"{ent('B')}:B", t, "server") > 0
 
 
 def test_model_evaluation_needs_started_context_and_membership() -> None:
     led = _seed()
-    ent = lambda fp: next(e for (e, f) in led.versions if f == fp)  # noqa: E731
+    ent = lambda fp: _ent(led, fp)  # noqa: E731
     led.propose("r", None, "base_agent", 0, ent("A"), "A")
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
     td = led.start_execution("r", None, dict(led.effective("r", None)), "strict")
     led.propose("r", "t1", "trial_candidate", 0, ent("B"), "B")
-    t_digest = _digest("unstarted")
-    _atomic(led, "manifest_mismatch", led.evaluate, "r", "t1", f"{ent('B')}:B", t_digest, "server")
+    _atomic(
+        led, "manifest_mismatch", led.evaluate, "r", "t1", f"{ent('B')}:B", _digest("x"), "server"
+    )
     a = f"{ent('A')}:A"
     assert led.evaluate("r", None, a, td, "server") > 0
     _atomic(led, "foreign_ref", led.evaluate, "r", None, f"{ent('B')}:B", td, "server")
     _atomic(led, "manifest_mismatch", led.evaluate, "r", None, a, "wrong", "server")
     assert led.ledger[-1]["source"] == "traigent_witnessed" and led.ledger[-1]["trial"] is None
-    subject = (ent("A"), "A", "agent")
-    assert led.issue_predicate(
-        "evaluated_traigent_witnessed", subject, led.high_water, tuple_digest=td
-    )
+
+
+def test_model_all_eight_predicates_positive_and_wrong_evidence() -> None:
+    led = _seed()
+    ent = lambda fp: _ent(led, fp)  # noqa: E731
+    a, b = ent("A"), ent("B")
+    led.propose("r", None, "base_agent", 0, a, "A")
+    led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
+    td = led.start_execution("r", None, dict(led.effective("r", None)), "strict")
+    led.evaluate("r", None, f"{a}:A", td, "server", "msr-1", "holdout")
+    led.evaluate("r", None, f"{a}:A", td, "client", "msr-2", "full_dataset")
+    led.capture("c1", a, "A", "m1", "round_trip_verified", True, True, True, False, None)
+    led.record_availability("av1", a, "A", "m1", "available")
+    led.record_restore("rs1", a, "A", "agent", "m1", "exact", True, True, True, True, False, "art")
+    hw = led.high_water
+    sub = (a, "A", "agent")
+    cases = {
+        "declared": ({}, {"manifest": None}),
+        "captured": ({"manifest": "m1"}, {"manifest": "m9"}),
+        "restorable_now": ({"manifest": "m1"}, {"manifest": "m9"}),
+        "restore_verified_client_reported": ({"manifest": "m1"}, {"manifest": "m9"}),
+        "restore_verified_backend_matched": ({"manifest": "m1"}, {"manifest": "m1"}),  # client only
+        "bound_to_run": ({"tuple_digest": td}, {"tuple_digest": "bad"}),
+        "evaluated_client_reported": (
+            {"tuple_digest": td, "subset": "msr-2", "protocol": "full_dataset"},
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset"},
+        ),
+        "evaluated_traigent_witnessed": (
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "holdout"},
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset"},
+        ),
+    }
+    assert set(cases) == set(PREDICATES)
+    for ptype, (good, bad) in cases.items():
+        if ptype == "declared":
+            assert led.issue_predicate(ptype, sub, hw)
+            _atomic(led, "unknown_ref", led.issue_predicate, ptype, (b, "B", "agent"), 1)
+            continue
+        if ptype == "restore_verified_backend_matched":
+            _atomic(led, "unknown_ref", led.issue_predicate, ptype, sub, hw, **good)
+            continue
+        assert led.issue_predicate(ptype, sub, hw, **good), ptype
+        code = "coverage_insufficient" if ptype == "restorable_now" else "unknown_ref"
+        _atomic(led, code, led.issue_predicate, ptype, sub, hw, **bad)
+    # another version never inherits this evidence
     _atomic(
         led,
         "unknown_ref",
         led.issue_predicate,
-        "evaluated_traigent_witnessed",
-        subject,
-        led.high_water,
-        None,
-        td,
-        "t1",
+        "bound_to_run",
+        (b, "B", "agent"),
+        hw,
+        tuple_digest=td,
     )
 
 
 def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
     led = _seed()
-    a, b = (next(e for (e, f) in led.versions if f == fp) for fp in ("A", "B"))
-    led.capture(a, "A", "m1", "round_trip_verified", True, False, True, False, None)
-    led.record_availability(a, "A", "m1", "available")
+    a, b = _ent(led, "A"), _ent(led, "B")
+    led.capture("c1", a, "A", "m1", "round_trip_verified", True, False, True, False, None)
+    led.record_availability("av1", a, "A", "m1", "available")
     cutoff = led.high_water
     _atomic(
         led,
@@ -1780,9 +2070,9 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         (a, "A", "agent"),
         cutoff + 1,
         "m1",
-    )  # no future cutoff
+    )
     assert led.issue_predicate("restorable_now", (a, "A", "agent"), cutoff, "m1")
-    led.record_availability(a, "A", "m1", "missing")  # later event never changes the issued prefix
+    led.record_availability("av2", a, "A", "m1", "missing")
     assert led.restorable_now(a, "A", "m1", cutoff) and not led.restorable_now(a, "A", "m1")
     _atomic(
         led,
@@ -1801,7 +2091,7 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         (a, "A", "evaluator"),
         cutoff,
         "m1",
-    )  # substituted kind
+    )
     _atomic(
         led,
         "coverage_insufficient",
@@ -1810,12 +2100,13 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         (b, "B", "agent"),
         cutoff,
         "m1",
-    )  # A's manifest is not B's capture
-    _atomic(led, "unknown_ref", led.record_availability, b, "B", "m1", "available")
+    )
+    _atomic(led, "unknown_ref", led.record_availability, "av3", b, "B", "m1", "available")
     _atomic(
         led,
         "unknown_ref",
         led.record_restore,
+        "rs",
         b,
         "B",
         "agent",
@@ -1825,16 +2116,17 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         True,
         True,
         True,
-        True,
         False,
+        "art",
     )
-    led.capture(a, "A", "m2", "stored_unverified", False, False, True, False, None)
-    assert led.recovery_state(a, "A") == "round_trip_verified"  # strongest historical proof
+    led.capture("c2", a, "A", "m2", "stored_unverified", False, False, True, False, None)
+    assert led.recovery_state(a, "A") == "round_trip_verified"
     assert led.recovery_state(b, "B") == "none"
     _atomic(
         led,
         "conformance_failed",
         led.capture,
+        "c3",
         a,
         "A",
         "m3",
@@ -1849,6 +2141,7 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         led,
         "coverage_insufficient",
         led.capture,
+        "c4",
         a,
         "A",
         "m4",
@@ -1863,6 +2156,7 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         led,
         "invalid_request",
         led.capture,
+        "c5",
         a,
         "A",
         "rmfc0:x",
@@ -1877,6 +2171,7 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         led,
         "invalid_request",
         led.capture,
+        "c6",
         a,
         "A",
         "m5",
@@ -1886,16 +2181,160 @@ def test_model_sealed_cutoff_subject_projection_and_captured_joins() -> None:
         True,
         True,
         None,
-    )  # claimed backend_keyed must equal the derived value
+    )
 
 
-def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
-    led = Legend()
-    ss = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+def test_model_record_operations_are_idempotent_per_endpoint() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    first = led.capture("c1", a, "A", "m1", "round_trip_verified", True, True, True, False, None)
+    n = len(led.ledger)
+    assert (
+        led.capture("c1", a, "A", "m1", "round_trip_verified", True, True, True, False, None)
+        is first
+    )
+    assert len(led.ledger) == n  # a logical retry appends nothing
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.capture,
+        "c1",
+        a,
+        "A",
+        "m2",
+        "stored_unverified",
+        False,
+        False,
+        True,
+        False,
+        None,
+    )
+    av = led.record_availability("a1", a, "A", "m1", "available")
+    assert led.record_availability("a1", a, "A", "m1", "available") is av
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.record_availability,
+        "a1",
+        a,
+        "A",
+        "m1",
+        "missing",
+    )
+    rs = led.record_restore(
+        "r1", a, "A", "agent", "m1", "exact", True, True, True, True, False, "x"
+    )
+    assert (
+        led.record_restore("r1", a, "A", "agent", "m1", "exact", True, True, True, True, False, "x")
+        is rs
+    )
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.record_restore,
+        "r1",
+        a,
+        "A",
+        "agent",
+        "m1",
+        "partial",
+        True,
+        True,
+        True,
+        True,
+        False,
+        "x",
+    )
+    # same logical content under a fresh key is a new record, not a retry
+    led.record_availability("a2", a, "A", "m1", "available")
+    assert len(led.ledger) == n + 3
+    # a manifest fingerprint is immutable: different metadata needs a different manifest
+    _atomic(
+        led,
+        "store_key_conflict",
+        led.capture,
+        "c9",
+        a,
+        "A",
+        "m1",
+        "round_trip_verified",
+        True,
+        False,
+        True,
+        False,
+        None,
+    )
+
+
+def test_model_exact_reads_immutable_capture_metadata_not_caller_booleans() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", "partial-m", "stored_unverified", False, False, True, False, None)
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.record_restore,
+        "r1",
+        a,
+        "A",
+        "agent",
+        "partial-m",
+        "exact",
+        True,
+        True,
+        True,
+        True,
+        False,
+        "art",
+    )  # partial capture can never be exact
+    led.capture("c2", a, "A", "full-m", "round_trip_verified", True, True, True, False, None)
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.record_restore,
+        "r2",
+        a,
+        "A",
+        "agent",
+        "full-m",
+        "exact",
+        False,
+        True,
+        True,
+        True,
+        False,
+        "art",
+    )  # restore-time measurement fails
+    led.record_restore(
+        "r3", a, "A", "agent", "full-m", "exact", True, True, True, True, False, "art"
+    )
+    # unreproduced identity digests keep a capture partial, so it cannot be complete at all
     _atomic(
         led,
         "coverage_insufficient",
         led.capture,
+        "c3",
+        a,
+        "A",
+        "x-m",
+        "stored_unverified",
+        True,
+        True,
+        False,
+        False,
+        None,
+    )
+
+
+def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
+    led = Legend()
+    ss = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+    reps = ("rep-a", "rep-b")
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.capture,
+        "c0",
         ss,
         "S",
         "m",
@@ -1905,12 +2344,14 @@ def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
         True,
         True,
         None,
-    )  # complete keyed capture needs the pre-capture proof
-    mismatch = led.identity_verify(ss, "S", "rep", False)
+        reps,
+    )  # no proof
+    mismatch = led.identity_verify(ss, "S", reps, False)
     _atomic(
         led,
         "coverage_insufficient",
         led.capture,
+        "c1",
         ss,
         "S",
         "m",
@@ -1920,14 +2361,49 @@ def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
         True,
         True,
         mismatch,
+        reps,
     )
-    proof = led.identity_verify(ss, "S", "rep", True)
-    led.capture(ss, "S", "m", "round_trip_verified", True, True, True, True, proof)
-    # client restore of a keyed pillar can never be exact, and caller flags are not trusted
+    proof = led.identity_verify(ss, "S", reps, True)
+    # a proof for other representations (same version) cannot be reused by a different manifest
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.capture,
+        "c2",
+        ss,
+        "S",
+        "m2",
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        True,
+        proof,
+        ("rep-a", "rep-X"),
+    )
+    weak = led.identity_verify(ss, "S", reps, True, recomputed=False)
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.capture,
+        "c3",
+        ss,
+        "S",
+        "m",
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        True,
+        weak,
+        reps,
+    )
+    led.capture("c4", ss, "S", "m", "round_trip_verified", True, True, True, True, proof, reps)
     _atomic(
         led,
         "coverage_insufficient",
         led.record_restore,
+        "r1",
         ss,
         "S",
         "search_space",
@@ -1938,12 +2414,13 @@ def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
         True,
         True,
         True,
-        True,
+        "art",
     )
     _atomic(
         led,
         "invalid_request",
         led.record_restore,
+        "r2",
         ss,
         "S",
         "search_space",
@@ -1953,29 +2430,12 @@ def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
         True,
         True,
         True,
-        True,
         False,
-    )
-    _atomic(
-        led,
-        "invalid_request",
-        led.record_restore,
-        ss,
-        "S",
-        "agent",
-        "m",
-        "partial",
-        False,
-        False,
-        True,
-        True,
-        True,
-        True,
+        "art",
     )
     led.record_restore(
-        ss, "S", "search_space", "m", "substituted", True, True, True, True, True, True
+        "r3", ss, "S", "search_space", "m", "substituted", True, True, True, True, True, "art"
     )
-    _atomic(led, "manifest_mismatch", led.activate, ss, "m", "verified")  # nothing exact yet
     _atomic(
         led,
         "store_unavailable",
@@ -1988,40 +2448,150 @@ def test_model_backend_keyed_capture_restore_and_activation_flow() -> None:
         True,
         True,
         True,
-        True,
+        "art",
     )
+    _atomic(
+        led, "unknown_ref", led.server_match, ss, "S", "ghost", True, True, True, True, True, "art"
+    )
+    led.server_match(ss, "S", "m", True, False, True, True, True, "art")  # mismatch: substituted
+    assert led.ledger[-1]["outcome"] == "substituted"
+    led.server_match(ss, "S", "m", True, True, True, True, True, "art-X")
+    # a partial keyed capture can never be upgraded by server_match prerequisites
+    led.capture("c5", ss, "S", "pm", "stored_unverified", False, False, True, True, None, reps)
     _atomic(
         led,
         "coverage_insufficient",
         led.server_match,
         ss,
         "S",
+        "pm",
+        True,
+        True,
+        True,
+        True,
+        True,
+        "art",
+    )
+    # unknown evaluator format never reaches a match or exact
+    ev = led.declare("e", None, "evaluator", "EV", "client_declared", fmt="unknown")["entity"]
+    assert led.backend_keyed(ev, "EV")
+    _atomic(led, "store_unavailable", led.identity_verify, ev, "EV", reps, True)
+    led.capture("c6", ev, "EV", "em", "stored_unverified", False, False, True, True, None, reps)
+    _atomic(
+        led,
+        "store_unavailable",
+        led.server_match,
+        ev,
+        "EV",
+        "em",
+        True,
+        True,
+        True,
+        True,
+        True,
+        "art",
+    )
+
+
+def test_model_artifact_digest_flows_from_restore_to_activation() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", "m", "round_trip_verified", True, True, True, False, None)
+    _atomic(led, "manifest_mismatch", led.activate, a, "m", "art-1")  # nothing staged yet
+    led.record_restore("r1", a, "A", "agent", "m", "exact", True, True, True, True, False, "art-1")
+    assert led.artifacts[(a, "m")] == "art-1"
+    _atomic(led, "manifest_mismatch", led.activate, a, "m", "art-2")  # substituted artifact
+    _atomic(
+        led,
+        "conflicting_report",
+        led.record_restore,
+        "r2",
+        a,
+        "A",
+        "agent",
         "m",
+        "exact",
+        True,
+        True,
         True,
         True,
         False,
-        True,
-        True,
-        True,
-    )  # ExactPrerequisites also gate the server path
+        "art-2",
+    )  # a second artifact cannot replace the first
+    led.activate(a, "m", "art-1")
+    assert led.activated[(a, "m")] == "art-1"
+
+
+def test_model_director_query_pagination_is_deterministic_bound_and_sized() -> None:
+    led = Legend()
+    ent = led.declare("k0", None, "agent", "v1", "client_declared")["entity"]
+    for i, fp in enumerate(("v2", "v3", "v4"), 1):
+        led.declare(f"k{i}", ent, "agent", fp, "client_declared")
     _atomic(
-        led, "unknown_ref", led.server_match, ss, "S", "ghost", True, True, True, True, True, True
+        led, "invalid_request", led.director_instruction, "query_versions", entity=ent, page_size=0
     )
-    led.server_match(ss, "S", "m", True, False, True, True, True, True)  # mismatch: substituted
-    assert led.ledger[-1]["outcome"] == "substituted"
-    _atomic(led, "manifest_mismatch", led.activate, ss, "m", "verified")
-    led.server_match(ss, "S", "m", True, True, True, True, True, True)
-    _atomic(led, "manifest_mismatch", led.activate, ss, "m", "other-bytes")
-    led.activate(ss, "m", "verified")
-    ev = led.declare("e", None, "evaluator", "EV", "client_declared", fmt="unknown")["entity"]
-    assert led.backend_keyed(ev, "EV")  # unknown format counts as keyed
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=ent,
+        page_size=101,
+    )
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=ent,
+        page_size=2,
+        cursor="cursor_" + "0" * 32,
+    )  # syntactically valid, never issued
+    q = led.director_instruction("query_versions", entity=ent, page_size=2, cursor=None)
+    _atomic(
+        led,
+        "foreign_ref",
+        led.director_result,
+        q,
+        {"outcome": "succeeded", "fps": ["v1", "v2", "v3"], "next_cursor": None},
+    )  # too many
+    _atomic(
+        led,
+        "foreign_ref",
+        led.director_result,
+        q,
+        {"outcome": "succeeded", "fps": ["v2", "v1"], "next_cursor": None},
+    )  # wrong order
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_result,
+        q,
+        {"outcome": "succeeded", "fps": ["v1", "v2"], "next_cursor": "cursor_" + "1" * 32},
+    )
+    nxt = led._cursor(ent, 2)
+    page1 = {"outcome": "succeeded", "fps": ["v1", "v2"], "next_cursor": nxt}
+    assert led.director_result(q, page1) is page1
+    q2 = led.director_instruction("query_versions", entity=ent, page_size=2, cursor=nxt)
+    page2 = {"outcome": "succeeded", "fps": ["v3", "v4"], "next_cursor": None}
+    assert led.director_result(q2, page2) is page2
+    other = led.declare("o", None, "agent", "w1", "client_declared")["entity"]
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=other,
+        page_size=2,
+        cursor=nxt,
+    )  # a cursor is bound to its entity
 
 
 def test_model_director_per_operation_relations_and_result_retries() -> None:
     led = _seed()
-    a = next(e for (e, f) in led.versions if f == "A")
-    led.capture(a, "A", "m1", "round_trip_verified", True, False, True, False, None)
-    led.record_restore(a, "A", "agent", "m1", "exact", True, True, True, True, True, False)
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", "m1", "round_trip_verified", True, True, True, False, None)
+    led.record_restore("r1", a, "A", "agent", "m1", "exact", True, True, True, True, False, "art")
     d = led.director_instruction("declare_version", kind="agent", entity=None)
     _atomic(
         led,
@@ -2034,8 +2604,6 @@ def test_model_director_per_operation_relations_and_result_retries() -> None:
     assert led.director_result(d, ok) is ok
     assert led.director_result(d, dict(ok)) is ok  # identical retry returns the saved result
     _atomic(led, "conflicting_report", led.director_result, d, {**ok, "fp": "B"})
-    q = led.director_instruction("query_versions", entity=a)
-    _atomic(led, "foreign_ref", led.director_result, q, {"outcome": "succeeded", "fps": ["ZZ"]})
     c = led.director_instruction("capture_version", entity=a, fp="A")
     _atomic(
         led,
@@ -2045,37 +2613,19 @@ def test_model_director_per_operation_relations_and_result_retries() -> None:
         {"outcome": "succeeded", "manifest": "nope"},
     )
     led.director_result(c, {"outcome": "succeeded", "manifest": "m1"})
+    # restore results carry no manifest on the wire: the saved instruction supplies it
     v = led.director_instruction("verify_restore", entity=a, fp="A", manifest="m1")
-    _atomic(
-        led,
-        "manifest_mismatch",
-        led.director_result,
-        v,
-        {"outcome": "succeeded", "manifest": "other", "restore_outcome": "partial"},
-    )
-    _atomic(
-        led,
-        "manifest_mismatch",
-        led.director_result,
-        v,
-        {
-            "outcome": "succeeded",
-            "manifest": "m1",
-            "restore_outcome": "exact",
-            "store_status": "missing",
-            "backend_match_result": "match",
-        },
-    )
-    led.director_result(
-        v,
-        {
-            "outcome": "succeeded",
-            "manifest": "m1",
-            "restore_outcome": "exact",
-            "store_status": "retrieved",
-            "backend_match_result": "not_applicable",
-        },
-    )
+    exact = {
+        "outcome": "succeeded",
+        "restore_outcome": "exact",
+        "store_status": "retrieved",
+        "backend_match_result": "not_applicable",
+    }
+    _atomic(led, "manifest_mismatch", led.director_result, v, {**exact, "store_status": "missing"})
+    assert led.director_result(v, exact) is exact
+    led.capture("c2", a, "A", "m2", "stored_unverified", False, False, True, False, None)
+    v2 = led.director_instruction("verify_restore", entity=a, fp="A", manifest="m2")
+    _atomic(led, "manifest_mismatch", led.director_result, v2, exact)  # m2 has no exact evidence
     _atomic(
         led,
         "unknown_ref",
@@ -2086,21 +2636,9 @@ def test_model_director_per_operation_relations_and_result_retries() -> None:
         manifest="ghost",
     )
     _atomic(led, "invalid_request", led.director_instruction, "activate")
-    # an agent-supplied "match" never substitutes for Backend evidence
-    led2 = _seed()
-    b = next(e for (e, f) in led2.versions if f == "B")
-    led2.capture(b, "B", "mb", "stored_unverified", False, False, True, False, None)
-    r = led2.director_instruction("restore_version", entity=b, fp="B", manifest="mb")
+    b = _ent(led, "B")
+    led.capture("c3", b, "B", "mb", "stored_unverified", False, False, True, False, None)
+    r = led.director_instruction("restore_version", entity=b, fp="B", manifest="mb")
     _atomic(
-        led2,
-        "manifest_mismatch",
-        led2.director_result,
-        r,
-        {
-            "outcome": "succeeded",
-            "manifest": "mb",
-            "restore_outcome": "exact",
-            "store_status": "retrieved",
-            "backend_match_result": "match",
-        },
-    )
+        led, "manifest_mismatch", led.director_result, r, {**exact, "backend_match_result": "match"}
+    )  # an agent-supplied match is no evidence

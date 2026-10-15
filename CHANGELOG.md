@@ -95,6 +95,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   means cost unknown (no priced usage) and is never 0. Keys stay required. Acknowledged in
   `scripts/breaking_schema_allowlist.json`. Backend/FE/SDK consumers must treat null as unknown,
   never zero.
+- **Evaluator run cost is nullable.** `evaluator_run_schema.json` (and therefore
+  `evaluator_run_list_response_schema.json`, which references it) now declares `cost_usd` as
+  number|null, >=0 on the number branch: null means the evaluator run's cost is unknown and is
+  never 0. The key stays optional. Acknowledged in `scripts/breaking_schema_allowlist.json`.
+  Backend/FE/SDK consumers must treat null as unknown, never zero.
 - **Workflow-trace trial response cost (nullable `total_cost_usd`).**
   `workflow_trace_trial_response_schema.json` (GET `/api/v1/experiment-runs/runs/{run_id}/traces`)
   now declares `total_cost_usd` as number|null, >=0: null means the trial cost is unknown and is

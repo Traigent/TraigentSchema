@@ -6910,6 +6910,33 @@
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A): this project-scoped dashboard cost field becomes number|null (minimum 0 on the number branch) so an unknown cost, meaning no priced usage, is reported as null instead of a false 0, matching the MT3-06 and workflow-trace trial precedent in CHANGELOG [Unreleased]. Response-side widening; the key stays required and a priced aggregate still returns a number. Backend and FE consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#554"
+    },
+    {
+      "file": "observability/evaluator_run_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/cost_usd",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "b07f3d331e88861c7417c5df9be6b499869fc900fb4f1b5ba81995491b42f2f4"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-15 in chat (evaluator cost null: go), extending decision cards product-2026-09-30-legacy-cost-null A and product-2026-10-10-trial-cost-nullable A as applied in TraigentSchema#554: an evaluator run whose cost is unknown reports cost_usd null (minimum 0 on the number branch) instead of a false 0. Response-side widening; cost_usd stays optional and a priced run still returns a number. Backend, FE and SDK consumers must treat null as unknown, never zero. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#557"
     }
   ]
 }

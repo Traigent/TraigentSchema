@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Pillar Legend v0 contract (`schemas/legend/`, `docs/identity/pillar-legend-v0.md`). Additive, design contract only.**
+  Four new closed (`additionalProperties: false`, closed enums, no free text) draft-07 schemas under
+  `/legend/v0/`: `pillar_legend_v0.json` (entity, version, the six event types `declared`, `captured`,
+  `restore_verified`, `bound_to_run`, `evaluated`, `availability_changed`, and the three axes),
+  `recovery_manifest_v0.json` (ordered representation digests, coverage, exporter version; store key
+  `rmf0:sha256:<hex>`), `legend_claim_predicate_v0.json` (evidence-source-pinned predicates) and
+  `director_legend_ops_v0.json` (instructions and results for `declare_version`, `query_versions`,
+  `capture_version`, `verify_restore`, `restore_version`). Client-origin events cannot carry
+  `server_recorded` or `traigent_witnessed` evidence; `exact` restore requires complete coverage.
+  Reuses the content-identity v1 constructions unchanged; no existing schema or fixture is touched.
+  Pinned by `tests/test_pillar_legend_v0_schemas.py`.
+
 ### Fixed
 - **Observability trace/session list query parameters now match the backend (#550).
   Additive only.** `tags` stays a `string` parameter and its new description

@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 412
     },
     "reachableCount": 445,
-    "schemaFileCount": 490,
-    "unreachableCount": 45
+    "schemaFileCount": 494,
+    "unreachableCount": 49
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -46,6 +46,10 @@
     "execution/dataset_storage_schema.json",
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
+    "legend/director_legend_ops_v0.json",
+    "legend/legend_claim_predicate_v0.json",
+    "legend/pillar_legend_v0.json",
+    "legend/recovery_manifest_v0.json",
     "mep.json",
     "onboarding/onboarding_funnel_event_schema.json",
     "optimization/best_config_manifest_v2_schema.json",

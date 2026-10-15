@@ -40,6 +40,11 @@
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
     },
+    "RepresentationCommitment": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "sha256: + hex SHA-256(UTF8('traigent.legend.representation_commitment.v0') || 0x00 || jcs_v1({'representations': [d0, d1, ...]})) where d_i are the manifest's representation digests in manifest (ordinal) order. The SDK derives it locally from its manifest; the Backend compares it with the cited identity_verified proof and persists it as immutable capture metadata. The manifest itself never leaves the client."
+    },
     "Sha256Hex": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
@@ -936,7 +941,9 @@
         "conformance_passed",
         "exporter_version",
         "backend_keyed",
-        "identity_verification_ref"
+        "identity_verification_ref",
+        "representation_commitment",
+        "identity_digests_reproduced"
       ],
       "properties": {
         "schema_version": {
@@ -1010,6 +1017,12 @@
               "type": "null"
             }
           ]
+        },
+        "representation_commitment": {
+          "$ref": "#/definitions/RepresentationCommitment"
+        },
+        "identity_digests_reproduced": {
+          "type": "boolean"
         }
       },
       "description": "A capture was stored under the manifest fingerprint. Put-ack alone is stored_unverified; round_trip_verified needs conformance_passed and a per-capture isolated round trip.",
@@ -1784,7 +1797,7 @@
           "const": "identity_verified"
         },
         "representation_commitment": {
-          "$ref": "#/definitions/Sha256Digest"
+          "$ref": "#/definitions/RepresentationCommitment"
         },
         "backend_recomputed": {
           "type": "boolean"

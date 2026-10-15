@@ -444,7 +444,9 @@
         "conformance_passed",
         "exporter_version",
         "backend_keyed",
-        "identity_verification_ref"
+        "identity_verification_ref",
+        "representation_commitment",
+        "identity_digests_reproduced"
       ],
       "properties": {
         "schema_version": {
@@ -492,6 +494,12 @@
               "type": "null"
             }
           ]
+        },
+        "representation_commitment": {
+          "$ref": "./pillar_legend_v0.json#/definitions/RepresentationCommitment"
+        },
+        "identity_digests_reproduced": {
+          "type": "boolean"
         }
       },
       "allOf": [
@@ -542,6 +550,39 @@
           }
         }
       ]
+    },
+    "RecordAvailabilityRequestV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "idempotency_key",
+        "request_digest",
+        "version_ref",
+        "recovery_manifest_fingerprint",
+        "status"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "./pillar_legend_v0.json#/definitions/SchemaVersion"
+        },
+        "idempotency_key": {
+          "$ref": "./pillar_legend_v0.json#/definitions/IdempotencyKey"
+        },
+        "request_digest": {
+          "$ref": "./pillar_legend_v0.json#/definitions/RequestDigest"
+        },
+        "version_ref": {
+          "$ref": "./pillar_legend_v0.json#/definitions/VersionRef"
+        },
+        "recovery_manifest_fingerprint": {
+          "$ref": "./pillar_legend_v0.json#/definitions/ManifestFingerprint"
+        },
+        "status": {
+          "$ref": "./pillar_legend_v0.json#/definitions/AvailabilityStatus"
+        }
+      },
+      "description": "Client availability report for one capture (manifest). Server issues the event, actor, time and position."
     },
     "RecordRestoreRequestV0": {
       "type": "object",
@@ -926,6 +967,9 @@
     },
     {
       "$ref": "#/definitions/RecordCaptureRequestV0"
+    },
+    {
+      "$ref": "#/definitions/RecordAvailabilityRequestV0"
     },
     {
       "$ref": "#/definitions/RecordRestoreRequestV0"

@@ -191,6 +191,8 @@ CAPTURE_REQ = {
     "exporter_version": "0.1.0",
     "backend_keyed": False,
     "identity_verification_ref": None,
+    "representation_commitment": SHA,
+    "identity_digests_reproduced": True,
 }
 RESTORE_REQ = {
     "schema_version": "0",
@@ -205,6 +207,14 @@ RESTORE_REQ = {
     "representation_digests_match": True,
     "pillar_fingerprint_match": True,
     "backend_keyed": False,
+}
+AVAIL_REQ = {
+    "schema_version": "0",
+    "idempotency_key": IDK,
+    "request_digest": SHA,
+    "version_ref": ref_of("version"),
+    "recovery_manifest_fingerprint": RMF,
+    "status": "available",
 }
 RESTORE_EVENT = {
     **env("restore_verified", "client", "client_sdk_reported"),
@@ -285,6 +295,8 @@ GOLDEN: dict[str, tuple[str, str, dict[str, Any]]] = {
             "exporter_version": "0.1.0",
             "backend_keyed": False,
             "identity_verification_ref": None,
+            "representation_commitment": SHA,
+            "identity_digests_reproduced": True,
         },
     ),
     "restore_verified": (L, "RestoreVerifiedEventV0", RESTORE_EVENT),
@@ -350,6 +362,7 @@ GOLDEN: dict[str, tuple[str, str, dict[str, Any]]] = {
         },
     ),
     "req_capture": (Q, "RecordCaptureRequestV0", CAPTURE_REQ),
+    "req_availability": (Q, "RecordAvailabilityRequestV0", AVAIL_REQ),
     "req_restore": (Q, "RecordRestoreRequestV0", RESTORE_REQ),
     "ins_declare": (
         O,
@@ -900,7 +913,7 @@ def test_root_documents_dispatch_on_shape() -> None:
         assert check(L, None, GOLDEN[key][2]) == [], key
     for key in ("ins_capture", "res_query"):
         assert check(O, None, GOLDEN[key][2]) == [], key
-    for key in ("req_declare", "req_query", "req_capture", "req_restore"):
+    for key in ("req_declare", "req_query", "req_capture", "req_availability", "req_restore"):
         assert check(Q, None, GOLDEN[key][2]) == [], key
 
 
@@ -1113,6 +1126,7 @@ class Legend:
         self.results: dict[str, tuple[str, Any]] = {}
         self.cursors: dict[str, tuple[str, int]] = {}
         self.next_entity = 1
+        self.autokey = 0
 
     # -- infrastructure -------------------------------------------------------------------
     def state(self) -> dict[str, Any]:
@@ -1135,6 +1149,9 @@ class Legend:
                 raise Refused("conflicting_idempotency_payload")
             return digest, saved[1]
         return digest, None
+
+    def _key(self, key: str | None) -> str:
+        return key if key is not None else f"auto{self.autokey}"
 
     def _save(self, endpoint: str, key: str, digest: str, response: Any) -> Any:
         self.requests[(endpoint, key)] = (digest, response)
@@ -1310,6 +1327,8 @@ class Legend:
             return self.contexts[context]["digest"]
         if trial is not None and (run, None) not in self.contexts:
             raise Refused("invalid_request")  # the run-base context freezes first
+        if not observed:
+            raise Refused("manifest_mismatch")  # an empty observation never freezes a context
         expected = self.effective(run, trial)
         if set(observed) != set(expected):
             raise Refused("manifest_mismatch")  # complete observation: key-set equality
@@ -1349,14 +1368,21 @@ class Legend:
         origin: str,
         subset: str = "msr-all",
         protocol: str = "full_dataset",
-    ) -> int:
+        key: str | None = None,
+    ) -> Any:
+        key = self._key(key)
+        body = dict(r=run, t=trial, s=subject, d=tuple_digest, o=origin, ss=subset, p=protocol)
+        digest, saved = self._idem("evaluate", key, body)
+        if saved is not None:
+            return saved
         ctx = self.contexts.get((run, trial))
         if ctx is None or tuple_digest != ctx["digest"]:
             raise Refused("manifest_mismatch")  # must reference a started context
         if subject not in ctx["snapshot"].values():
             raise Refused("foreign_ref")  # membership comes from the persisted snapshot
         source = "traigent_witnessed" if origin == "server" else "client_reported"
-        return self._append(
+        self.autokey += 1
+        pos = self._append(
             type="evaluated",
             run=run,
             trial=trial,
@@ -1366,6 +1392,7 @@ class Legend:
             subset=subset,
             protocol=protocol,
         )
+        return self._save("evaluate", key, digest, {"position": pos})
 
     # -- recovery -------------------------------------------------------------------------
     @staticmethod
@@ -1379,18 +1406,28 @@ class Legend:
         representations: tuple[str, ...],
         matched: bool,
         recomputed: bool = True,
+        key: str | None = None,
     ) -> int:
+        key = self._key(key)
+        commitment = self.commitment(representations)
+        body = dict(e=entity, f=fp, c=commitment, m=matched, r=recomputed)
+        digest, saved = self._idem("identity_verify", key, body)
+        if saved is not None:
+            return saved["position"]
         self._version(entity, fp)
         if self.backend_keyed(entity, fp) and not self.format_known(entity, fp):
             raise Refused("store_unavailable")  # unknown format can never reach match
-        return self._append(
+        self.autokey += 1
+        pos = self._append(
             type="identity_verified",
             entity=entity,
             fp=fp,
-            commitment=self.commitment(representations),
+            commitment=commitment,
             recomputed=recomputed,
             result="match" if matched else "mismatch",
         )
+        self._save("identity_verify", key, digest, {"position": pos})
+        return pos
 
     def capture(
         self,
@@ -1404,7 +1441,7 @@ class Legend:
         reproduced: bool,
         claimed_keyed: bool,
         verification: int | None,
-        representations: tuple[str, ...] = ("r0",),
+        commitment: str = "c0",
     ) -> Any:
         body = dict(
             entity=entity,
@@ -1416,7 +1453,7 @@ class Legend:
             reproduced=reproduced,
             keyed=claimed_keyed,
             proof=verification,
-            reps=representations,
+            commitment=commitment,
         )
         digest, saved = self._idem("capture", key, body)
         if saved is not None:
@@ -1434,8 +1471,7 @@ class Legend:
             complete=complete,
             reproduced=reproduced,
             proof=verification,
-            commitment=self.commitment(representations),
-            state=state,
+            commitment=commitment,
         )
         if complete and claimed_keyed:
             proof = (
@@ -1477,6 +1513,38 @@ class Legend:
             type="availability_changed", entity=entity, fp=fp, manifest=manifest, status=status
         )
         return self._save("availability", key, digest, {"position": pos})
+
+    def capture_from_request(
+        self, req: dict[str, Any], resolve: dict[str, tuple[str, str]], proofs: dict[str, int]
+    ) -> Any:
+        """Validated wire request -> model transition (the documented projection)."""
+        if check(Q, "RecordCaptureRequestV0", req):
+            raise Refused("invalid_request")
+        entity, fp = resolve[req["version_ref"]]
+        proof_ref = req["identity_verification_ref"]
+        return self.capture(
+            req["idempotency_key"],
+            entity,
+            fp,
+            req["recovery_manifest_fingerprint"],
+            req["recovery_state"],
+            req["conformance_passed"],
+            req["coverage"]["status"] == "complete",
+            req["identity_digests_reproduced"],
+            req["backend_keyed"],
+            proofs.get(proof_ref) if proof_ref else None,
+            req["representation_commitment"],
+        )
+
+    def availability_from_request(
+        self, req: dict[str, Any], resolve: dict[str, tuple[str, str]]
+    ) -> Any:
+        if check(Q, "RecordAvailabilityRequestV0", req):
+            raise Refused("invalid_request")
+        entity, fp = resolve[req["version_ref"]]
+        return self.record_availability(
+            req["idempotency_key"], entity, fp, req["recovery_manifest_fingerprint"], req["status"]
+        )
 
     def exact_prerequisites(
         self,
@@ -1571,7 +1639,23 @@ class Legend:
         isolated: bool,
         deps_ok: bool,
         artifact: str,
-    ) -> None:
+        key: str | None = None,
+    ) -> Any:
+        key = self._key(key)
+        body = dict(
+            e=entity,
+            f=fp,
+            m=manifest,
+            k=backend_has_key,
+            ma=matched,
+            eq=equal,
+            iso=isolated,
+            d=deps_ok,
+            a=artifact,
+        )
+        digest, saved = self._idem("server_match", key, body)
+        if saved is not None:
+            return saved
         self._version(entity, fp)
         if not self._captured(entity, fp, manifest):
             raise Refused("unknown_ref")
@@ -1580,7 +1664,8 @@ class Legend:
         if matched:
             self.exact_prerequisites(entity, fp, manifest, equal, isolated, True, deps_ok)
             self._stage(entity, manifest, artifact)
-        self._append(
+        self.autokey += 1
+        pos = self._append(
             type="restore_verified",
             entity=entity,
             fp=fp,
@@ -1589,6 +1674,7 @@ class Legend:
             origin="server",
             match="match" if matched else "mismatch",
         )
+        return self._save("server_match", key, digest, {"position": pos})
 
     def activate(self, entity: str, manifest: str, artifact: str) -> None:
         staged = self.artifacts.get((entity, manifest))
@@ -1733,8 +1819,8 @@ class Legend:
             if not 1 <= size <= 100:
                 raise Refused("invalid_request")
             start = 0
-            if refs.get("cursor") is not None:
-                bound = self.cursors.get(refs["cursor"])
+            if refs.get("page_cursor") is not None:
+                bound = self.cursors.get(refs["page_cursor"])
                 if bound is None or bound[0] != refs["entity"]:
                     raise Refused("invalid_request")  # only an issued cursor for this entity
                 start = bound[1]
@@ -1770,7 +1856,7 @@ class Legend:
                 raise Refused("foreign_ref")  # exact slice of the issued page
             end = start + size
             expected = self._token(ins["entity"], end) if end < len(order) else None
-            if result.get("next_cursor") != expected:
+            if result.get("next_page_cursor") != expected:
                 raise Refused("invalid_request")
             cursor = expected
         if ok_ and op == "capture_version":
@@ -1982,7 +2068,7 @@ def test_model_drift_never_rewrites_inherited_frozen_slots() -> None:
     assert led.proposals[("r", "run", None, "base_agent", 0)].endswith("B")
     assert led.contexts[("r", None)]["digest"] == dA
     _atomic(led, "foreign_ref", led.evaluate, "r", None, f"{ent('A')}:A", dA, "server")
-    assert led.evaluate("r", "t1", f"{ent('B')}:B", t, "server") > 0
+    assert led.evaluate("r", "t1", f"{ent('B')}:B", t, "server")["position"] > 0
 
 
 def test_model_evaluation_needs_started_context_and_membership() -> None:
@@ -1996,7 +2082,7 @@ def test_model_evaluation_needs_started_context_and_membership() -> None:
         led, "manifest_mismatch", led.evaluate, "r", "t1", f"{ent('B')}:B", _digest("x"), "server"
     )
     a = f"{ent('A')}:A"
-    assert led.evaluate("r", None, a, td, "server") > 0
+    assert led.evaluate("r", None, a, td, "server")["position"] > 0
     _atomic(led, "foreign_ref", led.evaluate, "r", None, f"{ent('B')}:B", td, "server")
     _atomic(led, "manifest_mismatch", led.evaluate, "r", None, a, "wrong", "server")
     assert led.ledger[-1]["source"] == "traigent_witnessed" and led.ledger[-1]["trial"] is None
@@ -2330,6 +2416,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
     led = Legend()
     ss = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
     reps = ("rep-a", "rep-b")
+    rc = Legend.commitment(reps)
     _atomic(
         led,
         "coverage_insufficient",
@@ -2344,7 +2431,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
         True,
         True,
         None,
-        reps,
+        rc,
     )  # no proof
     mismatch = led.identity_verify(ss, "S", reps, False)
     _atomic(
@@ -2361,7 +2448,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
         True,
         True,
         mismatch,
-        reps,
+        rc,
     )
     proof = led.identity_verify(ss, "S", reps, True)
     # a proof for other representations (same version) cannot be reused by a different manifest
@@ -2379,7 +2466,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
         True,
         True,
         proof,
-        ("rep-a", "rep-X"),
+        Legend.commitment(("rep-a", "rep-X")),
     )
     weak = led.identity_verify(ss, "S", reps, True, recomputed=False)
     _atomic(
@@ -2396,9 +2483,9 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
         True,
         True,
         weak,
-        reps,
+        rc,
     )
-    led.capture("c4", ss, "S", "m", "round_trip_verified", True, True, True, True, proof, reps)
+    led.capture("c4", ss, "S", "m", "round_trip_verified", True, True, True, True, proof, rc)
     _atomic(
         led,
         "coverage_insufficient",
@@ -2457,7 +2544,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
     assert led.ledger[-1]["outcome"] == "substituted"
     led.server_match(ss, "S", "m", True, True, True, True, True, "art-X")
     # a partial keyed capture can never be upgraded by server_match prerequisites
-    led.capture("c5", ss, "S", "pm", "stored_unverified", False, False, True, True, None, reps)
+    led.capture("c5", ss, "S", "pm", "stored_unverified", False, False, True, True, None, rc)
     _atomic(
         led,
         "coverage_insufficient",
@@ -2476,7 +2563,7 @@ def test_model_backend_keyed_proof_commitment_and_format_gates() -> None:
     ev = led.declare("e", None, "evaluator", "EV", "client_declared", fmt="unknown")["entity"]
     assert led.backend_keyed(ev, "EV")
     _atomic(led, "store_unavailable", led.identity_verify, ev, "EV", reps, True)
-    led.capture("c6", ev, "EV", "em", "stored_unverified", False, False, True, True, None, reps)
+    led.capture("c6", ev, "EV", "em", "stored_unverified", False, False, True, True, None, rc)
     _atomic(
         led,
         "store_unavailable",
@@ -2545,35 +2632,35 @@ def test_model_director_query_pagination_is_deterministic_bound_and_sized() -> N
         "query_versions",
         entity=ent,
         page_size=2,
-        cursor="cursor_" + "0" * 32,
+        page_cursor="cursor_" + "0" * 32,
     )  # syntactically valid, never issued
-    q = led.director_instruction("query_versions", entity=ent, page_size=2, cursor=None)
+    q = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=None)
     _atomic(
         led,
         "foreign_ref",
         led.director_result,
         q,
-        {"outcome": "succeeded", "fps": ["v1", "v2", "v3"], "next_cursor": None},
+        {"outcome": "succeeded", "fps": ["v1", "v2", "v3"], "next_page_cursor": None},
     )  # too many
     _atomic(
         led,
         "foreign_ref",
         led.director_result,
         q,
-        {"outcome": "succeeded", "fps": ["v2", "v1"], "next_cursor": None},
+        {"outcome": "succeeded", "fps": ["v2", "v1"], "next_page_cursor": None},
     )  # wrong order
     _atomic(
         led,
         "invalid_request",
         led.director_result,
         q,
-        {"outcome": "succeeded", "fps": ["v1", "v2"], "next_cursor": "cursor_" + "1" * 32},
+        {"outcome": "succeeded", "fps": ["v1", "v2"], "next_page_cursor": "cursor_" + "1" * 32},
     )
     nxt = led._cursor(ent, 2)
-    page1 = {"outcome": "succeeded", "fps": ["v1", "v2"], "next_cursor": nxt}
+    page1 = {"outcome": "succeeded", "fps": ["v1", "v2"], "next_page_cursor": nxt}
     assert led.director_result(q, page1) is page1
-    q2 = led.director_instruction("query_versions", entity=ent, page_size=2, cursor=nxt)
-    page2 = {"outcome": "succeeded", "fps": ["v3", "v4"], "next_cursor": None}
+    q2 = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=nxt)
+    page2 = {"outcome": "succeeded", "fps": ["v3", "v4"], "next_page_cursor": None}
     assert led.director_result(q2, page2) is page2
     other = led.declare("o", None, "agent", "w1", "client_declared")["entity"]
     _atomic(
@@ -2583,7 +2670,7 @@ def test_model_director_query_pagination_is_deterministic_bound_and_sized() -> N
         "query_versions",
         entity=other,
         page_size=2,
-        cursor=nxt,
+        page_cursor=nxt,
     )  # a cursor is bound to its entity
 
 
@@ -2642,3 +2729,220 @@ def test_model_director_per_operation_relations_and_result_retries() -> None:
     _atomic(
         led, "manifest_mismatch", led.director_result, r, {**exact, "backend_match_result": "match"}
     )  # an agent-supplied match is no evidence
+
+
+# ---- sol round 5: schema negatives --------------------------------------------------------
+def test_capture_carries_closed_commitment_and_reproduction_summary() -> None:
+    for name, doc, definition, good in (
+        ("event", L, "CapturedEventV0", GOLDEN["captured"][2]),
+        ("request", Q, "RecordCaptureRequestV0", CAPTURE_REQ),
+    ):
+        for field in ("representation_commitment", "identity_digests_reproduced"):
+            assert check(doc, definition, {k: v for k, v in good.items() if k != field}) != [], name
+        assert check(doc, definition, {**good, "representation_commitment": H64}) != [], name
+        assert check(doc, definition, {**good, "representation_commitment": "/tmp/x"}) != [], name
+        assert check(doc, definition, {**good, "identity_digests_reproduced": "yes"}) != [], name
+    text = json.loads(LEGEND_PATH.read_text())["definitions"]["RepresentationCommitment"][
+        "description"
+    ]
+    assert "traigent.legend.representation_commitment.v0" in text and "ordinal" in text
+
+
+def test_availability_request_is_closed_and_in_the_request_root() -> None:
+    assert check(Q, "RecordAvailabilityRequestV0", AVAIL_REQ) == []
+    assert check(Q, None, AVAIL_REQ) == []
+    for field in AVAIL_REQ:
+        assert (
+            check(
+                Q, "RecordAvailabilityRequestV0", {k: v for k, v in AVAIL_REQ.items() if k != field}
+            )
+            != []
+        )
+    assert check(Q, "RecordAvailabilityRequestV0", {**AVAIL_REQ, "status": "gone"}) != []
+    assert check(Q, "RecordAvailabilityRequestV0", {**AVAIL_REQ, "recorded_at": TS}) != []
+    assert (
+        check(
+            Q,
+            "RecordAvailabilityRequestV0",
+            {**AVAIL_REQ, "recovery_manifest_fingerprint": "rmfc0:sha256:" + "c" * 64},
+        )
+        != []
+    )
+
+
+# ---- sol round 5: model negatives ----------------------------------------------------------
+def test_model_empty_observation_never_freezes_a_context() -> None:
+    led = Legend()
+    _atomic(led, "manifest_mismatch", led.start_execution, "empty", None, {}, "strict")
+    assert led.contexts == {} and led.ledger == []
+
+
+def test_model_remaining_record_writers_are_idempotent() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.propose("r", None, "base_agent", 0, a, "A")
+    td = led.start_execution("r", None, dict(led.effective("r", None)), "strict")
+    ev1 = led.evaluate("r", None, f"{a}:A", td, "server", key="ev-1")
+    n = len(led.ledger)
+    assert led.evaluate("r", None, f"{a}:A", td, "server", key="ev-1") is ev1
+    assert len(led.ledger) == n  # identical retry appends nothing
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.evaluate,
+        "r",
+        None,
+        f"{a}:A",
+        td,
+        "server",
+        "other-subset",
+        "holdout",
+        "ev-1",
+    )
+    s = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+    p1 = led.identity_verify(s, "S", ("x",), True, key="iv-1")
+    n = len(led.ledger)
+    assert led.identity_verify(s, "S", ("x",), True, key="iv-1") == p1
+    assert len(led.ledger) == n
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.identity_verify,
+        s,
+        "S",
+        ("y",),
+        True,
+        True,
+        "iv-1",
+    )
+    led.identity_verify(s, "S", ("x",), True, key="iv-2")  # fresh key = a new record
+    assert len(led.ledger) == n + 1
+    led.capture(
+        "c",
+        s,
+        "S",
+        "m",
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        True,
+        p1,
+        Legend.commitment(("x",)),
+    )
+    m1 = led.server_match(s, "S", "m", True, True, True, True, True, "art", key="sm-1")
+    n = len(led.ledger)
+    assert led.server_match(s, "S", "m", True, True, True, True, True, "art", key="sm-1") is m1
+    assert len(led.ledger) == n
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.server_match,
+        s,
+        "S",
+        "m",
+        True,
+        False,
+        True,
+        True,
+        True,
+        "art",
+        "sm-1",
+    )
+
+
+def test_model_recovery_strength_upgrades_without_changing_manifest_metadata() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", "m", "stored_unverified", False, True, True, False, None)
+    assert led.recovery_state(a, "A") == "stored_unverified"
+    led.capture("c2", a, "A", "m", "round_trip_verified", True, True, True, False, None)
+    assert led.recovery_state(a, "A") == "round_trip_verified"  # event evidence, not metadata
+    # coverage / reproduction / commitment stay immutable for the fingerprint
+    _atomic(
+        led,
+        "store_key_conflict",
+        led.capture,
+        "c3",
+        a,
+        "A",
+        "m",
+        "round_trip_verified",
+        True,
+        False,
+        True,
+        False,
+        None,
+    )
+    _atomic(
+        led,
+        "store_key_conflict",
+        led.capture,
+        "c4",
+        a,
+        "A",
+        "m",
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        False,
+        None,
+        "other-commitment",
+    )
+
+
+def test_model_wire_cursor_names_are_checked() -> None:
+    led = Legend()
+    ent = led.declare("k0", None, "agent", "v1", "client_declared")["entity"]
+    for i, fp in enumerate(("v2", "v3"), 1):
+        led.declare(f"k{i}", ent, "agent", fp, "client_declared")
+    unissued = "cursor_" + "0" * 32
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=ent,
+        page_size=2,
+        page_cursor=unissued,
+    )
+    q = led.director_instruction("query_versions", entity=ent, page_size=3, page_cursor=None)
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_result,
+        q,
+        {"outcome": "succeeded", "fps": ["v1", "v2", "v3"], "next_page_cursor": unissued},
+    )
+    ok = {"outcome": "succeeded", "fps": ["v1", "v2", "v3"], "next_page_cursor": None}
+    assert led.director_result(q, ok) is ok
+    # the wire fields exist in the closed schemas under exactly these names
+    assert check(O, "QueryVersionsInstruction", GOLDEN["ins_query"][2]) == []
+    assert "page_cursor" in GOLDEN["ins_query"][2] and "next_page_cursor" in GOLDEN["res_query"][2]
+
+
+def test_model_wire_requests_project_into_transitions() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    resolve = {ref_of("version"): (a, "A")}
+    req = {
+        **CAPTURE_REQ,
+        "recovery_state": "round_trip_verified",
+        "conformance_passed": True,
+        "coverage": full("agent"),
+        "representation_commitment": "sha256:" + "1" * 64,
+    }
+    first = led.capture_from_request(req, resolve, {})
+    assert led.capture_from_request(req, resolve, {}) is first  # key/digest retry
+    assert led.captures[(a, "A", RMF)]["commitment"] == "sha256:" + "1" * 64
+    assert led.captures[(a, "A", RMF)]["reproduced"] is True
+    bad = {**req, "representation_commitment": "not-a-digest"}
+    _atomic(led, "invalid_request", led.capture_from_request, bad, resolve, {})
+    missing = {k: v for k, v in req.items() if k != "identity_digests_reproduced"}
+    _atomic(led, "invalid_request", led.capture_from_request, missing, resolve, {})
+    av = led.availability_from_request(AVAIL_REQ, resolve)
+    assert led.availability_from_request(AVAIL_REQ, resolve) is av
+    assert led.restorable_now(a, "A", RMF)
+    bad_av = {**AVAIL_REQ, "idempotency_key": "idk_" + "9" * 32, "status": "gone"}
+    _atomic(led, "invalid_request", led.availability_from_request, bad_av, resolve)

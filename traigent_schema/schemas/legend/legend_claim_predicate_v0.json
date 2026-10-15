@@ -333,6 +333,7 @@
         "recovery_manifest_fingerprint",
         "coverage_status",
         "run_tuple_digest",
+        "trial_ref",
         "evaluated_subset_root",
         "evaluation_protocol",
         "ledger_cutoff_position",
@@ -385,6 +386,16 @@
           "oneOf": [
             {
               "$ref": "./pillar_legend_v0.json#/definitions/Sha256Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trial_ref": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/TrialRef"
             },
             {
               "type": "null"

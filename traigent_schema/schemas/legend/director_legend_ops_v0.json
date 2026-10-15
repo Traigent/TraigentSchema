@@ -297,6 +297,25 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "version_ref": {
+                "$ref": "./pillar_legend_v0.json#/definitions/VersionRef"
+              },
+              "created": {
+                "type": "boolean"
+              }
+            }
+          }
         }
       ]
     },

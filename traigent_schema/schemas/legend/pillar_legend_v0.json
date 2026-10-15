@@ -169,6 +169,7 @@
     "EventType": {
       "type": "string",
       "enum": [
+        "identity_verified",
         "authority_linked",
         "declared",
         "captured",
@@ -356,11 +357,20 @@
       "type": "string",
       "enum": [
         "base_agent",
-        "trial_candidate",
+        "run_base_configuration",
         "dataset",
         "search_set",
         "evaluator",
-        "search_space"
+        "search_space",
+        "trial_candidate",
+        "trial_configuration"
+      ]
+    },
+    "SlotScope": {
+      "type": "string",
+      "enum": [
+        "run",
+        "trial"
       ]
     },
     "EvaluationProtocol": {
@@ -924,7 +934,9 @@
         "coverage",
         "recovery_state",
         "conformance_passed",
-        "exporter_version"
+        "exporter_version",
+        "backend_keyed",
+        "identity_verification_ref"
       ],
       "properties": {
         "schema_version": {
@@ -985,6 +997,19 @@
           "type": "string",
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?![\\s\\S])",
           "maxLength": 32
+        },
+        "backend_keyed": {
+          "type": "boolean"
+        },
+        "identity_verification_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/EventRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "description": "A capture was stored under the manifest fingerprint. Put-ack alone is stored_unverified; round_trip_verified needs conformance_passed and a per-capture isolated round trip.",
@@ -1001,6 +1026,36 @@
             "properties": {
               "conformance_passed": {
                 "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend_keyed": {
+                "const": true
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "backend_keyed",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity_verification_ref": {
+                "$ref": "#/definitions/EventRef"
               }
             }
           }
@@ -1534,6 +1589,7 @@
         "event_type",
         "run_ref",
         "trial_ref",
+        "slot_scope",
         "binding_role",
         "binding_slot",
         "run_tuple_digest"
@@ -1590,6 +1646,9 @@
             }
           ]
         },
+        "slot_scope": {
+          "$ref": "#/definitions/SlotScope"
+        },
         "binding_role": {
           "$ref": "#/definitions/BindingRole"
         },
@@ -1602,18 +1661,24 @@
           "$ref": "#/definitions/Sha256Digest"
         }
       },
-      "description": "Server-recorded binding of a version to a run input or trial candidate. Several versions per run are allowed.",
+      "description": "Emitted atomically when an execution context (run, trial|null) freezes: one event per slot the context consumes, all carrying that context's FINAL tuple digest. trial_ref is the CONTEXT's trial (null = run-base context); slot_scope says where the slot lives. Slots before start_execution are proposals and emit nothing.",
       "allOf": [
         {
           "if": {
             "properties": {
               "binding_role": {
-                "const": "trial_candidate"
+                "enum": [
+                  "trial_candidate",
+                  "trial_configuration"
+                ]
               }
             }
           },
           "then": {
             "properties": {
+              "slot_scope": {
+                "const": "trial"
+              },
               "trial_ref": {
                 "$ref": "#/definitions/TrialRef"
               }
@@ -1626,6 +1691,7 @@
               "binding_role": {
                 "enum": [
                   "base_agent",
+                  "run_base_configuration",
                   "dataset",
                   "search_set",
                   "search_space"
@@ -1635,13 +1701,103 @@
           },
           "then": {
             "properties": {
+              "slot_scope": {
+                "const": "run"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "slot_scope": {
+                "const": "trial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
               "trial_ref": {
-                "type": "null"
+                "$ref": "#/definitions/TrialRef"
               }
             }
           }
         }
       ]
+    },
+    "IdentityVerifiedEventV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "event_ref",
+        "version_ref",
+        "actor_ref",
+        "origin",
+        "evidence_source",
+        "ledger_position",
+        "recorded_at",
+        "idempotency_key",
+        "request_digest",
+        "event_type",
+        "representation_commitment",
+        "backend_recomputed",
+        "result"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/SchemaVersion"
+        },
+        "event_ref": {
+          "$ref": "#/definitions/EventRef"
+        },
+        "version_ref": {
+          "$ref": "#/definitions/VersionRef"
+        },
+        "actor_ref": {
+          "$ref": "#/definitions/ActorRef"
+        },
+        "origin": {
+          "type": "string",
+          "const": "server"
+        },
+        "evidence_source": {
+          "type": "string",
+          "enum": [
+            "server_recorded"
+          ]
+        },
+        "ledger_position": {
+          "$ref": "#/definitions/LedgerPosition"
+        },
+        "recorded_at": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "idempotency_key": {
+          "$ref": "#/definitions/IdempotencyKey"
+        },
+        "request_digest": {
+          "$ref": "#/definitions/RequestDigest"
+        },
+        "event_type": {
+          "type": "string",
+          "const": "identity_verified"
+        },
+        "representation_commitment": {
+          "$ref": "#/definitions/Sha256Digest"
+        },
+        "backend_recomputed": {
+          "type": "boolean"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "match",
+            "mismatch"
+          ]
+        }
+      },
+      "description": "Pre-capture server verification bound to the version and the exporter's representation commitment (sha256 over the ordered representation digests). For Backend-keyed kinds the Backend recomputes the keyed identity; a capture manifest that claims complete coverage cites this event. Breaks the capture/server_match circularity."
     },
     "EvaluatedEventV0": {
       "type": "object",
@@ -1659,6 +1815,7 @@
         "request_digest",
         "event_type",
         "run_ref",
+        "trial_ref",
         "run_tuple_digest",
         "evaluated_subset_root",
         "evaluation_protocol"
@@ -1708,6 +1865,16 @@
         },
         "run_ref": {
           "$ref": "#/definitions/RunRef"
+        },
+        "trial_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/TrialRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "run_tuple_digest": {
           "$ref": "#/definitions/Sha256Digest"
@@ -1892,6 +2059,9 @@
     },
     "LegendEventV0": {
       "oneOf": [
+        {
+          "$ref": "#/definitions/IdentityVerifiedEventV0"
+        },
         {
           "$ref": "#/definitions/AuthorityLinkedEventV0"
         },

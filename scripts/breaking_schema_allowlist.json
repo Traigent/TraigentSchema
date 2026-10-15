@@ -6936,7 +6936,7 @@
       ],
       "reason": "Owner-approved 2026-10-15 in chat (evaluator cost null: go), extending decision cards product-2026-09-30-legacy-cost-null A and product-2026-10-10-trial-cost-nullable A as applied in TraigentSchema#554: an evaluator run whose cost is unknown reports cost_usd null (minimum 0 on the number branch) instead of a false 0. Response-side widening; cost_usd stays optional and a priced run still returns a number. Backend, FE and SDK consumers must treat null as unknown, never zero. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema#TBD"
+      "pr": "Traigent/TraigentSchema#557"
     }
   ]
 }

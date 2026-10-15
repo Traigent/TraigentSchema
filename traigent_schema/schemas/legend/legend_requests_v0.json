@@ -400,6 +400,7 @@
           "oneOf": [
             {
               "type": "string",
+              "maxLength": 39,
               "pattern": "^cursor_[0-9a-f]{32}(?![\\s\\S])"
             },
             {

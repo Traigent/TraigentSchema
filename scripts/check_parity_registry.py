@@ -32,33 +32,35 @@ def _load(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def check(root: Path) -> list[str]:
-    errors: list[str] = []
-    caps_dir = root / "capabilities"
-    fix_dir = root / "fixtures"
-
+def _schema_errors(caps_dir: Path) -> tuple[list[str], dict]:
+    """Validate the registry against its schema; return the errors and the registry."""
     schema = _load(caps_dir / "registry.schema.json")
     jsonschema.Draft202012Validator.check_schema(schema)
     registry = _load(caps_dir / "registry.v1.json")
+    errors: list[str] = []
     for err in jsonschema.Draft202012Validator(schema).iter_errors(registry):
         loc = "/".join(str(p) for p in err.absolute_path) or "<root>"
         errors.append(f"schema: {loc}: {err.message[:200]}")
-    if errors:
-        return errors
+    return errors, registry
 
-    capabilities = registry["capabilities"]
-    ids = [c["id"] for c in capabilities]
-    for dup in sorted({i for i in ids if ids.count(i) > 1}):
-        errors.append(f"duplicate capability id: {dup}")
 
-    allowlist = _load(caps_dir / "phase-a-allowlist.json")
-    allow_caps = set(allowlist.get("capabilityIds", []))
-    allow_fixtures = set(allowlist.get("fixtures", []))
+def _capability_id_errors(ids: list[str], allow_caps: set[str]) -> list[str]:
+    duplicates = sorted({i for i in ids if ids.count(i) > 1})
+    errors = [f"duplicate capability id: {dup}" for dup in duplicates]
     for cid in ids:
         if cid not in allow_caps:
             errors.append(f"capability id not in Phase A allowlist: {cid}")
+    return errors
 
-    index = _load(fix_dir / "index.json")
+
+def _index_reference_errors(
+    capabilities: list[dict], index: dict, allow_fixtures: set[str]
+) -> tuple[list[str], dict[str, set[str]]]:
+    """Cross-check registry fixture references, the index and the fixture allowlist.
+
+    Returns the errors and, per fixture id, the capability ids that reference it.
+    """
+    errors: list[str] = []
     referrers: dict[str, set[str]] = {}
     for cap in capabilities:
         for fid in cap["fixtures"]:
@@ -70,8 +72,30 @@ def check(root: Path) -> list[str]:
     for fid in sorted(index):
         if fid not in allow_fixtures:
             errors.append(f"fixture {fid} not in Phase A allowlist")
+    return errors, referrers
 
-    fix_root = fix_dir.resolve()
+
+def _fixture_content_errors(fid: str, path: Path, referrers: dict[str, set[str]]) -> list[str]:
+    """Errors for one indexed fixture file's JSON content: id and capability back-reference."""
+    try:
+        meta = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return [f"fixture {fid}: not valid JSON"]
+    if not isinstance(meta, dict) or meta.get("fixtureId") != fid:
+        return [f"fixture {fid}: fixtureId does not match index key"]
+    if meta.get("capability") not in referrers.get(fid, set()):
+        return [f"fixture {fid}: capability does not reference this fixture"]
+    return []
+
+
+def _indexed_fixture_errors(
+    fix_dir: Path, fix_root: Path, index: dict, referrers: dict[str, set[str]]
+) -> tuple[list[str], set[Path]]:
+    """Check every index entry's path, presence, digest and content.
+
+    Returns the errors and the resolved paths of entries that stay inside the fixtures dir.
+    """
+    errors: list[str] = []
     indexed_paths: set[Path] = set()
     for fid, entry in sorted(index.items()):
         path = (fix_dir / entry["path"]).resolve()
@@ -87,21 +111,43 @@ def check(root: Path) -> list[str]:
             errors.append(
                 f"fixture {fid}: sha256 mismatch (index {entry['sha256']}, file {actual})"
             )
-        try:
-            meta = json.loads(path.read_text(encoding="utf-8"))
-        except ValueError:
-            errors.append(f"fixture {fid}: not valid JSON")
-            continue
-        if not isinstance(meta, dict) or meta.get("fixtureId") != fid:
-            errors.append(f"fixture {fid}: fixtureId does not match index key")
-        elif meta.get("capability") not in referrers.get(fid, set()):
-            errors.append(f"fixture {fid}: capability does not reference this fixture")
+        errors.extend(_fixture_content_errors(fid, path, referrers))
+    return errors, indexed_paths
 
+
+def _unindexed_file_errors(fix_root: Path, indexed_paths: set[Path]) -> list[str]:
+    errors: list[str] = []
     for path in sorted(fix_root.rglob("*.json")):
         if path.name == "index.json" and path.parent == fix_root:
             continue
         if path.resolve() not in indexed_paths:
             errors.append(f"fixture file not in index: {path.relative_to(fix_root)}")
+    return errors
+
+
+def check(root: Path) -> list[str]:
+    caps_dir = root / "capabilities"
+    fix_dir = root / "fixtures"
+
+    errors, registry = _schema_errors(caps_dir)
+    if errors:
+        return errors
+
+    capabilities = registry["capabilities"]
+    ids = [c["id"] for c in capabilities]
+    allowlist = _load(caps_dir / "phase-a-allowlist.json")
+    allow_caps = set(allowlist.get("capabilityIds", []))
+    allow_fixtures = set(allowlist.get("fixtures", []))
+    errors.extend(_capability_id_errors(ids, allow_caps))
+
+    index = _load(fix_dir / "index.json")
+    reference_errors, referrers = _index_reference_errors(capabilities, index, allow_fixtures)
+    errors.extend(reference_errors)
+
+    fix_root = fix_dir.resolve()
+    fixture_errors, indexed_paths = _indexed_fixture_errors(fix_dir, fix_root, index, referrers)
+    errors.extend(fixture_errors)
+    errors.extend(_unindexed_file_errors(fix_root, indexed_paths))
     return errors
 
 

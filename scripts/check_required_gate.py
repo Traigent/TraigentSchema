@@ -144,19 +144,32 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
             "literal string 'true' or 'false'"
         )
 
+    problem = _schema_relevant_problem(outputs)
+    if problem is not None:
+        return False, problem
+    return _verify_changed_file_count(outputs)
+
+
+def _schema_relevant_problem(outputs: dict) -> str | None:
+    """Why ``schema_relevant`` does not justify the skip, or None when it is literal 'false'."""
     schema_relevant = outputs.get(SCHEMA_RELEVANT_OUTPUT)
     if schema_relevant is None:
-        return False, (
+        return (
             f"{BREAKING_SCHEMA_JOB}=skipped, but '{CHANGES_JOB}.outputs."
             f"{SCHEMA_RELEVANT_OUTPUT}' is missing entirely"
         )
     if schema_relevant != "false":
-        return False, (
+        return (
             f"{BREAKING_SCHEMA_JOB}=skipped, but '{CHANGES_JOB}.outputs."
             f"{SCHEMA_RELEVANT_OUTPUT}'={schema_relevant!r}, expected the "
             "literal string 'false'"
         )
+    return None
 
+
+def _verify_changed_file_count(outputs: dict) -> tuple[bool, str]:
+    """Decide the skip from ``changed_file_count`` (and ``ancestry_only``) once
+    ``schema_relevant`` is the literal 'false'."""
     count_raw = outputs.get(FILE_COUNT_OUTPUT)
     if count_raw is None:
         return False, (
@@ -178,21 +191,7 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
         )
 
     if count == 0:
-        ancestry_only = outputs.get(ANCESTRY_ONLY_OUTPUT)
-        if ancestry_only != "true":
-            return False, (
-                f"{BREAKING_SCHEMA_JOB}=skipped, and '{CHANGES_JOB}.outputs."
-                f"{FILE_COUNT_OUTPUT}'={count} -- the classifier saw zero "
-                "changed files in a PR/merge_group range, which is a "
-                "broken/empty range, not a legitimate 'nothing "
-                "schema-relevant changed' verdict"
-            )
-        return True, (
-            f"{BREAKING_SCHEMA_JOB}: skip verified safe for declared "
-            f"ancestry-only topology ({CHANGES_JOB}.outputs."
-            f"{ANCESTRY_ONLY_OUTPUT}='true', {CHANGES_JOB}.outputs."
-            f"{FILE_COUNT_OUTPUT}=0)"
-        )
+        return _verify_zero_file_count(outputs, count)
 
     ancestry_only = outputs.get(ANCESTRY_ONLY_OUTPUT)
     if ancestry_only not in (None, "false"):
@@ -205,6 +204,25 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
     return True, (
         f"{BREAKING_SCHEMA_JOB}: skip verified safe ({SCHEMA_RELEVANT_OUTPUT}="
         f"'false', {FILE_COUNT_OUTPUT}={count})"
+    )
+
+
+def _verify_zero_file_count(outputs: dict, count: int) -> tuple[bool, str]:
+    """A zero-file range justifies the skip only with the literal ancestry_only='true'."""
+    ancestry_only = outputs.get(ANCESTRY_ONLY_OUTPUT)
+    if ancestry_only != "true":
+        return False, (
+            f"{BREAKING_SCHEMA_JOB}=skipped, and '{CHANGES_JOB}.outputs."
+            f"{FILE_COUNT_OUTPUT}'={count} -- the classifier saw zero "
+            "changed files in a PR/merge_group range, which is a "
+            "broken/empty range, not a legitimate 'nothing "
+            "schema-relevant changed' verdict"
+        )
+    return True, (
+        f"{BREAKING_SCHEMA_JOB}: skip verified safe for declared "
+        f"ancestry-only topology ({CHANGES_JOB}.outputs."
+        f"{ANCESTRY_ONLY_OUTPUT}='true', {CHANGES_JOB}.outputs."
+        f"{FILE_COUNT_OUTPUT}=0)"
     )
 
 
@@ -231,6 +249,21 @@ def evaluate(needs: dict[str, dict]) -> GateResult:
         )
         return GateResult(ok=False, problems=problems)
 
+    problems.extend(_declared_dependency_problems(needs))
+
+    for job, info in needs.items():
+        justification, problem = _dependency_verdict(job, info, needs)
+        if justification is not None:
+            justifications.append(justification)
+        if problem is not None:
+            problems.append(problem)
+
+    return GateResult(ok=not problems, problems=problems, justifications=justifications)
+
+
+def _declared_dependency_problems(needs: dict[str, dict]) -> list[str]:
+    """Allowlist entries and the classifier-gated job that are absent from ``needs``."""
+    problems: list[str] = []
     for allowlisted_job in UNCONDITIONAL_SKIP_OK:
         if allowlisted_job not in needs:
             problems.append(
@@ -247,23 +280,20 @@ def evaluate(needs: dict[str, dict]) -> GateResult:
             "classifier-gated verification is dead code if this job was "
             "renamed -- fix the name here and in ci.yml together."
         )
+    return problems
 
-    for job, info in needs.items():
-        result = info.get("result") if isinstance(info, dict) else None
-        if result == "success":
-            continue
-        if result == "skipped" and job in UNCONDITIONAL_SKIP_OK:
-            continue
-        if result == "skipped" and job == BREAKING_SCHEMA_JOB:
-            safe, message = verify_breaking_schema_check_skip(needs)
-            if safe:
-                justifications.append(message)
-                continue
-            problems.append(message)
-            continue
-        problems.append(f"{job}={result!r}")
 
-    return GateResult(ok=not problems, problems=problems, justifications=justifications)
+def _dependency_verdict(job: str, info: object, needs: dict) -> tuple[str | None, str | None]:
+    """Return ``(justification, problem)`` for one dependency; at most one is set."""
+    result = info.get("result") if isinstance(info, dict) else None
+    if result == "success":
+        return None, None
+    if result == "skipped" and job in UNCONDITIONAL_SKIP_OK:
+        return None, None
+    if result == "skipped" and job == BREAKING_SCHEMA_JOB:
+        safe, message = verify_breaking_schema_check_skip(needs)
+        return (message, None) if safe else (None, message)
+    return None, f"{job}={result!r}"
 
 
 def main(argv: list[str] | None = None) -> int:

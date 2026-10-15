@@ -489,6 +489,44 @@ def _require_digest(value: Any, what: str) -> None:
         raise ContentIdentityError(f"{what} must be a sha256:<64 hex> digest")
 
 
+def _check_agent_revision(manifest: dict[str, Any]) -> None:
+    revision = manifest.get("code_revision")
+    if revision is None and "source_digest" not in manifest:
+        raise ContentIdentityError("agent build manifest needs code_revision or source_digest")
+    if isinstance(revision, dict) and revision.get("dirty") is True:
+        if "source_digest" not in manifest:
+            raise ContentIdentityError(
+                "agent build manifest with a dirty code_revision needs source_digest"
+            )
+
+
+def _check_agent_assets(assets: Any) -> None:
+    if type(assets) is not dict or sorted(assets) != sorted(AGENT_ASSET_CATEGORIES):
+        raise ContentIdentityError(
+            "asset_digests must have exactly the categories "
+            f"{list(AGENT_ASSET_CATEGORIES)}"
+        )
+    for category in AGENT_ASSET_CATEGORIES:
+        if type(assets[category]) is not dict:
+            raise ContentIdentityError(f"asset_digests.{category} must be a map")
+        for digest in assets[category].values():
+            _require_digest(digest, f"asset_digests.{category} value")
+
+
+def _check_agent_runtime(runtime: Any) -> None:
+    if type(runtime) is not dict or not runtime.get("language") or not runtime.get("sdk_version"):
+        raise ContentIdentityError(
+            "runtime (language, sdk_version) is required: it affects behaviour"
+        )
+
+
+def _check_agent_coverage(coverage: Any, *, certifiable: bool) -> None:
+    if coverage not in AGENT_COVERAGE_VALUES:
+        raise ContentIdentityError("coverage must be 'complete' or 'partial'")
+    if certifiable and coverage != "complete":
+        raise ContentIdentityError("a partial-coverage agent manifest is not certifiable")
+
+
 def compute_agent_build_digest(manifest: Mapping[str, Any], *, certifiable: bool = False) -> str:
     """``sha256:<hex>`` = SHA-256(domain || 0x00 || jcs_v1(AgentBuildManifestV1)).
 
@@ -510,40 +548,50 @@ def compute_agent_build_digest(manifest: Mapping[str, Any], *, certifiable: bool
     """
     if type(manifest) is not dict:
         raise ContentIdentityError("agent build manifest must be a plain dict")
-    revision = manifest.get("code_revision")
-    if revision is None and "source_digest" not in manifest:
-        raise ContentIdentityError("agent build manifest needs code_revision or source_digest")
-    if isinstance(revision, dict) and revision.get("dirty") is True:
-        if "source_digest" not in manifest:
-            raise ContentIdentityError(
-                "agent build manifest with a dirty code_revision needs source_digest"
-            )
-    assets = manifest.get("asset_digests")
-    if type(assets) is not dict or sorted(assets) != sorted(AGENT_ASSET_CATEGORIES):
-        raise ContentIdentityError(
-            "asset_digests must have exactly the categories "
-            f"{list(AGENT_ASSET_CATEGORIES)}"
-        )
-    for category in AGENT_ASSET_CATEGORIES:
-        if type(assets[category]) is not dict:
-            raise ContentIdentityError(f"asset_digests.{category} must be a map")
-        for digest in assets[category].values():
-            _require_digest(digest, f"asset_digests.{category} value")
+    _check_agent_revision(manifest)
+    _check_agent_assets(manifest.get("asset_digests"))
     _require_digest(manifest.get("applied_config_digest"), "applied_config_digest")
-    runtime = manifest.get("runtime")
-    if type(runtime) is not dict or not runtime.get("language") or not runtime.get("sdk_version"):
-        raise ContentIdentityError(
-            "runtime (language, sdk_version) is required: it affects behaviour"
-        )
-    coverage = manifest.get("coverage")
-    if coverage not in AGENT_COVERAGE_VALUES:
-        raise ContentIdentityError("coverage must be 'complete' or 'partial'")
-    if certifiable and coverage != "complete":
-        raise ContentIdentityError("a partial-coverage agent manifest is not certifiable")
+    _check_agent_runtime(manifest.get("runtime"))
+    _check_agent_coverage(manifest.get("coverage"), certifiable=certifiable)
     return "sha256:" + hashlib.sha256(_framed(DOMAIN_AGENT_BUILD, manifest)).hexdigest()
 
 
 EVALUATOR_ORIENTATIONS = ("maximize", "minimize")
+
+
+def _check_evaluator_judge(manifest: dict[str, Any]) -> None:
+    if "judge" not in manifest:
+        raise ContentIdentityError("judge must be present (null for a model-free evaluator)")
+    judge = manifest["judge"]
+    if judge is not None:
+        if type(judge) is not dict or not isinstance(judge.get("model"), str):
+            raise ContentIdentityError("judge must be null or an object with a model id")
+        _require_digest(judge.get("config_digest"), "judge.config_digest")
+
+
+def _evaluator_objective_name(objective: Any) -> str:
+    """Validate one objective and return its name."""
+    if type(objective) is not dict:
+        raise ContentIdentityError("each objective must be an object")
+    name = objective.get("name")
+    if not isinstance(name, str) or not _OBJECTIVE_NAME_RE.fullmatch(name):
+        raise ContentIdentityError(
+            "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+        )
+    if objective.get("orientation") not in EVALUATOR_ORIENTATIONS:
+        raise ContentIdentityError("objective orientation must be maximize or minimize")
+    weight = objective.get("weight")
+    if type(weight) not in (int, float):
+        raise ContentIdentityError("objective weight must be a number")
+    return name
+
+
+def _check_evaluator_objectives(objectives: Any) -> None:
+    if type(objectives) is not list or not objectives:
+        raise ContentIdentityError("objectives must be a non-empty list")
+    names = [_evaluator_objective_name(objective) for objective in objectives]
+    if names != sorted(set(names)):
+        raise ContentIdentityError("objectives must be sorted by name with unique names")
 
 
 def compute_evaluator_version_digest(manifest: Mapping[str, Any]) -> str:
@@ -570,33 +618,8 @@ def compute_evaluator_version_digest(manifest: Mapping[str, Any]) -> str:
         raise ContentIdentityError("helper_digests must be a map (empty means none)")
     for digest in helpers.values():
         _require_digest(digest, "helper_digests value")
-    if "judge" not in manifest:
-        raise ContentIdentityError("judge must be present (null for a model-free evaluator)")
-    judge = manifest["judge"]
-    if judge is not None:
-        if type(judge) is not dict or not isinstance(judge.get("model"), str):
-            raise ContentIdentityError("judge must be null or an object with a model id")
-        _require_digest(judge.get("config_digest"), "judge.config_digest")
-    objectives = manifest.get("objectives")
-    if type(objectives) is not list or not objectives:
-        raise ContentIdentityError("objectives must be a non-empty list")
-    names: list[str] = []
-    for objective in objectives:
-        if type(objective) is not dict:
-            raise ContentIdentityError("each objective must be an object")
-        name = objective.get("name")
-        if not isinstance(name, str) or not _OBJECTIVE_NAME_RE.fullmatch(name):
-            raise ContentIdentityError(
-                "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
-            )
-        if objective.get("orientation") not in EVALUATOR_ORIENTATIONS:
-            raise ContentIdentityError("objective orientation must be maximize or minimize")
-        weight = objective.get("weight")
-        if type(weight) not in (int, float):
-            raise ContentIdentityError("objective weight must be a number")
-        names.append(name)
-    if names != sorted(set(names)):
-        raise ContentIdentityError("objectives must be sorted by name with unique names")
+    _check_evaluator_judge(manifest)
+    _check_evaluator_objectives(manifest.get("objectives"))
     if type(manifest.get("dependency_versions")) is not dict:
         raise ContentIdentityError("dependency_versions must be a map (empty means none)")
     return "sha256:" + hashlib.sha256(_framed(DOMAIN_EVALUATOR_VERSION, manifest)).hexdigest()
@@ -774,16 +797,8 @@ def _normalize(items: Iterable[Any]) -> tuple[MultisetMember, ...]:
     )
 
 
-def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) -> MultisetRoot:
-    """Return the order-free multiset root ``msr1:<kid>:<hex>``.
-
-    ``items`` may repeat a pair (each occurrence counts) or carry explicit
-    counts; both are summed. All members must share one key id; an empty
-    multiset needs ``key_id``. When one example_id carries several versions,
-    a :class:`ConflictingExampleVersionsWarning` is emitted and the ids are
-    listed in ``conflicting_example_ids`` -- the root is still defined.
-    """
-    members = _normalize(items)
+def _single_key_id(members: tuple[MultisetMember, ...], key_id: str | None) -> str:
+    """The one key id shared by ``members`` and the explicit ``key_id``, if given."""
     key_ids = {member.key_id for member in members}
     if key_id is not None:
         if not isinstance(key_id, str) or not _KEY_ID_RE.fullmatch(key_id):
@@ -794,11 +809,29 @@ def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) ->
     if len(key_ids) != 1:
         raise ContentIdentityError("a multiset cannot mix key ids")
     (resolved_key_id,) = key_ids
+    return resolved_key_id
 
+
+def _conflicting_example_ids(members: tuple[MultisetMember, ...]) -> tuple[str, ...]:
+    """Sorted example_ids that occur with more than one example_version."""
     versions_per_id: dict[str, int] = {}
     for member in members:
         versions_per_id[member.example_id] = versions_per_id.get(member.example_id, 0) + 1
-    conflicts = tuple(sorted(eid for eid, n in versions_per_id.items() if n > 1))
+    return tuple(sorted(eid for eid, n in versions_per_id.items() if n > 1))
+
+
+def compute_multiset_root(items: Iterable[Any], *, key_id: str | None = None) -> MultisetRoot:
+    """Return the order-free multiset root ``msr1:<kid>:<hex>``.
+
+    ``items`` may repeat a pair (each occurrence counts) or carry explicit
+    counts; both are summed. All members must share one key id; an empty
+    multiset needs ``key_id``. When one example_id carries several versions,
+    a :class:`ConflictingExampleVersionsWarning` is emitted and the ids are
+    listed in ``conflicting_example_ids`` -- the root is still defined.
+    """
+    members = _normalize(items)
+    resolved_key_id = _single_key_id(members, key_id)
+    conflicts = _conflicting_example_ids(members)
     if conflicts:
         warnings.warn(
             f"{len(conflicts)} example_id(s) carry more than one example_version "
@@ -849,27 +882,25 @@ def build_inclusion_proof(multiset: MultisetRoot, member: MultisetMember) -> Inc
     )
 
 
-def verify_inclusion_proof(proof: InclusionProof) -> bool:
-    """RFC 9162 section 2.1.3.2 verification. Needs no key. Never raises on a bad proof."""
-    root_match = _ROOT_RE.fullmatch(proof.root) if isinstance(proof.root, str) else None
-    if root_match is None or root_match.group(1) != proof.member.key_id:
-        return False
-    if type(proof.leaf_index) is not int or type(proof.tree_size) is not int:
-        return False
-    if not 0 <= proof.leaf_index < proof.tree_size:
-        return False
+def _decode_audit_path(audit_path: Any) -> list[bytes] | None:
+    """Decode hex audit-path nodes, or ``None`` when any node is not a 64-hex string."""
     path: list[bytes] = []
-    for node in proof.audit_path:
+    for node in audit_path:
         if not isinstance(node, str) or not _HASH_HEX_RE.fullmatch(node):
-            return False
+            return None
         path.append(bytes.fromhex(node))
+    return path
 
-    fn = proof.leaf_index
-    sn = proof.tree_size - 1
-    r = _leaf_hash(multiset_leaf_data(proof.member))
+
+def _fold_audit_path(r: bytes, path: list[bytes], fn: int, sn: int) -> bytes | None:
+    """RFC 9162 inclusion-proof verification steps over ``path``; ``None`` if the path does not fit.
+
+    ``fn`` is the leaf index and ``sn`` the last index of the tree. The computed root is
+    returned only when the path is consumed exactly as the tree shape requires.
+    """
     for p in path:
         if sn == 0:
-            return False
+            return None
         if fn & 1 or fn == sn:
             r = _node_hash(p, r)
             if not fn & 1:
@@ -880,7 +911,26 @@ def verify_inclusion_proof(proof: InclusionProof) -> bool:
             r = _node_hash(r, p)
         fn >>= 1
         sn >>= 1
-    return sn == 0 and hmac.compare_digest(r, bytes.fromhex(root_match.group(2)))
+    return r if sn == 0 else None
+
+
+def verify_inclusion_proof(proof: InclusionProof) -> bool:
+    """RFC 9162 inclusion-proof verification. Needs no key. Never raises on a bad proof."""
+    root_match = _ROOT_RE.fullmatch(proof.root) if isinstance(proof.root, str) else None
+    if root_match is None or root_match.group(1) != proof.member.key_id:
+        return False
+    if type(proof.leaf_index) is not int or type(proof.tree_size) is not int:
+        return False
+    if not 0 <= proof.leaf_index < proof.tree_size:
+        return False
+    path = _decode_audit_path(proof.audit_path)
+    if path is None:
+        return False
+    leaf = _leaf_hash(multiset_leaf_data(proof.member))
+    computed = _fold_audit_path(leaf, path, proof.leaf_index, proof.tree_size - 1)
+    if computed is None:
+        return False
+    return hmac.compare_digest(computed, bytes.fromhex(root_match.group(2)))
 
 
 # --------------------------------------------------------------------------

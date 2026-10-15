@@ -153,19 +153,7 @@ def compute_graph_reachable_schemas() -> set[str]:
         except (OSError, json.JSONDecodeError):
             continue
 
-        targets: set[str] = set()
-        if isinstance(doc, dict):
-            for module in doc.get("x-endpoint-modules", []) or []:
-                if isinstance(module, dict):
-                    paths_file = module.get("paths_file")
-                    if isinstance(paths_file, str):
-                        targets.add(paths_file)
-        for ref in _iter_refs(doc):
-            file_part, _, _fragment = ref.partition("#")
-            if file_part:
-                targets.add(file_part)
-
-        for target in targets:
+        for target in _document_targets(doc):
             normalized = _normalize_target(rel, target)
             if normalized is None or normalized in visited:
                 continue
@@ -174,6 +162,28 @@ def compute_graph_reachable_schemas() -> set[str]:
                 frontier.append(normalized)
 
     return visited
+
+
+def _module_paths_files(doc: Any) -> set[str]:
+    """``paths_file`` strings of a catalog's ``x-endpoint-modules`` entries."""
+    paths_files: set[str] = set()
+    if isinstance(doc, dict):
+        for module in doc.get("x-endpoint-modules", []) or []:
+            if isinstance(module, dict):
+                paths_file = module.get("paths_file")
+                if isinstance(paths_file, str):
+                    paths_files.add(paths_file)
+    return paths_files
+
+
+def _document_targets(doc: Any) -> set[str]:
+    """Every file a document points at: module catalogs plus the file part of each $ref."""
+    targets = _module_paths_files(doc)
+    for ref in _iter_refs(doc):
+        file_part, _, _fragment = ref.partition("#")
+        if file_part:
+            targets.add(file_part)
+    return targets
 
 
 def _load_consumer_referenced_basenames() -> set[str]:

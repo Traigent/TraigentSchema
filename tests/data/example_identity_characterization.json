@@ -1,0 +1,1108 @@
+{
+ "agent_build/applied_config_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "applied_config_digest must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/applied_config_uppercase": {
+  "raises": [
+   "ContentIdentityError",
+   "applied_config_digest must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_bad_digest": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests.tool_definitions value must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_category_not_map": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests.prompts must be a map"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_digest_not_str": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests.helper_modules value must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_extra_category": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests must have exactly the categories ['helper_modules', 'prompts', 'tool_definitions']"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_list": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests must have exactly the categories ['helper_modules', 'prompts', 'tool_definitions']"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests must have exactly the categories ['helper_modules', 'prompts', 'tool_definitions']"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/assets_missing_category": {
+  "raises": [
+   "ContentIdentityError",
+   "asset_digests must have exactly the categories ['helper_modules', 'prompts', 'tool_definitions']"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/certifiable_complete": {
+  "return": "sha256:676ae2a4900f7436acbd636ff3e6ab74e0769c227d964a5ce3a17ad8af99433b",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/certifiable_partial": {
+  "raises": [
+   "ContentIdentityError",
+   "a partial-coverage agent manifest is not certifiable"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/coverage_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "coverage must be 'complete' or 'partial'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/coverage_unknown": {
+  "raises": [
+   "ContentIdentityError",
+   "coverage must be 'complete' or 'partial'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/dirty_truthy_not_true": {
+  "return": "sha256:cb314a5ca110ff545eae6c66ba74a2fe3dbfaaee2394745526e75b655bb7e23d",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/dirty_with_source": {
+  "return": "sha256:cfb83eef8f269d12b8490593bd88fdc2a8903377365e2af60b867c8497573017",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/dirty_without_source": {
+  "raises": [
+   "ContentIdentityError",
+   "agent build manifest with a dirty code_revision needs source_digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/no_revision_no_source": {
+  "raises": [
+   "ContentIdentityError",
+   "agent build manifest needs code_revision or source_digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/not_a_dict": {
+  "raises": [
+   "ContentIdentityError",
+   "agent build manifest must be a plain dict"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/revision_none_with_source": {
+  "return": "sha256:b7ea6fd6a8070800278dcb0a5a2f695f9d507d037feabed31d1cc64b0ad8655c",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/revision_string": {
+  "return": "sha256:8a11482605c031747bbaf84a3614b2bf6888c9583988fb17fd7c00ac9dff53ea",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/runtime_empty_language": {
+  "raises": [
+   "ContentIdentityError",
+   "runtime (language, sdk_version) is required: it affects behaviour"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/runtime_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "runtime (language, sdk_version) is required: it affects behaviour"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/runtime_no_language": {
+  "raises": [
+   "ContentIdentityError",
+   "runtime (language, sdk_version) is required: it affects behaviour"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/runtime_no_sdk_version": {
+  "raises": [
+   "ContentIdentityError",
+   "runtime (language, sdk_version) is required: it affects behaviour"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/runtime_not_dict": {
+  "raises": [
+   "ContentIdentityError",
+   "runtime (language, sdk_version) is required: it affects behaviour"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/source_digest_only": {
+  "return": "sha256:55d1027f514040d8b67f6ae67af10907856c274f63358457b2568a68afd82004",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/valid_complete": {
+  "return": "sha256:676ae2a4900f7436acbd636ff3e6ab74e0769c227d964a5ce3a17ad8af99433b",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "agent_build/valid_partial": {
+  "return": "sha256:f79528fb609851ca11dd524899c7d0c08c1047fc1a9c7be7accf1309b2ab4199",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/code_digest_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "code_digest must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/config_digest_bad": {
+  "raises": [
+   "ContentIdentityError",
+   "config_digest must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/dependency_versions_list": {
+  "raises": [
+   "ContentIdentityError",
+   "dependency_versions must be a map (empty means none)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/dependency_versions_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "dependency_versions must be a map (empty means none)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/helper_value_bad": {
+  "raises": [
+   "ContentIdentityError",
+   "helper_digests value must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/helpers_list": {
+  "raises": [
+   "ContentIdentityError",
+   "helper_digests must be a map (empty means none)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/helpers_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "helper_digests must be a map (empty means none)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/judge_absent": {
+  "raises": [
+   "ContentIdentityError",
+   "judge must be present (null for a model-free evaluator)"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/judge_config_digest_bad": {
+  "raises": [
+   "ContentIdentityError",
+   "judge.config_digest must be a sha256:<64 hex> digest"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/judge_model_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "judge must be null or an object with a model id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/judge_model_not_str": {
+  "raises": [
+   "ContentIdentityError",
+   "judge must be null or an object with a model id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/judge_not_dict": {
+  "raises": [
+   "ContentIdentityError",
+   "judge must be null or an object with a model id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/not_a_dict": {
+  "raises": [
+   "ContentIdentityError",
+   "evaluator version manifest must be a plain dict"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_name_bad_start": {
+  "raises": [
+   "ContentIdentityError",
+   "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_name_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_name_not_str": {
+  "raises": [
+   "ContentIdentityError",
+   "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_name_too_long": {
+  "raises": [
+   "ContentIdentityError",
+   "objective name must fully match [a-zA-Z_][a-zA-Z0-9_.-]{0,127}"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_not_dict": {
+  "raises": [
+   "ContentIdentityError",
+   "each objective must be an object"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_orientation_bad": {
+  "raises": [
+   "ContentIdentityError",
+   "objective orientation must be maximize or minimize"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_weight_bool": {
+  "raises": [
+   "ContentIdentityError",
+   "objective weight must be a number"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_weight_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "objective weight must be a number"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objective_weight_str": {
+  "raises": [
+   "ContentIdentityError",
+   "objective weight must be a number"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objectives_duplicate": {
+  "raises": [
+   "ContentIdentityError",
+   "objectives must be sorted by name with unique names"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objectives_empty": {
+  "raises": [
+   "ContentIdentityError",
+   "objectives must be a non-empty list"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objectives_missing": {
+  "raises": [
+   "ContentIdentityError",
+   "objectives must be a non-empty list"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objectives_tuple": {
+  "raises": [
+   "ContentIdentityError",
+   "objectives must be a non-empty list"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/objectives_unsorted": {
+  "raises": [
+   "ContentIdentityError",
+   "objectives must be sorted by name with unique names"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/valid": {
+  "return": "sha256:b8e02567955e5098c8f55b882524f88fb92cb7aee8e5b792f3fd3e3c9d1c96f1",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/valid_empty_helpers": {
+  "return": "sha256:0bb4d2def400c30a0f5ee91fe2c486916742c9f4deac53d0530fd0a3be8204da",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "evaluator_version/valid_null_judge": {
+  "return": "sha256:5ff4d5c56781d29a78ee34c9dcb7b5c11ec52409498648e6fddf50e386219f26",
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_node_bad_hex": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_node_not_str": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_node_tampered": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_path_empty_size2": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_path_extra_node": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/audit_path_short": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_bool": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_equals_size": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_equals_size_single_leaf": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_negative": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_str": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/leaf_index_wrong": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/member_count_changed": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/root_bad_format": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/root_hash_wrong": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/root_not_str": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/root_other_key_id": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_float": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_inflated_single_leaf": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_inflated_unconsumed": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/tree_size_wrong": {
+  "return": false,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size1_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size2_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size2_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size3_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size3_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size3_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size4_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size4_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size4_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size4_index3": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size5_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size5_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size5_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size5_index3": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size5_index4": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index3": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index4": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size6_index5": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index3": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index4": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index5": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size7_index6": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index0": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index1": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index2": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index3": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index4": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index5": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index6": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "inclusion_proof/valid_size8_index7": {
+  "return": true,
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/bad_item": {
+  "raises": [
+   "ContentIdentityError",
+   "multiset items must be MultisetMember or (example_id, example_version[, count])"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/conflicting_versions_warn": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": [
+     "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+     "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000003"
+    ]
+   },
+   "distinct_count": 4,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000002"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000003",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000003"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000003",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000004"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:a3c0a9a9576bb893b9b57fdbbd8238302207e3a56bae8f5c6cf9c31bae08374a",
+   "total_count": 4
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": [
+   [
+    "ConflictingExampleVersionsWarning",
+    "2 example_id(s) carry more than one example_version (conflicting labels) in one multiset"
+   ]
+  ]
+ },
+ "multiset_root/empty_with_key_id": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 0,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": []
+   },
+   "root": "msr1:k0123456789abcdef:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "total_count": 0
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/empty_without_key_id": {
+  "raises": [
+   "ContentIdentityError",
+   "an empty multiset needs an explicit key_id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/key_id_bad_format": {
+  "raises": [
+   "ContentIdentityError",
+   "key_id is not a v1 key id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/key_id_differs_from_members": {
+  "raises": [
+   "ContentIdentityError",
+   "a multiset cannot mix key ids"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/key_id_not_str": {
+  "raises": [
+   "ContentIdentityError",
+   "key_id is not a v1 key id"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/matching_explicit_key_id": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 1,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:25ffb7a21df0c1f976d034c4d6e6cad2e5399a4201ce1767b743c833b9dde6e6",
+   "total_count": 1
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/member_objects": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 2,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000004",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000004"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 2,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000005",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000005"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:d0b73a2cdc29bdf314669c2c56cab3fdab22b86aa91178119146e8aec8c38e31",
+   "total_count": 3
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/members_mix_key_ids": {
+  "raises": [
+   "ContentIdentityError",
+   "a multiset cannot mix key ids"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/repeated_pairs_summed": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 2,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 3,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 2,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000002",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000002"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:a3f8561208845a349b3ab8b6eea5f34599823aef4b6c9467e4fa233ef3f33244",
+   "total_count": 5
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/single_pair": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 1,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:25ffb7a21df0c1f976d034c4d6e6cad2e5399a4201ce1767b743c833b9dde6e6",
+   "total_count": 1
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/total_count_at_limit": {
+  "return": {
+   "__type__": "MultisetRoot",
+   "conflicting_example_ids": {
+    "__tuple__": []
+   },
+   "distinct_count": 2,
+   "key_id": "k0123456789abcdef",
+   "members": {
+    "__tuple__": [
+     {
+      "__type__": "MultisetMember",
+      "count": 9007199254740990,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000001"
+     },
+     {
+      "__type__": "MultisetMember",
+      "count": 1,
+      "example_id": "ex1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000002",
+      "example_version": "exv1:k0123456789abcdef:0000000000000000000000000000000000000000000000000000000000000002"
+     }
+    ]
+   },
+   "root": "msr1:k0123456789abcdef:7edfafdc977850789acb39f5ee6420fab85b1e9a7e77a09bccd7c6af8ee3c6c5",
+   "total_count": 9007199254740991
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "multiset_root/total_count_overflow": {
+  "raises": [
+   "ContentIdentityError",
+   "multiset total_count overflows 2**53-1"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

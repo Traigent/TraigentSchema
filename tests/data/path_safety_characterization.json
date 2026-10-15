@@ -1,0 +1,436 @@
+{
+ "absolute_member": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member path: '/etc/passwd'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "backslash_member": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member path: 'a\\\\b'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "char_device_skip": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "f",
+      "f",
+      "f"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "dot_prefixed_names": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "./x",
+      "x",
+      "x"
+     ]
+    },
+    {
+     "__list__": [
+      "./x/y.json",
+      "x/y.json",
+      "x/y.json"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "drive_member": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member path: 'C:x'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "duplicate_file": {
+  "raises": [
+   "ValueError",
+   "duplicate tar member destination: 'a.json'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "duplicate_via_dot_segment": {
+  "raises": [
+   "ValueError",
+   "duplicate tar member destination: './d'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "empty_archive": {
+  "return": {
+   "__list__": []
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fifo_reject": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member type: 'schemas/pipe'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fifo_skip": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "schemas",
+      "schemas",
+      "schemas"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/a.json",
+      "schemas/a.json",
+      "schemas/a.json"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub",
+      "schemas/sub",
+      "schemas/sub"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "file_grandparent": {
+  "raises": [
+   "ValueError",
+   "tar member has a non-directory parent: 'a/b' under 'a'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "file_grandparent_implicit_parent": {
+  "raises": [
+   "ValueError",
+   "tar member has a non-directory parent: 'a/b/c' under 'a'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "file_parent_of_file": {
+  "raises": [
+   "ValueError",
+   "tar member has a non-directory parent: 'a/b' under 'a'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "files_and_dirs": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "schemas",
+      "schemas",
+      "schemas"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/a.json",
+      "schemas/a.json",
+      "schemas/a.json"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub",
+      "schemas/sub",
+      "schemas/sub"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub/b.json",
+      "schemas/sub/b.json",
+      "schemas/sub/b.json"
+     ]
+    },
+    {
+     "__list__": [
+      "top.txt",
+      "top.txt",
+      "top.txt"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "hardlink_escapes": {
+  "raises": [
+   "ValueError",
+   "git archive link escapes destination: 'hard'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "hardlink_inside_skip": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "schemas",
+      "schemas",
+      "schemas"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/a.json",
+      "schemas/a.json",
+      "schemas/a.json"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub",
+      "schemas/sub",
+      "schemas/sub"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "implicit_parent_dirs": {
+  "raises": [
+   "ValueError",
+   "required tar directory is missing: 'x'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "invalid_policy": {
+  "raises": [
+   "ValueError",
+   "unsupported special-member policy: 'allow'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "invalid_policy_checked_first": {
+  "raises": [
+   "ValueError",
+   "unsupported special-member policy: 'allow'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "member_is_destination_root": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member path: 'a/..'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "parent_traversal_member": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member path: 'a/../../b'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "required_dir_missing": {
+  "raises": [
+   "ValueError",
+   "required tar directory is missing: 'schemas/other'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "required_dir_present": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "schemas",
+      "schemas",
+      "schemas"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/a.json",
+      "schemas/a.json",
+      "schemas/a.json"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub",
+      "schemas/sub",
+      "schemas/sub"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "required_path_dot": {
+  "raises": [
+   "ValueError",
+   "unsafe tar required path: '.'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "required_path_is_file": {
+  "raises": [
+   "ValueError",
+   "required tar directory is missing: 'schemas/a.json'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "required_path_unsafe": {
+  "raises": [
+   "ValueError",
+   "unsafe tar required path: '../schemas'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "skipped_member_not_a_parent": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "p/f",
+      "p/f",
+      "p/f"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "symlink_absolute_target": {
+  "raises": [
+   "ValueError",
+   "unsafe tar link target: 'link'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "symlink_empty_target": {
+  "raises": [
+   "ValueError",
+   "unsafe tar link target: 'link'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "symlink_escapes_skip": {
+  "raises": [
+   "ValueError",
+   "git archive link escapes destination: 'link'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "symlink_inside_reject": {
+  "raises": [
+   "ValueError",
+   "unsafe tar member type: 'schemas/link'"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "symlink_inside_skip": {
+  "return": {
+   "__list__": [
+    {
+     "__list__": [
+      "schemas",
+      "schemas",
+      "schemas"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/a.json",
+      "schemas/a.json",
+      "schemas/a.json"
+     ]
+    },
+    {
+     "__list__": [
+      "schemas/sub",
+      "schemas/sub",
+      "schemas/sub"
+     ]
+    }
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

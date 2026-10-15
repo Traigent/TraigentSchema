@@ -1545,15 +1545,19 @@ class Legend:
             if given:
                 given = {"status": "complete", "covered": list(REQUIRED[kind]), "missing": []}
             else:
-                given = {"status": "partial", "covered": [], "missing": [REQUIRED[kind][0]]}
+                given = {
+                    "status": "partial",
+                    "covered": list(REQUIRED[kind][1:]),
+                    "missing": [REQUIRED[kind][0]],
+                }
         covered, missing = set(given["covered"]), set(given["missing"])
         if covered & missing or len(covered) != len(given["covered"]):
             raise Refused("invalid_request")
         if given["status"] == "complete":
             if missing or not set(REQUIRED[kind]) <= covered:
                 raise Refused("coverage_insufficient")  # not complete for this kind
-        elif not missing:
-            raise Refused("invalid_request")
+        elif not missing or not set(REQUIRED[kind]) <= covered | missing:
+            raise Refused("invalid_request")  # covered and missing partition RequiredComponents
         return {"status": given["status"], "covered": sorted(covered), "missing": sorted(missing)}
 
     def capture_from_request(
@@ -1724,7 +1728,17 @@ class Legend:
             manifest=manifest,
             outcome=outcome,
             origin="client",
-            match="not_checked",
+            match="not_applicable" if outcome == "exact" else "not_checked",
+            summary=dict(
+                kind=kind,
+                coverage=meta["coverage"],
+                equal=equal,
+                isolated=isolated,
+                key_ok=key_ok,
+                deps_ok=deps_ok,
+                artifact=artifact,
+                keyed=claimed_keyed,
+            ),
         )
         return self._save("restore", key, digest, {"position": pos})
 
@@ -1773,8 +1787,43 @@ class Legend:
             outcome="exact" if matched else "substituted",
             origin="server",
             match="match" if matched else "mismatch",
+            summary=dict(
+                kind=self._version(entity, fp)["kind"],
+                coverage=self.captures[(entity, fp, manifest)]["coverage"],
+                equal=equal,
+                isolated=isolated,
+                key_ok=backend_has_key,
+                deps_ok=deps_ok,
+                artifact=artifact if matched else None,
+                keyed=self.backend_keyed(entity, fp),
+            ),
         )
         return self._save("server_match", key, digest, {"position": pos})
+
+    def restore_event_wire(self, event: dict[str, Any], manifest: str) -> dict[str, Any]:
+        """Project a model restore event into the closed RestoreVerifiedEventV0 wire shape."""
+        sm = event["summary"]
+        server = event["origin"] == "server"
+        base = env(
+            "restore_verified",
+            event["origin"],
+            "server_recorded" if server else "client_sdk_reported",
+        )
+        return {
+            **base,
+            "kind": sm["kind"],
+            "recovery_manifest_fingerprint": manifest,
+            "outcome": event["outcome"],
+            "coverage": sm["coverage"],
+            "isolated_destination": True,
+            "representation_digests_match": sm["equal"],
+            "pillar_fingerprint_match": sm["equal"],
+            "historical_key_available": sm["key_ok"],
+            "dependencies_verified": sm["deps_ok"],
+            "verified_artifact_digest": sm["artifact"],
+            "backend_keyed": sm["keyed"],
+            "backend_match_result": event["match"],
+        }
 
     def activate(self, entity: str, manifest: str, artifact: str) -> None:
         staged = self.artifacts.get((entity, manifest))
@@ -3220,3 +3269,66 @@ def test_model_mismatching_server_match_authorises_no_activation() -> None:
     led.server_match(s_ent, "S", "m", True, False, True, True, True, "art")
     assert (s_ent, "m") not in led.artifacts
     _atomic(led, "manifest_mismatch", led.activate, s_ent, "m", "art")
+
+
+def test_model_restore_events_keep_summaries_and_project_into_the_closed_schema() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", RMF, "round_trip_verified", True, full("agent"), True, False, None)
+    art = "sha256:" + "4" * 64
+    led.record_restore("r1", a, "A", "agent", RMF, "exact", True, True, True, True, False, art)
+    event = led.ledger[-1]
+    assert event["summary"]["artifact"] == art and event["summary"]["key_ok"] is True
+    assert check(L, "RestoreVerifiedEventV0", led.restore_event_wire(event, RMF)) == []
+    led.record_restore(
+        "r2", a, "A", "agent", RMF, "partial", False, True, False, False, False, None
+    )
+    partial = led.ledger[-1]
+    assert partial["summary"]["artifact"] is None and partial["summary"]["deps_ok"] is False
+    assert check(L, "RestoreVerifiedEventV0", led.restore_event_wire(partial, RMF)) == []
+    s_ent = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+    proof = led.identity_verify(s_ent, "S", ("r",), True)
+    led.capture(
+        "c2",
+        s_ent,
+        "S",
+        RMF,
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        True,
+        proof,
+        Legend.commitment(("r",)),
+    )
+    led.server_match(s_ent, "S", RMF, True, True, True, True, True, art)
+    server = led.ledger[-1]
+    assert server["origin"] == "server" and server["summary"]["keyed"] is True
+    assert check(L, "RestoreVerifiedEventV0", led.restore_event_wire(server, RMF)) == []
+    led.server_match(s_ent, "S", RMF, True, False, True, True, True, art)
+    mismatch = led.ledger[-1]
+    assert mismatch["summary"]["artifact"] is None
+    assert check(L, "RestoreVerifiedEventV0", led.restore_event_wire(mismatch, RMF)) == []
+
+
+def test_model_coverage_partition_covers_every_required_component() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    lost = {"status": "partial", "covered": ["code"], "missing": ["prompts"]}
+    _atomic(
+        led,
+        "invalid_request",
+        led.capture,
+        "c1",
+        a,
+        "A",
+        "m",
+        "stored_unverified",
+        False,
+        lost,
+        True,
+        False,
+        None,
+    )  # runtime, helpers, ... are in neither list
+    ok = {"status": "partial", "covered": REQUIRED["agent"][1:], "missing": [REQUIRED["agent"][0]]}
+    led.capture("c2", a, "A", "m", "stored_unverified", False, ok, True, False, None)

@@ -20,6 +20,7 @@ import pytest
 from jsonschema import Draft7Validator
 
 from tests._schema_refs import build_registry
+from traigent_schema.validator import _FORMAT_CHECKER
 
 ROOT = Path(__file__).resolve().parents[1]
 schemas_dir = ROOT / "traigent_schema" / "schemas"
@@ -49,12 +50,15 @@ REQUIRED = {
     "evaluator": ["evaluator_code", "judge_config", "objectives", "helper_modules"],
     "search_space": ["search_space_definition"],
 }
-COMPLETE = {"status": "complete", "covered": ["code"], "missing": []}
 PARTIAL = {"status": "partial", "covered": ["code"], "missing": ["prompts"]}
 
 
 def full(kind: str) -> dict[str, Any]:
     return {"status": "complete", "covered": list(REQUIRED[kind]), "missing": []}
+
+
+COMPLETE = full("agent")
+ONE_COMPONENT = {"status": "complete", "covered": ["code"], "missing": []}
 
 
 def ref_of(prefix: str) -> str:
@@ -63,9 +67,7 @@ def ref_of(prefix: str) -> str:
 
 def check(doc: str, definition: str | None, instance: Any) -> list[str]:
     ref = BASE + doc + (f"#/definitions/{definition}" if definition else "")
-    validator = Draft7Validator(
-        {"$ref": ref}, registry=REGISTRY, format_checker=Draft7Validator.FORMAT_CHECKER
-    )
+    validator = Draft7Validator({"$ref": ref}, registry=REGISTRY, format_checker=_FORMAT_CHECKER)
     return [e.message for e in validator.iter_errors(instance)]
 
 
@@ -78,6 +80,7 @@ def env(event_type: str, origin: str, evidence: str) -> dict[str, Any]:
         "event_type": event_type,
         "origin": origin,
         "evidence_source": evidence,
+        "ledger_position": 1,
         "recorded_at": TS,
         "idempotency_key": IDK,
         "request_digest": SHA,
@@ -95,7 +98,6 @@ def version(kind: str, scheme: str, key: str | None, fp: str, parent: str | None
         "fingerprint": fp,
         "initial_parent_version_ref": parent,
         "identity_source": "client_declared",
-        "authority_linked": True,
         "declared_at": TS,
     }
 
@@ -156,6 +158,7 @@ PREDICATE = {
     "run_tuple_digest": None,
     "evaluated_subset_root": None,
     "evaluation_protocol": None,
+    "ledger_cutoff_position": 5,
     "as_of": TS,
     "policy_version": "legend-claims-0",
 }
@@ -195,6 +198,7 @@ RESTORE_REQ = {
     "isolated_destination": True,
     "representation_digests_match": True,
     "pillar_fingerprint_match": True,
+    "backend_keyed": False,
 }
 RESTORE_EVENT = {
     **env("restore_verified", "client", "client_sdk_reported"),
@@ -205,12 +209,15 @@ RESTORE_EVENT = {
     "isolated_destination": True,
     "representation_digests_match": True,
     "pillar_fingerprint_match": True,
+    "backend_keyed": False,
     "backend_match_result": "not_applicable",
 }
 SERVER_RESTORE = {
     **RESTORE_EVENT,
     **env("restore_verified", "server", "server_recorded"),
     "kind": "search_space",
+    "coverage": full("search_space"),
+    "backend_keyed": True,
     "backend_match_result": "match",
 }
 GOLDEN: dict[str, tuple[str, str, dict[str, Any]]] = {
@@ -575,8 +582,17 @@ def test_exact_restore_requires_complete_coverage_and_equalities() -> None:
 
 
 def test_backend_keyed_pillar_is_exact_only_with_server_match() -> None:
-    assert ok("restore_verified", kind="search_space") != []  # client-only exact refused (C8)
-    assert ok("restore_verified", kind="search_space", outcome="substituted") == []
+    ss = {"kind": "search_space", "coverage": full("search_space")}
+    assert ok("restore_verified", **ss) != []  # client-only exact refused (C8)
+    assert ok("restore_verified", **ss, backend_keyed=True) != []
+    assert ok("restore_verified", **ss, outcome="substituted", backend_keyed=True) == []
+    # search_space must be flagged backend_keyed; keyed evaluator manifests follow the same rule
+    assert ok("restore_verified", **ss, outcome="substituted", backend_keyed=False) != []
+    ev = {"kind": "evaluator", "coverage": full("evaluator"), "backend_keyed": True}
+    assert ok("restore_verified", **ev) != []
+    assert ok("restore_verified", **ev, outcome="substituted") == []
+    assert check(Q, "RecordRestoreRequestV0", {**RESTORE_REQ, **ev}) != []
+    assert check(Q, "RecordRestoreRequestV0", {**RESTORE_REQ, **ev, "outcome": "partial"}) == []
     assert ok("restore_verified_server_search_space") == []
     assert ok("restore_verified_server_search_space", backend_match_result="mismatch") != []
     assert (
@@ -588,12 +604,14 @@ def test_backend_keyed_pillar_is_exact_only_with_server_match() -> None:
         == []
     )
     assert ok("restore_verified_server_search_space", origin="client") != []
-    assert check(Q, "RecordRestoreRequestV0", {**RESTORE_REQ, "kind": "search_space"}) != []
+    ssreq = {**RESTORE_REQ, "kind": "search_space", "coverage": full("search_space")}
+    assert check(Q, "RecordRestoreRequestV0", ssreq) != []
+    assert check(Q, "RecordRestoreRequestV0", {**ssreq, "backend_keyed": True}) != []
     assert (
         check(
             Q,
             "RecordRestoreRequestV0",
-            {**RESTORE_REQ, "kind": "search_space", "outcome": "substituted"},
+            {**ssreq, "outcome": "substituted", "backend_keyed": True},
         )
         == []
     )
@@ -853,115 +871,511 @@ def test_legacy_identity_schemas_are_untouched() -> None:
     assert out.stdout.strip() == ""
 
 
-# ---- reference model of the semantic rules ------------------------------------------------
-class RefLedger:
-    """Reference model of the declare / binding / availability / grading rules."""
+# ---- sol round 2: schema negatives ------------------------------------------------------
+def test_ledger_position_is_required_and_positive() -> None:
+    doc, definition, good = GOLDEN["declared"]
+    assert check(doc, definition, {k: v for k, v in good.items() if k != "ledger_position"}) != []
+    for bad in (0, -1, 1.5, "1", 2**53):
+        assert ok("declared", ledger_position=bad) != [], bad
+    assert check(P, "ClaimPredicateV0", {**PREDICATE, "ledger_cutoff_position": 0}) != []
+    assert (
+        check(
+            P,
+            "ClaimPredicateV0",
+            {k: v for k, v in PREDICATE.items() if k != "ledger_cutoff_position"},
+        )
+        != []
+    )
+
+
+def test_authority_link_is_an_append_only_server_event_not_a_version_field() -> None:
+    event = {
+        **env("authority_linked", "server", "server_recorded"),
+        "source_authority": "evaluator_version_manifests",
+    }
+    assert check(L, "AuthorityLinkedEventV0", event) == []
+    assert check(L, "AuthorityLinkedEventV0", {**event, "origin": "client"}) != []
+    assert check(L, "AuthorityLinkedEventV0", {**event, "evidence_source": "client_reported"}) != []
+    assert check(L, "AuthorityLinkedEventV0", {**event, "source_authority": "none"}) != []
+    assert check(L, None, event) == []
+    # the immutable version row has no mutable linkage flag
+    assert ok("version_agent", authority_linked=True) != []
+    assert check(L, "SourceAuthority", "evaluator_version_manifests") == []
+
+
+def test_request_digest_description_excludes_only_key_and_digest() -> None:
+    text = json.loads(LEGEND_PATH.read_text())["definitions"]["RequestDigest"]["description"]
+    assert "excluding ONLY idempotency_key and request_digest" in text
+    assert "absent" in text and "null" in text
+
+
+def test_search_space_identity_is_client_declared_everywhere() -> None:
+    assert (
+        check(
+            L,
+            "LegendVersionV0",
+            {**GOLDEN["version_search_space"][2], "identity_source": "sdk_fingerprinted"},
+        )
+        != []
+    )
+    ss = {
+        **DECLARE_REQ,
+        "kind": "search_space",
+        "fingerprint_scheme": "search_space_ssp1",
+        "key_id": KID,
+        "fingerprint": SSP,
+    }
+    assert check(Q, "DeclareRequestV0", {**ss, "identity_source": "client_declared"}) == []
+    assert check(Q, "DeclareRequestV0", {**ss, "identity_source": "sdk_fingerprinted"}) != []
+
+
+def test_reporting_boundaries_require_kind_specific_complete_coverage() -> None:
+    one = ONE_COMPONENT
+    assert ok("restore_verified", coverage=one) != []  # agent exact with one component
+    assert check(Q, "RecordRestoreRequestV0", {**RESTORE_REQ, "coverage": one}) != []
+    assert ok("restore_verified", coverage=full("agent")) == []
+    assert ok("restore_verified", coverage=PARTIAL, outcome="partial") == []
+
+
+def test_director_exact_reports_need_retrieval_and_no_mismatch() -> None:
+    assert ok("res_verify_exact", backend_match_result="mismatch") != []
+    assert ok("res_verify_exact", store_status="missing") != []
+    assert ok("res_verify_exact", outcome="failed", error_code="restore_failed") != []
+    restore = result(
+        "restore_version",
+        restore_outcome="exact",
+        coverage=COMPLETE,
+        store_status="missing",
+        activated=False,
+    )
+    assert check(O, "RestoreVersionResult", restore) != []
+    assert check(O, "RestoreVersionResult", {**restore, "store_status": "retrieved"}) == []
+
+
+def test_calendar_validity_uses_the_production_date_time_checker() -> None:
+    assert _FORMAT_CHECKER.checks  # the production checker is registered, no optional extras
+    for bad in ("2026-02-30T10:00:00Z", "2026-04-31T10:00:00Z", "2025-02-29T10:00:00Z"):
+        assert ok("entity", created_at=bad) != [], bad
+    assert ok("entity", created_at="2028-02-29T10:00:00Z") == []
+    assert ok("entity", created_at="2026-10-15T10:00:60Z") != []  # leap second not in contract
+
+
+def test_axis_state_has_no_singular_version_availability() -> None:
+    state = {
+        "identity_source": "client_declared",
+        "authority_linked": False,
+        "recovery_state": "stored_unverified",
+        "restorable_now": False,
+        "evaluation_state": "none",
+    }
+    assert check(L, "AxisState", state) == []
+    assert check(L, "AxisState", {**state, "current_availability": "available"}) != []
+
+
+# ---- reference model: the section-9 transition table ------------------------------------
+import hashlib  # noqa: E402
+
+
+class Refused(ValueError):
+    """A refusal; the model guarantees no state change when this is raised."""
+
+
+def _h(*parts: Any) -> str:
+    return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
+
+
+ROLE_ORDER = ["base_agent", "trial_candidate", "dataset", "search_set", "evaluator", "search_space"]
+
+
+class Legend:
+    """Transition-table model. Every operation validates fully, then commits; refusal is atomic."""
 
     def __init__(self) -> None:
-        self.versions: dict[tuple[str, str], str | None] = {}  # (entity, fp) -> initial parent
-        self.events: list[dict[str, Any]] = []
-        self.keys: dict[str, tuple[Any, ...]] = {}
-        self.slots: dict[tuple[str, str | None, str, int], str] = {}
-        self.avail: dict[str, str] = {}  # manifest -> latest availability, absent = unknown
-        self.captures: dict[str, set[str]] = {}  # fp -> manifests
+        self.versions: dict[tuple[str, str], dict[str, Any]] = {}
+        self.ledger: list[dict[str, Any]] = []  # position = index + 1
+        self.requests: dict[str, tuple[str, Any]] = {}  # key -> (digest, first response)
+        self.slots: dict[tuple[Any, ...], tuple[str, str]] = {}  # slot -> (version, tuple_digest)
+        self.frozen: set[str] = set()
+        self.staged: dict[str, str] = {}  # manifest -> staged representation digest
 
-    def declare(
-        self, entity: str, fp: str, parent: str | None, previous: str | None, key: str, digest: str
-    ) -> str:
-        if key in self.keys:  # retry vs conflict: the key is bound to ONE request digest
-            if self.keys[key] != (digest,):
-                raise ValueError("conflicting_idempotency_payload")
-            return fp
-        first = (entity, fp) not in self.versions
-        if not first and parent is not None and parent != self.versions[(entity, fp)]:
-            raise ValueError("invalid_request")  # initial parent is first-declaration only
-        if first:
-            if parent == fp:
-                raise ValueError("invalid_request")
-            if parent is not None and (entity, parent) not in self.versions:
-                raise ValueError("unknown_ref")
-            self.versions[(entity, fp)] = parent
-        if previous is not None and (entity, previous) not in self.versions:
-            raise ValueError("unknown_ref")
-        self.keys[key] = (digest,)
-        self.events.append({"fp": fp, "previous": previous})
-        return fp
-
-    def bind(self, run: str, trial: str | None, role: str, slot: int, tuple_digest: str) -> None:
-        if role == "trial_candidate" and trial is None:
-            raise ValueError("invalid_request")
-        slot_key = (run, trial, role, slot)
-        if slot_key in self.slots and self.slots[slot_key] != tuple_digest:
-            raise ValueError("conflicting_report")  # consumed bindings are immutable
-        self.slots[slot_key] = tuple_digest
-
-    def capture(self, fp: str, manifest: str) -> None:
-        self.captures.setdefault(fp, set()).add(manifest)
-
-    def set_availability(self, manifest: str, status: str) -> None:
-        self.avail[manifest] = status
-
-    def restorable_now(self, manifest: str) -> bool:  # per manifest; unknown is NOT restorable
-        return (
-            any(manifest in ms for ms in self.captures.values())
-            and self.avail.get(manifest, "unknown") == "available"
+    def snapshot(self) -> str:
+        return _h(
+            sorted(map(str, self.versions.items())),
+            self.ledger,
+            sorted(map(str, self.slots)),
+            sorted(self.frozen),
+            sorted(map(str, self.requests.items())),
         )
 
-    def version_restorable_now(self, fp: str) -> bool:  # version-level: any capture restorable
-        return any(self.restorable_now(m) for m in self.captures.get(fp, ()))
+    def _append(self, **event: Any) -> int:
+        self.ledger.append({**event, "position": len(self.ledger) + 1})
+        return len(self.ledger)
 
-    @staticmethod
-    def grade(kind: str, client_exact: bool, backend_match: str) -> str:
-        if not client_exact:
-            return "partial"
-        if kind == "search_space":
-            return "exact" if backend_match == "match" else "substituted"
-        return "exact"
+    def _idem(self, key: str, body: dict[str, Any]) -> Any:
+        digest = _h(
+            {k: v for k, v in body.items() if k not in ("idempotency_key", "request_digest")}
+        )
+        if key in self.requests:
+            if self.requests[key][0] != digest:
+                raise Refused("conflicting_idempotency_payload")
+            return self.requests[key][1]
+        return None
+
+    def _commit(self, key: str, body: dict[str, Any], response: Any) -> Any:
+        digest = _h(
+            {k: v for k, v in body.items() if k not in ("idempotency_key", "request_digest")}
+        )
+        self.requests[key] = (digest, response)
+        return response
+
+    # declare
+    def declare(
+        self,
+        key: str,
+        entity: str,
+        fp: str,
+        source: str,
+        initial_parent: str | None = None,
+        previous: str | None = None,
+    ) -> Any:
+        body = dict(
+            entity=entity, fp=fp, source=source, initial_parent=initial_parent, previous=previous
+        )
+        if (cached := self._idem(key, body)) is not None:
+            return cached
+        first = (entity, fp) not in self.versions
+        if initial_parent is not None and not first:
+            if initial_parent != self.versions[(entity, fp)]["initial_parent"]:
+                raise Refused("invalid_request")
+        if (
+            first
+            and initial_parent is not None
+            and (initial_parent == fp or (entity, initial_parent) not in self.versions)
+        ):
+            raise Refused("unknown_ref" if initial_parent != fp else "invalid_request")
+        if previous is not None and (entity, previous) not in self.versions:
+            raise Refused("unknown_ref")
+        if not first and source != self.versions[(entity, fp)]["source"]:
+            raise Refused("invalid_request")  # identity_source is immutable
+        if first:
+            self.versions[(entity, fp)] = {"initial_parent": initial_parent, "source": source}
+        position = self._append(type="declared", entity=entity, fp=fp, previous=previous)
+        return self._commit(key, body, {"created": first, "position": position})
+
+    def link_authority(self, entity: str, fp: str, authority: str) -> None:
+        if (entity, fp) not in self.versions:
+            raise Refused("unknown_ref")
+        self._append(type="authority_linked", entity=entity, fp=fp, authority=authority)
+
+    # bind / start_execution / evaluate
+    def bind(self, run: str, trial: str | None, role: str, slot: int, version: str) -> None:
+        if run in self.frozen:
+            raise Refused("conflicting_report")
+        if role == "trial_candidate" and trial is None:
+            raise Refused("invalid_request")
+        if role in ("base_agent", "dataset", "search_set", "search_space") and trial is not None:
+            raise Refused("invalid_request")
+        slot_key = (run, trial, role, slot)
+        if slot_key in self.slots and self.slots[slot_key][0] != version:
+            raise Refused("conflicting_report")  # slot immutability preserves the bound version
+        self.slots[slot_key] = (version, "")
+
+    def effective_bindings(self, run: str, trial: str | None) -> list[tuple[str, int, str]]:
+        """Run-level slots, with the trial's candidate replacing the run's base agent."""
+        out = []
+        has_candidate = trial is not None and any(
+            k[:3] == (run, trial, "trial_candidate") for k in self.slots
+        )
+        for (r, t, role, slot), (version, _) in self.slots.items():
+            if r != run:
+                continue
+            if t is None and not (role == "base_agent" and has_candidate):
+                out.append((role, slot, version))
+            elif t == trial and role == "trial_candidate":
+                out.append((role, slot, version))
+            elif t == trial and role == "evaluator":
+                out.append((role, slot, version))
+        return sorted(out, key=lambda e: (ROLE_ORDER.index(e[0]), e[1], e[2]))
+
+    def run_tuple(self, run: str, trial: str | None) -> str:
+        return _h("traigent.legend.run_tuple.v0", self.effective_bindings(run, trial))
+
+    def start_execution(
+        self, run: str, trial: str | None, observed: dict[str, str], mode: str
+    ) -> str:
+        bound = {r: v for r, _, v in self.effective_bindings(run, trial)}
+        drift = {r for r, v in observed.items() if bound.get(r) != v}
+        if drift and mode == "strict":
+            raise Refused("manifest_mismatch")  # refuse before execution, bindings unchanged
+        if drift:
+            raise Refused("unknown_ref")  # permitted drift: declare and bind BEFORE starting
+        self.frozen.add(run)
+        return self.run_tuple(run, trial)
+
+    def evaluate(
+        self, run: str, trial: str | None, subject: str, tuple_digest: str, origin: str
+    ) -> int:
+        if tuple_digest != self.run_tuple(run, trial) or run not in self.frozen:
+            raise Refused("manifest_mismatch")
+        if subject not in {v for _, _, v in self.effective_bindings(run, trial)}:
+            raise Refused("foreign_ref")  # subject must belong to the recomputed tuple
+        source = "traigent_witnessed" if origin == "server" else "client_reported"
+        return self._append(type="evaluated", subject=subject, tuple=tuple_digest, source=source)
+
+    # recovery axis
+    def capture(
+        self,
+        version: str,
+        manifest: str,
+        state: str,
+        conformance: bool,
+        complete: bool,
+        reproduced: bool,
+    ) -> None:
+        if state == "round_trip_verified" and not conformance:
+            raise Refused("conformance_failed")
+        if complete and not reproduced:
+            raise Refused("coverage_insufficient")
+        self._append(type="captured", version=version, manifest=manifest, state=state)
+
+    def record_availability(self, manifest: str, status: str) -> None:
+        if not any(e.get("manifest") == manifest and e["type"] == "captured" for e in self.ledger):
+            raise Refused("unknown_ref")
+        self._append(type="availability_changed", manifest=manifest, status=status)
+
+    def restorable_now(self, manifest: str, prefix: int | None = None) -> bool:
+        events = self.ledger[: prefix if prefix is not None else len(self.ledger)]
+        captured = any(e["type"] == "captured" and e["manifest"] == manifest for e in events)
+        latest = [
+            e["status"]
+            for e in events
+            if e["type"] == "availability_changed" and e["manifest"] == manifest
+        ]
+        return captured and bool(latest) and latest[-1] == "available"
+
+    def recovery_state(self, version: str, prefix: int | None = None) -> str:
+        events = self.ledger[: prefix if prefix is not None else len(self.ledger)]
+        rank = {"stored_unverified": 1, "round_trip_verified": 2}
+        best = max(
+            (
+                rank[e["state"]]
+                for e in events
+                if e["type"] == "captured" and e["version"] == version
+            ),
+            default=0,
+        )
+        return ["none", "stored_unverified", "round_trip_verified"][best]
+
+    def record_restore(
+        self,
+        version: str,
+        manifest: str,
+        backend_keyed: bool,
+        outcome: str,
+        origin: str,
+        match: str,
+    ) -> None:
+        if origin == "client" and (match in ("match", "mismatch")):
+            raise Refused("invalid_request")
+        if outcome == "exact" and match == "mismatch":
+            raise Refused("manifest_mismatch")
+        if outcome == "exact" and backend_keyed and not (origin == "server" and match == "match"):
+            raise Refused("coverage_insufficient")
+        self._append(
+            type="restore_verified",
+            version=version,
+            manifest=manifest,
+            outcome=outcome,
+            origin=origin,
+        )
+        if outcome == "exact":
+            self.staged[manifest] = "verified"
+
+    def activate(self, manifest: str, staged_digest: str) -> None:
+        if self.staged.get(manifest) != "verified" or staged_digest != "verified":
+            raise Refused("manifest_mismatch")  # separately authorised, same staged artifact
+
+    def issue_predicate(
+        self,
+        ptype: str,
+        version: str,
+        cutoff: int,
+        manifest: str | None = None,
+        tuple_digest: str | None = None,
+    ) -> bool:
+        events = self.ledger[:cutoff]
+        if ptype == "restorable_now":
+            if manifest is None or not self.restorable_now(manifest, cutoff):
+                raise Refused("coverage_insufficient")
+            return True
+        if ptype == "evaluated_traigent_witnessed":
+            if not any(
+                e["type"] == "evaluated"
+                and e["subject"] == version
+                and e["tuple"] == tuple_digest
+                and e["source"] == "traigent_witnessed"
+                for e in events
+            ):
+                raise Refused("unknown_ref")
+            return True
+        raise Refused("invalid_request")
 
 
-def test_ref_model_revert_idempotent_retry_and_fresh_keys() -> None:
-    led = RefLedger()
-    led.declare("e", "v1", None, None, "k1", "d1")
-    led.declare("e", "v2", "v1", "v1", "k2", "d2")
-    led.declare("e", "v3", "v2", "v2", "k3", "d3")
-    before = dict(led.versions)
-    led.declare("e", "v1", None, "v3", "k4", "d4")  # revert v3 -> v1
-    assert led.versions == before and len(led.events) == 4
-    assert led.declare("e", "v1", None, "v3", "k4", "d4") == "v1" and len(led.events) == 4
-    with pytest.raises(ValueError, match="conflicting_idempotency_payload"):
-        led.declare("e", "v2", "v1", "v1", "k4", "dX")
-    # A->B, B->A, A->B with fresh keys each append (no suppression by content digest)
+def _atomic(led: Legend, code: str, fn: Any, *args: Any, **kwargs: Any) -> None:
+    before = led.snapshot()
+    with pytest.raises(Refused, match=code):
+        fn(*args, **kwargs)
+    assert led.snapshot() == before, "refusal changed state"
+
+
+def test_model_declare_validates_before_mutating_and_caches_first_response() -> None:
+    led = Legend()
+    _atomic(led, "unknown_ref", led.declare, "k1", "e", "v1", "client_declared", None, "ghost")
+    assert ("e", "v1") not in led.versions and led.ledger == []  # no phantom v1
+    first = led.declare("k2", "e", "v1", "client_declared")
+    assert led.declare("k2", "e", "v1", "client_declared") is first  # cached first response
+    assert led.declare("k2", "e", "v1", "client_declared")["position"] == first["position"]
+    _atomic(led, "conflicting_idempotency_payload", led.declare, "k2", "e", "v2", "client_declared")
+    # same fingerprint under another entity is a different request, not a retry
+    led.declare("k3", "e2", "v1", "client_declared")
+    assert len(led.versions) == 2
+    # revert and movement history; identity and initial parent never change
+    led.declare("k4", "e", "v2", "client_declared", "v1", "v1")
+    led.declare("k5", "e", "v3", "client_declared", "v2", "v2")
+    parent = led.versions[("e", "v1")]
+    led.declare("k6", "e", "v1", "client_declared", None, "v3")
+    assert led.versions[("e", "v1")] == parent
+    _atomic(led, "invalid_request", led.declare, "k7", "e", "v2", "client_declared", "v3")
+    _atomic(led, "invalid_request", led.declare, "k8", "e", "v9", "client_declared", "v9")
+    _atomic(led, "invalid_request", led.declare, "k9", "e", "v1", "sdk_fingerprinted")  # immutable
+    # fresh keys: A->B, B->A, A->B all append
+    n = len(led.ledger)
     for i, (fp, prev) in enumerate([("v2", "v1"), ("v1", "v2"), ("v2", "v1")]):
-        led.declare("e", fp, None, prev, f"fresh{i}", f"dig{i}")
-    assert len(led.events) == 7
-    with pytest.raises(ValueError, match="invalid_request"):
-        led.declare("e", "v2", "v3", None, "k9", "d9")  # different initial parent on re-declaration
-    with pytest.raises(ValueError, match="invalid_request"):
-        led.declare("e", "v4", "v4", None, "k10", "d10")  # self initial parent
-    with pytest.raises(ValueError, match="unknown_ref"):
-        led.declare("e", "v5", "other-entity-version", None, "k11", "d11")
+        led.declare(f"f{i}", "e", fp, "client_declared", None, prev)
+    assert len(led.ledger) == n + 3
 
 
-def test_ref_model_bindings_availability_and_grading() -> None:
-    led = RefLedger()
-    led.bind("r", "t1", "trial_candidate", 0, "T1")
-    led.bind("r", "t2", "trial_candidate", 0, "T2")  # several versions per run
-    led.bind("r", None, "evaluator", 0, "E1")
-    led.bind("r", None, "evaluator", 1, "E2")  # legitimate multiple evaluator groups
-    led.bind("r", "t1", "trial_candidate", 0, "T1")  # identical replay
-    with pytest.raises(ValueError, match="conflicting_report"):
-        led.bind("r", "t1", "trial_candidate", 0, "T9")
-    with pytest.raises(ValueError, match="invalid_request"):
-        led.bind("r", None, "trial_candidate", 1, "T1")
-    led.capture("v1", "m1")
-    led.capture("v1", "m2")
+def test_model_authority_link_is_append_only_and_version_stays_unchanged() -> None:
+    led = Legend()
+    led.declare("k1", "e", "v1", "client_declared")
+    before = dict(led.versions[("e", "v1")])
+    led.link_authority("e", "v1", "agent_builds")
+    assert led.versions[("e", "v1")] == before and led.ledger[-1]["type"] == "authority_linked"
+    _atomic(led, "unknown_ref", led.link_authority, "e", "ghost", "agent_builds")
+
+
+def test_model_tuple_has_deterministic_multi_evaluator_entries_and_trial_replacement() -> None:
+    led = Legend()
+    led.bind("r", None, "base_agent", 0, "A")
+    led.bind("r", None, "dataset", 0, "D")
+    led.bind("r", None, "search_set", 0, "S")
+    led.bind("r", None, "evaluator", 0, "E0")
+    led.bind("r", None, "evaluator", 1, "E1")
+    led.bind("r", "t1", "trial_candidate", 0, "A2")
+    run_tuple = led.run_tuple("r", None)
+    trial_tuple = led.run_tuple("r", "t1")
+    assert run_tuple != trial_tuple  # the candidate replaces the base agent for the trial
+    effective = led.effective_bindings("r", "t1")
+    assert ("base_agent", 0, "A") not in effective and ("trial_candidate", 0, "A2") in effective
+    assert [e for e in effective if e[0] == "evaluator"] == [
+        ("evaluator", 0, "E0"),
+        ("evaluator", 1, "E1"),
+    ]
+    assert ("search_set", 0, "S") in effective and ("dataset", 0, "D") in effective
+    _atomic(led, "conflicting_report", led.bind, "r", None, "evaluator", 0, "E9")  # bound version
+    led.bind("r", None, "evaluator", 0, "E0")  # identical replay accepted
+
+
+def test_model_strict_drift_refuses_before_execution_and_evaluation_needs_membership() -> None:
+    led = Legend()
+    led.bind("r", None, "base_agent", 0, "A")
+    led.bind("r", None, "evaluator", 0, "E0")
+    _atomic(led, "manifest_mismatch", led.start_execution, "r", None, {"base_agent": "B"}, "strict")
+    assert "r" not in led.frozen and led.ledger == []  # nothing bound, nothing executed
+    _atomic(led, "unknown_ref", led.start_execution, "r", None, {"base_agent": "B"}, "permitted")
+    td = led.start_execution("r", None, {"base_agent": "A"}, "strict")
+    _atomic(led, "conflicting_report", led.bind, "r", None, "evaluator", 1, "E1")  # frozen
+    assert led.evaluate("r", None, "A", td, "server") == 1
+    _atomic(led, "foreign_ref", led.evaluate, "r", None, "B", td, "server")  # B never bound
+    _atomic(led, "manifest_mismatch", led.evaluate, "r", None, "A", "wrong", "server")
+    assert led.ledger[-1]["source"] == "traigent_witnessed"
+    assert led.issue_predicate("evaluated_traigent_witnessed", "A", 1, tuple_digest=td)
+    _atomic(
+        led, "unknown_ref", led.issue_predicate, "evaluated_traigent_witnessed", "B", 1, None, td
+    )
+
+
+def test_model_ledger_position_orders_ties_and_pins_signed_prefixes() -> None:
+    led = Legend()
+    led.declare("k1", "e", "v1", "client_declared")
+    led.capture("v1", "m1", "round_trip_verified", True, False, True)
     assert not led.restorable_now("m1")  # unknown availability is not restorable
-    led.set_availability("m1", "available")
-    assert led.restorable_now("m1") and not led.restorable_now("m2")
-    assert led.version_restorable_now("v1")
-    led.set_availability("m1", "missing")
-    assert not led.version_restorable_now("v1") and led.captures["v1"] == {"m1", "m2"}
-    assert led.grade("agent", True, "not_checked") == "exact"
-    assert led.grade("search_space", True, "not_checked") == "substituted"
-    assert led.grade("search_space", True, "match") == "exact"
-    assert led.grade("search_space", False, "match") == "partial"
+    led.record_availability("m1", "available")
+    cutoff = len(led.ledger)
+    led.record_availability("m1", "missing")  # same human timestamp is irrelevant: position orders
+    assert led.restorable_now("m1", cutoff) and not led.restorable_now("m1")
+    assert led.issue_predicate("restorable_now", "v1", cutoff, manifest="m1")
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.issue_predicate,
+        "restorable_now",
+        "v1",
+        len(led.ledger),
+        "m1",
+    )
+    _atomic(led, "unknown_ref", led.record_availability, "ghost", "available")
+    led.capture("v1", "m2", "stored_unverified", False, False, True)
+    assert led.recovery_state("v1") == "round_trip_verified"  # strongest proof, not latest
+    assert led.recovery_state("v1", 2) == "round_trip_verified"
+    assert led.recovery_state("v2") == "none"
+    _atomic(
+        led,
+        "conformance_failed",
+        led.capture,
+        "v1",
+        "m3",
+        "round_trip_verified",
+        False,
+        False,
+        True,
+    )
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.capture,
+        "v1",
+        "m4",
+        "stored_unverified",
+        True,
+        True,
+        False,
+    )
+
+
+def test_model_backend_keyed_grading_and_separate_activation() -> None:
+    led = Legend()
+    _atomic(
+        led,
+        "coverage_insufficient",
+        led.record_restore,
+        "v",
+        "m",
+        True,
+        "exact",
+        "client",
+        "not_checked",
+    )
+    _atomic(led, "invalid_request", led.record_restore, "v", "m", True, "exact", "client", "match")
+    _atomic(
+        led, "manifest_mismatch", led.record_restore, "v", "m", True, "exact", "server", "mismatch"
+    )
+    led.record_restore("v", "m", True, "substituted", "client", "not_checked")
+    _atomic(led, "manifest_mismatch", led.activate, "m", "verified")  # nothing exact yet
+    led.record_restore("v", "m", True, "exact", "server", "match")
+    _atomic(led, "manifest_mismatch", led.activate, "m", "other-bytes")  # different staged artifact
+    led.activate("m", "verified")
+    led2 = Legend()
+    led2.record_restore(
+        "v", "m", False, "exact", "client", "not_applicable"
+    )  # not keyed: client ok

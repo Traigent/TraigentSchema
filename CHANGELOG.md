@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `capture_version`, `verify_restore`, `restore_version`). Client-origin events cannot carry
   `server_recorded` or `traigent_witnessed` evidence; `exact` restore requires complete coverage.
   Re-declaring an existing version appends a `declared` event with `previous_version_ref` (rollback is legal); only `initial_parent_version_ref` is acyclic. Reuses the content-identity v1 constructions unchanged; no existing schema or fixture is touched.
-  Review round 2: fifth schema `legend_requests_v0.json` (client request bodies), fresh `idk_` request keys plus `request_digest`, `restore_verified` server-origin Backend match for Backend-keyed pillars, required-component coverage per kind, strict timestamps. Pinned by `tests/test_pillar_legend_v0_schemas.py`.
+  Review round 2: fifth schema `legend_requests_v0.json` (client request bodies), fresh `idk_` request keys plus `request_digest`, `restore_verified` server-origin Backend match for Backend-keyed pillars, required-component coverage per kind, strict timestamps. Review round 3: server-assigned `ledger_position` and `ledger_cutoff_position`, append-only `authority_linked` event, `backend_keyed` grading, kind-specific complete coverage on restore reports, explicit transition table. Pinned by `tests/test_pillar_legend_v0_schemas.py`.
 
 ### Fixed
 - **Observability trace/session list query parameters now match the backend (#550).

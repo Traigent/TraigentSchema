@@ -335,6 +335,7 @@
         "run_tuple_digest",
         "evaluated_subset_root",
         "evaluation_protocol",
+        "ledger_cutoff_position",
         "as_of",
         "policy_version"
       ],
@@ -409,6 +410,9 @@
               "type": "null"
             }
           ]
+        },
+        "ledger_cutoff_position": {
+          "$ref": "./pillar_legend_v0.json#/definitions/LedgerPosition"
         },
         "as_of": {
           "$ref": "./pillar_legend_v0.json#/definitions/Timestamp"

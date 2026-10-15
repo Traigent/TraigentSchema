@@ -28,14 +28,16 @@ existing construction is called, not copied or re-derived.
    `run_identity_bindings`, `trial_identity_bindings` and `run_search_space_records` remain the
    identity authorities. The Legend copies no content snapshots and also supports declarations
    that have no source row yet.
-   **Unique mapping.** Each entity maps to at most one existing authoritative identity (internally:
-   `(tenant, project, kind, source_authority, authority key)`; the key is never on the wire and
-   `source_authority` is a closed enum). Two entities can never represent the same authoritative
-   identity, so deduplication inside an entity is not the only guard. Where an authoritative version row
-   exists (an `agent_builds` row, an `evaluator_versions` row, a `dataset_versions` row, a
-   `run_search_space_records` row) the Legend version links to it exactly (`authority_linked = true`,
-   the join is on the fingerprint, server-side); a declaration without a source row is allowed and is
-   `authority_linked = false` until a row appears.
+   **Unique mapping.** Each entity maps to at most one existing authoritative identity. The internal
+   grouping key is `(tenant, project, kind, source_authority, authoritative entity id)` where the authority
+   has an entity id of its own (agent id for `agent_builds`, evaluator id for `evaluator_versions` and
+   `evaluator_version_manifests`, dataset id for `dataset_versions`), and the entity is Legend-only
+   (`source_authority = none`) otherwise (configuration, search space per run). The grouping key is never on
+   the wire. Different agents can share a build digest, so a fingerprint alone never selects an authority
+   row: the lookup is `(tenant, project, kind, authoritative entity id, fingerprint)`. Two entities can
+   never represent the same authoritative identity. A declaration without a source row is allowed. When a
+   source row appears later the server appends an `authority_linked` event (append-only association,
+   never an update of the immutable version); "linked" is derived from the ledger prefix.
 2. **Existing fingerprints are kept.** A keyed fingerprint carries its scheme and `key_id`.
    Verification under a historical key never exposes Backend-only keys (`K_eval`, `K_search_space`
    are not in the purpose-key grant). A fingerprint that cannot be re-verified is never `exact`.
@@ -130,10 +132,13 @@ initial_parent_version_ref, identity_source, authority_linked, declared_at)` wit
 
 One append-only ledger; closed `event_type`. Every event carries `schema_version`, `event_ref`,
 `version_ref`, opaque `actor_ref` (never a git user or email), `origin` (`client | server`),
-`evidence_source`, server `recorded_at`, `idempotency_key` and `request_digest` (section 3.4).
+`evidence_source`, a server-assigned `ledger_position`, human-time `recorded_at`, `idempotency_key` and `request_digest` (section 3.4).
+
+**Ledger position.** `ledger_position` is a strictly increasing integer per `(tenant, project)` ledger and is the only order. Events with equal `recorded_at` are ordered by position, never by ref or time. A signed predicate cites a prefix by `ledger_cutoff_position`; `as_of` stays the human timestamp. Reconstruction of a signed snapshot selects events with `ledger_position <= cutoff`.
 
 | `event_type` | Origin | `evidence_source` | Type-specific fields |
 |---|---|---|---|
+| `authority_linked` | server | `server_recorded` | `source_authority` (appended when an authoritative source row for the version is found; never updates the version) |
 | `declared` | client; **server only for `implicit_legacy` backfill** | `client_reported` | `provenance` (`explicit | implicit_run | implicit_legacy`), `identity_source`, optional `previous_version_ref`, optional `change_reason`. `implicit_legacy` implies server origin and `identity_source = client_declared` (never `sdk_fingerprinted`) |
 | `captured` | client | `client_sdk_reported` | `recovery_manifest_fingerprint`, `coverage`, `recovery_state` (`stored_unverified | round_trip_verified`), `conformance_passed`, `exporter_version` |
 | `restore_verified` | client, or server (Backend recompute) | client: `client_sdk_reported`; server: `server_recorded` | `kind`, `recovery_manifest_fingerprint`, `outcome`, `coverage`, `isolated_destination`, `representation_digests_match`, `pillar_fingerprint_match`, `backend_match_result` (`not_applicable | not_checked | match | mismatch`; `match|mismatch` only server-origin, `not_applicable|not_checked` only client-origin) |
@@ -145,15 +150,27 @@ One append-only ledger; closed `event_type`. Every event carries `schema_version
 `search_set`, `search_space`, with `trial_ref = null`) and, per trial, the trial's actual candidate
 (`trial_candidate`, `trial_ref` required). Evaluator bindings may be per run or per trial and may use
 several `binding_slot` values for legitimate evaluator groups. The slot key is
-`(run_ref, trial_ref, binding_role, binding_slot)`; one slot binds exactly one run-tuple digest and a
-second, different binding for the same slot is refused (`conflicting_report`). Several versions per run
-remain allowed (different slots).
+`(run_ref, trial_ref, binding_role, binding_slot)`. A slot holds exactly one **version** (and therefore its
+tuple contribution); a second binding of the same slot to a different version is refused
+(`conflicting_report`), an identical replay is accepted. Bindings are frozen at `start_execution`
+(section 9); after that no slot of the run may be added or changed.
 
-**Run tuple digest.** `run_tuple_digest = "sha256:" + hex SHA-256(UTF8("traigent.legend.run_tuple.v0") ||
-0x00 || jcs_v1(T))` where `T` is the object `{agent, configuration, evaluation_dataset, evaluator,
-search_space}` and each value is `{fingerprint_scheme, key_id, fingerprint}` of the version bound in that
-pillar for the exact trial (or run) in question, or `null` when that pillar is not bound. It is computed
-by the Backend from its own binding rows (authority: Backend), never accepted from a client.
+**Effective bindings and the run tuple.** For a run `R` and, when applicable, a trial `t`, the effective
+bindings `EB(R, t)` are: every run-level slot of `R`, except that the `base_agent` slot is *replaced* by
+`t`'s `trial_candidate` slot(s) when `t` has one; plus `t`'s per-trial `evaluator` slots. `dataset` and
+`search_set` are distinct roles and never compete. The commitment is
+`run_tuple_digest = "sha256:" + hex SHA-256(UTF8("traigent.legend.run_tuple.v0") || 0x00 || jcs_v1(T))`
+with `T = {"entries": [{role, slot, fingerprint_scheme, key_id, fingerprint}, ...]}`, entries sorted by
+(role in the order `base_agent, trial_candidate, dataset, search_set, evaluator, search_space`, `slot`,
+`fingerprint_scheme`, `key_id` (null first), `fingerprint`). Several evaluators therefore all appear; none
+is picked as "the" evaluator. The Backend computes the digest from its own frozen binding rows; a
+client-supplied tuple digest is never trusted.
+
+**Evaluation admission.** An `evaluated` event is admitted only after the Backend resolves the exact
+run/trial/evaluation context, recomputes `EB` and the tuple digest from the frozen consumed bindings, and
+verifies that the event's subject version is a member of that effective-binding set and that the digest
+equals the recomputed one. Witnessed evidence must derive from that scoring execution. A version that was
+never bound (for example version B when the tuple holds agent A) is refused (`foreign_ref`).
 
 ### 3.4 Idempotency and conflict refusal
 
@@ -162,8 +179,12 @@ by the Backend from its own binding rows (authority: Backend), never accepted fr
   `(tenant, project, endpoint)`. It is never derived from content, so repeated legitimate movements
   `A->B`, `B->A`, `A->B` each carry their own key and each append.
 - **Request digest.** `request_digest = "sha256:" + hex SHA-256(UTF8("traigent.legend.request.v0") || 0x00
-  || jcs_v1(body))` over the request body **excluding** `idempotency_key`, `request_digest` and every
-  server-issued field (`event_ref`, `actor_ref`, `recorded_at`, `origin`, `evidence_source`, minted refs).
+  || jcs_v1(body))` over the **validated client request body, excluding only `idempotency_key` and
+  `request_digest`**. Every input reference (`entity_ref`, `version_ref`, ...) is part of the body, so two
+  requests that target different entities or versions never share a digest. An optional field that is
+  absent is different from the same field present as `null`; clients send the canonical form. The Backend
+  **recomputes** the digest from the validated body before comparing it with the stored one, and persists
+  and returns the original result for a retry.
 - Same key + equal digest = a retry: return the first result, append nothing. Same key + different
   digest is refused (`conflicting_idempotency_payload`).
 - `declare` of an existing version identity never creates a second version and never changes the stored
@@ -240,10 +261,18 @@ locally authorised, and not a Director operation.** Restoration never reverses e
 the reserved synthetic key form `rmfc0:sha256:<hex>` (`ConformanceKey`), disjoint from
 `ManifestFingerprint`; no event, predicate or instruction may reference one.
 
-**Backend-keyed pillars.** `search_space` (`ssp1`, `K_search_space`) and the keyed evaluator leaves
-(`K_eval`) cannot be re-verified by the client. A client-side restore of such a pillar grades at most
-`substituted`; it is `exact` only when the **Backend's own server-side recompute** of the same manifest
-reports `match` (a server-origin `restore_verified` event with `backend_match_result = match`).
+**Backend-keyed pillars.** `BackendKeyed(version)` is derived from the version's scheme and, for an
+evaluator, from the authoritative manifest format: it is true for `search_space_ssp1` (`K_search_space`),
+and for an evaluator whose authoritative manifest is `be.evaluator_manifest.keyed_leaves.v0` (keyed
+`evd1` leaves, `K_eval`). Unknown format, or unavailable server verification, counts as backend-keyed (it
+can never be graded `exact`). The request/event `kind` must match the resolved version, and the schema
+carries `backend_keyed` so the rule is checkable at the wire: a backend-keyed pillar is never `exact` from a
+client-origin report. It is `exact` only when the **Backend's own server-side recompute** of the same manifest
+reports `match` (a server-origin `restore_verified` event with `backend_match_result = match`). A
+Backend-assisted reproduction of the keyed identity digests during capture satisfies INV-17 only through
+that same server-side match; the client alone cannot claim `identity_digests_reproduced` for such a pillar.
+
+---
 
 ---
 
@@ -266,16 +295,23 @@ reports `match` (a server-origin `restore_verified` event with `backend_match_re
 **Evidence must match, not just exist.** A supporting event counts only if it has the same
 `version_ref` (subject), the same `recovery_manifest_fingerprint` (recovery predicates), the same
 `run_tuple_digest` (and for `evaluated_*`, the same `evaluated_subset_root` and `evaluation_protocol`,
-which are part of the signed predicate), the required origin/source, and `recorded_at <= as_of`
-(statement cutoff). The required event *type* alone is not enough.
+which are part of the signed predicate), the required origin/source, and `ledger_position <= ledger_cutoff_position`
+(signed prefix cutoff; `as_of` is only the human time). The required event *type* alone is not enough.
 
-**Availability (conservative).** Availability starts **unknown** for every capture. Only an
-`availability_changed` event establishes it (`available | missing | corrupted | retired`), and the latest
-one per manifest wins:
-`restorable_now(manifest, prefix) iff captured(manifest, prefix) and current_availability(manifest, prefix) = available`.
-Version-level aggregation: a version is `restorable_now` iff **at least one** of its captures is
-`restorable_now`; it carries no claim about which, nor about completeness or exactness (those are separate
-predicates).
+**Availability (conservative).** Availability is **per capture (manifest)** and starts **unknown**. Only an
+`availability_changed` event establishes it, and the event with the highest `ledger_position` inside the
+cited prefix wins:
+`restorable_now(manifest, prefix) iff captured(manifest, prefix) and latest_availability(manifest, prefix) = available`.
+There is no singular version-level availability. A version is `restorable_now` iff **at least one** of its
+captures is; that carries no claim about which capture, completeness or exactness (separate predicates).
+
+**Axis fold (total).** Over a ledger prefix: `identity_source` is the value of the version's first
+declaration (immutable; later declarations with another value are refused); `recovery_state` is the
+**strongest historical proof** over all captures (`round_trip_verified > stored_unverified > none`),
+independent of order; `evaluation_state` is the strongest source present (`traigent_witnessed >
+client_reported > none`); `authority_linked` is true iff an `authority_linked` event is in the prefix;
+availability is per manifest as above. Example: M1 round-trip verified then M2 stored-unverified gives
+`round_trip_verified`, not the latest event's state.
 
 A signature authenticates the statement, not the truth of a client assertion. A later event produces a
 **new** statement; an issued statement is never edited. The compiler extends the existing certification
@@ -300,8 +336,8 @@ digests, integers, booleans). Refs are `<kind>ref_<32 hex>`; no names, paths, st
 | `verify_restore` | `version_ref`, `recovery_manifest_fingerprint` | `restore_outcome|null`, `coverage|null`, `store_status`, `backend_match_result` |
 | `restore_version` | `version_ref`, `recovery_manifest_fingerprint` | `restore_outcome|null`, `coverage|null`, `store_status`, `activated` (always false) |
 
-Result rules the schema enforces: `outcome` (`succeeded | refused | failed`) with `error_code` non-null iff
-not `succeeded`; `restore_outcome = exact` requires non-null `coverage` with `status = complete`
+Result rules the schema enforces (an agent-supplied `backend_match_result = match` never substitutes for the Backend's own recompute; the Backend resolves the issued instruction's authoritative version and manifest and requires the applicable restore evidence before accepting `exact`): `outcome` (`succeeded | refused | failed`) with `error_code` non-null iff
+not `succeeded`; `restore_outcome = exact` requires non-null `coverage` with `status = complete`, `store_status = retrieved`, outcome `succeeded`, and (for `verify_restore`) no `mismatch`
 (`verify_restore` and `restore_version`; the same-manifest evidence check is the Backend's); a
 `capture_version` success requires a stored status (`stored_unverified | round_trip_verified`), a
 manifest fingerprint and coverage, and `round_trip_verified` requires `conformance_passed`. Error codes:
@@ -318,9 +354,8 @@ never a widened field.
 Numbered so counterexamples and conformance cases can cite them. "Events" means the ledger.
 
 **Assumptions the model must state before checking.**
-- *INV-1 fold.* Each axis state is a deterministic fold over the ledger in `(recorded_at, event_ref)`
-  order; the fold rules are the ones in section 5 (availability: latest per manifest; evaluation:
-  strongest source present). The model fixes this order and the fold, and does not model clock skew.
+- *INV-1 fold.* Each axis state is the total fold of section 5 over the ledger prefix ordered by
+  `ledger_position` (never by time or ref, so timestamp ties do not matter).
 - *INV-2 trusted assignment.* `origin` and `evidence_source` are assigned by the server from the
   authenticated route, never read from the request body. The model treats the route as trusted and the
   body as adversarial.
@@ -345,10 +380,11 @@ Numbered so counterexamples and conformance cases can cite them. "Events" means 
 - **INV-5 Acyclic initial parents (scope).** Only `initial_parent_version_ref` is constrained: set on the
   first declaration only, same entity, declared earlier, no cycle (including self).
   `previous_version_ref` edges are unconstrained history; a revert v3 -> v1 is legal.
-- **INV-6 Historical vs current availability.** `captured` is a fact about time T and is never erased;
-  availability starts unknown; `restorable_now(manifest)` holds iff the manifest was captured and its
-  latest availability event is `available`; a version is `restorable_now` iff at least one capture is.
-  Revoking availability leaves `captured` intact.
+- **INV-6 Historical vs current availability.** `captured` is a fact about position P and is never
+  erased; availability is per manifest, starts unknown, and the highest-position `availability_changed`
+  inside the cited prefix wins; `restorable_now(manifest)` holds iff captured and that latest availability
+  is `available`; a version is `restorable_now` iff at least one capture is. There is no singular
+  version availability. Revoking availability leaves `captured` intact.
 - **INV-7 Activation separation.** No Director operation activates; `restore_version` always reports
   `activated = false`; activation requires a prior `restore_verified` of the same manifest fingerprint
   with `outcome = exact` on the same staged artifact.
@@ -361,13 +397,15 @@ Numbered so counterexamples and conformance cases can cite them. "Events" means 
 - **INV-10 Scoped keyed identity.** Version identity includes scheme and `key_id`; the same fingerprint
   under a different `key_id` or tenant is never merged; each entity maps to at most one authoritative
   identity.
-- **INV-11 Immutable bindings.** Each binding slot `(run, trial, role, slot)` holds exactly one run-tuple
-  digest; a conflicting second binding for a consumed slot is refused and appends nothing; several
-  versions per run (different slots) remain allowed; a trial candidate always has a trial.
-- **INV-12 Evaluation binds the exact tuple.** An `evaluated` event and its predicates bind the
-  `run_tuple_digest`, the evaluated subset root and the protocol; a supporting event counts only if
-  subject, manifest, tuple, source and cutoff match (section 5); a predicate whose matching evidence is
-  absent does not exist.
+- **INV-11 Immutable bindings.** Each binding slot `(run, trial, role, slot)` holds exactly one version
+  (hence one tuple contribution); a conflicting second binding is refused and appends nothing; bindings
+  are frozen at `start_execution`; several versions per run (different slots) remain allowed; a trial
+  candidate always has a trial; `run_tuple_digest` is the canonical effective-binding digest of section 3.3.
+- **INV-12 Evaluation binds the exact tuple and membership.** An `evaluated` event is admitted only if its
+  digest equals the Backend's recomputation from frozen bindings and its subject version is a member of
+  the effective bindings; predicates bind digest, subset root and protocol, and cite a ledger prefix; a
+  supporting event counts only if subject, manifest, tuple, source and prefix match; absent matching
+  evidence means the predicate does not exist.
 - **INV-13 Closed bridge.** Instructions and results contain only the closed typed schemas' values (opaque
   refs, enums, digests, bounded integers, booleans); no free text; a foreign ref (another tenant or
   project) is refused; conflicting reports for one instruction are refused.
@@ -377,8 +415,8 @@ Numbered so counterexamples and conformance cases can cite them. "Events" means 
 - **INV-15 Version identity is stable under re-declaration.** Re-declaring a version changes none of its
   entity, scheme, key_id, fingerprint, initial parent, identity_source or declared_at; only the ledger
   grows.
-- **INV-16 Backend-keyed grading.** For `search_space` (and keyed evaluator leaves) a client-origin
-  restore is at most `substituted`; `exact` requires a server-origin restore event with
+- **INV-16 Backend-keyed grading.** For every `BackendKeyed(version)` (search space, keyed evaluator
+  manifests, unknown format) a client-origin restore is at most `substituted`; `exact` requires a server-origin restore event with
   `backend_match_result = match`; `mismatch` implies not `exact`.
 - **INV-17 Identity-digest reproduction.** A capture of an agent or evaluator is `complete` only if the
   exporter reproduced the same identity-construction digests recorded for the version; otherwise
@@ -394,9 +432,10 @@ Invented in this contract; a reviewer should confirm or rename them before consu
 |---|---|
 | Manifest fingerprint | `rmf0:sha256:<64 hex>`; domain and manifest scheme `traigent.recovery_manifest.v0` |
 | Conformance key | `rmfc0:sha256:<64 hex>` (reserved synthetic namespace) |
+| Ledger position | strictly increasing integer per (tenant, project) ledger; `ledger_cutoff_position` in predicates |
 | Idempotency key | `idk_<32 hex>` (fresh per logical request) |
 | Request digest | `sha256:` + hex over domain `traigent.legend.request.v0` |
-| Run tuple commitment | `sha256:` + hex over domain `traigent.legend.run_tuple.v0`, `jcs_v1` of the five-pillar object (section 3.3) |
+| Run tuple commitment | `sha256:` + hex over domain `traigent.legend.run_tuple.v0`, `jcs_v1` of the sorted effective-binding entries (section 3.3) |
 | Opaque ref prefixes | `entityref_`, `versionref_`, `eventref_`, `runref_`, `trialref_`, `actorref_`, `instructionref_`, each + 32 lowercase hex |
 | Page cursor | `cursor_<32 hex>` |
 | `source_authority` | `agent_builds`, `evaluator_versions`, `dataset_versions`, `run_search_space_records`, `run_identity_bindings`, `none` |
@@ -412,12 +451,40 @@ Invented in this contract; a reviewer should confirm or rename them before consu
 
 ---
 
-## 9. What stays outside this contract
+## 9. Transition table
+
+Every operation validates **all** its guards first and commits its effects only if every guard passes;
+a refusal changes no state (no row, no event, no cached response, no slot). Refusal codes are the
+closed `LegendErrorCode` values. "Prefix" means a ledger prefix by `ledger_position`.
+
+| Operation | Inputs | Guards (refusal code) | Effects |
+|---|---|---|---|
+| `declare` | `DeclareRequestV0` (key, digest, entity, scheme, key_id, fingerprint, initial parent, previous, provenance, identity_source) | flag on (`flag_disabled`); body valid, kind/scheme/key/family rules, `ssp1` => `client_declared` (`invalid_request`); recomputed digest vs key: equal = return the first stored response, different = `conflicting_idempotency_payload`; entity belongs to the caller's tenant/project (`foreign_ref`); first declaration: initial parent not self, same entity, declared earlier (`invalid_request` / `unknown_ref`); later declaration: initial parent null or equal, `identity_source` equal to the stored one (`invalid_request`); `previous_version_ref` same entity and declared (`unknown_ref`) | creates the version on first declaration only; appends one `declared` event with the next position; caches the response under the key |
+| `link_authority` | server-side, authority row found for `(kind, authoritative entity id, fingerprint)` | version exists and is in scope (`unknown_ref`); the authority row matches the version's kind and fingerprint (`manifest_mismatch`) | appends `authority_linked`; never updates the version; derived `authority_linked` becomes true |
+| `bind` | server-side from run/trial registration | run not frozen (`conflicting_report`); `trial_candidate` has a trial, base roles have none (`invalid_request`); version in scope (`foreign_ref`); slot empty or already holds the same version (`conflicting_report`) | stores the slot; appends `bound_to_run` (server_recorded); identical replay appends nothing |
+| `start_execution` | run, trial, observed identities, mode `strict` or `permitted` | observed identity equals the effective binding for each role; **strict mismatch refuses before execution** (`manifest_mismatch`) and changes no binding; **permitted drift** requires the observed version to be declared and bound first (`unknown_ref`) | freezes the run's bindings; fixes `run_tuple_digest` from the frozen effective bindings |
+| `capture` (`RecordCaptureRequestV0`) | version, manifest fingerprint, coverage, recovery_state, conformance, exporter version | version in scope; manifest not a conformance key (`invalid_request`); `round_trip_verified` => `conformance_passed` (`conformance_failed`); `complete` coverage meets `RequiredComponents(kind)` and, for agent/evaluator, the manifest reproduced the identity digests (`coverage_insufficient`); same key + different bytes is `store_key_conflict`; client-origin only | appends `captured` (client_sdk_reported); recovery_state fold may rise, never fall |
+| `record_restore` (`RecordRestoreRequestV0`) | version, kind, manifest fingerprint, outcome, coverage, equalities, `backend_keyed` | kind equals the version's kind; the manifest was captured (`unknown_ref`); `exact` => complete coverage for the kind, both equalities, isolated destination, historical key and dependencies verified (`coverage_insufficient`); `BackendKeyed(version)` => client cannot report `exact` (`coverage_insufficient`); client body carries no `backend_match_result` (`invalid_request`) | appends client-origin `restore_verified` |
+| `server_match` | server-side recompute of the same manifest for a BackendKeyed version | manifest captured and the Backend holds the key and format (`store_unavailable` if not); mismatch => outcome not `exact` | appends server-origin `restore_verified` with `backend_match_result` `match` or `mismatch` (server_recorded) |
+| `record_availability` | manifest, status | the manifest was captured (`unknown_ref`); client-origin | appends `availability_changed`; the highest position per manifest wins |
+| `evaluate` | run, trial, subject version, tuple digest, origin | run frozen; digest equals the recomputation from frozen bindings (`manifest_mismatch`); subject is a member of the effective bindings (`foreign_ref`); subset root and protocol present; `traigent_witnessed` only from the scoring execution on server origin | appends `evaluated` |
+| `issue_predicate` | predicate type, subject, cutoff position, manifest or tuple | matching supporting events exist inside the prefix (subject, manifest, tuple, subset, protocol, origin, source) (`unknown_ref`); `restorable_now` needs latest availability `available` (`coverage_insufficient`); `restore_verified_*` needs `exact` and complete coverage; compiler policy version allowed | signs one statement citing the cutoff; later evidence is a new statement |
+| `director_instruction` | operation, refs | flag on; refs belong to the caller's scope (`foreign_ref`); operation on the closed menu | issues one instruction bound to version and manifest; dispatch only |
+| `director_result` | closed result | matches an issued, unanswered instruction (`conflicting_report`); `exact` only with `retrieved`, complete coverage, no mismatch, and the Backend's own matching restore evidence for the instruction's version and manifest; an agent-supplied `match` never substitutes (`manifest_mismatch`) | stores the closed result once; a conflicting second report is refused |
+| `activate` | local, separately authorised | a prior `exact` restore of the same manifest fingerprint and the same staged artifact digest (`manifest_mismatch`); never a Director operation | activates locally; restoration never reverses external effects |
+
+The reference model `Legend` in `tests/test_pillar_legend_v0_schemas.py` implements these transitions and
+asserts atomic refusal.
+
+---
+
+## 10. What stays outside this contract
 
 Backend tables and API (items 2, 3), run binding and legacy backfill (item 4), Director dispatch
 (item 5), signed version subjects (item 6), SDK client, store and activation (items 7, 8) implement this
-contract. They must not widen a field to free text. JSON Schema cannot express, and the consumers or the
-reference model in `tests/test_pillar_legend_v0_schemas.py` must enforce: kid equals `key_id`, disjoint
-`covered`/`missing`, `ordinal` equals position, calendar validity of timestamps (for example 30
-February), the unique authority mapping, initial-parent acyclicity, key/digest conflict, slot
-immutability, and evidence matching for predicates.
+contract and must not widen a field to free text. JSON Schema cannot express, and consumers or the
+reference model must enforce: kid equals `key_id`, disjoint `covered`/`missing`, `ordinal` equals
+position, calendar validity of timestamps (the contract tests use the production date-time checker), the
+unique authority mapping and grouping key, initial-parent acyclicity, key/digest conflict, slot
+immutability, effective-binding recomputation, evidence matching for predicates, `BackendKeyed(version)`
+resolution from the authoritative manifest, and the capture-coverage versus manifest agreement.

@@ -361,6 +361,25 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "fingerprint_scheme": {
+                "const": "search_space_ssp1"
+              }
+            },
+            "required": [
+              "fingerprint_scheme"
+            ]
+          },
+          "then": {
+            "properties": {
+              "identity_source": {
+                "const": "client_declared"
+              }
+            }
+          }
         }
       ]
     },
@@ -493,7 +512,8 @@
         "coverage",
         "isolated_destination",
         "representation_digests_match",
-        "pillar_fingerprint_match"
+        "pillar_fingerprint_match",
+        "backend_keyed"
       ],
       "properties": {
         "schema_version": {
@@ -528,6 +548,9 @@
           "type": "boolean"
         },
         "pillar_fingerprint_match": {
+          "type": "boolean"
+        },
+        "backend_keyed": {
           "type": "boolean"
         }
       },
@@ -572,12 +595,276 @@
           },
           "then": {
             "properties": {
+              "backend_keyed": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "backend_keyed": {
+                "const": true
+              }
+            },
+            "required": [
+              "backend_keyed"
+            ]
+          },
+          "then": {
+            "properties": {
               "outcome": {
                 "enum": [
                   "partial",
                   "substituted",
                   "failed"
                 ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "agent"
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "covered": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "code"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "prompts"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "helper_modules"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "tool_definitions"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "applied_config"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "runtime"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "configuration"
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "covered": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "applied_config"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "evaluation_dataset"
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "covered": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "dataset_members"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "dataset_order"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "evaluator"
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "covered": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "evaluator_code"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "judge_config"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "objectives"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "helper_modules"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "search_space"
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "covered": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "search_space_definition"
+                        }
+                      }
+                    ]
+                  }
+                }
               }
             }
           }

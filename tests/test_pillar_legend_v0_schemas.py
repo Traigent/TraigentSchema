@@ -206,6 +206,9 @@ RESTORE_REQ = {
     "isolated_destination": True,
     "representation_digests_match": True,
     "pillar_fingerprint_match": True,
+    "historical_key_available": True,
+    "dependencies_verified": True,
+    "verified_artifact_digest": SHA,
     "backend_keyed": False,
 }
 AVAIL_REQ = {
@@ -225,6 +228,9 @@ RESTORE_EVENT = {
     "isolated_destination": True,
     "representation_digests_match": True,
     "pillar_fingerprint_match": True,
+    "historical_key_available": True,
+    "dependencies_verified": True,
+    "verified_artifact_digest": SHA,
     "backend_keyed": False,
     "backend_match_result": "not_applicable",
 }
@@ -1140,9 +1146,31 @@ class Legend:
     def high_water(self) -> int:
         return len(self.ledger)
 
-    def _idem(self, endpoint: str, key: str, body: dict[str, Any]) -> tuple[str, Any]:
+    @staticmethod
+    def request_digest(req: dict[str, Any]) -> str:
+        """Digest over the FULL validated wire body, excluding only the two idempotency fields."""
+        body = {k: v for k, v in req.items() if k not in ("idempotency_key", "request_digest")}
+        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        raw = b"traigent.legend.request.v0\x00" + canonical.encode()
+        return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+    def _wire(self, endpoint: str, req: dict[str, Any], definition: str) -> tuple[str, Any]:
+        """Validate, recompute the digest over the whole wire body and consult the saved key."""
+        if check(Q, definition, req):
+            raise Refused("invalid_request")
+        digest = self.request_digest(req)
+        if req["request_digest"] != digest:
+            raise Refused("invalid_request")  # the Backend always recomputes
+        saved = self.requests.get((endpoint, req["idempotency_key"]))
+        if saved is not None and saved[0] != digest:
+            raise Refused("conflicting_idempotency_payload")
+        return digest, (saved[1] if saved is not None else None)
+
+    def _idem(
+        self, endpoint: str, key: str, body: dict[str, Any], wire_digest: str | None = None
+    ) -> tuple[str, Any]:
         """Endpoint-scoped key/digest check. Returns (digest, saved response or None)."""
-        digest = _digest(endpoint, body)
+        digest = wire_digest or _digest(endpoint, body)
         saved = self.requests.get((endpoint, key))
         if saved is not None:
             if saved[0] != digest:
@@ -1397,7 +1425,12 @@ class Legend:
     # -- recovery -------------------------------------------------------------------------
     @staticmethod
     def commitment(representations: tuple[str, ...]) -> str:
-        return _digest("traigent.legend.representation_commitment", list(representations))
+        """The one construction (prefix + domain), shared by proofs and capture requests."""
+        canonical = json.dumps(
+            {"representations": list(representations)}, sort_keys=True, separators=(",", ":")
+        )
+        raw = b"traigent.legend.representation_commitment.v0\x00" + canonical.encode()
+        return "sha256:" + hashlib.sha256(raw).hexdigest()
 
     def identity_verify(
         self,
@@ -1437,11 +1470,12 @@ class Legend:
         manifest: str,
         state: str,
         conformance: bool,
-        complete: bool,
+        complete: bool | dict[str, Any],
         reproduced: bool,
         claimed_keyed: bool,
         verification: int | None,
         commitment: str = "c0",
+        wire_digest: str | None = None,
     ) -> Any:
         body = dict(
             entity=entity,
@@ -1455,10 +1489,12 @@ class Legend:
             proof=verification,
             commitment=commitment,
         )
-        digest, saved = self._idem("capture", key, body)
+        digest, saved = self._idem("capture", key, body, wire_digest)
         if saved is not None:
             return saved
         self._version(entity, fp)
+        coverage = self._coverage(self._version(entity, fp)["kind"], complete)
+        complete = coverage["status"] == "complete"
         if manifest.startswith("rmfc0"):
             raise Refused("invalid_request")
         if claimed_keyed != self.backend_keyed(entity, fp):
@@ -1468,6 +1504,7 @@ class Legend:
         if complete and not reproduced:
             raise Refused("coverage_insufficient")
         meta = dict(
+            coverage=coverage,
             complete=complete,
             reproduced=reproduced,
             proof=verification,
@@ -1501,25 +1538,31 @@ class Legend:
         self.captures[(entity, fp, manifest)] = meta
         return self._save("capture", key, digest, {"position": pos})
 
-    def record_availability(
-        self, key: str, entity: str, fp: str, manifest: str, status: str
-    ) -> Any:
-        digest, saved = self._idem("availability", key, dict(e=entity, f=fp, m=manifest, s=status))
-        if saved is not None:
-            return saved
-        if not self._captured(entity, fp, manifest):
-            raise Refused("unknown_ref")
-        pos = self._append(
-            type="availability_changed", entity=entity, fp=fp, manifest=manifest, status=status
-        )
-        return self._save("availability", key, digest, {"position": pos})
+    @staticmethod
+    def _coverage(kind: str, given: bool | dict[str, Any]) -> dict[str, Any]:
+        """Validate coverage against RequiredComponents(kind) and return its canonical object."""
+        if isinstance(given, bool):
+            if given:
+                given = {"status": "complete", "covered": list(REQUIRED[kind]), "missing": []}
+            else:
+                given = {"status": "partial", "covered": [], "missing": [REQUIRED[kind][0]]}
+        covered, missing = set(given["covered"]), set(given["missing"])
+        if covered & missing or len(covered) != len(given["covered"]):
+            raise Refused("invalid_request")
+        if given["status"] == "complete":
+            if missing or not set(REQUIRED[kind]) <= covered:
+                raise Refused("coverage_insufficient")  # not complete for this kind
+        elif not missing:
+            raise Refused("invalid_request")
+        return {"status": given["status"], "covered": sorted(covered), "missing": sorted(missing)}
 
     def capture_from_request(
         self, req: dict[str, Any], resolve: dict[str, tuple[str, str]], proofs: dict[str, int]
     ) -> Any:
-        """Validated wire request -> model transition (the documented projection)."""
-        if check(Q, "RecordCaptureRequestV0", req):
-            raise Refused("invalid_request")
+        """Validated wire request -> model transition (digest over the whole wire body first)."""
+        digest, saved = self._wire("capture", req, "RecordCaptureRequestV0")
+        if saved is not None:
+            return saved
         entity, fp = resolve[req["version_ref"]]
         proof_ref = req["identity_verification_ref"]
         return self.capture(
@@ -1529,22 +1572,72 @@ class Legend:
             req["recovery_manifest_fingerprint"],
             req["recovery_state"],
             req["conformance_passed"],
-            req["coverage"]["status"] == "complete",
+            req["coverage"],
             req["identity_digests_reproduced"],
             req["backend_keyed"],
             proofs.get(proof_ref) if proof_ref else None,
             req["representation_commitment"],
+            wire_digest=digest,
         )
 
     def availability_from_request(
         self, req: dict[str, Any], resolve: dict[str, tuple[str, str]]
     ) -> Any:
-        if check(Q, "RecordAvailabilityRequestV0", req):
-            raise Refused("invalid_request")
+        digest, saved = self._wire("availability", req, "RecordAvailabilityRequestV0")
+        if saved is not None:
+            return saved
         entity, fp = resolve[req["version_ref"]]
         return self.record_availability(
-            req["idempotency_key"], entity, fp, req["recovery_manifest_fingerprint"], req["status"]
+            req["idempotency_key"],
+            entity,
+            fp,
+            req["recovery_manifest_fingerprint"],
+            req["status"],
+            wire_digest=digest,
         )
+
+    def restore_from_request(self, req: dict[str, Any], resolve: dict[str, tuple[str, str]]) -> Any:
+        digest, saved = self._wire("restore", req, "RecordRestoreRequestV0")
+        if saved is not None:
+            return saved
+        entity, fp = resolve[req["version_ref"]]
+        return self.record_restore(
+            req["idempotency_key"],
+            entity,
+            fp,
+            req["kind"],
+            req["recovery_manifest_fingerprint"],
+            req["outcome"],
+            req["representation_digests_match"] and req["pillar_fingerprint_match"],
+            req["isolated_destination"],
+            req["historical_key_available"],
+            req["dependencies_verified"],
+            req["backend_keyed"],
+            req["verified_artifact_digest"],
+            coverage=req["coverage"],
+            wire_digest=digest,
+        )
+
+    def record_availability(
+        self,
+        key: str,
+        entity: str,
+        fp: str,
+        manifest: str,
+        status: str,
+        wire_digest: str | None = None,
+    ) -> Any:
+        digest, saved = self._idem(
+            "availability", key, dict(e=entity, f=fp, m=manifest, s=status), wire_digest
+        )
+        if saved is not None:
+            return saved
+        if not self._captured(entity, fp, manifest):
+            raise Refused("unknown_ref")
+        pos = self._append(
+            type="availability_changed", entity=entity, fp=fp, manifest=manifest, status=status
+        )
+        return self._save("availability", key, digest, {"position": pos})
 
     def exact_prerequisites(
         self,
@@ -1589,7 +1682,9 @@ class Legend:
         key_ok: bool,
         deps_ok: bool,
         claimed_keyed: bool,
-        artifact: str,
+        artifact: str | None,
+        coverage: dict[str, Any] | None = None,
+        wire_digest: str | None = None,
     ) -> Any:
         body = dict(
             e=entity,
@@ -1604,7 +1699,7 @@ class Legend:
             ck=claimed_keyed,
             a=artifact,
         )
-        digest, saved = self._idem("restore", key, body)
+        digest, saved = self._idem("restore", key, body, wire_digest)
         if saved is not None:
             return saved
         v = self._version(entity, fp)
@@ -1612,7 +1707,12 @@ class Legend:
             raise Refused("invalid_request")
         if not self._captured(entity, fp, manifest):
             raise Refused("unknown_ref")  # Captured(version, manifest) join
+        meta = self.captures[(entity, fp, manifest)]
+        if coverage is not None and self._coverage(kind, coverage) != meta["coverage"]:
+            raise Refused("manifest_mismatch")  # the report must agree with the same manifest
         if outcome == "exact":
+            if artifact is None:
+                raise Refused("invalid_request")  # exact carries the verified artifact digest
             if self.backend_keyed(entity, fp):
                 raise Refused("coverage_insufficient")  # needs the server recompute
             self.exact_prerequisites(entity, fp, manifest, equal, isolated, key_ok, deps_ok)
@@ -2922,27 +3022,201 @@ def test_model_wire_cursor_names_are_checked() -> None:
     assert "page_cursor" in GOLDEN["ins_query"][2] and "next_page_cursor" in GOLDEN["res_query"][2]
 
 
+def signed(req: dict[str, Any], **changes: Any) -> dict[str, Any]:
+    """A wire body with its request_digest recomputed over the whole body."""
+    body = {**req, **changes}
+    body["request_digest"] = Legend.request_digest(body)
+    return body
+
+
 def test_model_wire_requests_project_into_transitions() -> None:
     led = _seed()
     a = _ent(led, "A")
     resolve = {ref_of("version"): (a, "A")}
-    req = {
-        **CAPTURE_REQ,
-        "recovery_state": "round_trip_verified",
-        "conformance_passed": True,
-        "coverage": full("agent"),
-        "representation_commitment": "sha256:" + "1" * 64,
-    }
+    req = signed(
+        CAPTURE_REQ,
+        recovery_state="round_trip_verified",
+        conformance_passed=True,
+        coverage=full("agent"),
+        representation_commitment=Legend.commitment(("r0", "r1")),
+    )
     first = led.capture_from_request(req, resolve, {})
     assert led.capture_from_request(req, resolve, {}) is first  # key/digest retry
-    assert led.captures[(a, "A", RMF)]["commitment"] == "sha256:" + "1" * 64
-    assert led.captures[(a, "A", RMF)]["reproduced"] is True
-    bad = {**req, "representation_commitment": "not-a-digest"}
+    meta = led.captures[(a, "A", RMF)]
+    assert meta["commitment"] == Legend.commitment(("r0", "r1")) and meta["reproduced"] is True
+    assert meta["coverage"] == {
+        "status": "complete",
+        "covered": sorted(REQUIRED["agent"]),
+        "missing": [],
+    }
+    bad = signed(req, representation_commitment="not-a-digest")
     _atomic(led, "invalid_request", led.capture_from_request, bad, resolve, {})
+    stale = {**req, "representation_commitment": "sha256:" + "2" * 64}  # digest not recomputed
+    _atomic(led, "invalid_request", led.capture_from_request, stale, resolve, {})
     missing = {k: v for k, v in req.items() if k != "identity_digests_reproduced"}
     _atomic(led, "invalid_request", led.capture_from_request, missing, resolve, {})
-    av = led.availability_from_request(AVAIL_REQ, resolve)
-    assert led.availability_from_request(AVAIL_REQ, resolve) is av
+    # same key, any changed wire field (even one the model reduces away) is a conflict
+    for change in (
+        {"exporter_version": "0.2.0"},
+        {"coverage": {**full("agent"), "covered": list(reversed(REQUIRED["agent"]))}},
+        {"coverage": {**full("agent"), "covered": [*REQUIRED["agent"], "dependency_lock"]}},
+    ):
+        _atomic(
+            led,
+            "conflicting_idempotency_payload",
+            led.capture_from_request,
+            signed(req, **change),
+            resolve,
+            {},
+        )
+    av = led.availability_from_request(
+        AVAIL_REQ | {"request_digest": Legend.request_digest(AVAIL_REQ)}, resolve
+    )
+    av_req = signed(AVAIL_REQ)
+    assert led.availability_from_request(av_req, resolve) is av
     assert led.restorable_now(a, "A", RMF)
-    bad_av = {**AVAIL_REQ, "idempotency_key": "idk_" + "9" * 32, "status": "gone"}
+    bad_av = signed(AVAIL_REQ, idempotency_key="idk_" + "9" * 32, status="gone")
     _atomic(led, "invalid_request", led.availability_from_request, bad_av, resolve)
+
+
+def test_model_keyed_capture_through_the_wire_matches_its_proof() -> None:
+    led = Legend()
+    s_ent = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+    resolve = {ref_of("version"): (s_ent, "S")}
+    reps = ("rep-a", "rep-b")
+    proof = led.identity_verify(s_ent, "S", reps, True, key="iv")
+    ev_ref = ref_of("event")
+    base = signed(
+        CAPTURE_REQ,
+        recovery_state="round_trip_verified",
+        conformance_passed=True,
+        coverage=full("search_space"),
+        backend_keyed=True,
+        identity_verification_ref=ev_ref,
+        representation_commitment=Legend.commitment(reps),
+    )
+    wrong = signed(
+        base,
+        idempotency_key="idk_" + "8" * 32,
+        representation_commitment=Legend.commitment(("rep-a", "rep-X")),
+    )
+    _atomic(led, "coverage_insufficient", led.capture_from_request, wrong, resolve, {ev_ref: proof})
+    ok_ = led.capture_from_request(base, resolve, {ev_ref: proof})
+    assert ok_["position"] > 0 and led.captures[(s_ent, "S", RMF)]["proof"] == proof
+
+
+def test_model_capture_coverage_is_validated_against_the_kind_and_persisted_in_full() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    resolve = {ref_of("version"): (a, "A")}
+    thin = signed(CAPTURE_REQ, coverage={"status": "complete", "covered": ["code"], "missing": []})
+    _atomic(led, "coverage_insufficient", led.capture_from_request, thin, resolve, {})
+    overlap = signed(
+        CAPTURE_REQ, coverage={"status": "partial", "covered": ["code"], "missing": ["code"]}
+    )
+    _atomic(led, "invalid_request", led.capture_from_request, overlap, resolve, {})
+    led.capture("c1", a, "A", "m", "stored_unverified", False, full("agent"), True, False, None)
+    # a fresh-key report with different coverage arrays for the same manifest is a conflict
+    other = {**full("agent"), "covered": [*REQUIRED["agent"], "dependency_lock"]}
+    _atomic(
+        led,
+        "store_key_conflict",
+        led.capture,
+        "c2",
+        a,
+        "A",
+        "m",
+        "stored_unverified",
+        False,
+        other,
+        True,
+        False,
+        None,
+    )
+    assert led.captures[(a, "A", "m")]["coverage"]["covered"] == sorted(REQUIRED["agent"])
+
+
+def test_model_restore_wire_request_projection_and_exact_inputs() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    resolve = {ref_of("version"): (a, "A")}
+    led.capture("c1", a, "A", RMF, "round_trip_verified", True, full("agent"), True, False, None)
+    exact = signed(RESTORE_REQ, coverage=full("agent"))
+    for change in (
+        {"historical_key_available": False},
+        {"dependencies_verified": False},
+        {"verified_artifact_digest": None},
+        {"isolated_destination": False},
+    ):
+        _atomic(
+            led,
+            "invalid_request",
+            led.restore_from_request,
+            signed(exact, idempotency_key="idk_" + "5" * 32, **change),
+            resolve,
+        )
+    other_cov = signed(
+        exact,
+        idempotency_key="idk_" + "6" * 32,
+        coverage={**full("agent"), "covered": [*REQUIRED["agent"], "dependency_lock"]},
+    )
+    _atomic(led, "manifest_mismatch", led.restore_from_request, other_cov, resolve)
+    first = led.restore_from_request(exact, resolve)
+    assert led.restore_from_request(exact, resolve) is first
+    assert led.artifacts[(a, RMF)] == exact["verified_artifact_digest"]
+    _atomic(
+        led,
+        "conflicting_idempotency_payload",
+        led.restore_from_request,
+        signed(exact, outcome="partial", coverage=full("agent")),
+        resolve,
+    )
+    partial = signed(
+        exact,
+        idempotency_key="idk_" + "7" * 32,
+        outcome="partial",
+        verified_artifact_digest=None,
+        historical_key_available=False,
+    )
+    assert led.restore_from_request(partial, resolve)["position"] > 0
+
+
+def test_model_partial_capture_issues_captured_and_restorable_now_but_not_restore() -> None:
+    led = _seed()
+    a = _ent(led, "A")
+    led.capture("c1", a, "A", "pm", "stored_unverified", False, False, True, False, None)
+    led.record_availability("a1", a, "A", "pm", "available")
+    sub = (a, "A", "agent")
+    assert led.issue_predicate("captured", sub, led.high_water, "pm")
+    assert led.issue_predicate("restorable_now", sub, led.high_water, "pm")
+    _atomic(
+        led,
+        "unknown_ref",
+        led.issue_predicate,
+        "restore_verified_client_reported",
+        sub,
+        led.high_water,
+        "pm",
+    )
+
+
+def test_model_mismatching_server_match_authorises_no_activation() -> None:
+    led = Legend()
+    s_ent = led.declare("s", None, "search_space", "S", "client_declared")["entity"]
+    proof = led.identity_verify(s_ent, "S", ("r",), True)
+    led.capture(
+        "c",
+        s_ent,
+        "S",
+        "m",
+        "round_trip_verified",
+        True,
+        True,
+        True,
+        True,
+        proof,
+        Legend.commitment(("r",)),
+    )
+    led.server_match(s_ent, "S", "m", True, False, True, True, True, "art")
+    assert (s_ent, "m") not in led.artifacts
+    _atomic(led, "manifest_mismatch", led.activate, s_ent, "m", "art")

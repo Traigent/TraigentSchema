@@ -1097,6 +1097,9 @@
         "isolated_destination",
         "representation_digests_match",
         "pillar_fingerprint_match",
+        "historical_key_available",
+        "dependencies_verified",
+        "verified_artifact_digest",
         "backend_keyed",
         "backend_match_result"
       ],
@@ -1165,6 +1168,22 @@
         "pillar_fingerprint_match": {
           "type": "boolean"
         },
+        "historical_key_available": {
+          "type": "boolean"
+        },
+        "dependencies_verified": {
+          "type": "boolean"
+        },
+        "verified_artifact_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Sha256Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "backend_keyed": {
           "type": "boolean"
         },
@@ -1196,6 +1215,15 @@
               },
               "pillar_fingerprint_match": {
                 "const": true
+              },
+              "historical_key_available": {
+                "const": true
+              },
+              "dependencies_verified": {
+                "const": true
+              },
+              "verified_artifact_digest": {
+                "$ref": "#/definitions/Sha256Digest"
               },
               "backend_match_result": {
                 "enum": [

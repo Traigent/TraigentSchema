@@ -599,6 +599,9 @@
         "isolated_destination",
         "representation_digests_match",
         "pillar_fingerprint_match",
+        "historical_key_available",
+        "dependencies_verified",
+        "verified_artifact_digest",
         "backend_keyed"
       ],
       "properties": {
@@ -636,6 +639,22 @@
         "pillar_fingerprint_match": {
           "type": "boolean"
         },
+        "historical_key_available": {
+          "type": "boolean"
+        },
+        "dependencies_verified": {
+          "type": "boolean"
+        },
+        "verified_artifact_digest": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/Sha256Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "backend_keyed": {
           "type": "boolean"
         }
@@ -664,6 +683,15 @@
               },
               "pillar_fingerprint_match": {
                 "const": true
+              },
+              "historical_key_available": {
+                "const": true
+              },
+              "dependencies_verified": {
+                "const": true
+              },
+              "verified_artifact_digest": {
+                "$ref": "./pillar_legend_v0.json#/definitions/Sha256Digest"
               }
             }
           }

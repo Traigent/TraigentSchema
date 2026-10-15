@@ -91,13 +91,16 @@ header or a body field.
 ### 3.2 Version
 
 A **version** is immutable: `(entity_ref, kind, fingerprint_scheme, key_id, fingerprint,
-parent_version_ref, identity_source, declared_at)` with its own `version_ref`.
+initial_parent_version_ref, identity_source, declared_at)` with its own `version_ref`.
 
 - **Dedup key:** `(tenant, project, entity, fingerprint_scheme, key_id, fingerprint)`.
-- **Parents:** `parent_version_ref` is nullable, refers to a version of the **same entity**, and the
-  parent graph is **acyclic** (a version is never its own ancestor). Rolling back to an earlier
-  fingerprint creates the earlier version's content under a new declaration, not a mutation.
-- A version never changes its fingerprint, scheme, key, or entity.
+- **Initial parent.** `initial_parent_version_ref` is fixed at the version's *first* declaration, is
+  nullable, names a version of the **same entity** declared earlier, and is the *only* edge that must
+  be acyclic (a version is never its own initial ancestor). It is never rewritten.
+- **Head movement is separate.** Where a declarer moved *from* is recorded on each `declared` event as
+  `previous_version_ref` (nullable, same entity). These edges form a movement history, not a tree:
+  a revert such as v3 -> v1 is a legal event, not a cycle.
+- A version never changes its fingerprint, scheme, key, entity or initial parent.
 
 ### 3.3 Events
 
@@ -107,7 +110,7 @@ One append-only ledger; closed `event_type`. Every event carries `schema_version
 
 | `event_type` | Origin | `evidence_source` | Type-specific fields |
 |---|---|---|---|
-| `declared` | client; server only for `implicit_legacy` backfill | `client_reported` | `provenance` (`explicit | implicit_run | implicit_legacy`), `identity_source`, `parent_version_ref`, optional `change_reason` (closed list) |
+| `declared` | client; server only for `implicit_legacy` backfill | `client_reported` | `provenance` (`explicit | implicit_run | implicit_legacy`), `identity_source`, `previous_version_ref` (nullable; where the declarer moved from), optional `change_reason` (closed list) |
 | `captured` | client | `client_sdk_reported` | `recovery_manifest_fingerprint`, `coverage`, `recovery_state` (`stored_unverified | round_trip_verified`), `conformance_passed`, `exporter_version` |
 | `restore_verified` | client | `client_sdk_reported` | `recovery_manifest_fingerprint`, `outcome` (`exact | partial | substituted | failed`), `coverage`, `isolated_destination` (always true), `representation_digests_match`, `pillar_fingerprint_match` |
 | `bound_to_run` | server | `server_recorded` | `run_ref`, `trial_ref?`, `binding_role`, `run_tuple_digest` |
@@ -119,15 +122,16 @@ Several versions may be bound to one run (base inputs plus each trial's candidat
 
 ### 3.4 Idempotency and conflict refusal
 
-- `declare` is **idempotent on the dedup key**: a repeat with an equal canonical payload returns the
-  existing version (`created: false`) and appends no second identity row.
-- Explicit and implicit (`implicit_run`) declarations of the same fingerprint **converge** on one version.
-- **Re-declaring from a different parent** is a *conflict*, not a second version: it is refused with
-  `conflicting_idempotency_payload` (the existing version's parent is never rewritten). A deliberate
-  branch is a different entity version with its own fingerprint, or a new `declared` event whose
-  `provenance` explains it only when the fingerprint is genuinely new.
-- Two events with the same `idempotency_key` but different payloads are refused
-  (`conflicting_idempotency_payload`); equal payloads return the first event.
+- Version identity is `(tenant, project, entity, scheme, key_id, fingerprint)`. `declare` of an
+  existing identity **never creates a second version and never changes the stored version**; it
+  appends a `declared` event carrying `previous_version_ref`. Rollback (returning to an older
+  fingerprint) is exactly this case.
+- Explicit and implicit (`implicit_run`) declarations of the same fingerprint converge on one version.
+- The same `idempotency_key` with an equal canonical payload returns the first event (no new row); with
+  a **different** payload it is refused (`conflicting_idempotency_payload`).
+- A first declaration whose `initial_parent_version_ref` is its own version, or would make the initial-parent
+  chain cyclic, or names a version of another entity or an undeclared version, is refused
+  (`invalid_request` / `unknown_ref`).
 - A report that conflicts with an earlier report for the same issued instruction is refused
   (`conflicting_report`).
 
@@ -225,11 +229,15 @@ Numbered so counterexamples and conformance cases can cite them. "Events" means 
   `coverage.status = complete`, `representation_digests_match`, `pillar_fingerprint_match` and an
   isolated destination; a missing historical key, missing dependency, unverifiable fingerprint or
   substitution yields `partial | substituted | failed`, never `exact`.
-- **INV-4 Idempotent declare.** `declare` on an equal dedup key and equal canonical payload returns the
-  same version and appends no second version; concurrent explicit and implicit declarations converge
-  to one version; unequal payload on the same key is refused.
-- **INV-5 Acyclic, same-entity parents.** `parent_version_ref` names a version of the same entity and
-  the parent relation has no cycle (including self-parent); a parent is declared before its child.
+- **INV-4 Idempotent declare.** `declare` on an existing version identity appends a `declared` event and
+  creates no second version; concurrent explicit and implicit declarations converge to one version; the
+  same `idempotency_key` with an unequal payload is refused.
+- **INV-5 Acyclic initial parents (scope).** Only `initial_parent_version_ref` is constrained: same entity,
+  declared earlier, no cycle (including self). `previous_version_ref` edges are unconstrained history
+  (same entity, nullable); a revert v3 -> v1 is legal.
+- **INV-15 Version identity is stable under re-declaration.** Re-declaring a version changes none of its
+  entity, scheme, key_id, fingerprint, initial parent, identity_source or declared_at; only the event
+  ledger grows.
 - **INV-6 Historical vs current availability.** `captured` is a fact about time T and is never erased;
   `availability_changed` changes only *current* availability; `restorable_now` holds iff the latest
   availability event for that capture is `available` (or none yet), and revoking it leaves `captured`
@@ -259,7 +267,27 @@ implementation-conformance cases come from the schema examples and the tests abo
 
 ---
 
-## 8. What stays outside this contract
+## 8. Names chosen in v0
+
+Invented in this contract; a reviewer should confirm or rename them before consumers are built.
+
+| Name / format | Value |
+|---|---|
+| Manifest fingerprint | `rmf0:sha256:<64 hex>`; domain `traigent.recovery_manifest.v0`; manifest scheme const `traigent.recovery_manifest.v0` |
+| Opaque ref prefixes | `entityref_`, `versionref_`, `eventref_`, `runref_`, `trialref_`, `actorref_`, `instructionref_`, each + 32 lowercase hex |
+| Page cursor | `cursor_<32 hex>` |
+| `change_reason` | `code`, `prompt`, `configuration`, `dataset_content`, `dependency`, `rollback`, `unspecified` |
+| Coverage components | `code`, `prompts`, `helper_modules`, `tool_definitions`, `applied_config`, `dependency_lock`, `dataset_members`, `dataset_order`, `evaluator_code`, `judge_config`, `objectives`, `search_space_definition` |
+| `binding_role` | `base_agent`, `trial_candidate`, `dataset`, `search_set`, `evaluator`, `search_space` |
+| `evaluation_protocol` | `full_dataset`, `holdout`, `sampled_subset`, `search_set` |
+| Representation kinds | `source_bundle`, `prompt_files`, `helper_modules`, `tool_definitions`, `config_document`, `dependency_lock`, `dataset_rows`, `evaluator_bundle`, `judge_config_document`, `search_space_document` |
+| Store statuses / error codes | as listed in sections 4 and 6 |
+| Predicate types | as listed in section 5; `policy_version` is a lowercase token |
+| Field `key_id` | the plan's `key_version`: the tenant `kid`, null for unkeyed schemes |
+
+---
+
+## 9. What stays outside this contract
 
 Backend tables and API (items 2, 3), run binding and legacy backfill (item 4), Director dispatch
 (item 5), signed version subjects (item 6), SDK client, store and activation (items 7, 8) are

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `director_legend_ops_v0.json` (instructions and results for `declare_version`, `query_versions`,
   `capture_version`, `verify_restore`, `restore_version`). Client-origin events cannot carry
   `server_recorded` or `traigent_witnessed` evidence; `exact` restore requires complete coverage.
-  Reuses the content-identity v1 constructions unchanged; no existing schema or fixture is touched.
+  Re-declaring an existing version appends a `declared` event with `previous_version_ref` (rollback is legal); only `initial_parent_version_ref` is acyclic. Reuses the content-identity v1 constructions unchanged; no existing schema or fixture is touched.
   Pinned by `tests/test_pillar_legend_v0_schemas.py`.
 
 ### Fixed

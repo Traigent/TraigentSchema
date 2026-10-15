@@ -363,7 +363,7 @@
         "fingerprint_scheme",
         "key_id",
         "fingerprint",
-        "parent_version_ref",
+        "initial_parent_version_ref",
         "identity_source",
         "declared_at"
       ],
@@ -396,7 +396,7 @@
         "fingerprint": {
           "$ref": "#/definitions/Fingerprint"
         },
-        "parent_version_ref": {
+        "initial_parent_version_ref": {
           "oneOf": [
             {
               "$ref": "#/definitions/VersionRef"
@@ -413,7 +413,7 @@
           "$ref": "#/definitions/Timestamp"
         }
       },
-      "description": "Immutable (entity, scheme, key_id, fingerprint, parent) version. Dedup key (tenant, project, entity, scheme, key_id, fingerprint); tenant and project come from the canonical request context, never the wire.",
+      "description": "Immutable (entity, scheme, key_id, fingerprint) version; initial_parent_version_ref is fixed at first declaration and is the only parent edge that must be acyclic and same-entity. Dedup key (tenant, project, entity, scheme, key_id, fingerprint); tenant and project come from the canonical request context, never the wire.",
       "allOf": [
         {
           "if": {
@@ -723,7 +723,7 @@
         "event_type",
         "provenance",
         "identity_source",
-        "parent_version_ref"
+        "previous_version_ref"
       ],
       "properties": {
         "schema_version": {
@@ -767,7 +767,7 @@
         "identity_source": {
           "$ref": "#/definitions/IdentitySource"
         },
-        "parent_version_ref": {
+        "previous_version_ref": {
           "oneOf": [
             {
               "$ref": "#/definitions/VersionRef"

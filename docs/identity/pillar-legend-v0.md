@@ -402,7 +402,13 @@ manifest fingerprint and coverage, and `round_trip_verified` requires `conforman
 `conformance_failed`, `manifest_mismatch`, `coverage_insufficient`, `restore_failed`, `internal_error`.
 **Wire-to-model projection.** The closed restore results carry no manifest field. The manifest, version and entity of a `verify_restore` / `restore_version` result are those of the **saved instruction**; the Backend joins them to its ledger. Capture results carry `recovery_manifest_fingerprint`, compared with the instruction's version.
 
-**Pagination.** `query_versions` orders versions deterministically by the ledger position of their first declaration, over a snapshot taken when the instruction is issued. `page_size` is 1..100. A continuation cursor is `cursor_<hex>` issued by the Backend, bound to `(entity, boundary index)`; an unissued cursor, or one issued for another entity, is refused (`invalid_request`). The result must be exactly the instruction's slice `order[start:start+page_size]`, and `next_page_cursor` must be the cursor for the next boundary, or null at the end. The wire names are `page_cursor` (instruction and `QueryRequestV0`) and `next_page_cursor` (result); the model and tests use exactly these names. Projection: wire `version_refs` correspond to the model's ordered versions.
+**Pagination.** `query_versions` orders versions deterministically by the ledger position of their first declaration, over a snapshot. `page_size` is 1..100. A continuation cursor is `cursor_<hex>`, bound to `(entity, boundary index, as_of)`; an unissued cursor, one issued for another entity, or one issued under another `as_of_ledger_position` (including none) is refused (`invalid_request`). The result must be exactly the instruction's slice `order[start:start+page_size]`, and `next_page_cursor` must be the cursor for the next boundary, or null at the end. The wire names are `page_cursor` (instruction and `QueryRequestV0`) and `next_page_cursor` (result); the model and tests use exactly these names. Projection: wire `version_refs` correspond to the model's ordered versions.
+
+**Snapshot selector.** `QueryRequestV0` has an optional `as_of_ledger_position` (integer >= 0). Results include only versions whose first declared event has `ledger_position <= as_of_ledger_position`; omitted means current. A value above the current ledger position is refused (`invalid_request`). The cursor binding above makes a multi-page read stable under later writes only when every page passes the same explicit `as_of_ledger_position`; with it omitted each page reads the then-current ledger.
+
+**Cursor provenance.** Page cursors are opaque, server-issued strings from ONE issuer shared by the Legend API and the Director. A Director query instruction carries a cursor returned by the Legend API (or by an earlier Director page), never one composed by the Director or the agent. On the Director path the cursor must have been issued under an explicit `as_of_ledger_position`, and the instruction keeps that position. A query result with outcome `failed` or `refused` MUST carry `next_page_cursor` null (schema `if/then` on `QueryVersionsResult`; the model refuses it with `invalid_request`).
+
+**Director response envelopes** (`director_legend_ops_v0.json`, closed, no free text). `LegendInstructionMember` is the `legend` member added to a Director instruction: `operation`, the opaque refs and enums of that operation (the other fields null), `page_size`, `page_cursor`, and `as_of_ledger_position`, the instruction's snapshot ledger position, non-null exactly for `query_versions`. **That value is what the agent must pass as `as_of_ledger_position` in the Legend query request.** The snapshot is not a separate `legend_snapshot` member: it is folded into this one closed place. `LegendResultAckMember` is the `legend` member of the result acknowledgement: `ack_status` (`stored | identical_retry | rejected`), `error_code` (non-null iff `rejected`), and `as_of_ledger_position` (echo of the instruction's snapshot for `query_versions`, null otherwise).
 
 **Per-operation relation between instruction and result** (the Backend checks these before storing a
 result): `declare_version` — the returned version belongs to the instruction's entity (when given) and
@@ -608,3 +614,14 @@ manifest)` joins and prefix evidence, sealed cutoff, subject projection equality
 Director instruction/result relations. Backend tables and API (items 2, 3), run binding and backfill
 (item 4), Director dispatch (item 5), signed version subjects (item 6) and the SDK client, store and
 activation (items 7, 8) implement this contract and must not widen a field to free text.
+
+---
+
+## 11. Changelog
+
+**Delta over 9b0451d (additive; the 06a0f5f contract is otherwise unchanged).** Existing valid bodies still validate (`python3 scripts/breaking_schema_check.py --check` reports no BREAKING findings).
+
+1. `legend_requests_v0.json`: `QueryRequestV0` gains OPTIONAL `as_of_ledger_position` (integer >= 0; omitted = current); cursors are bound to it (section 6).
+2. `director_legend_ops_v0.json`: new closed definitions `PageCursor`, `LegendInstructionMember` (carries `as_of_ledger_position`, the position the agent passes to the query request; no separate `legend_snapshot`) and `LegendResultAckMember`.
+3. `director_legend_ops_v0.json`: `QueryVersionsResult` now requires `next_page_cursor` null when `outcome` is `failed` or `refused`; cursor provenance (one shared issuer) stated in section 6.
+4. Model `Legend` and tests: `query()` (Legend API), cursors bound to `(entity, boundary, as_of)` from the single issuer `_cursor`, Director instructions record and keep their `as_of`, refusal of a failed/refused cursor-bearing result; the cursor-issuing line of one existing test now passes the instruction's `as_of`.

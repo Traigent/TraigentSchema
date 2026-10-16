@@ -426,9 +426,14 @@
               "type": "null"
             }
           ]
+        },
+        "as_of_ledger_position": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional snapshot selector. Results include only versions whose first declared event has ledger_position <= this value; omitted means current. A page_cursor is bound to this value (omitted binds to 'omitted'): a cursor issued under one as_of_ledger_position, or under none, is refused (invalid_request) under another. A value above the current ledger position is refused (invalid_request). The Director supplies it as the as_of_ledger_position of its instruction's legend member."
         }
       },
-      "description": "Client query. No instruction_ref: that exists only on the Director path."
+      "description": "Client query. No instruction_ref: that exists only on the Director path. page_cursor is an opaque server-issued string from the single cursor issuer shared by the Legend API and the Director; as_of_ledger_position is optional and additive (omitted = current)."
     },
     "RecordCaptureRequestV0": {
       "type": "object",

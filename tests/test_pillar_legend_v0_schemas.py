@@ -1130,7 +1130,7 @@ class Legend:
         self.activated: dict[tuple[str, str], str] = {}
         self.instructions: dict[str, dict[str, Any]] = {}
         self.results: dict[str, tuple[str, Any]] = {}
-        self.cursors: dict[str, tuple[str, int]] = {}
+        self.cursors: dict[str, tuple[str, int, int | None]] = {}
         self.next_entity = 1
         self.autokey = 0
 
@@ -1930,22 +1930,54 @@ class Legend:
         return True
 
     # -- Director ---------------------------------------------------------------------------
-    def _ordered(self, entity: str) -> list[str]:
-        """Deterministic order: by the ledger position of the version's first declaration."""
+    def _ordered(self, entity: str, as_of: int | None = None) -> list[str]:
+        """Deterministic order: by the ledger position of the version's first declaration.
+
+        ``as_of`` (None = current) keeps only versions first declared at position <= as_of."""
         first: dict[str, int] = {}
         for e in self.ledger:
             if e["type"] == "declared" and e["entity"] == entity:
                 first.setdefault(e["fp"], e["position"])
+        if as_of is not None:
+            first = {fp: pos for fp, pos in first.items() if pos <= as_of}
         return [fp for fp, _ in sorted(first.items(), key=lambda kv: kv[1])]
 
     @staticmethod
-    def _token(entity: str, boundary: int) -> str:
-        return "cursor_" + _digest("cursor", entity, boundary)[:32]
+    def _token(entity: str, boundary: int, as_of: int | None = None) -> str:
+        return "cursor_" + _digest("cursor", entity, boundary, as_of)[:32]
 
-    def _cursor(self, entity: str, boundary: int) -> str:
-        token = self._token(entity, boundary)
-        self.cursors[token] = (entity, boundary)
+    def _cursor(self, entity: str, boundary: int, as_of: int | None = None) -> str:
+        """The ONE cursor issuer, shared by the Legend API (query) and the Director."""
+        token = self._token(entity, boundary, as_of)
+        self.cursors[token] = (entity, boundary, as_of)
         return token
+
+    def _resolve_cursor(self, entity: str, cursor: str | None, as_of: int | None) -> int:
+        """Start boundary of a page; a cursor is issued, for this entity AND this as_of."""
+        if as_of is not None and (as_of < 0 or as_of > len(self.ledger)):
+            raise Refused("invalid_request")  # a future snapshot is not stable
+        if cursor is None:
+            return 0
+        bound = self.cursors.get(cursor)
+        if bound is None or bound[0] != entity or bound[2] != as_of:
+            raise Refused("invalid_request")
+        return bound[1]
+
+    def query(
+        self,
+        entity: str,
+        page_size: int,
+        page_cursor: str | None = None,
+        as_of_ledger_position: int | None = None,
+    ) -> dict[str, Any]:
+        """Legend API query (QueryRequestV0): read-only except for issuing the next cursor."""
+        if not 1 <= page_size <= 100:
+            raise Refused("invalid_request")
+        start = self._resolve_cursor(entity, page_cursor, as_of_ledger_position)
+        order = self._ordered(entity, as_of_ledger_position)
+        end = start + page_size
+        nxt = self._cursor(entity, end, as_of_ledger_position) if end < len(order) else None
+        return {"fps": order[start:end], "next_page_cursor": nxt}
 
     def director_instruction(self, op: str, **refs: Any) -> str:
         if op not in (
@@ -1967,14 +1999,17 @@ class Legend:
             size = refs.get("page_size", 0)
             if not 1 <= size <= 100:
                 raise Refused("invalid_request")
-            start = 0
-            if refs.get("page_cursor") is not None:
-                bound = self.cursors.get(refs["page_cursor"])
-                if bound is None or bound[0] != refs["entity"]:
-                    raise Refused("invalid_request")  # only an issued cursor for this entity
-                start = bound[1]
-            refs["snapshot"] = self._ordered(refs["entity"])  # snapshot at instruction time
-            refs["start"] = start
+            cur = refs.get("page_cursor")
+            if cur is not None:
+                bound = self.cursors.get(cur)
+                if bound is None or bound[2] is None:
+                    raise Refused("invalid_request")  # issued, under an explicit snapshot
+                as_of = bound[2]  # a continuation keeps the snapshot of its cursor
+            else:
+                as_of = len(self.ledger)  # first page: the snapshot is the current position
+            refs["start"] = self._resolve_cursor(refs["entity"], cur, as_of)
+            refs["as_of"] = as_of
+            refs["snapshot"] = self._ordered(refs["entity"], as_of)
         ident = f"ins{len(self.instructions) + 1}"
         self.instructions[ident] = {"op": op, **refs}
         return ident
@@ -1990,6 +2025,8 @@ class Legend:
             raise Refused("conflicting_report")
         op, ok_ = ins["op"], result.get("outcome") == "succeeded"
         cursor = None
+        if not ok_ and op == "query_versions" and result.get("next_page_cursor") is not None:
+            raise Refused("invalid_request")  # failed/refused carries no continuation
         if ok_ and op == "declare_version":
             ent = result.get("entity")
             if (
@@ -2004,7 +2041,7 @@ class Legend:
             if list(result.get("fps", ())) != order[start : start + size]:
                 raise Refused("foreign_ref")  # exact slice of the issued page
             end = start + size
-            expected = self._token(ins["entity"], end) if end < len(order) else None
+            expected = self._token(ins["entity"], end, ins["as_of"]) if end < len(order) else None
             if result.get("next_page_cursor") != expected:
                 raise Refused("invalid_request")
             cursor = expected
@@ -2029,7 +2066,7 @@ class Legend:
                 ):
                     raise Refused("manifest_mismatch")  # an agent-supplied match is not evidence
         if cursor is not None:
-            self._cursor(ins["entity"], ins["start"] + ins["page_size"])  # issue on commit
+            self._cursor(ins["entity"], ins["start"] + ins["page_size"], ins["as_of"])  # on commit
         self.results[ident] = (digest, result)
         return result
 
@@ -2805,7 +2842,7 @@ def test_model_director_query_pagination_is_deterministic_bound_and_sized() -> N
         q,
         {"outcome": "succeeded", "fps": ["v1", "v2"], "next_page_cursor": "cursor_" + "1" * 32},
     )
-    nxt = led._cursor(ent, 2)
+    nxt = led._cursor(ent, 2, led.instructions[q]["as_of"])
     page1 = {"outcome": "succeeded", "fps": ["v1", "v2"], "next_page_cursor": nxt}
     assert led.director_result(q, page1) is page1
     q2 = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=nxt)
@@ -3069,6 +3106,224 @@ def test_model_wire_cursor_names_are_checked() -> None:
     # the wire fields exist in the closed schemas under exactly these names
     assert check(O, "QueryVersionsInstruction", GOLDEN["ins_query"][2]) == []
     assert "page_cursor" in GOLDEN["ins_query"][2] and "next_page_cursor" in GOLDEN["res_query"][2]
+
+
+# -- delta over 9b0451d: snapshot selector, Director legend envelopes, cursor provenance -----------
+def _member(op: str, **extra: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "schema_version": "0",
+        "instruction_ref": ref_of("instruction"),
+        "operation": op,
+        "kind": None,
+        "entity_ref": None,
+        "version_ref": None,
+        "recovery_manifest_fingerprint": None,
+        "page_size": None,
+        "page_cursor": None,
+        "as_of_ledger_position": None,
+    }
+    return {**base, **extra}
+
+
+def _ack(op: str, **extra: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "schema_version": "0",
+        "instruction_ref": ref_of("instruction"),
+        "operation": op,
+        "ack_status": "stored",
+        "error_code": None,
+        "as_of_ledger_position": None,
+    }
+    return {**base, **extra}
+
+
+def test_query_request_as_of_is_optional_nonnegative_integer() -> None:
+    base = GOLDEN["req_query"][2]
+    assert "as_of_ledger_position" not in base and check(Q, "QueryRequestV0", base) == []
+    for good in (0, 7):
+        assert check(Q, "QueryRequestV0", {**base, "as_of_ledger_position": good}) == []
+    for bad in (-1, 1.5, "7", None, True):
+        assert check(Q, "QueryRequestV0", {**base, "as_of_ledger_position": bad}) != [], bad
+    assert check(Q, "QueryRequestV0", {**base, "as_of": 3}) != []
+
+
+def test_director_legend_instruction_member_is_closed_and_carries_the_snapshot() -> None:
+    M_ = "LegendInstructionMember"
+    cur = "cursor_" + "a" * 32
+    goods = [
+        _member("declare_version", kind="agent"),
+        _member("declare_version", kind="agent", entity_ref=ref_of("entity")),
+        _member(
+            "query_versions",
+            entity_ref=ref_of("entity"),
+            page_size=20,
+            as_of_ledger_position=0,
+        ),
+        _member(
+            "query_versions",
+            entity_ref=ref_of("entity"),
+            page_size=100,
+            page_cursor=cur,
+            as_of_ledger_position=12,
+        ),
+        _member("capture_version", version_ref=ref_of("version")),
+        _member("verify_restore", version_ref=ref_of("version"), recovery_manifest_fingerprint=RMF),
+        _member(
+            "restore_version", version_ref=ref_of("version"), recovery_manifest_fingerprint=RMF
+        ),
+    ]
+    for g in goods:
+        assert check(O, M_, g) == [], g
+    q = goods[2]
+    bads = [
+        {**q, "as_of_ledger_position": None},  # a query always carries its snapshot
+        {**q, "as_of_ledger_position": -1},
+        {**q, "page_size": 0},
+        {**q, "page_cursor": "cursor_short"},
+        {**q, "extra": 1},  # closed
+        {**q, "operation": "activate_version"},  # closed menu
+        {**q, "version_ref": ref_of("version")},  # foreign field for the operation
+        {**goods[0], "as_of_ledger_position": 3},  # only a query has a snapshot
+        {**goods[4], "page_cursor": cur},
+        {**goods[5], "recovery_manifest_fingerprint": None},
+        {k: v for k, v in q.items() if k != "as_of_ledger_position"},
+    ]
+    for b in bads:
+        assert check(O, M_, b) != [], b
+    props = json.loads((schemas_dir / "legend" / O).read_text(encoding="utf-8"))["definitions"]
+    for name in ("LegendInstructionMember", "LegendResultAckMember"):
+        assert "legend_snapshot" not in props[name]["properties"]
+
+
+def test_director_legend_result_ack_member_is_closed() -> None:
+    A = "LegendResultAckMember"
+    goods = [
+        _ack("declare_version"),
+        _ack("query_versions", as_of_ledger_position=5),
+        _ack("capture_version", ack_status="identical_retry"),
+        _ack("verify_restore", ack_status="rejected", error_code="conflicting_report"),
+    ]
+    for g in goods:
+        assert check(O, A, g) == [], g
+    bads = [
+        _ack("query_versions"),  # snapshot echo required for a query
+        _ack("declare_version", as_of_ledger_position=5),
+        _ack("capture_version", ack_status="rejected"),  # rejected needs an error code
+        _ack("capture_version", error_code="invalid_request"),  # stored has none
+        _ack("capture_version", ack_status="maybe"),
+        _ack("capture_version", error_code="made_up"),
+        {**_ack("capture_version"), "message": "free text"},
+        {k: v for k, v in _ack("capture_version").items() if k != "ack_status"},
+    ]
+    for b in bads:
+        assert check(O, A, b) != [], b
+
+
+def test_failed_or_refused_query_result_carries_no_cursor() -> None:
+    cur = "cursor_" + "b" * 32
+    for outcome, err in (("failed", "internal_error"), ("refused", "invalid_request")):
+        res = result("query_versions", outcome, err, version_refs=[])
+        assert check(O, "QueryVersionsResult", {**res, "next_page_cursor": None}) == []
+        assert check(O, "QueryVersionsResult", {**res, "next_page_cursor": cur}) != []
+    ok_ = result("query_versions", version_refs=[ref_of("version")])
+    assert check(O, "QueryVersionsResult", {**ok_, "next_page_cursor": cur}) == []
+
+
+def _versioned(n: int = 4) -> tuple[Legend, str, list[int]]:
+    led = Legend()
+    ent = led.declare("k0", None, "agent", "v1", "client_declared")["entity"]
+    for i in range(1, n):
+        led.declare(f"k{i}", ent, "agent", f"v{i + 1}", "client_declared")
+    firsts = [e["position"] for e in led.ledger if e["type"] == "declared"]
+    return led, ent, firsts
+
+
+def test_model_query_as_of_filters_by_first_declared_position() -> None:
+    led, ent, firsts = _versioned()
+    assert led.query(ent, 10)["fps"] == ["v1", "v2", "v3", "v4"]  # omitted = current
+    for cut, want in (
+        (firsts[0] - 1, []),
+        (firsts[1], ["v1", "v2"]),
+        (firsts[3], ["v1", "v2", "v3", "v4"]),
+    ):
+        assert led.query(ent, 10, None, cut)["fps"] == want
+    # a later redeclaration of v1 does not move its first position
+    led.declare("again", ent, "agent", "v1", "client_declared")
+    assert led.query(ent, 10, None, firsts[0])["fps"] == ["v1"]
+    # a snapshot beyond the ledger, or a negative one, is refused atomically
+    _atomic(led, "invalid_request", led.query, ent, 10, None, len(led.ledger) + 1)
+    _atomic(led, "invalid_request", led.query, ent, 10, None, -1)
+
+
+def test_model_query_cursor_is_bound_to_as_of() -> None:
+    led, ent, firsts = _versioned()
+    cut = firsts[3]
+    p1 = led.query(ent, 2, None, cut)
+    assert p1["fps"] == ["v1", "v2"] and p1["next_page_cursor"] is not None
+    cur = p1["next_page_cursor"]
+    _atomic(led, "invalid_request", led.query, ent, 2, cur, firsts[2])  # another as_of
+    _atomic(led, "invalid_request", led.query, ent, 2, cur, None)  # as_of omitted
+    led.declare("late", ent, "agent", "v5", "client_declared")
+    p2 = led.query(ent, 2, cur, cut)  # the snapshot is stable across later writes
+    assert p2["fps"] == ["v3", "v4"] and p2["next_page_cursor"] is None
+    # a cursor issued with no as_of is refused under an explicit one, and conversely
+    c0 = led.query(ent, 2)["next_page_cursor"]
+    _atomic(led, "invalid_request", led.query, ent, 2, c0, cut)
+    assert led.query(ent, 2, c0)["fps"] == ["v3", "v4"]
+
+
+def test_model_one_cursor_issuer_shared_by_legend_api_and_director() -> None:
+    led, ent, _ = _versioned()
+    page = led.query(ent, 2, None, len(led.ledger))
+    cur = page["next_page_cursor"]
+    q = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=cur)
+    assert led.instructions[q]["as_of"] == len(led.ledger)  # the cursor's snapshot is kept
+    ok_ = {"outcome": "succeeded", "fps": ["v3", "v4"], "next_page_cursor": None}
+    assert led.director_result(q, ok_) is ok_
+    # a cursor the Director composes itself, or one issued without a snapshot, is refused
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=ent,
+        page_size=2,
+        page_cursor="cursor_" + "9" * 32,
+    )
+    unsnapped = led.query(ent, 2)["next_page_cursor"]
+    _atomic(
+        led,
+        "invalid_request",
+        led.director_instruction,
+        "query_versions",
+        entity=ent,
+        page_size=2,
+        page_cursor=unsnapped,
+    )
+    # and a cursor issued on the Director path is accepted by the Legend API
+    q1 = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=None)
+    snap = led.instructions[q1]["as_of"]
+    nxt = led._token(ent, 2, snap)
+    first = {"outcome": "succeeded", "fps": ["v1", "v2"], "next_page_cursor": nxt}
+    assert led.director_result(q1, first) is first
+    assert led.query(ent, 2, nxt, snap)["fps"] == ["v3", "v4"]
+
+
+def test_model_failed_or_refused_query_result_must_not_carry_a_cursor() -> None:
+    led, ent, _ = _versioned()
+    q = led.director_instruction("query_versions", entity=ent, page_size=2, page_cursor=None)
+    cur = led._token(ent, 2, led.instructions[q]["as_of"])
+    for outcome in ("failed", "refused"):
+        _atomic(
+            led,
+            "invalid_request",
+            led.director_result,
+            q,
+            {"outcome": outcome, "fps": [], "next_page_cursor": cur},
+        )
+        r = {"outcome": outcome, "fps": [], "next_page_cursor": None}
+        assert led.director_result(q, r) is r
+        led.results.pop(q)
 
 
 def signed(req: dict[str, Any], **changes: Any) -> dict[str, Any]:

@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -83,7 +83,7 @@ class LegendClaimVerificationError(ValueError):
         super().__init__(code)
 
 
-def _fail(code: str) -> Any:
+def _fail(code: str) -> NoReturn:
     raise LegendClaimVerificationError(code) from None
 
 

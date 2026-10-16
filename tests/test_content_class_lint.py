@@ -462,7 +462,7 @@ def test_closed_enum_on_a_union_that_accepts_text_is_invalid(tmp_path: Path) -> 
             },
         },
     )
-    assert any("anyOf/0" in line and "accepts text" in line for line in result.invalid)
+    assert any("anyOf/0" in line and "closed_enum needs" in line for line in result.invalid)
     assert not any("anyOf/1" in line for line in result.invalid)
 
 
@@ -610,7 +610,13 @@ def test_explicitly_closed_and_classified_objects_pass(tmp_path: Path) -> None:
         "properties": {"a": {"x-content-class": "closed_enum", "type": "boolean"}},
     }
     assert _mini(tmp_path / "a", {**base, "additionalProperties": False}, close=False).ok
-    assert _mini(tmp_path / "b", {**base, "unevaluatedProperties": False}, close=False).ok
+    modern = {**base, "unevaluatedProperties": False}
+    draft2019 = {"$schema": "https://json-schema.org/draft/2019-09/schema", **modern}
+    assert _mini(tmp_path / "b", draft2019, close=False).ok
+    # Draft-7 (or no $schema) validators ignore unevaluatedProperties: still open
+    draft7 = {"$schema": "http://json-schema.org/draft-07/schema#", **modern}
+    assert any("open payload root" in m for m in _mini(tmp_path / "d", draft7, close=False).missing)
+    assert any("open payload root" in m for m in _mini(tmp_path / "e", modern, close=False).missing)
     legacy = {
         **base,
         "x-content-class": "legacy_content",
@@ -725,13 +731,16 @@ def test_relabelling_legacy_to_content_free_needs_a_verifiable_disposition() -> 
 
     assert any("no disposition" in p for p in run([]))
     assert any("not file:line" in p for p in run([{**base, "reference": "see the PR"}]))
-    assert any("unknown inventory id" in p for p in run([{**base, "reference": "INV Z99-1"}]))
+    assert any("unknown inventory row" in p for p in run([{**base, "reference": "INV Z99-1"}]))
+    for fake in ("INV S5-999999", "INV S5-0", "INV S5-36", "INV H5-1"):
+        assert any("unknown inventory row" in p for p in run([{**base, "reference": fake}])), fake
+    assert any("names a route" in p for p in run([{**base, "reference": "INV S5"}]))
     assert any("no line" in p for p in run([{**base, "reference": "docs/labels-v0.md:99999"}]))
     assert any("not a file" in p for p in run([{**base, "reference": "nope/missing.py:1"}]))
     assert any(
         "unknown design section" in p for p in run([{**base, "reference": "DESIGN-v2.2 §9.9"}])
     )
-    for good in ("INV S5-5", "INV H2", "DESIGN-v2.2 §3.6", "docs/labels-v0.md:1"):
+    for good in ("INV S5-5", "INV H2-1", "DESIGN-v2.2 §3.6", "docs/labels-v0.md:1"):
         assert run([{**base, "reference": good}]) == [], good
     wrong_to = {**base, "to": "digest", "reference": "INV S5-5"}
     assert any("disposition says digest" in p for p in run([wrong_to]))
@@ -753,3 +762,77 @@ def test_anchored_dispositions_and_register_cannot_be_edited_away() -> None:
     problems = mod.ratchet_problems(live, dict(live), tree, live, a_disp)
     assert any("lost anchored entries" in p for p in problems)
     assert any("edited or removed" in p for p in problems)
+
+
+def _probe(tmp_path: Path, prop: dict):
+    return _mini(
+        tmp_path, {"type": "object", "additionalProperties": False, "properties": {"v": prop}}
+    )
+
+
+def test_semantics_cover_allof_and_unconstrained_alternatives(tmp_path: Path) -> None:
+    bad_allof = _probe(tmp_path / "a", {"x-content-class": "number", "allOf": [{"type": "string"}]})
+    assert bad_allof.invalid
+    bad_any = _probe(
+        tmp_path / "b", {"x-content-class": "closed_enum", "anyOf": [{}, {"enum": ["safe"]}]}
+    )
+    assert any("unconstrained alternative" in line for line in bad_any.invalid)
+    bad_true = _probe(
+        tmp_path / "c", {"x-content-class": "closed_enum", "oneOf": [True, {"enum": ["safe"]}]}
+    )
+    assert bad_true.invalid
+    bad_ref = _probe(
+        tmp_path / "d",
+        {"x-content-class": "closed_enum", "anyOf": [{"$ref": "#/definitions/T"}, {"enum": ["a"]}]},
+    )
+    assert bad_ref.invalid or bad_ref.unresolved
+    ok = _probe(
+        tmp_path / "e",
+        {"x-content-class": "closed_enum", "anyOf": [{"enum": ["a"]}, {"type": "boolean"}]},
+    )
+    assert ok.ok
+    ok_allof = _probe(
+        tmp_path / "f", {"x-content-class": "number", "allOf": [{"type": "integer", "minimum": 0}]}
+    )
+    assert ok_allof.ok
+
+
+def test_open_object_inside_a_composition_branch_is_flagged(tmp_path: Path) -> None:
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "strategy": {
+                "oneOf": [
+                    {"x-content-class": "closed_enum", "type": "string", "enum": ["auto"]},
+                    {
+                        "type": "object",
+                        "required": ["algorithm"],
+                        "properties": {
+                            "algorithm": {"x-content-class": "closed_enum", "enum": ["auto"]}
+                        },
+                    },
+                ]
+            }
+        },
+    }
+    result = _mini(tmp_path, schema)
+    assert any("/properties/strategy/oneOf/1" in m for m in result.missing)
+    schema["properties"]["strategy"]["oneOf"][1].update(
+        {
+            "x-content-class": "legacy_content",
+            "x-content-key-class": "legacy_content",
+            "x-content-note": "INV-GAP test",
+        }
+    )
+    fixed = _mini(tmp_path / "fixed", schema)
+    assert fixed.ok
+    locs = {f.loc for f in fixed.legacy}
+    assert "optimization/t_schema.json#/properties/strategy/oneOf/1" in locs
+    assert "optimization/t_schema.json#/properties/strategy/oneOf/1 [keys]" in locs
+    closed = {**schema["properties"]["strategy"]["oneOf"][1]}
+    for k in ("x-content-class", "x-content-key-class", "x-content-note"):
+        closed.pop(k)
+    closed["additionalProperties"] = False
+    schema["properties"]["strategy"]["oneOf"][1] = closed
+    assert _mini(tmp_path / "closed", schema).ok

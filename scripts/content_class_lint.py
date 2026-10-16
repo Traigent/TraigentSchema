@@ -370,23 +370,52 @@ class Linter:
             and node["additionalProperties"] != {}
         )
 
-    def _open_extras(self, node: dict) -> bool:
+    def _honours_unevaluated(self, doc: str) -> bool:
+        """``unevaluatedProperties`` exists only in 2019-09+ (and OpenAPI 3.1) documents."""
+        data = self.docs.get(doc)
+        if not isinstance(data, dict):
+            return False
+        dialect = data.get("$schema")
+        if isinstance(dialect, str):
+            return bool(re.search(r"2019-09|2020-12", dialect))
+        version = data.get("openapi")
+        return isinstance(version, str) and version.startswith("3.1")
+
+    def _open_extras(self, node: dict, doc: str = "") -> bool:
         """True when the object accepts properties it does not declare.
 
         In JSON Schema an object that omits ``additionalProperties`` accepts extras, so
-        omission is open unless ``unevaluatedProperties`` is false.  Nodes that only
-        compose or reference other schemas are judged where the object is declared.
+        omission is open.  ``unevaluatedProperties: false`` closes it only in dialects that
+        define the keyword (a Draft-7 validator ignores it).  Nodes that only compose or
+        reference other schemas are judged where the object is declared.
         """
         ap = node.get("additionalProperties", _MISSING)
         if ap is True or ap == {}:
             return True
         if ap is not _MISSING:
             return False
-        if node.get("unevaluatedProperties") is False or self._is_ref_or_composition_only(node):
+        if node.get("unevaluatedProperties") is False and self._honours_unevaluated(doc):
+            return False
+        if self._is_ref_or_composition_only(node):
             return False
         typ = node.get("type")
         types = set(typ) if isinstance(typ, list) else {typ}
         return "object" in types or "properties" in node
+
+    def _closes(self, node: Any, doc: str, scope=None, depth: int = 0) -> bool:
+        """True when ``node`` (or a $ref it points at) explicitly forbids undeclared properties."""
+        if not isinstance(node, dict) or depth > 6:
+            return False
+        if node.get("additionalProperties") is False:
+            return True
+        if node.get("unevaluatedProperties") is False and self._honours_unevaluated(doc):
+            return True
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope or [], ref)
+            if res:
+                return self._closes(res[2], res[0], res[3], depth + 1)
+        return False
 
     def _is_container(self, doc, scope, node: dict) -> bool:
         """Object/array whose content is covered by (separately checked) children."""
@@ -440,37 +469,71 @@ class Linter:
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
             return  # inherited from a classed definition
-        if self._is_container(doc, scope, node) and not self._open_extras(node):
+        if self._is_container(doc, scope, node) and not self._open_extras(node, doc):
             return
         self.result.missing.append(loc)
 
     def _check_semantics(self, loc: str, cls: str, node: dict, doc, scope) -> None:
-        """Validate the class against the node's own keywords and every composition branch.
+        """Validate that ``cls`` holds for every value the node can accept.
 
-        A class on a node that is only an ``anyOf``/``oneOf``/``allOf`` is a claim about each
-        branch: one branch that accepts customer text makes the claim false.
+        A class is a claim about all accepted values: ``allOf`` members intersect (one
+        satisfying conjunct is enough, a conjunct that accepts text is not), while every
+        ``anyOf``/``oneOf`` alternative must satisfy it, including unconstrained ``{}`` / ``true``
+        alternatives and ``$ref`` targets.
         """
-        if any(k in node for k in ("type", "enum", "const", "pattern", "format")):
+        for why in self._class_problems(cls, node, doc, scope, root=True):
+            self.result.invalid.append(f"{loc}: {why}")
+
+    _VALUE_KEYS = ("type", "enum", "const", "pattern", "format")
+
+    def _class_problems(
+        self, cls: str, node: Any, doc: str, scope, *, root: bool = False, depth: int = 0
+    ) -> list[str]:
+        """Reasons the claim ``cls`` does not hold for ``node`` ([] when it holds)."""
+        if node is False or (isinstance(node, dict) and node.get("type") == "null"):
+            return []  # accepts nothing / only null
+        if node is True or not isinstance(node, dict):
+            return ["an unconstrained alternative accepts any value"]
+        if depth > 12:
+            return ["composition too deep to verify"]
+        if not root and CLASS_KEY in node:
+            own = node[CLASS_KEY]
+            return [] if own != LEGACY else ["a branch is legacy_content"]
+        conjuncts: list[list[str]] = []
+        if any(k in node for k in self._VALUE_KEYS):
             why = semantic_problem(cls, node, doc)
-            if why:
-                self.result.invalid.append(f"{loc}: {why}")
-            return
+            conjuncts.append([why] if why else [])
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res is None or not isinstance(res[2], dict):
+                conjuncts.append([f"unresolvable $ref {ref}"])
+            else:
+                conjuncts.append(self._class_problems(cls, res[2], res[0], res[3], depth=depth + 1))
         for slot in ("anyOf", "oneOf"):
             branches = node.get(slot)
-            if not isinstance(branches, list):
-                continue
-            for i, branch in enumerate(branches):
-                if not self._is_value_branch(branch) or CLASS_KEY in branch:
-                    continue  # null/overlay branches carry nothing; classed ones are recorded
-                target, tdoc = branch, doc
-                if "$ref" in branch:
-                    res = self._resolve(doc, scope, branch["$ref"])
-                    if not res or not isinstance(res[2], dict) or CLASS_KEY in res[2]:
-                        continue
-                    target, tdoc = res[2], res[0]
-                why = semantic_problem(cls, target, tdoc)
-                if why:
-                    self.result.invalid.append(f"{loc}/{slot}/{i}: {why} (branch accepts text)")
+            if isinstance(branches, list):
+                problems: list[str] = []
+                for i, b in enumerate(branches):
+                    problems += [
+                        f"{slot}/{i}: {w}"
+                        for w in self._class_problems(cls, b, doc, scope, depth=depth + 1)
+                    ]
+                conjuncts.append(problems)
+        members = node.get("allOf")
+        if isinstance(members, list):
+            for i, b in enumerate(members):
+                conjuncts.append(
+                    [
+                        f"allOf/{i}: {w}"
+                        for w in self._class_problems(cls, b, doc, scope, depth=depth + 1)
+                    ]
+                )
+        if not conjuncts:
+            return ["an unconstrained alternative accepts any value"]
+        if any(not c for c in conjuncts):
+            return []  # at least one conjunct restricts the value to the claimed class
+        return [w for c in conjuncts for w in c]
 
     def _record_annotation(self, loc: str, node: dict, doc, scope) -> None:
         """Record a class declared on a composition branch / overlay (not a parent slot)."""
@@ -495,7 +558,7 @@ class Linter:
         types = set(typ) if isinstance(typ, list) else {typ}
         if "object" not in types and "properties" not in node:
             return
-        if not self._open_extras(node):
+        if not self._open_extras(node, doc):
             return
         key_cls = node.get(KEY_CLASS_KEY)
         if node.get(CLASS_KEY) is None or key_cls is None:
@@ -574,6 +637,8 @@ class Linter:
         overlay: frozenset[str] | None = None,
         primary: frozenset[str] = frozenset(),
         root: bool = False,
+        branch: bool = False,
+        closed: bool = False,
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
@@ -591,6 +656,8 @@ class Linter:
             self._record_annotation(loc, node, doc, scope)
         if value or root or ptr == "":
             self._check_open_root(loc, node, doc, scope)
+        elif branch and not closed:
+            self._check_open_root(loc, node, doc, scope)  # open object inside a composition
 
         for k in ("properties", "patternProperties"):
             sub = node.get(k)
@@ -634,6 +701,10 @@ class Linter:
         # introduce is a new value and must carry its own class.
         own_names = frozenset(self.declared_names(doc, scope, node))
         branch_overlay = primary | own_names
+        # An object closed by this node (or inherited) cannot be re-opened by a branch: all
+        # conjuncts must accept an extra property for it to be accepted.  if/then/else/not only
+        # restrict what the unconditional keywords accept, so they are never open-checked.
+        node_closed = closed or self._closes(node, doc, scope)
         for k in ("if", "then", "else", "not"):
             if isinstance(node.get(k), dict):
                 self.walk_schema(
@@ -648,6 +719,7 @@ class Linter:
                 )
         for k in _SCHEMA_LIST_SLOTS:
             if isinstance(node.get(k), list):
+                sibling_closed = k == "allOf" and any(self._closes(b, doc, scope) for b in node[k])
                 for i, child in enumerate(node[k]):
                     self.walk_schema(
                         doc,
@@ -658,6 +730,8 @@ class Linter:
                         depth=depth + 1,
                         overlay=overlay,
                         primary=primary | own_names,
+                        branch=True,
+                        closed=node_closed or sibling_closed,
                     )
         for k in _SCHEMA_MAP_SLOTS:
             if isinstance(node.get(k), dict):

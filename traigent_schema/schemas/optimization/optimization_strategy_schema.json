@@ -142,6 +142,9 @@
           "$ref": "#/definitions/SupportedOptimizationStrategyName"
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "required": [
             "algorithm"
@@ -209,6 +212,9 @@
           "additionalProperties": true
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "required": [
             "type"

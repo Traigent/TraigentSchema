@@ -97,14 +97,19 @@ def reference_problem(ref: str, root: Path = ROOT, ids_path: Path = REFERENCE_ID
     """Why a disposition reference is not verifiable (None when it is).
 
     Accepted: ``<repo path>:<line>`` naming an existing line of an existing file,
-    ``INV <route>[-<n>]`` for a route id of the checked-in inventory id list, or
+    ``INV <route>-<row>`` for a field row of the checked-in inventory id list, or
     ``DESIGN-v2.2 §<section>`` for a checked-in design section.
     """
     if not isinstance(ref, str):
         return "reference is not a string"
     ids = json.loads(ids_path.read_text(encoding="utf-8"))
-    if m := re.fullmatch(r"INV[ -]([A-Z][0-9]+)(?:-[0-9]+)?", ref):
-        return None if m.group(1) in ids["inventory_routes"] else f"unknown inventory id {ref!r}"
+    if m := re.fullmatch(r"INV[ -]([A-Z][0-9]+)-([0-9]+)", ref):
+        rows = ids["inventory_rows"].get(m.group(1), 0)
+        if 1 <= int(m.group(2)) <= rows:
+            return None
+        return f"unknown inventory row {ref!r} ({m.group(1)} has {rows} field rows)"
+    if re.fullmatch(r"INV[ -][A-Z][0-9]+", ref):
+        return f"{ref!r} names a route, not a field row (cite INV <route>-<row>)"
     if m := re.fullmatch(r"DESIGN-v2\.2 §([0-9]+(?:\.[0-9]+)?)", ref):
         return (
             None if m.group(1) in ids["design_v2_2_sections"] else f"unknown design section {ref!r}"

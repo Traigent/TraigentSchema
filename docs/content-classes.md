@@ -64,7 +64,13 @@ register. A class placed on a node that is only a union is a claim about every b
 branch is validated against it (a `closed_enum` union with a free-string branch is invalid).
 Any object (root or nested) that accepts extra properties must declare both `x-content-class` and `x-content-key-class` (open roots can only
 be `legacy_content`: their extra names are unconstrained) or be closed with
-`additionalProperties: false` (or `unevaluatedProperties: false`). An object that OMITS
+`additionalProperties: false` (or `unevaluatedProperties: false`). Open-object checks also run on objects inside `oneOf`/`anyOf`/`allOf` branches (not when the
+enclosing node or an `allOf` sibling closes the object; `if`/`then`/`else`/`not` only restrict, so
+they are not checked). `unevaluatedProperties: false` closes an object only in 2019-09+ documents
+(or OpenAPI 3.1); Draft-7 documents must use `additionalProperties: false`.
+A content-free class must hold for every branch that can accept a value: `allOf` members
+intersect (one restricting member suffices), every `anyOf`/`oneOf` alternative must hold, and
+unconstrained `{}` / `true` alternatives fail. An object that OMITS
 `additionalProperties` is open in JSON Schema and is treated as open; existing ones are
 classified `legacy_content` ("implicit-open, reclassified by review") rather than tightened.
 
@@ -87,8 +93,8 @@ The manifest and dispositions sit in the same tree as the annotations, so the ra
 copies on `origin/develop` (`git show`, 30 s timeout) as its anchor. With an anchor: a
 `legacy_content` location absent from the anchored manifest fails, a registry entry or disposition
 cannot be removed or edited, and an anchored legacy location moved to a content-free class needs a
-disposition whose `reference` verifies (`path:line` of an existing line, `INV <route>[-<n>]` from
-`docs/content-class-reference-ids.json`, or `DESIGN-v2.2 §<section>`). Without an anchor (first
+disposition whose `reference` verifies (`path:line` of an existing line, `INV <route>-<row>` (the field row must exist in
+`docs/content-class-reference-ids.json`), or `DESIGN-v2.2 §<section>`). Without an anchor (first
 introduction) the working-tree manifest must equal the live annotations exactly. If git or the ref
 is unavailable the check fails; it never skips (`python3 scripts/content_class_manifest.py --check`).
 

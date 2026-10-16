@@ -565,6 +565,9 @@
                         "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json"
                       },
                       {
+                        "x-content-class": "legacy_content",
+                        "x-content-key-class": "legacy_content",
+                        "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
                         "type": "object",
                         "additionalProperties": true
                       }

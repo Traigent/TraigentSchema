@@ -371,8 +371,22 @@ class Linter:
         )
 
     def _open_extras(self, node: dict) -> bool:
-        ap = node.get("additionalProperties")
-        return ap is True or ap == {}
+        """True when the object accepts properties it does not declare.
+
+        In JSON Schema an object that omits ``additionalProperties`` accepts extras, so
+        omission is open unless ``unevaluatedProperties`` is false.  Nodes that only
+        compose or reference other schemas are judged where the object is declared.
+        """
+        ap = node.get("additionalProperties", _MISSING)
+        if ap is True or ap == {}:
+            return True
+        if ap is not _MISSING:
+            return False
+        if node.get("unevaluatedProperties") is False or self._is_ref_or_composition_only(node):
+            return False
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        return "object" in types or "properties" in node
 
     def _is_container(self, doc, scope, node: dict) -> bool:
         """Object/array whose content is covered by (separately checked) children."""
@@ -575,7 +589,7 @@ class Linter:
             self._record_value(loc, node, doc, scope)
         else:
             self._record_annotation(loc, node, doc, scope)
-        if root or ptr == "":
+        if value or root or ptr == "":
             self._check_open_root(loc, node, doc, scope)
 
         for k in ("properties", "patternProperties"):

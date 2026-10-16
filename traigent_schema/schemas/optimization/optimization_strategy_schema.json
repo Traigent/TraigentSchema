@@ -199,6 +199,7 @@
               "type": "string"
             },
             "parameters": {
+              "x-content-key-class": "legacy_content",
               "x-content-class": "legacy_content",
               "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): parameters",
               "type": "object",
@@ -263,6 +264,7 @@
               "type": "string"
             },
             "parameters": {
+              "x-content-key-class": "legacy_content",
               "x-content-class": "legacy_content",
               "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): parameters",
               "type": "object",

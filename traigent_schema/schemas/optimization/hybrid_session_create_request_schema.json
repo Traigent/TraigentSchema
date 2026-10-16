@@ -10,6 +10,7 @@
   "additionalProperties": true,
   "definitions": {
     "ModelSpec": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP H1: not inventoried (free object/array): ModelSpec",
       "type": "object",
@@ -70,6 +71,7 @@
       ]
     },
     "LegacyObjectObjectiveDefinition": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP H1: not inventoried (free object/array): LegacyObjectObjectiveDefinition",
       "type": "object",
@@ -130,6 +132,7 @@
       }
     },
     "LegacyObjectiveBand": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP H1: not inventoried (free object/array): LegacyObjectiveBand",
       "type": "object",
@@ -200,6 +203,7 @@
       "minItems": 2,
       "maxItems": 200,
       "items": {
+        "x-content-key-class": "legacy_content",
         "x-content-class": "legacy_content",
         "x-content-note": "INV H1-2 (LEAK): config_space",
         "type": "object",
@@ -229,6 +233,7 @@
           "minItems": 2,
           "maxItems": 200,
           "items": {
+            "x-content-key-class": "legacy_content",
             "x-content-class": "legacy_content",
             "x-content-note": "INV H1-2 (LEAK): search_space",
             "type": "object",
@@ -242,6 +247,7 @@
       ]
     },
     "optimization_config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV H1-3 (OPEN): optimization_config",
       "type": "object",
@@ -318,6 +324,7 @@
       "minItems": 1,
       "maxItems": 10000,
       "items": {
+        "x-content-key-class": "legacy_content",
         "x-content-class": "legacy_content",
         "x-content-note": "INV H1-5 (LEAK): eval_dataset",
         "type": "object",
@@ -361,6 +368,7 @@
       "minItems": 1,
       "maxItems": 50,
       "items": {
+        "x-content-key-class": "legacy_content",
         "x-content-class": "legacy_content",
         "x-content-note": "INV H1-6 (LEAK): scored_examples",
         "type": "object",
@@ -371,6 +379,7 @@
       }
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV H1-4 (OPEN): metadata",
       "type": [

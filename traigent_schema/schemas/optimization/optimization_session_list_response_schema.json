@@ -29,6 +29,7 @@
   },
   "definitions": {
     "session_summary": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S8: not inventoried (free object/array): session_summary",
       "type": "object",
@@ -57,6 +58,7 @@
           "description": "ISO-8601 creation timestamp when the server provides one."
         },
         "progress": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV-GAP S8: not inventoried (free object/array): progress",
           "type": "object",

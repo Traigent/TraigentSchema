@@ -1,4 +1,7 @@
 {
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/session_identity_binding_response_schema.json",
   "title": "Session Identity Binding Response",
@@ -204,6 +207,7 @@
           "description": "The ONE hosted dataset version whose server-computed root equals dataset_root, when exactly one exists. Null when the dataset is not hosted, no version resolves, or more than one candidate is ambiguous (see facts.dataset.dataset_version)."
         },
         "facts": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV S9-4 (OPEN): facts",
           "type": "object",
@@ -211,6 +215,7 @@
           "description": "The server's own, versioned account of what it established (facts.version is FACTS_VERSION). Every sub-fact is labelled provenance 'server_recorded' or 'declared'; the label is computed server-side and never copied from the client. Open-ended and evolving with the binder (key_id, agent, dataset, evaluator, base_head_generation, record_state, wire, and, on a trial, trial_id/evaluated/trial_origin) -- not itself a closed contract yet."
         },
         "declared": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV S9-4 (OPEN): declared",
           "type": ["object", "null"],
@@ -294,12 +299,14 @@
           "description": "Recorded verbatim from the declared block's observed_provider_versions once it validates; [] otherwise (never absent)."
         },
         "facts": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV S9-4 (OPEN): facts",
           "type": "object",
           "additionalProperties": true
         },
         "declared": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV S9-4 (OPEN): declared",
           "type": ["object", "null"],

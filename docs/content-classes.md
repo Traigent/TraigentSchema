@@ -62,10 +62,11 @@ Composition branches (`oneOf`/`anyOf`/`allOf`) are walked too: a class declared 
 recorded at the branch's own pointer (`.../oneOf/0`) in the manifest and, for `legacy_content`, in the
 register. A class placed on a node that is only a union is a claim about every branch, so each
 branch is validated against it (a `closed_enum` union with a free-string branch is invalid).
-Document and request/response body roots that accept extra properties (`additionalProperties`
-`true` or `{}`) must declare both `x-content-class` and `x-content-key-class` (open roots can only
+Any object (root or nested) that accepts extra properties must declare both `x-content-class` and `x-content-key-class` (open roots can only
 be `legacy_content`: their extra names are unconstrained) or be closed with
-`additionalProperties: false`.
+`additionalProperties: false` (or `unevaluatedProperties: false`). An object that OMITS
+`additionalProperties` is open in JSON Schema and is treated as open; existing ones are
+classified `legacy_content` ("implicit-open, reclassified by review") rather than tightened.
 
 ## Manifest and dispositions
 

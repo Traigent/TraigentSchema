@@ -36,6 +36,7 @@
       "$ref": "#/definitions/best_config_environment"
     },
     "config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV B1-5 (LEAK): config",
       "type": "object",
@@ -98,6 +99,7 @@
       "additionalProperties": false
     },
     "validation": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP B1,B2: not inventoried (free object/array): validation",
       "type": "object",

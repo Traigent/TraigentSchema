@@ -52,6 +52,7 @@
       "description": "ISO 8601 timestamp of the last modification to this tunable"
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": "object",

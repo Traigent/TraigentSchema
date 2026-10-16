@@ -51,7 +51,9 @@ def _load():
 lint = _load()
 
 
-def _mini(tmp_path: Path, schema: dict, name: str = "t_schema.json"):
+def _mini(tmp_path: Path, schema: dict, name: str = "t_schema.json", *, close: bool = True):
+    if close and schema.get("type") == "object":
+        schema = {"additionalProperties": False, **schema}  # an omitted value means open
     root = tmp_path / "schemas"
     (root / "optimization").mkdir(parents=True, exist_ok=True)
     (root / "optimization" / name).write_text(json.dumps(schema), encoding="utf-8")
@@ -368,7 +370,8 @@ def test_encrypted_blob_must_come_from_the_label_envelope(tmp_path: Path) -> Non
     (root / "optimization").mkdir()
     node = {"type": "string", "pattern": B64, "maxLength": 300, "x-content-class": "encrypted_blob"}
     (root / "labels" / "x_schema.json").write_text(
-        json.dumps({"type": "object", "properties": {"c": node}}), encoding="utf-8"
+        json.dumps({"type": "object", "additionalProperties": False, "properties": {"c": node}}),
+        encoding="utf-8",
     )
     assert lint.run_lint(root).ok
     del node["maxLength"]
@@ -574,3 +577,45 @@ def test_tenant_and_project_ids_are_approved_opaque_refs() -> None:
     for pat in ("^tenant_[0-9a-f]{32}$", "^project_[0-9a-f]{32}$"):
         assert lint.semantic_problem("opaque_ref", {"type": "string", "pattern": pat}) is None
     assert lint.semantic_problem("opaque_ref", {"type": "string", "pattern": "^tenant_.+$"})
+
+
+def test_object_without_additional_properties_is_open(tmp_path: Path) -> None:
+    # The reviewer's reproduction: no additionalProperties, so {"patient_note": ...} validates.
+    schema = {
+        "type": "object",
+        "properties": {"has_next": {"x-content-class": "closed_enum", "type": "boolean"}},
+    }
+    result = _mini(tmp_path, schema, close=False)
+    assert any("open payload root" in m for m in result.missing)
+    nested = _mini(
+        tmp_path / "n",
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"inner": {"type": "object", "properties": {"a": {"type": "boolean"}}}},
+        },
+        close=False,
+    )
+    assert any("/properties/inner" in m and "open payload root" in m for m in nested.missing)
+    try:
+        import jsonschema
+
+        jsonschema.validate({"has_next": True, "patient_note": "Alice has diabetes"}, schema)
+    except ImportError:  # pragma: no cover
+        pass
+
+
+def test_explicitly_closed_and_classified_objects_pass(tmp_path: Path) -> None:
+    base = {
+        "type": "object",
+        "properties": {"a": {"x-content-class": "closed_enum", "type": "boolean"}},
+    }
+    assert _mini(tmp_path / "a", {**base, "additionalProperties": False}, close=False).ok
+    assert _mini(tmp_path / "b", {**base, "unevaluatedProperties": False}, close=False).ok
+    legacy = {
+        **base,
+        "x-content-class": "legacy_content",
+        "x-content-key-class": "legacy_content",
+        "x-content-note": "INV-GAP test",
+    }
+    assert _mini(tmp_path / "c", legacy, close=False).ok

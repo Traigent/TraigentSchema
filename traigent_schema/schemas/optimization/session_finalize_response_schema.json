@@ -16,6 +16,7 @@
       "type": "string"
     },
     "best_config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S5-22 (LEAK): best_config",
       "type": "object",
@@ -30,6 +31,7 @@
       "description": "Content-less best metrics keyed by metric_ref. Present instead of the name-keyed best_metrics."
     },
     "best_metrics": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S5-23 (LEAK): best_metrics",
       "type": "object"
@@ -118,6 +120,7 @@
       ]
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S5-31 (LEAK): metadata",
       "type": "object",
@@ -136,6 +139,7 @@
       "type": "array",
       "description": "Per-trial history, present only when the finalize request set include_full_history.",
       "items": {
+        "x-content-key-class": "legacy_content",
         "x-content-class": "legacy_content",
         "x-content-note": "INV-GAP S5: not inventoried (free object/array): full_history",
         "type": "object",
@@ -158,11 +162,13 @@
             ]
           },
           "config": {
+            "x-content-key-class": "legacy_content",
             "x-content-class": "legacy_content",
             "x-content-note": "INV S5-31 (LEAK): config",
             "type": "object"
           },
           "metrics": {
+            "x-content-key-class": "legacy_content",
             "x-content-class": "legacy_content",
             "x-content-note": "INV S5-31 (LEAK): metrics",
             "type": "object"

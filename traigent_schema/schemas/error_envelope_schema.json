@@ -34,6 +34,7 @@
       "description": "Optional stable code for finer client branching (e.g. \"quota_exceeded\"). Distinct from `error`, which is the broad name."
     },
     "details": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): details",
       "type": "object",

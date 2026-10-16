@@ -31,6 +31,7 @@
       "description": "Content-less promoted configuration as knob_ref -> choice_ref|number (phase 2, additive). Does not participate in config_hash, which stays defined over `config`; the content-less hash definition is a P3 decision."
     },
     "config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV B1-5 (LEAK): config",
       "description": "The promoted configuration exactly as published. config_hash is computed over this object BEFORE any allowlist filtering or default merging, so the digest is stable regardless of what a particular runtime chooses to apply. Values are customer content and are never normalized.",
@@ -80,6 +81,7 @@
       "additionalProperties": false
     },
     "validation": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP B1,B2: not inventoried (free object/array): validation",
       "description": "Validation evidence, including any guaranteed-selection result. Covered by spec_hash in full: v1 stripped guaranteed-selection claims here because the certificate contained spec_hash, which was circular. v2 rebinds the certificate to config_hash plus identity, so nothing needs stripping.",

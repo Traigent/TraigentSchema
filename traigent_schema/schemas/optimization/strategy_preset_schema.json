@@ -76,6 +76,7 @@
       "$ref": "#/definitions/PresetName"
     },
     "params": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): params",
       "type": "object",

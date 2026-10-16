@@ -55,6 +55,7 @@
       "x-reference": "../agents/agent_schema.json#/properties/id"
     },
     "optimization_strategy": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S1-61 (OPEN): optimization_strategy",
       "type": "object",
@@ -62,6 +63,7 @@
       "description": "Strategy state echoed by the server (algorithm, resolved_sampler, ...)."
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
       "type": "object",
@@ -120,6 +122,7 @@
       "description": "Legacy envelope flag (legacy route path only)."
     },
     "data": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S1: not inventoried (free object/array): data",
       "type": "object",

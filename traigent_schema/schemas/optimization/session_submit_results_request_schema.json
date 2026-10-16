@@ -33,6 +33,7 @@
       "description": "Content-less per-measure scores keyed by metric_ref (phase 2, additive), sent instead of metrics."
     },
     "config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-5 (LEAK): config",
       "type": "object",
@@ -81,6 +82,7 @@
       "maxLength": 2000
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": [
@@ -119,6 +121,7 @@
       "additionalProperties": true
     },
     "execution_environment": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-19 (OPEN): execution_environment",
       "type": [
@@ -129,6 +132,7 @@
       "description": "Optional opaque SDK execution environment metadata (e.g. runtime/platform info). Backend validates it as an optional object only and passes it through unvalidated to the session service on the classic (non-interactive) submission path (src/routes/traigent_session_routes.py::_validate_results_payload)."
     },
     "summary_stats": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-20 (LEAK): summary_stats",
       "type": [

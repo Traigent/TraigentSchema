@@ -142,6 +142,7 @@
       "description": "Range constructor used by range_kwargs."
     },
     "range_kwargs": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP no-route: not inventoried (free object/array): range_kwargs",
       "type": "object",

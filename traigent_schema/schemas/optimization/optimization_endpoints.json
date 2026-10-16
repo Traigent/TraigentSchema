@@ -35,6 +35,7 @@
                     ]
                   },
                   "LegacyObjectObjectiveDefinition": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV-GAP S1: not inventoried (free object/array): LegacyObjectObjectiveDefinition",
                     "type": "object",
@@ -94,6 +95,7 @@
                     }
                   },
                   "LegacyObjectiveBand": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV-GAP S1: not inventoried (free object/array): LegacyObjectiveBand",
                     "type": "object",
@@ -371,6 +373,7 @@
                     "description": "Default configuration as knob_ref -> choice_ref|number. Replaces default_config."
                   },
                   "configuration_space": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S1-20 (LEAK): configuration_space",
                     "type": "object"
@@ -387,6 +390,7 @@
                     ]
                   },
                   "dataset_metadata": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV-GAP S1: not inventoried (free object/array): dataset_metadata",
                     "type": "object"
@@ -492,16 +496,19 @@
                     "minimum": 1
                   },
                   "budget": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S1-30 (OPEN): budget",
                     "type": "object"
                   },
                   "constraints": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S1-31 (OPEN): constraints",
                     "type": "object"
                   },
                   "default_config": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S1-32 (LEAK): default_config",
                     "type": "object"
@@ -574,6 +581,7 @@
                     "type": "string"
                   },
                   "metadata": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
                     "type": "object",
@@ -757,6 +765,7 @@
                       "x-reference": "../agents/agent_schema.json#/properties/id"
                     },
                     "metadata": {
+                      "x-content-key-class": "legacy_content",
                       "x-content-class": "legacy_content",
                       "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
                       "type": "object",
@@ -855,6 +864,7 @@
                     "type": "array"
                   },
                   "request_metadata": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S2-4 (OPEN): request_metadata",
                     "type": "object"
@@ -1222,6 +1232,7 @@
                     "type": "boolean"
                   },
                   "metadata": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S5-5 (OPEN): metadata",
                     "type": "object",
@@ -1446,6 +1457,7 @@
                       "type": "string"
                     },
                     "metadata": {
+                      "x-content-key-class": "legacy_content",
                       "x-content-class": "legacy_content",
                       "x-content-note": "INV-GAP H2: not inventoried (free object/array): metadata",
                       "type": "object",
@@ -1542,6 +1554,7 @@
                 ],
                 "properties": {
                   "scores": {
+                    "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV-GAP H3: not inventoried (free object/array): scores",
                     "type": "object"

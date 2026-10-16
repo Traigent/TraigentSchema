@@ -47,7 +47,9 @@ per-object maximum; storage rollback against a reader with no prior state is out
   Verification also takes the root-signed `KeyBindingList` and refuses: a list whose `sequence` is
   below the one the client retained (rollback), any key in the chain (or its signer) listed in
   `revoked_key_ids` (a retired admin cannot sign new project or member keys), and any binding whose
-  `not_before` is later than the verifier's clock (`verify_chain` in `scripts/labels_reference.py`).
+  `not_before` is later than the verifier's clock (`verify_chain` in `scripts/labels_reference.py`). `verify_chain` now requires `binding_list`,
+  `retained_sequence` and `now`; it is a reference script with no external callers, so the
+  signature change is intentional.
 * Member keys are trusted only through an admin-signed `member_key` binding. A registration carries
   no self-signature (the schema has no field for one): the approving admin checks the key
   fingerprint with the member out-of-band (read aloud or compared in both UIs) before signing, and

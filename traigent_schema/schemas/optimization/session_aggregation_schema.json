@@ -73,6 +73,7 @@
       "type": "number"
     },
     "best_weighted_config": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV S5-15 (LEAK): best_weighted_config",
       "type": [

@@ -18,6 +18,7 @@
       "description": "Whether a next trial suggestion is available. false once the pre-generated trial queue is exhausted."
     },
     "trial": {
+      "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",
       "x-content-note": "INV-GAP S2: not inventoried (free object/array): trial",
       "type": ["object", "null"],
@@ -35,6 +36,7 @@
           "description": "Content-less suggested configuration as knob_ref -> choice_ref|number (phase 2, additive), present instead of the name-keyed suggestion in agent_specification."
         },
         "agent_specification": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV-GAP S2: not inventoried (free object/array): agent_specification",
           "type": "object",
@@ -53,6 +55,7 @@
               "type": "string"
             },
             "model_parameters": {
+              "x-content-key-class": "legacy_content",
               "x-content-class": "legacy_content",
               "x-content-note": "INV S2-21 (OPEN): model_parameters",
               "type": "object",
@@ -62,6 +65,7 @@
           }
         },
         "dataset_subset_indices": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV-GAP S2: not inventoried (free object/array): dataset_subset_indices",
           "type": "object",
@@ -81,6 +85,7 @@
           }
         },
         "metadata": {
+          "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV S2-22 (OPEN): metadata",
           "type": "object",

@@ -148,7 +148,7 @@ members of its closed vocabulary.
 | `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names; `exists` is false iff `generation` is 0 |
 | `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
-| Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
+| Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), `head_body_invalid` (400), `head_publish_conflict` (409), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
 
 **Applicability (decision table in the `POST /api/v1/best-configs` description).** A publish is protected if and
 only if it carries `X-Traigent-Agent-Ref` or belongs to a session negotiated with `content_less_v1`
@@ -165,10 +165,16 @@ publication; of several promotions naming the same expected generation exactly o
 generation and resubmitting the same result. The SDK never auto-retries it: it starts a new run (or re-evaluates
 against the new head) and publishes with that run's own captured generation.
 
+**Protected publish never returns free text.** Body validation failures are `head_body_invalid` (no key or value of the request
+appears), the ordinary publish conflicts (If-Match on a new configuration, a changed configuration without a matching
+If-Match, function_ref conflict) are `head_publish_conflict`, other server failures `internal_error`. The 409 response
+(`optimization/best_config_publish_409_schema.json`) has two disjoint branches: the closed protected refusals and the
+unchanged legacy bodies (which must not carry a protected closed code).
+
 **Refusal precedence.** Authentication and permissions; then malformed syntax (400 `head_capture_invalid`); then a
 well-formed but unknown or foreign ref (404 `reference_not_found`, nothing echoed); then agent WRITE
 (`head_write_unauthorized`); then session agreement (`head_agent_mismatch`, `head_environment_mismatch`); then the
-head compare (`head_generation_stale`). On the read route a malformed path ref or `environment` is 400, an unknown or
+body (`head_body_invalid`), the head compare (`head_generation_stale`) and the ordinary conflict (`head_publish_conflict`). On the read route a malformed path ref or `environment` is 400, an unknown or
 foreign ref 404.
 
 ## Scope and commands

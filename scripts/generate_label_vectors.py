@@ -28,10 +28,10 @@ VECTORS_PATH = (
     Path(__file__).resolve().parent.parent / "traigent_schema" / "data" / "label_vectors_v0.json"
 )
 
-# Tenant and project ids are UUIDs in the Backend; the other refs follow its
-# ``<kind>ref_<32 hex>`` convention.  All values here are TEST-ONLY.
-TENANT = "7c0b2f6e-5d1a-4f3e-9a41-0c2d8e6b1f01"
-PROJECT = "3a9e4d10-8b27-4c65-b1f2-5e7a90c4d202"
+# Tenant and project ids are ``tenant_<32 hex>`` / ``project_<32 hex>`` in the Backend;
+# the other refs follow its ``<kind>ref_<32 hex>`` convention.  All values here are TEST-ONLY.
+TENANT = "tenant_7c0b2f6e5d1a4f3e9a410c2d8e6b1f01"
+PROJECT = "project_3a9e4d108b274c65b1f25e7a90c4d202"
 OBJECT_KIND = {
     "label": "agent",
     "knob": "knob",
@@ -99,6 +99,18 @@ def build() -> dict:
             "key_id": L.key_id(mem_pub),
             "public_key": L.b64u(mem_pub),
             "not_before": NOW,
+        },
+    )
+
+    binding_list = L.make_binding(
+        root_sk,
+        root_pub,
+        {
+            "version": 1,
+            "tenant_ref": TENANT,
+            "bindings": [admin_binding, project_binding, member_binding],
+            "revoked_key_ids": [],
+            "sequence": 1,
         },
     )
 
@@ -300,6 +312,7 @@ def build() -> dict:
             "passphrase_argon2id": local_pass,
             "aad_jcs": L.local_aad(TENANT, mem_kid).decode(),
         },
+        "binding_list": binding_list,
         "binding_chain": {
             "admin_identity": admin_binding,
             "project_key": project_binding,

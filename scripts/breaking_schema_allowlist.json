@@ -6941,7 +6941,16 @@
     {
       "file": "optimization/best_config_v2_schema.json",
       "rule": "property_added",
-      "pointer_prefix": "#/properties/config_refs",
+      "findings": [
+        {
+          "pointer": "#/properties/config_refs",
+          "role": "conservative",
+          "subject": "config_refs",
+          "old": false,
+          "new": true,
+          "fingerprint": "21c3778fe6bc566b78d61675208f261ac1b457935b6643389d7261aa23aa7720"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a response shape that is closed today: it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6949,7 +6958,16 @@
     {
       "file": "optimization/intermediate_report_schema.json",
       "rule": "property_added",
-      "pointer_prefix": "#/allOf/0/properties/objective_ref",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/objective_ref",
+          "role": "conservative",
+          "subject": "objective_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "840b2eb897301d34d1848bdf53beb417c3f4f0757709f475a8086ead06702f09"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a shape that is closed today (the intermediate-report request, flagged conservatively because the name is bare): it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6957,7 +6975,16 @@
     {
       "file": "optimization/optimization_endpoints.json",
       "rule": "property_added",
-      "pointer_prefix": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/best_config_refs",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/best_config_refs",
+          "role": "response",
+          "subject": "best_config_refs",
+          "old": false,
+          "new": true,
+          "fingerprint": "3f3c153c881e7d8cfba5492527291e89800cb09c14b6c7c12a4c614509060aef"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a response shape that is closed today: it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6965,7 +6992,16 @@
     {
       "file": "optimization/optimization_endpoints.json",
       "rule": "property_added",
-      "pointer_prefix": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/best_metric_values",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/best_metric_values",
+          "role": "response",
+          "subject": "best_metric_values",
+          "old": false,
+          "new": true,
+          "fingerprint": "c12bcec6db05ddd864f02969403dea1e59779780e0f2249cce24846cfe34ae81"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a response shape that is closed today: it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6973,7 +7009,16 @@
     {
       "file": "optimization/session_finalize_response_schema.json",
       "rule": "property_added",
-      "pointer_prefix": "#/properties/best_config_refs",
+      "findings": [
+        {
+          "pointer": "#/properties/best_config_refs",
+          "role": "response",
+          "subject": "best_config_refs",
+          "old": false,
+          "new": true,
+          "fingerprint": "f6ddf1531ccb877f6d528fe56866ae28f90ce924f2158686ed387219bb78075c"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a response shape that is closed today: it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6981,7 +7026,16 @@
     {
       "file": "optimization/session_finalize_response_schema.json",
       "rule": "property_added",
-      "pointer_prefix": "#/properties/best_metric_values",
+      "findings": [
+        {
+          "pointer": "#/properties/best_metric_values",
+          "role": "response",
+          "subject": "best_metric_values",
+          "old": false,
+          "new": true,
+          "fingerprint": "08f2ff8d0253e41bcf396a9e7632ddf81d76fd7f6569041648380c756e47379b"
+        }
+      ],
       "reason": "Additive content-less opaque-reference field (phase 2 of the content-less optimization design) added to a response shape that is closed today: it is optional, emitted only for clients that opted into content-less shapes, and carries opaque refs instead of the name-keyed legacy field, which keeps its meaning. A strict old consumer could reject the new member, so the SDK/Backend mixed-version matrix must gate emission on the client version. Scoped to this exact pointer; pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
@@ -6989,7 +7043,32 @@
     {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
-      "pointer_prefix": "#/properties/x-content-",
+      "findings": [
+        {
+          "pointer": "#/properties/x-content-class",
+          "role": "conservative",
+          "subject": "x-content-class",
+          "old": false,
+          "new": true,
+          "fingerprint": "c5c8ac83ddd4819fcebfc768a1e9350a53a5857b8df8992dfe9465a273ea6efe"
+        },
+        {
+          "pointer": "#/properties/x-content-key-class",
+          "role": "conservative",
+          "subject": "x-content-key-class",
+          "old": false,
+          "new": true,
+          "fingerprint": "31d0c80ed134fd9da20bd7ea73b7b5b62e42cc11c2c3f1b07d421370ae8c721a"
+        },
+        {
+          "pointer": "#/properties/x-content-note",
+          "role": "conservative",
+          "subject": "x-content-note",
+          "old": false,
+          "new": true,
+          "fingerprint": "1b6caf43b3c27f2e35081f28a626d4f4a5efb559f26f0a8b9d39ba7691d917f8"
+        }
+      ],
       "reason": "Phase 1 content-less design: the x-content-class, x-content-key-class and x-content-note annotation keywords are registered in the extension meta-schema. They are documentation-only schema annotations (no wire payload carries them, no validation changes), so no consumer can observe them; the gate flags them because the meta-schema is closed. Pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"

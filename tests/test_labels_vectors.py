@@ -129,7 +129,7 @@ def test_one_envelope_per_purpose_opens_and_validates() -> None:
         {"purpose": "metric"},
         {"object_ref": "knobref_00000000000000000000000000000000"},
         {"revision": 99},
-        {"tenant_ref": "00000000-0000-4000-8000-000000000001"},
+        {"tenant_ref": "tenant_00000000000040008000000000000001"},
         {"project_ref": "00000000-0000-4000-8000-000000000002"},
     ],
 )
@@ -307,12 +307,14 @@ def test_member_registration_has_no_self_signature() -> None:
 
 
 def test_ref_formats_follow_the_backend() -> None:
-    uuid = "7c0b2f6e-5d1a-4f3e-9a41-0c2d8e6b1f01"
     common = "label_common_schema.json"
-    for name in ("TenantRef", "ProjectRef"):
-        assert errors(common, f"/definitions/{name}", uuid) == []
+    for name, prefix in (("TenantRef", "tenant"), ("ProjectRef", "project")):
+        good = f"{prefix}_7c0b2f6e5d1a4f3e9a410c2d8e6b1f01"
+        assert errors(common, f"/definitions/{name}", good) == []
         assert errors(common, f"/definitions/{name}", "ten_TestVector0001")
-        assert errors(common, f"/definitions/{name}", uuid.upper())
+        assert errors(common, f"/definitions/{name}", good.upper())
+        assert errors(common, f"/definitions/{name}", good + "0")
+        assert errors(common, f"/definitions/{name}", "7c0b2f6e-5d1a-4f3e-9a41-0c2d8e6b1f01")
     for name, kind in (
         ("KnobRef", "knob"),
         ("ChoiceRef", "choice"),
@@ -389,6 +391,9 @@ def _chain(**tweak):
         member_binding=tweak.get("member", chain["member_key"]),
         tenant_ref=REFS["tenant_ref"],
         project_ref=REFS["project_ref"],
+        binding_list=tweak.get("blist", VECTORS["binding_list"]),
+        retained_sequence=tweak.get("retained", 1),
+        now=tweak.get("now", "2026-10-16T00:00:01Z"),
     )
 
 
@@ -420,7 +425,66 @@ def test_binding_chain_failures() -> None:
         forged = L.make_binding(root_sk, bytes.fromhex(K["root_public_hex"]), body)
         L.verify_chain(**_chain(member=forged))
     with pytest.raises(L.LabelCryptoError):
-        L.verify_chain(**{**_chain(), "tenant_ref": "00000000-0000-4000-8000-000000000001"})
+        L.verify_chain(**{**_chain(), "tenant_ref": "tenant_00000000000040008000000000000001"})
+
+
+def _root_sk():
+    return L.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(K["root_ed25519_seed_hex"]))
+
+
+def _signed_list(**fields):
+    body = {
+        k: v for k, v in VECTORS["binding_list"].items() if k not in ("signature", "signer_key_id")
+    }
+    return L.make_binding(_root_sk(), bytes.fromhex(K["root_public_hex"]), {**body, **fields})
+
+
+def test_binding_list_vector_validates() -> None:
+    assert (
+        errors(
+            "label_key_binding_schema.json", "/definitions/KeyBindingList", VECTORS["binding_list"]
+        )
+        == []
+    )
+
+
+def test_revoked_retired_admin_cannot_sign_new_project_key() -> None:
+    chain = VECTORS["binding_chain"]
+    revoked = _signed_list(revoked_key_ids=[chain["admin_identity"]["key_id"]], sequence=2)
+    with pytest.raises(L.LabelCryptoError, match="revoked"):
+        L.verify_chain(**_chain(blist=revoked, retained=2))
+
+
+def test_revoked_project_or_member_key_is_rejected() -> None:
+    chain = VECTORS["binding_chain"]
+    for name in ("project_key", "member_key"):
+        revoked = _signed_list(revoked_key_ids=[chain[name]["key_id"]], sequence=2)
+        with pytest.raises(L.LabelCryptoError, match="revoked"):
+            L.verify_chain(**_chain(blist=revoked, retained=2))
+
+
+def test_binding_not_yet_active_is_rejected() -> None:
+    chain = VECTORS["binding_chain"]
+    root_pub = bytes.fromhex(K["root_public_hex"])
+    body = {
+        k: v for k, v in chain["admin_identity"].items() if k not in ("signature", "signer_key_id")
+    }
+    future = L.make_binding(_root_sk(), root_pub, {**body, "not_before": "2099-01-01T00:00:00Z"})
+    with pytest.raises(L.LabelCryptoError, match="not yet active"):
+        L.verify_chain(**_chain(admin=future))
+    with pytest.raises(L.LabelCryptoError, match="not yet active"):
+        L.verify_chain(**_chain(now="2026-10-15T23:59:59Z"))
+
+
+def test_binding_list_rollback_and_forgery_are_rejected() -> None:
+    with pytest.raises(L.LabelCryptoError, match="sequence"):
+        L.verify_chain(**_chain(retained=2))  # list sequence 1 < retained 2
+    forged = {**VECTORS["binding_list"], "revoked_key_ids": ["A" * 22]}
+    with pytest.raises(L.LabelCryptoError):
+        L.verify_chain(**_chain(blist=forged))
+    other_tenant = _signed_list(tenant_ref="tenant_" + "0" * 32)
+    with pytest.raises(L.LabelCryptoError, match="tenant"):
+        L.verify_chain(**_chain(blist=other_tenant))
 
 
 def test_binding_schema_rules() -> None:

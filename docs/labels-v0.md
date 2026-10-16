@@ -44,6 +44,10 @@ per-object maximum; storage rollback against a reader with no prior state is out
   no binding. Binding signature = Ed25519 over `traigent.label.binding.v1\0 || JCS(other fields)`.
   Chain: root -> `admin_identity` (tenant-wide: `project_ref` and `epoch` null) -> `project_key`
   (epoch) and `member_key`. Clients verify the chain before encrypting, wrapping or unwrapping.
+  Verification also takes the root-signed `KeyBindingList` and refuses: a list whose `sequence` is
+  below the one the client retained (rollback), any key in the chain (or its signer) listed in
+  `revoked_key_ids` (a retired admin cannot sign new project or member keys), and any binding whose
+  `not_before` is later than the verifier's clock (`verify_chain` in `scripts/labels_reference.py`).
 * Member keys are trusted only through an admin-signed `member_key` binding. A registration carries
   no self-signature (the schema has no field for one): the approving admin checks the key
   fingerprint with the member out-of-band (read aloud or compared in both UIs) before signing, and
@@ -61,7 +65,7 @@ per-object maximum; storage rollback against a reader with no prior state is out
 ## Reference formats
 
 Formats follow the Backend, not a new scheme. Tenant and project refs are the Backend's tenant and
-project ids, UUIDs (lowercase, hyphenated). Every other ref is `<kind>ref_<32 lowercase hex>`, the
+project ids, `tenant_<32 lowercase hex>` and `project_<32 lowercase hex>` (the defaults in `src/models/enterprise_tenant.py` and `src/models/project.py`). Every other ref is `<kind>ref_<32 lowercase hex>`, the
 convention of `_new_id(prefix)` in `pillar_legend_service.py` and `opaque_ref()` in
 `src/services/director/opaque_ref.py`: `knobref_`, `choiceref_`, `metricref_`, `agentref_`,
 `datasetref_`, `evaluationsetref_`, `evaluatorref_`, `cursorref_`; an `ObjectRef` is any of the

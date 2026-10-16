@@ -26,6 +26,7 @@ import hashlib
 import hmac
 import json
 import struct
+from datetime import datetime
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -369,6 +370,32 @@ def verify_binding(signer_pub: bytes, binding: dict) -> None:
     verify_body(signer_pub, body, binding["signature"])
 
 
+def _parse_ts(text: str) -> datetime:
+    try:
+        ts = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (ValueError, AttributeError) as exc:
+        raise LabelCryptoError("bad timestamp") from exc
+    if ts.tzinfo is None:
+        raise LabelCryptoError("timestamp has no timezone")
+    return ts
+
+
+def verify_binding_list(
+    root_pub: bytes, binding_list: dict, *, tenant_ref: str, retained_sequence: int
+) -> set[str]:
+    """Verify a root-signed KeyBindingList; return its revoked key ids.  Fail closed.
+
+    ``retained_sequence`` is the highest list sequence the client has already seen; a lower
+    sequence is a rollback (an attacker replaying a list from before a revocation).
+    """
+    verify_binding(root_pub, binding_list)
+    if binding_list["tenant_ref"] != tenant_ref:
+        raise LabelCryptoError("tenant mismatch")
+    if binding_list["sequence"] < retained_sequence:
+        raise LabelCryptoError("binding list sequence below retained sequence")
+    return set(binding_list["revoked_key_ids"])
+
+
 def verify_chain(
     pinned_root_fingerprint: str,
     root_pub: bytes,
@@ -378,10 +405,21 @@ def verify_chain(
     *,
     tenant_ref: str,
     project_ref: str,
+    binding_list: dict,
+    retained_sequence: int,
+    now: str,
 ) -> None:
-    """root (pinned) -> admin identity -> project key (epoch) -> member key.  Fail closed."""
+    """root (pinned) -> admin identity -> project key (epoch) -> member key.  Fail closed.
+
+    ``binding_list`` (root-signed, section 3.6) carries ``revoked_key_ids`` and a monotonic
+    ``sequence``; any key in the chain that is revoked, any list below ``retained_sequence``,
+    and any binding whose ``not_before`` is later than ``now`` is rejected.
+    """
     if not hmac.compare_digest(root_fingerprint(root_pub), pinned_root_fingerprint):
         raise LabelCryptoError("root key does not match pinned fingerprint")
+    revoked = verify_binding_list(
+        root_pub, binding_list, tenant_ref=tenant_ref, retained_sequence=retained_sequence
+    )
     verify_binding(root_pub, admin_binding)
     if admin_binding["purpose"] != "admin_identity":
         raise LabelCryptoError("wrong purpose for admin binding")
@@ -398,6 +436,12 @@ def verify_chain(
             raise LabelCryptoError("project mismatch")
     if member_binding["epoch"] != project_binding["epoch"]:
         raise LabelCryptoError("epoch mismatch")
+    current = _parse_ts(now)
+    for binding in (admin_binding, project_binding, member_binding):
+        if binding["key_id"] in revoked or binding["signer_key_id"] in revoked:
+            raise LabelCryptoError("revoked key in chain")
+        if _parse_ts(binding["not_before"]) > current:
+            raise LabelCryptoError("binding not yet active")
 
 
 # --- flow (b): project private key wrapped to a member -------------------------------

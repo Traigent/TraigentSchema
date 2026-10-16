@@ -438,3 +438,139 @@ def test_conditional_branch_may_constrain_a_classified_property(tmp_path: Path) 
         }
     )
     assert _mini(tmp_path, schema).ok  # a branch property that carries its own class is fine
+
+
+# --- review follow-up: composition branches and open roots ---------------------------
+
+
+def test_closed_enum_on_a_union_that_accepts_text_is_invalid(tmp_path: Path) -> None:
+    result = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "v": {
+                    "x-content-class": "closed_enum",
+                    "anyOf": [
+                        {"type": "string", "maxLength": 64, "pattern": "^[A-Za-z0-9_.:/-]+$"},
+                        {"type": "boolean"},
+                    ],
+                }
+            },
+        },
+    )
+    assert any("anyOf/0" in line and "accepts text" in line for line in result.invalid)
+    assert not any("anyOf/1" in line for line in result.invalid)
+
+
+def test_closed_enum_union_of_enums_is_accepted(tmp_path: Path) -> None:
+    result = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "v": {
+                    "x-content-class": "closed_enum",
+                    "oneOf": [{"enum": ["a", "b"]}, {"type": "boolean"}],
+                }
+            },
+        },
+    )
+    assert result.ok
+
+
+def test_open_payload_root_must_classify_extra_properties(tmp_path: Path) -> None:
+    result = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {"has_next": {"x-content-class": "closed_enum", "type": "boolean"}},
+        },
+    )
+    assert any("open payload root" in m for m in result.missing)
+
+
+def test_closed_or_classified_root_passes(tmp_path: Path) -> None:
+    closed = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"a": {"x-content-class": "closed_enum", "type": "boolean"}},
+        },
+    )
+    assert closed.ok
+    classified = _mini(
+        tmp_path / "c",
+        {
+            "type": "object",
+            "additionalProperties": True,
+            "x-content-class": "legacy_content",
+            "x-content-key-class": "legacy_content",
+            "x-content-note": "INV-GAP test",
+            "properties": {"a": {"x-content-class": "closed_enum", "type": "boolean"}},
+        },
+    )
+    assert classified.ok
+    assert any(f.loc.endswith("[keys]") and f.cls == "legacy_content" for f in classified.findings)
+
+
+def test_open_root_cannot_claim_a_content_free_key_class(tmp_path: Path) -> None:
+    result = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": True,
+            "x-content-class": "closed_enum",
+            "x-content-key-class": "closed_enum",
+            "properties": {},
+        },
+    )
+    assert any("content-free key class" in m for m in result.invalid)
+
+
+def test_legacy_in_a_nullable_union_branch_reaches_the_manifest(tmp_path: Path) -> None:
+    result = _mini(
+        tmp_path,
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "note": {
+                    "oneOf": [
+                        {
+                            "x-content-class": "legacy_content",
+                            "x-content-note": "INV-GAP test",
+                            "type": "string",
+                        },
+                        {"type": "null"},
+                    ]
+                }
+            },
+        },
+    )
+    legacy = [f.loc for f in result.legacy]
+    assert legacy == ["optimization/t_schema.json#/properties/note/oneOf/0"]
+    live = {f.loc: f.cls for f in result.findings if f.cls}
+    assert live["optimization/t_schema.json#/properties/note/oneOf/0"] == "legacy_content"
+    # a legacy branch with no note is invalid, like any other legacy location
+    bad = _mini(
+        tmp_path / "b",
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "note": {"anyOf": [{"x-content-class": "legacy_content", "type": "string"}]}
+            },
+        },
+    )
+    assert any("needs x-content-note" in line for line in bad.invalid)
+
+
+def test_tenant_and_project_ids_are_approved_opaque_refs() -> None:
+    for pat in ("^tenant_[0-9a-f]{32}$", "^project_[0-9a-f]{32}$"):
+        assert lint.semantic_problem("opaque_ref", {"type": "string", "pattern": pat}) is None
+    assert lint.semantic_problem("opaque_ref", {"type": "string", "pattern": "^tenant_.+$"})

@@ -65,6 +65,9 @@ BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
 # pillar_legend_service.py and ``opaque_ref`` in director/opaque_ref.py), with one kind or
 # a closed alternation of kinds.
 _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{32\}\$$")
+# ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids
+# (enterprise_tenant.py, project.py).
+_PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 # Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
 # than chosen: they carry no customer text because the pattern admits none.
 _FIXED_REF_PATTERNS = frozenset(
@@ -138,10 +141,15 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
         return "timestamp needs format date-time/date or a timestamp pattern"
     if cls == "opaque_ref":
         if isinstance(pattern, str) and (
-            pattern in _FIXED_REF_PATTERNS or _KINDED_REF.match(pattern)
+            pattern in _FIXED_REF_PATTERNS
+            or _KINDED_REF.match(pattern)
+            or _PREFIXED_ID.match(pattern)
         ):
             return None
-        return "opaque_ref needs an approved ref pattern (uuid, <kind>ref_<32 hex>, key id)"
+        return (
+            "opaque_ref needs an approved ref pattern "
+            "(uuid, <kind>ref_<32 hex>, tenant_/project_<32 hex>, key id)"
+        )
     if cls == "code_identifier":
         if rx and rx.search("pkg.module:func") or rx and rx.search("src/pkg/module.py"):
             if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
@@ -412,12 +420,8 @@ class Linter:
             self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
             if own == LEGACY and not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
-            if own != LEGACY and any(
-                k in node for k in ("type", "enum", "const", "pattern", "format")
-            ):
-                why = semantic_problem(own, node, doc)
-                if why:
-                    self.result.invalid.append(f"{loc}: {why}")
+            if own != LEGACY:
+                self._check_semantics(loc, own, node, doc, scope)
             return
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
@@ -425,6 +429,84 @@ class Linter:
         if self._is_container(doc, scope, node) and not self._open_extras(node):
             return
         self.result.missing.append(loc)
+
+    def _check_semantics(self, loc: str, cls: str, node: dict, doc, scope) -> None:
+        """Validate the class against the node's own keywords and every composition branch.
+
+        A class on a node that is only an ``anyOf``/``oneOf``/``allOf`` is a claim about each
+        branch: one branch that accepts customer text makes the claim false.
+        """
+        if any(k in node for k in ("type", "enum", "const", "pattern", "format")):
+            why = semantic_problem(cls, node, doc)
+            if why:
+                self.result.invalid.append(f"{loc}: {why}")
+            return
+        for slot in ("anyOf", "oneOf"):
+            branches = node.get(slot)
+            if not isinstance(branches, list):
+                continue
+            for i, branch in enumerate(branches):
+                if not self._is_value_branch(branch) or CLASS_KEY in branch:
+                    continue  # null/overlay branches carry nothing; classed ones are recorded
+                target, tdoc = branch, doc
+                if "$ref" in branch:
+                    res = self._resolve(doc, scope, branch["$ref"])
+                    if not res or not isinstance(res[2], dict) or CLASS_KEY in res[2]:
+                        continue
+                    target, tdoc = res[2], res[0]
+                why = semantic_problem(cls, target, tdoc)
+                if why:
+                    self.result.invalid.append(f"{loc}/{slot}/{i}: {why} (branch accepts text)")
+
+    def _record_annotation(self, loc: str, node: dict, doc, scope) -> None:
+        """Record a class declared on a composition branch / overlay (not a parent slot)."""
+        own = node.get(CLASS_KEY)
+        if own is None:
+            return
+        if own not in CONTENT_CLASSES:
+            self.result.invalid.append(f"{loc}: unknown class {own!r}")
+            return
+        self.result.findings.append(Finding(loc, "value", own, node.get(NOTE_KEY)))
+        if own == LEGACY:
+            if not node.get(NOTE_KEY):
+                self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
+        else:
+            self._check_semantics(loc, own, node, doc, scope)
+
+    def _check_open_root(self, loc: str, node: dict, doc, scope) -> None:
+        """A document/body root that accepts extra properties must classify them."""
+        if self._is_ref_or_composition_only(node):
+            return
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        if "object" not in types and "properties" not in node:
+            return
+        if not self._open_extras(node):
+            return
+        key_cls = node.get(KEY_CLASS_KEY)
+        if node.get(CLASS_KEY) is None or key_cls is None:
+            self.result.missing.append(
+                f"{loc} (open payload root: declare {CLASS_KEY} and {KEY_CLASS_KEY} "
+                "for the extra properties it accepts, or close it with additionalProperties:false)"
+            )
+            return
+        if key_cls not in CONTENT_CLASSES:
+            self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
+            return
+        self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        if key_cls == LEGACY and not node.get(NOTE_KEY):
+            self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
+        elif key_cls != LEGACY:
+            self.result.invalid.append(
+                f"{loc} [keys]: an open root cannot claim a content-free key class "
+                "(its extra property names are unconstrained)"
+            )
+
+    @staticmethod
+    def _is_ref_or_composition_only(node: dict) -> bool:
+        return "properties" not in node and (
+            "$ref" in node or any(k in node for k in _SCHEMA_LIST_SLOTS)
+        )
 
     def _record_keys(self, loc: str, node: dict, doc, scope) -> None:
         pn = node.get("propertyNames")
@@ -477,6 +559,7 @@ class Linter:
         depth: int = 0,
         overlay: frozenset[str] | None = None,
         primary: frozenset[str] = frozenset(),
+        root: bool = False,
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
@@ -490,6 +573,10 @@ class Linter:
 
         if value:
             self._record_value(loc, node, doc, scope)
+        else:
+            self._record_annotation(loc, node, doc, scope)
+        if root or ptr == "":
+            self._check_open_root(loc, node, doc, scope)
 
         for k in ("properties", "patternProperties"):
             sub = node.get(k)
@@ -621,7 +708,12 @@ class Linter:
         for media, body in (content or {}).items():
             if isinstance(body, dict) and isinstance(body.get("schema"), dict):
                 self.walk_schema(
-                    doc, [], body["schema"], f"{ptr}/{_esc(media)}/schema", value=False
+                    doc,
+                    [],
+                    body["schema"],
+                    f"{ptr}/{_esc(media)}/schema",
+                    value=False,
+                    root=True,
                 )
 
     # -- driver ---------------------------------------------------------

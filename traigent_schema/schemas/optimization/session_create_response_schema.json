@@ -4,6 +4,9 @@
   "title": "SessionCreateResponseDTO",
   "description": "Response of POST /api/v1/sessions (TraigentBackend InteractiveSessionService.create_session typed return; route docstring in src/routes/traigent_session_routes.py create_session). Carries the new session_id and status, plus the experiment's server-issued owning scope (project_id, tenant_id) which the Python and JS SDKs combine with metadata.experiment_id to build the portal link /experiments/view/<experiment_id>?run_id=..&project_id=..&tenant_id=... The legacy route path additionally wraps the payload in success/data and adds message and total_configurations; those keys stay permitted so existing consumers do not break.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "required": [
     "session_id",
     "status"

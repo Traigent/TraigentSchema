@@ -109,7 +109,8 @@
         "pattern": "^[A-Za-z0-9_.:/-]+$"
       },
       "additionalProperties": {
-        "x-content-class": "closed_enum",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP (reclassified by review): was closed_enum; the string branch accepts any 64-char token (e.g. Alice_has_diabetes) and number/integer branches are unbounded, so the value is not provably content-free",
         "anyOf": [
           {
             "type": "string",

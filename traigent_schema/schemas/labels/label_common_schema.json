@@ -25,16 +25,16 @@
     "TenantRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
-      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      "maxLength": 36,
-      "description": "Server-issued opaque reference to a tenant: the tenant id, a UUID (lowercase, hyphenated) as the Backend issues it."
+      "pattern": "^tenant_[0-9a-f]{32}$",
+      "maxLength": 39,
+      "description": "Server-issued opaque reference to a tenant: the tenant id, `tenant_<32 lowercase hex>` as the Backend issues it (`enterprise_tenant.py` default id)."
     },
     "ProjectRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
-      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      "maxLength": 36,
-      "description": "Server-issued opaque reference to a project (the key scope: one key pair per project per epoch): the project id, a UUID (lowercase, hyphenated) as the Backend issues it."
+      "pattern": "^project_[0-9a-f]{32}$",
+      "maxLength": 40,
+      "description": "Server-issued opaque reference to a project (the key scope: one key pair per project per epoch): the project id, `project_<32 lowercase hex>` as the Backend issues it (`project.py` default id)."
     },
     "ObjectRef": {
       "x-content-class": "opaque_ref",

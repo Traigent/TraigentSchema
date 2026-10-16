@@ -4,6 +4,9 @@
   "title": "Hybrid Session Create Request",
   "description": "POST /api/v1/hybrid/sessions request. Accepts the canonical backend shape and the SDK legacy shape; prompt-like text is capped at 10,000 characters.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "additionalProperties": true,
   "definitions": {
     "ModelSpec": {

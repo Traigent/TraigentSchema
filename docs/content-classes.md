@@ -58,6 +58,15 @@ declaration (own `properties`, `allOf`, `$ref`) is already classified, but any p
 introduces must carry its own class. Empty placeholder properties (`{}`) next to `allOf`/`$ref`
 are skipped.
 
+Composition branches (`oneOf`/`anyOf`/`allOf`) are walked too: a class declared inside a branch is
+recorded at the branch's own pointer (`.../oneOf/0`) in the manifest and, for `legacy_content`, in the
+register. A class placed on a node that is only a union is a claim about every branch, so each
+branch is validated against it (a `closed_enum` union with a free-string branch is invalid).
+Document and request/response body roots that accept extra properties (`additionalProperties`
+`true` or `{}`) must declare both `x-content-class` and `x-content-key-class` (open roots can only
+be `legacy_content`: their extra names are unconstrained) or be closed with
+`additionalProperties: false`.
+
 ## Manifest and dispositions
 
 `docs/content-class-manifest.json` maps every annotated location (`file#pointer`) to its class;
@@ -68,7 +77,8 @@ dispositions. `legacy_content` can be added nowhere. A location leaves it only w
 entry `{location, from, to, reason, reference}` (reason in words, reference to the inventory row or
 design section); the test fails for a declassified location without one. Locations whose note
 reads `INV-GAP: was <class>` were claimed content-free by the first annotation pass, but their
-contract has no enum or ref pattern to prove it.
+contract has no enum or ref pattern to prove it. Notes reading `reclassified by review` mark the
+2026-10-16 honesty pass, the one pass allowed to add to the register.
 
 ## Scope and commands
 

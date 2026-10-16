@@ -4,6 +4,9 @@
   "title": "Session Next-Trial Response",
   "description": "200 response of POST /api/v1/sessions/{session_id}/next-trial. Mirrors the backend handler (traigent_session_routes.get_next_trial -> _normalize_session_payload, which only canonicalizes session_status). A read response: additionalProperties:true so server-added fields validate. When the trial queue is exhausted, has_next is false and trial is null.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "additionalProperties": true,
   "required": [
     "has_next"

@@ -15,6 +15,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "definitions": {
                   "CanonicalTypedObjectiveDefinition": {
                     "allOf": [
@@ -718,6 +721,9 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "x-content-class": "legacy_content",
+                  "x-content-key-class": "legacy_content",
+                  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                   "properties": {
                     "session_id": {
                       "x-content-class": "legacy_content",
@@ -839,6 +845,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "properties": {
                   "previous_results": {
                     "x-content-class": "legacy_content",
@@ -1204,6 +1213,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "properties": {
                   "include_full_history": {
                     "x-content-class": "closed_enum",
@@ -1419,6 +1431,9 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "x-content-class": "legacy_content",
+                  "x-content-key-class": "legacy_content",
+                  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                   "properties": {
                     "session_id": {
                       "x-content-class": "legacy_content",
@@ -1519,6 +1534,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "required": [
                   "scores"
                 ],

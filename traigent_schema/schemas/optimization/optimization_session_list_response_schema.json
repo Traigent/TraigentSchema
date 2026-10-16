@@ -4,6 +4,9 @@
   "title": "OptimizationSessionListResponseDTO",
   "description": "Response of GET /api/v1/sessions (list optimization sessions). Returns the caller-visible sessions and a count. Each entry is a lightweight summary (identity + lifecycle state + progress) used by the SDK to enumerate sessions and clean up orphaned/zombie 'running' sessions from the client. Forward-compatible: each summary carries at least session_id and status; the server may add fields (additionalProperties allowed), so consumers must ignore unknown keys rather than fail. Optional query params on the request are pattern (match session ids) and status (lifecycle filter).",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "additionalProperties": true,
   "required": [
     "sessions",

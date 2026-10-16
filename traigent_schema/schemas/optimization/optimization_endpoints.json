@@ -594,6 +594,18 @@
                       "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
                       "description": "Capabilities the Backend supports, advertised so a client can negotiate. `content_less_v1` present = the Backend accepts the content-less shapes. A content-less client that does not find it refuses with `backend_upgrade_required` and never falls back to plaintext. Additive; absent on Backends that predate it."
                     },
+                    "agent_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+                      "description": "Backend-issued opaque reference to the Agent row this session was resolved against. Additive; absent on Backends that predate it. A caller must not infer identity from its absence."
+                    },
+                    "dataset_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/DatasetRef",
+                      "description": "Backend-issued opaque reference to the evaluation dataset the session runs against. Additive; absent on Backends that predate it."
+                    },
+                    "evaluator_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
+                      "description": "Backend-issued opaque reference to the evaluator. Additive; absent on Backends that predate it."
+                    },
                     "agent_id": {
                       "x-content-class": "legacy_content",
                       "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",

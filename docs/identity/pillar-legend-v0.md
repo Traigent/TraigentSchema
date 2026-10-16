@@ -462,7 +462,7 @@ signed statement repeat `evaluation_outcome`, `discrimination` and `discriminati
 (`known_bad_input | known_good_input | empty_input | mutated_input`), `expected_verdict` (`pass | fail`), `observed_verdict` (the
 five states), `evaluator_version_ref` (an evaluator `version_ref`) and `run_ref`. It carries no input or output text. The record is
 itself undiscriminated and its `evaluation_outcome` equals `observed_verdict`. It discriminates a later run only when both its expected and observed verdicts are `fail` and its
-`evaluator_version_ref` is an evaluator version bound in that run's context (a control that passed a bad input shows nothing).
+`evaluator_version_ref` must be an evaluator version bound in the execution snapshot of the control event's own run and trial context, that is, the evaluator actually executed in the control run (`invalid_request` otherwise; a control cannot be relabelled with another evaluator version), and a citing evaluation must run under that same evaluator version (a control that passed a bad input shows nothing).
 
 **Compiler rule.** The text of a witnessed evaluation statement depends on discrimination: with `shown_by_run`, `control` or
 `prior_run` it is "This version was evaluated by Traigent."; with `none` it is "Traigent evaluated this version; the evaluation was

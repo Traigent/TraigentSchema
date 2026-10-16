@@ -1578,7 +1578,7 @@ class Legend:
         ):
             raise Refused("invalid_request")  # a reference exactly when discrimination is stated
         if control is not None:
-            self._check_control(control, run, outcome, discrimination)
+            self._check_control(control, run, outcome, discrimination, ctx)
         witnessed = origin == "server"
         if discrimination != "none":
             self._check_discrimination(discrimination, disc_ref, run, subject, ctx, witnessed)
@@ -1602,7 +1602,12 @@ class Legend:
         return self._save("evaluate", key, digest, {"position": pos})
 
     def _check_control(
-        self, control: dict[str, Any], run: str, outcome: str, discrimination: str
+        self,
+        control: dict[str, Any],
+        run: str,
+        outcome: str,
+        discrimination: str,
+        ctx: dict[str, Any],
     ) -> None:
         """A control-run record is closed, names a declared evaluator version of this run, and is
         itself an undiscriminated event whose outcome is the observed verdict."""
@@ -1617,6 +1622,9 @@ class Legend:
         entity, fp = control["evaluator_version_ref"].split(":")
         if self._version(entity, fp)["kind"] != "evaluator":
             raise Refused("invalid_request")
+        executed = {v for (role, _s, _n), v in ctx["snapshot"].items() if role == "evaluator"}
+        if control["evaluator_version_ref"] not in executed:
+            raise Refused("invalid_request")  # the control names the evaluator this run executed
 
     def _check_discrimination(
         self,
@@ -3960,6 +3968,24 @@ def test_model_prior_run_must_come_from_the_same_evaluator_version() -> None:
               subset="z")  # fmt: skip
 
 
+def test_model_control_must_name_the_evaluator_its_own_run_executed() -> None:
+    led, a, e0, td = _eval_ledger()
+    e1 = f"{_ent(led, 'E1')}:E1"
+    # a failing control executed under E0 cannot be labelled E1
+    _atomic(led, "invalid_request", led.evaluate, "r", None, a, td, "server",
+            outcome="fail", control=_control(e1))  # fmt: skip
+    assert led.evaluate("r", None, a, td, "server", outcome="fail", control=_control(e0))
+    # and an E1 evaluation cannot cite that E0 control
+    led.propose("r2", None, "base_agent", 0, a.split(":")[0], "A")
+    led.propose("r2", None, "evaluator", 0, e1.split(":")[0], "E1")
+    td2 = led.start_execution("r2", None, dict(led.effective("r2", None)), "strict")
+    ctl = next(
+        i for i, ev in enumerate(led.ledger, 1) if ev["type"] == "evaluated" and ev["control"]
+    )
+    _atomic(led, "unknown_ref", led.evaluate, "r2", None, a, td2, "server",
+            discrimination="control", disc_ref=ctl)  # fmt: skip
+
+
 def test_model_control_run_is_closed_and_must_really_fail_under_this_evaluator() -> None:
     led, a, e0, td = _eval_ledger()
     ev = led.evaluate
@@ -3982,12 +4008,10 @@ def test_model_control_run_is_closed_and_must_really_fail_under_this_evaluator()
               control=_control(e0, observed_verdict="pass"), subset="w")["position"]  # fmt: skip
     _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
             discrimination="control", disc_ref=weak)  # fmt: skip
-    # a control under a DIFFERENT evaluator version does not discriminate this run's evaluator
+    # a control labelled with a DIFFERENT evaluator version than the run executed is refused
     other = _ent(led, "E1")
-    foreign = ev("r", None, a, td, "server", outcome="fail",
-                 control=_control(f"{other}:E1"), subset="x")["position"]  # fmt: skip
-    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
-            discrimination="control", disc_ref=foreign)  # fmt: skip
+    _atomic(led, "invalid_request", ev, "r", None, a, td, "server", outcome="fail",
+            control=_control(f"{other}:E1"), subset="x")  # fmt: skip
 
 
 def test_model_witnessed_discrimination_never_rests_on_client_reported_fails() -> None:

@@ -141,6 +141,23 @@ never echoes the request): `client_upgrade_required` (legacy client after tenant
 The error envelope's own `error_code` is still a free string (`legacy_content`); these three are the first
 members of its closed vocabulary.
 
+## Ref-addressed agent head and protected publish (plan v2.1, phase 0b, additive)
+
+| Item | Contract |
+|---|---|
+| `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names |
+| `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
+| `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
+| Refusals | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403) |
+
+**Protected path.** A publish (`POST /api/v1/best-configs`) is protected when it carries `X-Traigent-Agent-Ref` or
+is made within a `content_less_v1` session. It must send both headers; the Backend resolves agent, run and
+environment from the authoritative session binding (never the body), keeps agent WRITE authorization, and on
+any refusal writes no publication row and moves no head. Publish and promote are one transaction; of several
+concurrent promotions at the same generation exactly one wins. A publish without the header and outside a
+content-less session is the legacy path and is unchanged (including `X-Traigent-Agent-Id` promotion and its
+`STALE_HEAD_GENERATION` body).
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

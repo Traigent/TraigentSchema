@@ -1,0 +1,109 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Content-less Best-config Head Routes",
+    "version": "1.0.0",
+    "description": "Ref-addressed agent-head read of the content-less optimization channel (plan v2.1 phase 0b). The protected-publish precondition (headers X-Traigent-Agent-Ref and X-Traigent-Expected-Head-Generation) is declared on POST /api/v1/best-configs in execution/best_config_endpoints.json; its rule and closed refusals are specified there."
+  },
+  "paths": {
+    "/api/v1/best-configs/agent-heads/by-ref/{agent_ref}": {
+      "get": {
+        "summary": "Read an agent's promotion head by its opaque ref",
+        "description": "TraigentBackend src/routes/best_config_routes.py get_agent_head_by_ref. Resolves `agent_ref` (optimization_identity.resolve_ref, kind agent) inside the caller's tenant and project, keeps agent READ authorization, and returns the head generation (0 / exists=false when never promoted). An SDK captures this generation when an optimization starts and sends it back as X-Traigent-Expected-Head-Generation when it publishes the winner. A foreign, unknown or malformed ref is refused with reference_not_found and nothing is echoed.",
+        "operationId": "getAgentHeadByRef",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "Closed run environment; absent means `default`.",
+            "schema": {
+              "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The head generation for the agent and environment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_head_by_ref_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "head_capture_invalid — the `environment` query value is not in the closed environment enum. Closed refusal envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — caller lacks experiment.read or agent READ authorization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found — the ref is unknown, foreign, malformed or no longer visible. Closed refusal envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -46,6 +46,27 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-Traigent-Agent-Ref",
+            "in": "header",
+            "required": false,
+            "description": "Opaque ref of the agent being promoted (the `agent_ref` of the session-create 201). Its presence selects the PROTECTED publish path; sent together with X-Traigent-Expected-Head-Generation. Never a raw agent id.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "X-Traigent-Expected-Head-Generation",
+            "in": "header",
+            "required": false,
+            "description": "The head generation the run captured when it started (the `generation` of GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}). Compare-and-set precondition of the promotion; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion).",
+            "schema": {
+              "x-content-class": "number",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
           }
         ],
         "requestBody": {
@@ -66,7 +87,37 @@
             "description": "Best config published successfully"
           },
           "409": {
-            "description": "Publish precondition failed or function_ref conflict"
+            "description": "Publish precondition failed or function_ref conflict; on the protected path head_environment_mismatch, head_agent_mismatch or head_generation_stale (closed refusal envelope)."
+          },
+          "400": {
+            "description": "Protected path: head_capture_invalid (closed refusal envelope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Protected path: head_write_unauthorized (closed refusal envelope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Protected path: reference_not_found (closed refusal envelope).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                }
+              }
+            }
           },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
@@ -78,7 +129,8 @@
               }
             }
           }
-        }
+        },
+        "description": "PROTECTED PATH (content-less plan v2.1, phase 0b). A publish is on the protected path when it carries X-Traigent-Agent-Ref or is made within a content_less_v1 session (its provenance names such a session). On that path the Backend requires BOTH X-Traigent-Agent-Ref and X-Traigent-Expected-Head-Generation; it resolves the agent, run and environment from the authoritative session binding, never from the request body; it keeps agent WRITE authorization; and it refuses with a closed code (best_config_head_refusal_schema.json) and with no publication row and no head change when the capture is missing or malformed (head_capture_invalid), the environment differs from the session's (head_environment_mismatch), the ref names another agent than the session's (head_agent_mismatch), the head moved since the capture (head_generation_stale), or the caller may not write the agent (head_write_unauthorized); an unknown or foreign ref is reference_not_found. Publish and promote are ONE transaction: a refused or failed promotion leaves no visible configuration version, and of several concurrent promotions at the same generation exactly one wins. LEGACY PATH: a publish without those headers and outside a content_less_v1 session, including the existing X-Traigent-Agent-Id / X-Traigent-Expected-Head-Generation promotion, behaves exactly as before. Closed refusal envelope: ../optimization/best_config_head_refusal_schema.json."
       }
     },
     "/api/v1/best-configs/{config_id}": {

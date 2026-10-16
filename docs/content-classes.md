@@ -109,6 +109,30 @@ root. The lint does not model base URIs, so such a document may not declare a ne
 `definitions`/`$defs` outside the root,. Anything else fails with a fixed error; shared definitions live in their own schema file and are
 referenced by file.
 
+## Session-create identity and capability negotiation (P3 group 1, additive)
+
+`POST /api/v1/sessions` carries these additive, optional members (old fields stay `legacy_content`
+until the Backend and SDKs stop sending them; nothing is reclassified by adding them):
+
+| Member | Class | Source |
+|---|---|---|
+| `dataset_ref`, `evaluation_set_ref`, `evaluator_ref`, `agent_ref` | `opaque_ref` (`<kind>ref_<32 hex>`) | `labels/label_common_schema.json` |
+| `environment` | `closed_enum` (`production`, `staging`, `development`, `test`, `default`) | `optimization/session_capabilities_schema.json` |
+| `capabilities` (request and 201 response) | list of `closed_enum` (`content_less_v1`) | `optimization/session_capabilities_schema.json` |
+
+**How the Backend tells the shapes apart.** One request contract serves both, because every new member is
+optional. A session is content-less if and only if the request `capabilities` contains `content_less_v1`;
+the Backend records that shape at create. Absence means the legacy shape. The response `capabilities`
+advertises what the Backend supports; a content-less client that does not find `content_less_v1` there
+refuses with `backend_upgrade_required` and never falls back to plaintext.
+
+Closed refusal codes (`OptimizationRefusalCode`, carried in the error envelope's `error_code`; a refusal
+never echoes the request): `client_upgrade_required` (legacy client after tenant cutoff),
+`backend_upgrade_required` (client-side refusal, Backend lacks the capability), `session_shape_legacy`
+(content-less client resumed a legacy-shape session; it ends that session locally and starts a new one).
+The error envelope's own `error_code` is still a free string (`legacy_content`); these three are the first
+members of its closed vocabulary.
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

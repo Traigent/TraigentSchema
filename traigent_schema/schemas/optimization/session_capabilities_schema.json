@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_capabilities_schema.json",
+  "title": "SessionCapabilities",
+  "description": "Closed vocabularies for the content-less compatibility handshake on POST /api/v1/sessions: the capability list a client declares and the Backend advertises, the run environment, and the closed refusal codes. All values come from fixed lists; nothing here carries customer text. The Backend tells a content-less session from a legacy one by the PRESENCE of `content_less_v1` in the request `capabilities`; no second request contract is needed because every field below is additive and optional.",
+  "definitions": {
+    "SessionCapability": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": ["content_less_v1"],
+      "description": "A session-contract capability. `content_less_v1`: the client sends only the content-less shapes (opaque refs, closed enums) for every route group the Backend has shipped, and never falls back to plaintext. The list is closed and grows only by a reviewed contract change."
+    },
+    "SessionCapabilityList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SessionCapability"
+      },
+      "uniqueItems": true,
+      "maxItems": 8,
+      "description": "Closed list of session-contract capabilities."
+    },
+    "SessionEnvironment": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": ["production", "staging", "development", "test", "default"],
+      "description": "Run environment of the optimization session. A closed enum, never a free label (free text is content on this channel). `production` is never guessed by a client: it is sent only when explicitly configured. Absent means `default`."
+    },
+    "OptimizationRefusalCode": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": [
+        "client_upgrade_required",
+        "backend_upgrade_required",
+        "session_shape_legacy"
+      ],
+      "description": "Closed refusal codes for the content-less compatibility matrix, carried in the error envelope's `error_code`. `client_upgrade_required`: the Backend refuses a legacy client (no `content_less_v1`) for a tenant past cutoff. `backend_upgrade_required`: raised by a content-less client that finds `content_less_v1` missing from the Backend's advertised capabilities; it never falls back to plaintext. `session_shape_legacy`: a content-less client tried to resume a session created with the legacy shape; it ends that session locally and starts a new one. A refusal never echoes the request."
+    }
+  }
+}

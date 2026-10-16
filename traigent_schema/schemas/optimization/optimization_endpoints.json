@@ -178,6 +178,14 @@
                     "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
                     "description": "Content-less opaque reference for the evaluator, sent instead of evaluator_id."
                   },
+                  "environment": {
+                    "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment",
+                    "description": "Run environment of the session, a closed enum (production|staging|development|test|default). Additive; absent means default."
+                  },
+                  "capabilities": {
+                    "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+                    "description": "Capabilities the client speaks. `content_less_v1` marks a content-less client: the Backend records the session's contract shape at create from its presence. Absent = legacy shape (accepted before the per-tenant cutoff, refused with `client_upgrade_required` after)."
+                  },
                   "knob_refs": {
                     "$ref": "../labels/label_common_schema.json#/definitions/KnobRefList",
                     "description": "Opaque refs of the declared knobs, in declaration order. Replaces the keys of configuration_space."
@@ -581,6 +589,10 @@
                       "type": "string",
                       "minLength": 1,
                       "description": "Server-issued id of the tenant that owns the experiment, used by SDKs to build the portal link. Optional: omitted, never null, when absent. See session_create_response_schema.json."
+                    },
+                    "capabilities": {
+                      "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+                      "description": "Capabilities the Backend supports, advertised so a client can negotiate. `content_less_v1` present = the Backend accepts the content-less shapes. A content-less client that does not find it refuses with `backend_upgrade_required` and never falls back to plaintext. Additive; absent on Backends that predate it."
                     },
                     "agent_id": {
                       "x-content-class": "legacy_content",

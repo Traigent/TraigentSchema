@@ -110,6 +110,10 @@
       },
       "additionalProperties": true
     },
+    "capabilities": {
+      "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+      "description": "Capabilities the Backend supports, advertised so a client can negotiate. `content_less_v1` present = the Backend accepts the content-less shapes. A content-less client that does not find it refuses with `backend_upgrade_required` and never falls back to plaintext. Additive; absent on Backends that predate it."
+    },
     "warnings": {
       "x-content-class": "legacy_content",
       "x-content-note": "INV S1-71 (OPEN): warnings",

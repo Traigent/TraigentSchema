@@ -1654,8 +1654,8 @@ class Legend:
             raise Refused("unknown_ref")  # a control record is evidence only as a control
         elif kind == "shown_by_run" and cited["run"] != run:
             raise Refused("unknown_ref")
-        elif kind == "prior_run":
-            if cited["subject"] != subject:
+        elif kind in ("shown_by_run", "prior_run"):
+            if kind == "prior_run" and cited["subject"] != subject:
                 raise Refused("unknown_ref")
             # the failure must come from the same evaluator version(s) as the claimed evaluation
             cited_ctx = self.contexts.get((cited["run"], cited["trial"]))
@@ -3966,6 +3966,20 @@ def test_model_prior_run_must_come_from_the_same_evaluator_version() -> None:
     fail_e0 = ev("r3", None, a, td3, "server", outcome="fail", subset="f0")["position"]
     assert ev("r", None, a, td, "server", discrimination="prior_run", disc_ref=fail_e0,
               subset="z")  # fmt: skip
+
+
+def test_model_shown_by_run_must_come_from_the_same_evaluator_version() -> None:
+    led, a, e0, td = _eval_ledger()
+    ev = led.evaluate
+    e1 = f"{_ent(led, 'E1')}:E1"
+    # trial T0 binds E0 and fails; trial T1 of the same run overrides the evaluator to E1
+    fail_t0 = ev("r", None, a, td, "server", outcome="fail", subset="f")["position"]
+    led.propose("r", "t1", "evaluator", 0, e1.split(":")[0], "E1")
+    obs = dict(led.effective("r", "t1"))
+    td1 = led.start_execution("r", "t1", obs, "strict")
+    _atomic(led, "unknown_ref", ev, "r", "t1", a, td1, "server",
+            outcome="pass", discrimination="shown_by_run", disc_ref=fail_t0)  # fmt: skip
+    assert fail_t0
 
 
 def test_model_control_must_name_the_evaluator_its_own_run_executed() -> None:

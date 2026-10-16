@@ -836,3 +836,84 @@ def test_open_object_inside_a_composition_branch_is_flagged(tmp_path: Path) -> N
     closed["additionalProperties"] = False
     schema["properties"]["strategy"]["oneOf"][1] = closed
     assert _mini(tmp_path / "closed", schema).ok
+
+
+# --- review round 3: conditional-only objects, $ref siblings, branch class compatibility ---
+
+
+def test_conditional_only_root_with_an_open_then_object_is_flagged(tmp_path: Path) -> None:
+    schema = {
+        "if": {},
+        "then": {
+            "type": "object",
+            "properties": {"flag": {"type": "boolean", "x-content-class": "closed_enum"}},
+        },
+    }
+    result = _mini(tmp_path, schema, close=False)
+    assert any("/then" in m and "open payload root" in m for m in result.missing)
+    # classified honestly, it passes and the extra keys reach the manifest
+    schema["then"].update(
+        {
+            "x-content-class": "legacy_content",
+            "x-content-key-class": "legacy_content",
+            "x-content-note": "INV-GAP test",
+        }
+    )
+    fixed = _mini(tmp_path / "fixed", schema, close=False)
+    assert fixed.ok
+    assert "optimization/t_schema.json#/then [keys]" in {f.loc for f in fixed.legacy}
+    # closed branches and unconditionally closed parents need nothing
+    schema["then"] = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"flag": {"type": "boolean", "x-content-class": "closed_enum"}},
+    }
+    assert _mini(tmp_path / "closed", schema, close=False).ok
+    parent_closed = {
+        "type": "object",
+        "additionalProperties": False,
+        "if": {},
+        "then": {"type": "object", "properties": {}},
+    }
+    assert _mini(tmp_path / "pc", parent_closed, close=False).ok
+
+
+def test_draft7_ref_siblings_are_ignored_by_the_semantics(tmp_path: Path) -> None:
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "definitions": {
+            "Text": {
+                "x-content-class": "legacy_content",
+                "x-content-note": "INV-GAP test",
+                "type": "string",
+            }
+        },
+        "properties": {
+            "v": {"x-content-class": "number", "type": "number", "$ref": "#/definitions/Text"}
+        },
+    }
+    result = _mini(tmp_path, schema)
+    assert any("/properties/v" in line for line in result.invalid)
+    # in 2019-09 the siblings do apply, so the type restricts the value to numbers
+    modern = {**schema, "$schema": "https://json-schema.org/draft/2019-09/schema"}
+    assert not any("/properties/v:" in line for line in _mini(tmp_path / "m", modern).invalid)
+
+
+def test_a_branch_class_does_not_prove_the_parents_class(tmp_path: Path) -> None:
+    bad = _probe(
+        tmp_path,
+        {
+            "x-content-class": "number",
+            "allOf": [{"x-content-class": "closed_enum", "type": "string", "enum": ["safe"]}],
+        },
+    )
+    assert bad.invalid
+    ok = _probe(
+        tmp_path / "ok",
+        {
+            "x-content-class": "closed_enum",
+            "allOf": [{"x-content-class": "closed_enum", "type": "string", "enum": ["safe"]}],
+        },
+    )
+    assert ok.ok

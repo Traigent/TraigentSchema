@@ -65,8 +65,12 @@ branch is validated against it (a `closed_enum` union with a free-string branch 
 Any object (root or nested) that accepts extra properties must declare both `x-content-class` and `x-content-key-class` (open roots can only
 be `legacy_content`: their extra names are unconstrained) or be closed with
 `additionalProperties: false` (or `unevaluatedProperties: false`). Open-object checks also run on objects inside `oneOf`/`anyOf`/`allOf` branches (not when the
-enclosing node or an `allOf` sibling closes the object; `if`/`then`/`else`/`not` only restrict, so
-they are not checked). `unevaluatedProperties: false` closes an object only in 2019-09+ documents
+enclosing node or an `allOf` sibling closes the object). `then`/`else` branches are checked too unless
+an enclosing object node is already classified there, so a conditional-only root whose `then` is an
+open object must classify it; `if` and `not` accept nothing and are not checked. In Draft-4/6/7
+(and OpenAPI 3.0, and documents without `$schema`) keywords beside `$ref` are ignored, so the
+`$ref` target alone is checked against a class claim; a branch's own class never proves the
+parent's claim, the parent's class is checked against the branch's constraints. `unevaluatedProperties: false` closes an object only in 2019-09+ documents
 (or OpenAPI 3.1); Draft-7 documents must use `additionalProperties: false`.
 A content-free class must hold for every branch that can accept a value: `allOf` members
 intersect (one restricting member suffices), every `anyOf`/`oneOf` alternative must hold, and

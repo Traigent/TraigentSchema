@@ -370,6 +370,10 @@ class Linter:
             and node["additionalProperties"] != {}
         )
 
+    def _modern_dialect(self, doc: str) -> bool:
+        """2019-09+ / OpenAPI 3.1: ``unevaluatedProperties`` exists and ``$ref`` has siblings."""
+        return self._honours_unevaluated(doc)
+
     def _honours_unevaluated(self, doc: str) -> bool:
         """``unevaluatedProperties`` exists only in 2019-09+ (and OpenAPI 3.1) documents."""
         data = self.docs.get(doc)
@@ -496,13 +500,11 @@ class Linter:
             return ["an unconstrained alternative accepts any value"]
         if depth > 12:
             return ["composition too deep to verify"]
-        if not root and CLASS_KEY in node:
-            own = node[CLASS_KEY]
-            return [] if own != LEGACY else ["a branch is legacy_content"]
+        if not root and node.get(CLASS_KEY) == LEGACY:
+            return ["a branch is legacy_content"]
+        # A branch's own (different) class proves nothing about the parent's claim: the
+        # parent's class is checked against the branch's constraints below.
         conjuncts: list[list[str]] = []
-        if any(k in node for k in self._VALUE_KEYS):
-            why = semantic_problem(cls, node, doc)
-            conjuncts.append([why] if why else [])
         ref = node.get("$ref")
         if isinstance(ref, str):
             res = self._resolve(doc, scope, ref)
@@ -510,6 +512,13 @@ class Linter:
                 conjuncts.append([f"unresolvable $ref {ref}"])
             else:
                 conjuncts.append(self._class_problems(cls, res[2], res[0], res[3], depth=depth + 1))
+            if not self._modern_dialect(doc):
+                # Draft-4/6/7 and OpenAPI 3.0 ignore every keyword beside $ref: the target
+                # alone determines the accepted values.
+                return conjuncts[0]
+        if any(k in node for k in self._VALUE_KEYS):
+            why = semantic_problem(cls, node, doc)
+            conjuncts.append([why] if why else [])
         for slot in ("anyOf", "oneOf"):
             branches = node.get(slot)
             if isinstance(branches, list):
@@ -579,6 +588,13 @@ class Linter:
                 "(its extra property names are unconstrained)"
             )
 
+    def _is_object_node(self, node: dict) -> bool:
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        return ("object" in types or "properties" in node) and not self._is_ref_or_composition_only(
+            node
+        )
+
     @staticmethod
     def _is_ref_or_composition_only(node: dict) -> bool:
         return "properties" not in node and (
@@ -639,6 +655,7 @@ class Linter:
         root: bool = False,
         branch: bool = False,
         closed: bool = False,
+        covered: bool = False,
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
@@ -705,6 +722,9 @@ class Linter:
         # conjuncts must accept an extra property for it to be accepted.  if/then/else/not only
         # restrict what the unconditional keywords accept, so they are never open-checked.
         node_closed = closed or self._closes(node, doc, scope)
+        # ``covered``: an enclosing object node is itself open-checked, so a conditional
+        # branch adds nothing to what is already classified there.
+        node_covered = covered or self._is_object_node(node)
         for k in ("if", "then", "else", "not"):
             if isinstance(node.get(k), dict):
                 self.walk_schema(
@@ -716,6 +736,9 @@ class Linter:
                     depth=depth + 1,
                     overlay=branch_overlay,
                     primary=primary,
+                    branch=k in ("then", "else") and not node_covered,
+                    closed=node_closed,
+                    covered=node_covered,
                 )
         for k in _SCHEMA_LIST_SLOTS:
             if isinstance(node.get(k), list):
@@ -732,6 +755,7 @@ class Linter:
                         primary=primary | own_names,
                         branch=True,
                         closed=node_closed or sibling_closed,
+                        covered=node_covered,
                     )
         for k in _SCHEMA_MAP_SLOTS:
             if isinstance(node.get(k), dict):

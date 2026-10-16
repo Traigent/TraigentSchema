@@ -459,5 +459,13 @@
   "success_envelope_schema.json#/properties/metadata",
   "success_envelope_schema.json#/properties/metadata [keys]"
  ],
- "dispositions": []
+ "dispositions": [
+  {
+   "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1identity-binding/get/parameters/0/schema",
+   "from": "legacy_content",
+   "to": "opaque_ref",
+   "reason": "The contract now pins the UUID pattern. The Backend mints every session id server-side as str(uuid.uuid4()) (TraigentBackend src/services/traigent/session_service_refactored.py:553, src/services/hybrid/hybrid_session_service.py:185); the create route passes no client-supplied session id.",
+   "reference": "docs/content-classes.md:10"
+  }
+ ]
 }

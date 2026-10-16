@@ -851,6 +851,19 @@
     "/api/v1/sessions/{session_id}/next-trial": {
       "post": {
         "summary": "Fetch the next trial suggestion",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -965,6 +978,19 @@
     "/api/v1/sessions/{session_id}/intermediate-report": {
       "post": {
         "summary": "Report intermediate trial progress",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1062,6 +1088,19 @@
     "/api/v1/sessions/{session_id}/results": {
       "post": {
         "summary": "Submit trial results",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1160,7 +1199,7 @@
             "name": "session_id",
             "in": "path",
             "required": true,
-            "schema": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": "string", "minLength": 1 }
+            "schema": { "x-content-class": "opaque_ref", "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "description": "Server-minted session id (uuid4)." }
           }
         ],
         "responses": {
@@ -1220,6 +1259,19 @@
     "/api/v1/sessions/{session_id}/finalize": {
       "post": {
         "summary": "Finalize optimization session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "requestBody": {
           "required": false,
           "content": {
@@ -1438,6 +1490,19 @@
     "/api/v1/hybrid/sessions/{session_id}/status": {
       "get": {
         "summary": "Get hybrid session status",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Hybrid session status retrieved successfully",
@@ -1543,6 +1608,19 @@
     "/api/v1/hybrid/sessions/{session_id}/results": {
       "post": {
         "summary": "Submit hybrid results",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1648,6 +1726,19 @@
     "/api/v1/hybrid/sessions/{session_id}/abort": {
       "post": {
         "summary": "Abort hybrid session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id (uuid4)."
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Hybrid session aborted successfully"

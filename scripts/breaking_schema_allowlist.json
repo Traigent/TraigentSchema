@@ -7072,6 +7072,88 @@
       "reason": "Phase 1 content-less design: the x-content-class, x-content-key-class and x-content-note annotation keywords are registered in the extension meta-schema. They are documentation-only schema annotations (no wire payload carries them, no validation changes), so no consumer can observe them; the gate flags them because the meta-schema is closed. Pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "parameter_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/abort/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "a1cab57d2920d1c9373144085180d544d2b42a3414bb4615c99d8678a6bca2b6"
+        },
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/results/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e3195bf72b41638a82ff67b9d6f25a2720ad57d10726d23a1a04428da26b3a6b"
+        },
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/status/get/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8a7e3f8bc57a0b4b6f465986c74a28d37bac46a60a1b15a7d88bac74e1770d51"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f1487667b4fe413df326407e96423c6a0966eb4d3f9f82c89722c85ee99e06ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/intermediate-report/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "41b558757f18ff9235bd12f6e1a65bbc48d4cd8f557f2b26db1334ca6589ce28"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7598b0607996f1cbd4a790691d94f6813476fdd6f5f42a05a1f8c74173eaac69"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/results/post/parameters/session_id",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "24413c6af5dd89981543f8beb10d761bdbeb85f2ddc6a9f8ad93ba2bf9853e62"
+        }
+      ],
+      "reason": "Declares the existing {session_id} path parameter that these routes already take in their URL template (the Backend reads it from the route). It carries x-content-class opaque_ref and the UUID pattern the Backend mints (str(uuid.uuid4()) in session_service_refactored.py and hybrid_session_service.py). Documentation of an existing path segment: no URL, method or body changes. Pending contract review.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "pattern",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/identity-binding/get/parameters/session_id/schema",
+          "role": "request",
+          "subject": "pattern",
+          "old": null,
+          "new": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "fingerprint": "acb6abd430fa06bbea8a9e1efd413557343992cecdc1c2cbf3a6f27ed535dba6"
+        }
+      ],
+      "reason": "The identity-binding session_id path parameter gains the UUID pattern so it can carry opaque_ref instead of an unproven legacy_content: every session id is server-minted uuid4 and the create route passes no client-supplied id. Pending contract review.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
     }
   ]
 }

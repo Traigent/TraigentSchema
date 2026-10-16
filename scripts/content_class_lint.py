@@ -61,14 +61,10 @@ LEGACY = "legacy_content"
 UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 # Old dialects (Draft 4-7, OpenAPI 3.0, no ``$schema``) resolve ``#/...`` against the document
 # or an ``id`` base. The lint does not model bases: nested ``id``/``$id`` and non-root
-# ``definitions``/``$defs`` are refused, except this one embedded request schema.
+# ``definitions``/``$defs`` are refused; a ``$ref`` resolves against the document root.
 OLD_DIALECT_BASE_ERROR = (
     "old-dialect schemas may not declare a nested id/$id or a non-root definitions/$defs "
     "(a $ref resolves against the document root)"
-)
-EMBEDDED_DEFINITIONS = (
-    "optimization/optimization_endpoints.json",
-    "/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema",
 )
 # The two session id formats the Backend mints: a uuid4 and ``tv0_`` + uuid4 (typed sessions).
 SESSION_ID_PATTERN = "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -296,10 +292,6 @@ class Linter:
             new_scope = scope
             base, base_ptr = (scope[-1][1], scope[-1][2]) if scope else (self.load(doc), "")
         node = self._pointer(base, frag)
-        if node is _MISSING and not target and scope:
-            # inline schema scope did not hold it: fall back to the file root
-            base, base_ptr = self.load(doc), ""
-            node = self._pointer(base, frag)
         if node is _MISSING:
             return None
         return cur_doc, base_ptr + frag, node, new_scope
@@ -676,9 +668,8 @@ class Linter:
         Draft 4-7 (and OpenAPI 3.0, and a document without ``$schema``) resolve ``#/...``
         against the document, or against an ``id``/``$id`` base. The lint does not model base
         URIs, so for those dialects it refuses a nested ``id``/``$id`` and any ``definitions``
-        or ``$defs`` outside the document root, with one exception: the embedded request
-        schema ``EMBEDDED_DEFINITIONS`` that the inventory already uses. A ``$ref`` always
-        resolves against the document root (or that one embedded scope).
+        or ``$defs`` outside the document root. A ``$ref`` always resolves against the document
+        root (or the file it names).
         """
         if self._modern_dialect(doc):
             return True
@@ -688,8 +679,6 @@ class Linter:
             return False
         if ptr == "":
             return True
-        if (doc, ptr) == EMBEDDED_DEFINITIONS:
-            return not isinstance(node.get("$ref"), str)
         self.result.invalid.append(f"{loc}: {OLD_DIALECT_BASE_ERROR}")
         return False
 

@@ -187,10 +187,13 @@ def test_creation_endpoints_wire_objective_contracts() -> None:
     ) as handle:
         endpoints = json.load(handle)
 
-    session_objectives = endpoints["paths"]["/api/v1/sessions"]["post"][
-        "requestBody"
-    ]["content"]["application/json"]["schema"]["properties"]["objectives"]
-    assert session_objectives["oneOf"][0]["$ref"] == "#/definitions/TypedObjectiveArray"
+    session_objectives = endpoints["paths"]["/api/v1/sessions"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]["properties"]["objectives"]
+    assert (
+        session_objectives["oneOf"][0]["$ref"]
+        == "./session_create_definitions_schema.json#/definitions/TypedObjectiveArray"
+    )
 
     with open(
         get_schemas_dir() / "optimization" / "hybrid_session_create_request_schema.json",

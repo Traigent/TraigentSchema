@@ -106,8 +106,8 @@ is unavailable the check fails; it never skips (`python3 scripts/content_class_m
 
 In Draft 4-7, OpenAPI 3.0 and documents without `$schema`, a `$ref` resolves against the document
 root. The lint does not model base URIs, so such a document may not declare a nested `id`/`$id` or a
-`definitions`/`$defs` outside the root, except the one embedded request schema of
-`POST /api/v1/sessions` in `optimization_endpoints.json`. Anything else fails with a fixed error.
+`definitions`/`$defs` outside the root,. Anything else fails with a fixed error; shared definitions live in their own schema file and are
+referenced by file.
 
 ## Scope and commands
 

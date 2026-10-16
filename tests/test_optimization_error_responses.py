@@ -7,6 +7,7 @@ from traigent_schema.utils import get_schemas_dir
 
 CATALOG = get_schemas_dir() / "optimization" / "optimization_endpoints.json"
 ENVELOPE = "../error_envelope_schema.json"
+REFUSAL = "./optimization_refusal_schema.json"  # closed refusal envelope, same members
 RATE_LIMIT = "../rate_limit_info_schema.json"
 
 
@@ -38,7 +39,7 @@ def test_error_responses_reference_canonical_envelope():
                 if code == "429":
                     assert _schema_ref(response) == RATE_LIMIT, f"{path} 429 must ref rate_limit_info"
                 elif code[0] in {"4", "5"}:
-                    assert _schema_ref(response) == ENVELOPE, (
+                    assert _schema_ref(response) in {ENVELOPE, REFUSAL}, (
                         f"{method.upper()} {path} {code} must ref the canonical error envelope"
                     )
 

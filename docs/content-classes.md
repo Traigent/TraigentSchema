@@ -38,7 +38,7 @@ a looser class.
 | `digest` | a pattern that accepts a 64-hex digest (bare or `sha256:`) and nothing of other lengths or free text |
 | `key_material` | the base64url pattern `^[A-Za-z0-9_-]+$` and a `maxLength` |
 | `timestamp` | `format: date-time`/`date`, or a timestamp pattern |
-| `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (the Backend's minting convention), key id, or one of the fixed derived-token patterns listed in the lint |
+| `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference resolved within tenant/project, distinct from the Backend primary key), key id, or one of the fixed derived-token patterns listed in the lint |
 | `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
 | `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
 
@@ -125,6 +125,14 @@ optional. A session is content-less if and only if the request `capabilities` co
 the Backend records that shape at create. Absence means the legacy shape. The response `capabilities`
 advertises what the Backend supports; a content-less client that does not find `content_less_v1` there
 refuses with `backend_upgrade_required` and never falls back to plaintext.
+
+Negotiation by membership: request `capabilities` absent or `[]` means the legacy shape (accepted before the
+tenant cutoff, refused after it with `client_upgrade_required`). Response `capabilities` absent or `[]`
+means the Backend does not support the content-less contract: a content-less client refuses locally
+with `backend_upgrade_required` and never falls back to plaintext. `backend_upgrade_required` is
+client-local and never appears on the wire; the wire refusal envelope
+(`optimization/optimization_refusal_schema.json`) therefore admits only `client_upgrade_required` and
+`session_shape_legacy`. No other closed optimization refusal codes exist in the Schema today.
 
 Closed refusal codes (`OptimizationRefusalCode`, carried in the error envelope's `error_code`; a refusal
 never echoes the request): `client_upgrade_required` (legacy client after tenant cutoff),

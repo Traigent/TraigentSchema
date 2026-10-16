@@ -619,6 +619,16 @@
               }
             }
           },
+          "426": {
+            "description": "Upgrade required — a legacy-shape client was refused after the tenant cutoff (client_upgrade_required). Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request — malformed body or parameters.",
             "content": {
@@ -736,6 +746,16 @@
               }
             }
           },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request — malformed body or parameters.",
             "content": {
@@ -846,6 +866,16 @@
               }
             }
           },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad request — malformed body or parameters.",
             "content": {
@@ -948,6 +978,16 @@
         "responses": {
           "200": {
             "description": "Results submitted successfully"
+          },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed body or parameters.",

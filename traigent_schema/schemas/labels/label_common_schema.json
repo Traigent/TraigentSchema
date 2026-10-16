@@ -41,56 +41,56 @@
       "type": "string",
       "pattern": "^(agent|choice|dataset|evaluationset|evaluator|knob|metric|template)ref_[0-9a-f]{32}$",
       "maxLength": 49,
-      "description": "Server-issued opaque reference to the object a label is attached to (a knob, choice, metric, template, dataset, agent, evaluation set or evaluator). The label service never learns what the object is called. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it. The kind is one of the closed set in the pattern."
+      "description": "Server-issued opaque reference to the object a label is attached to (a knob, choice, metric, template, dataset, agent, evaluation set or evaluator). The label service never learns what the object is called. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it. The kind is one of the closed set in the pattern."
     },
     "KnobRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^knobref_[0-9a-f]{32}$",
       "maxLength": 40,
-      "description": "Server-issued opaque reference to a configuration knob; replaces the customer's knob name. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to a configuration knob; replaces the customer's knob name. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "ChoiceRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^choiceref_[0-9a-f]{32}$",
       "maxLength": 42,
-      "description": "Server-issued opaque reference to one categorical choice of a knob; replaces the customer's choice string. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to one categorical choice of a knob; replaces the customer's choice string. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "MetricRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^metricref_[0-9a-f]{32}$",
       "maxLength": 42,
-      "description": "Server-issued opaque reference to a metric; replaces the customer's metric name. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to a metric; replaces the customer's metric name. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "AgentRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^agentref_[0-9a-f]{32}$",
       "maxLength": 41,
-      "description": "Server-issued opaque reference to an agent; replaces agent_key / agent_id labels. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to an agent; replaces agent_key / agent_id labels. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "DatasetRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^datasetref_[0-9a-f]{32}$",
       "maxLength": 43,
-      "description": "Server-issued opaque reference to an evaluation dataset; replaces dataset_id labels. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to an evaluation dataset; replaces dataset_id labels. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "EvaluationSetRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^evaluationsetref_[0-9a-f]{32}$",
       "maxLength": 49,
-      "description": "Server-issued opaque reference to an evaluation set; replaces evaluation-set names. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to an evaluation set; replaces evaluation-set names. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "EvaluatorRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^evaluatorref_[0-9a-f]{32}$",
       "maxLength": 45,
-      "description": "Server-issued opaque reference to an evaluator; replaces evaluator_id labels. Format `<kind>ref_<32 lowercase hex>` (the Backend's server-minted reference convention, `_new_id(prefix)` in pillar_legend_service.py: prefix + `_` + uuid4 hex); the client may not rely on anything else about it."
+      "description": "Server-issued opaque reference to an evaluator; replaces evaluator_id labels. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it."
     },
     "KeyId": {
       "x-content-class": "opaque_ref",

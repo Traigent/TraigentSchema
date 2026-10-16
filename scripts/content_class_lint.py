@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
@@ -42,6 +43,7 @@ CONTENT_CLASSES = frozenset(
         "closed_enum",
         "number",
         "digest",
+        "key_material",
         "timestamp",
         "code_identifier",
         "encrypted_blob",
@@ -50,6 +52,115 @@ CONTENT_CLASSES = frozenset(
     }
 )
 LEGACY = "legacy_content"
+
+# --- class semantics ------------------------------------------------------------------
+# A class name alone proves nothing: each content-free class must be backed by a schema
+# constraint that actually limits what the value can carry.  ``semantic_problem`` checks
+# that the node's own keywords satisfy the class; the approved forms are documented in
+# docs/content-classes.md.
+UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+KEY_ID_PATTERN = "^[A-Za-z0-9_-]{22}$"
+BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
+# ``<kind>ref_<32 lowercase hex>`` (Backend minting convention: ``_new_id(prefix)`` in
+# pillar_legend_service.py and ``opaque_ref`` in director/opaque_ref.py), with one kind or
+# a closed alternation of kinds.
+_KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{32\}\$$")
+# Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
+# than chosen: they carry no customer text because the pattern admits none.
+_FIXED_REF_PATTERNS = frozenset(
+    {
+        UUID_PATTERN,
+        KEY_ID_PATTERN,
+        "^k[0-9a-f]{16}(?![\\s\\S])",  # content identity key id
+        "^ex1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # keyed example id
+        "^exv1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # keyed example version
+        "^msr1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # multiset root
+        "^ex_[a-f0-9]{8,12}_[0-9]+$",  # hex digest prefix + row index
+        "^[0-9a-f]{12}$",  # key-version tag (hex)
+    }
+)
+_B64URL_CHARS = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _types(node: dict) -> set[str]:
+    typ = node.get("type")
+    return set(typ) if isinstance(typ, list) else ({typ} if isinstance(typ, str) else set())
+
+
+def _compiled(pattern: Any) -> re.Pattern[str] | None:
+    try:
+        return re.compile(pattern) if isinstance(pattern, str) else None
+    except re.error:
+        return None
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
+    """Why ``node`` does not justify ``cls`` (None when it does)."""
+    if node.get("type") == "null":
+        return None  # the null branch of a nullable value carries nothing
+    types = _types(node) - {"null"}
+    pattern = node.get("pattern")
+    rx = _compiled(pattern)
+    if cls == "closed_enum":
+        if "enum" in node or "const" in node or types == {"boolean"}:
+            return None
+        return "closed_enum needs enum, const or a boolean type"
+    if cls == "number":
+        if not types or not types <= {"integer", "number"}:
+            return "number needs an integer/number type"
+        for k in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
+            if k in node and not _is_number(node[k]):
+                return f"number bound {k} must be numeric"
+        lo, hi = node.get("minimum"), node.get("maximum")
+        if _is_number(lo) and _is_number(hi) and lo > hi:
+            return "number minimum exceeds maximum"
+        return None
+    if types and types != {"string"}:
+        return f"{cls} needs a string type"
+    if cls == "digest":
+        if rx is None:
+            return "digest needs an approved hash pattern"
+        sha = "a" * 64
+        if not (rx.search(sha) or rx.search("sha256:" + sha)):
+            return "digest pattern does not accept a 64-hex digest"
+        if any(rx.search(x) for x in ("a" * 63, "a" * 65, "Alice_has_diabetes", "sha256: " + sha)):
+            return "digest pattern also accepts non-digest text"
+        return None
+    if cls == "timestamp":
+        if node.get("format") in ("date-time", "date"):
+            return None
+        if rx and rx.search("2026-10-16T00:00:00Z") and not rx.search("Alice_has_diabetes"):
+            return None
+        return "timestamp needs format date-time/date or a timestamp pattern"
+    if cls == "opaque_ref":
+        if isinstance(pattern, str) and (
+            pattern in _FIXED_REF_PATTERNS or _KINDED_REF.match(pattern)
+        ):
+            return None
+        return "opaque_ref needs an approved ref pattern (uuid, <kind>ref_<32 hex>, key id)"
+    if cls == "code_identifier":
+        if rx and rx.search("pkg.module:func") or rx and rx.search("src/pkg/module.py"):
+            if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
+                return None
+        return "code_identifier needs an identifier or repo-relative path pattern"
+    if cls == "key_material":
+        if pattern != BASE64URL_PATTERN:
+            return "key_material needs the base64url pattern " + BASE64URL_PATTERN
+        if not isinstance(node.get("maxLength"), int):
+            return "key_material needs maxLength"
+        return None
+    if cls == "encrypted_blob":
+        if doc and not doc.startswith("labels/"):
+            return "encrypted_blob outside labels/ must $ref the label envelope"
+        if pattern != BASE64URL_PATTERN or not isinstance(node.get("maxLength"), int):
+            return "encrypted_blob needs the base64url pattern and maxLength"
+        return None
+    return None
+
 
 # Full-document roots: every schema document under optimization/ (endpoint
 # inventories are walked as OpenAPI), plus the guidance and run-measure
@@ -301,6 +412,12 @@ class Linter:
             self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
             if own == LEGACY and not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
+            if own != LEGACY and any(
+                k in node for k in ("type", "enum", "const", "pattern", "format")
+            ):
+                why = semantic_problem(own, node, doc)
+                if why:
+                    self.result.invalid.append(f"{loc}: {why}")
             return
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
@@ -323,12 +440,43 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        if key_cls != LEGACY:
+            why = semantic_problem(key_cls, pn if isinstance(pn, dict) else {}, doc)
+            if why:
+                self.result.invalid.append(f"{loc} [keys]: {why} (on propertyNames)")
         if key_cls == LEGACY and not node.get(NOTE_KEY):
             self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
 
     # -- schema walk ----------------------------------------------------
+    def declared_names(self, doc: str, scope, node: Any, depth: int = 0) -> set[str]:
+        """Property names the primary declaration of ``node`` introduces (own, allOf, $ref)."""
+        names: set[str] = set()
+        if not isinstance(node, dict) or depth > 6:
+            return names
+        props = node.get("properties")
+        if isinstance(props, dict):
+            names |= {n for n, c in props.items() if c != {}}
+        for slot in _SCHEMA_LIST_SLOTS:
+            for b in node.get(slot) or []:
+                names |= self.declared_names(doc, scope, b, depth + 1)
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res:
+                names |= self.declared_names(res[0], res[3], res[2], depth + 1)
+        return names
+
     def walk_schema(
-        self, doc: str, scope, node: Any, ptr: str, *, value: bool, depth: int = 0
+        self,
+        doc: str,
+        scope,
+        node: Any,
+        ptr: str,
+        *,
+        value: bool,
+        depth: int = 0,
+        overlay: frozenset[str] | None = None,
+        primary: frozenset[str] = frozenset(),
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
@@ -348,6 +496,15 @@ class Linter:
             if isinstance(sub, dict):
                 composed = any(c in node for c in _SCHEMA_LIST_SLOTS) or "$ref" in node
                 for name, child in sub.items():
+                    if (
+                        overlay is not None
+                        and k == "properties"
+                        and name in overlay
+                        and CLASS_KEY not in child
+                    ):
+                        # constrains a property whose primary declaration (already
+                        # classified) lives in the enclosing schema
+                        continue
                     if child == {} and composed:
                         # placeholder redeclaration (keeps additionalProperties:false
                         # valid); the real declaration lives in the composed branch.
@@ -371,13 +528,35 @@ class Linter:
         elif isinstance(items, list):
             for i, child in enumerate(items):
                 self.walk_schema(doc, scope, child, f"{ptr}/items/{i}", value=True, depth=depth + 1)
-        # not/if/then/else/contains only constrain values declared elsewhere:
-        # they declare no new fields, so they are not walked as value nodes.
+        # if/then/else/not branches may only re-constrain a property whose primary
+        # declaration is classified in the enclosing schema; any other property they
+        # introduce is a new value and must carry its own class.
+        own_names = frozenset(self.declared_names(doc, scope, node))
+        branch_overlay = primary | own_names
+        for k in ("if", "then", "else", "not"):
+            if isinstance(node.get(k), dict):
+                self.walk_schema(
+                    doc,
+                    scope,
+                    node[k],
+                    f"{ptr}/{k}",
+                    value=False,
+                    depth=depth + 1,
+                    overlay=branch_overlay,
+                    primary=primary,
+                )
         for k in _SCHEMA_LIST_SLOTS:
             if isinstance(node.get(k), list):
                 for i, child in enumerate(node[k]):
                     self.walk_schema(
-                        doc, scope, child, f"{ptr}/{k}/{i}", value=False, depth=depth + 1
+                        doc,
+                        scope,
+                        child,
+                        f"{ptr}/{k}/{i}",
+                        value=False,
+                        depth=depth + 1,
+                        overlay=overlay,
+                        primary=primary | own_names,
                     )
         for k in _SCHEMA_MAP_SLOTS:
             if isinstance(node.get(k), dict):
@@ -486,7 +665,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {f.loc}  -- {f.note}")
     if not res.ok:
         print(
-            f"FAIL: {len(res.missing)} missing, {len(res.invalid)} invalid, {len(res.unresolved)} unresolved"
+            f"FAIL: {len(res.missing)} missing, {len(res.invalid)} invalid, "
+            f"{len(res.unresolved)} unresolved"
         )
         return 1
     print("OK")

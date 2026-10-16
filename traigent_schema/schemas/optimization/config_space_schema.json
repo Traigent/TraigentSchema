@@ -13,7 +13,8 @@
       "x-identifier": true
     },
     "schema_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "TVL schema version",
       "default": "0.9"

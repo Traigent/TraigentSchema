@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime dispatch continues to reject unsupported Hyperband execution (#277).
 
 ### Added
+- **Content-class lint now checks class semantics, conditional branches and a checked-in manifest (content-less plan, review follow-up).**
+  New class `key_material` (public keys, signatures, salts, nonces, credential ids) split out of `digest`;
+  `closed_enum`, `number`, `digest`, `opaque_ref`, `timestamp`, `code_identifier` and `encrypted_blob`
+  must be backed by a matching constraint, so values the first pass over-claimed (for example the error
+  envelope `message`, the external dataset version tag) are now `legacy_content`. `if`/`then`/`else`/`not`
+  branches are linted. The count ratchet is replaced by `docs/content-class-manifest.json` plus
+  `docs/content-class-dispositions.json`. Label contract: tenant/project refs are UUIDs and other refs
+  are `<kind>ref_<32 hex>` (the Backend's formats); the recovery wrap binds `subject` into its AAD
+  (vectors regenerated); the envelope doc states that `revision` is bound into the AAD; member keys are
+  admin-signed only. Annotation and description changes only on existing schemas: no type, `required`
+  or validation change.
 - **Label service contract and opaque-identity fields (additive, content-less plan phase 2).**
   New `labels/` schemas: label envelope (HPKE base mode, X25519/HKDF-SHA256/AES-256-GCM, bucket-padded),
   signed key bindings (root -> admin -> project epoch -> member), member key registration/approval,

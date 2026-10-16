@@ -460,12 +460,19 @@ def unwrap_from_member(
 # --- flow (c): recovery wrap ----------------------------------------------------------
 
 
-def recovery_aad(tenant_ref: str, project_ref: str, epoch: int) -> bytes:
+RECOVERY_SUBJECTS = ("root_key", "project_key")
+
+
+def recovery_aad(tenant_ref: str, project_ref: str, epoch: int, subject: str) -> bytes:
+    """AAD binds the wrap subject, so a root-key wrap cannot be replayed as a project-key wrap."""
+    if subject not in RECOVERY_SUBJECTS:
+        raise LabelCryptoError("unknown recovery wrap subject")
     return jcs(
         {
             "tenant_ref": tenant_ref,
             "project_ref": project_ref,
             "epoch": epoch,
+            "subject": subject,
             "purpose": "recovery_wrap",
             "version": LABEL_VERSION,
         }
@@ -486,7 +493,9 @@ def recovery_wrap(
     if len(recovery_secret) != 32 or len(nonce) != 12:
         raise LabelCryptoError("bad recovery secret or nonce size")
     key = hkdf(recovery_secret, RECOVERY_INFO, 32)
-    ct = AESGCM(key).encrypt(nonce, secret_key_raw, recovery_aad(tenant_ref, project_ref, epoch))
+    ct = AESGCM(key).encrypt(
+        nonce, secret_key_raw, recovery_aad(tenant_ref, project_ref, epoch, subject)
+    )
     return {
         "version": LABEL_VERSION,
         "epoch": epoch,
@@ -504,7 +513,7 @@ def recovery_unwrap(
         return AESGCM(key).decrypt(
             unb64u(wrap["nonce"]),
             unb64u(wrap["ciphertext"]),
-            recovery_aad(tenant_ref, project_ref, wrap["epoch"]),
+            recovery_aad(tenant_ref, project_ref, wrap["epoch"], wrap["subject"]),
         )
     except InvalidTag as exc:
         raise LabelCryptoError("authentication failed") from exc

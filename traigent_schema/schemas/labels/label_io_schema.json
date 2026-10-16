@@ -114,8 +114,9 @@
             "string",
             "null"
           ],
-          "maxLength": 256,
-          "description": "Opaque pagination cursor, null on the last page."
+          "maxLength": 41,
+          "description": "Opaque pagination cursor reference (`cursorref_<32 lowercase hex>`, the server's reference convention), null on the last page.",
+          "pattern": "^cursorref_[0-9a-f]{32}$"
         }
       }
     }

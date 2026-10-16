@@ -22,7 +22,8 @@
       "additionalProperties": true,
       "properties": {
         "trial_id": {
-          "x-content-class": "opaque_ref",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "description": "Identifier of the suggested trial."
         },
@@ -91,7 +92,8 @@
       "description": "Number of trials remaining in the session queue after this suggestion."
     },
     "session_status": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Canonical session lifecycle status (normalized server-side)."
     }

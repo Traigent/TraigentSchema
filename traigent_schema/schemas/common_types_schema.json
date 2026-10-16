@@ -5,7 +5,8 @@
   "description": "Canonical definitions for shared logical fields (foreign-key identifiers and timestamps). Reference these instead of re-modeling ids/timestamps ad-hoc per schema, to stop cross-schema drift (#137). ForeignKeyId accepts BOTH server-generated UUID4 ids and SDK-generated trial_<hex> ids (the two real id populations).",
   "definitions": {
     "ForeignKeyId": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,

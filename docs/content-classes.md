@@ -7,10 +7,11 @@ enforces it and `tests/test_content_class_lint.py` pins it.
 
 | Class | Meaning |
 |---|---|
-| `opaque_ref` | Server-issued opaque reference (run, trial, session, project ids). |
+| `opaque_ref` | Server-issued opaque reference (UUIDs, `<kind>ref_<32 hex>`, keyed content-identity tokens). |
 | `closed_enum` | Value from a closed vocabulary (enums, constants, booleans). |
 | `number` | Bounded number (counts, scores, durations, costs). |
-| `digest` | Approved hash or digest (`sha256:...`, etags). |
+| `digest` | Approved hash or digest (`sha256:...`, git object ids). |
+| `key_material` | Public key, signature, salt, nonce or authenticator-generated credential id: base64url, bounded. |
 | `timestamp` | Point in time. |
 | `code_identifier` | Verified code identifier (function ref, module, repo-relative path). |
 | `encrypted_blob` | Label-service ciphertext, accepted only by the label service. |
@@ -21,7 +22,27 @@ enforces it and `tests/test_content_class_lint.py` pins it.
 new field may use. Every `legacy_content` annotation carries an `x-content-note` citing the
 inventory row (for example `INV S1-14 (LEAK): function_name`), or `INV-GAP` when the field
 is not in the inventory. The lint lists every `legacy_content` location; that list is the
-checklist for the removal phase (P3), and a test pins its size so it can only go down.
+checklist for the removal phase (P3). The manifest (below) pins every location.
+
+## What each class must prove
+
+A class name alone proves nothing, so the lint checks the node's own keywords
+(`semantic_problem` in `scripts/content_class_lint.py`; negative tests for each in
+`tests/test_content_class_lint.py`). A value that cannot meet its class is `legacy_content`, never
+a looser class.
+
+| Class | Required |
+|---|---|
+| `closed_enum` | `enum`, `const`, or a boolean type |
+| `number` | integer/number type, numeric bounds, `minimum <= maximum` |
+| `digest` | a pattern that accepts a 64-hex digest (bare or `sha256:`) and nothing of other lengths or free text |
+| `key_material` | the base64url pattern `^[A-Za-z0-9_-]+$` and a `maxLength` |
+| `timestamp` | `format: date-time`/`date`, or a timestamp pattern |
+| `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (the Backend's minting convention), key id, or one of the fixed derived-token patterns listed in the lint |
+| `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
+| `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
+
+Map-key classes are checked against `propertyNames` the same way.
 
 ## Where the annotation goes
 
@@ -32,8 +53,22 @@ schemas and response-header schemas. Map keys are classed by `x-content-class` o
 composition of refs) inherits the class of its target; pure containers (an object or array
 whose children are all classed) need none. An object with open extras
 (`additionalProperties: true`) is a value node: its class describes the extra keys and values.
-`if`/`then`/`else`/`not` branches only constrain fields declared elsewhere and are not
-walked, nor are empty placeholder properties (`{}`) next to `allOf`/`$ref`.
+`if`/`then`/`else`/`not` branches are walked: a branch may re-constrain a property whose primary
+declaration (own `properties`, `allOf`, `$ref`) is already classified, but any property it
+introduces must carry its own class. Empty placeholder properties (`{}`) next to `allOf`/`$ref`
+are skipped.
+
+## Manifest and dispositions
+
+`docs/content-class-manifest.json` maps every annotated location (`file#pointer`) to its class;
+`python3 scripts/content_class_manifest.py --update` regenerates it and the test fails if it
+differs from the live annotations. `docs/content-class-dispositions.json` holds the
+`legacy_register` (every location that was `legacy_content` when the manifest was created) and the
+dispositions. `legacy_content` can be added nowhere. A location leaves it only with a disposition
+entry `{location, from, to, reason, reference}` (reason in words, reference to the inventory row or
+design section); the test fails for a declassified location without one. Locations whose note
+reads `INV-GAP: was <class>` were claimed content-free by the first annotation pass, but their
+contract has no enum or ref pattern to prove it.
 
 ## Scope and commands
 
@@ -45,6 +80,7 @@ design and excluded.
 ```bash
 python3 scripts/content_class_lint.py --report   # per-class counts
 python3 scripts/content_class_lint.py --legacy   # + every legacy_content location
+python3 scripts/content_class_manifest.py --check
 python3 -m pytest tests/test_content_class_lint.py -q
 ```
 

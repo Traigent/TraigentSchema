@@ -6,7 +6,8 @@
   "version": "1.0.0",
   "properties": {
     "id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "description": "Unique identifier for this tunable (corresponds to capability_id in Hybrid Mode API)",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",

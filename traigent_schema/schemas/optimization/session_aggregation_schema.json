@@ -7,7 +7,8 @@
   "additionalProperties": false,
   "properties": {
     "selection_mode": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
       "description": "How the session winner was selected (e.g. aggregated_mean). A bounded label, never free text."
@@ -126,7 +127,8 @@
             }
           },
           "badge_name": {
-            "x-content-class": "closed_enum",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
             "type": "string",
             "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$"
           },
@@ -147,7 +149,8 @@
       "minimum": 0
     },
     "sdk_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
       "description": "Anchored version token — never free text."
@@ -166,13 +169,15 @@
   },
   "definitions": {
     "SelectionLabel": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "pattern": "^(?![\\s\\S]*\\s)[A-Za-z0-9_][A-Za-z0-9_.:-]{0,63}$",
       "description": "Bounded label, never free text."
     },
     "SelectionTrialId": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,

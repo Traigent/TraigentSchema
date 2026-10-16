@@ -78,7 +78,8 @@
   },
   "properties": {
     "schema_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Version of this hint contract."
     },
@@ -90,7 +91,8 @@
       "maxLength": 256
     },
     "catalog_entry_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256

@@ -19,14 +19,16 @@
   "additionalProperties": false,
   "definitions": {
     "OpaqueId": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
       "pattern": "^[A-Za-z0-9_.:-]+$"
     },
     "ValueBucket": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
@@ -42,14 +44,16 @@
       ]
     },
     "CoverageReason": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9_:-]*$"
     },
     "SourceCounts": {
-      "x-content-key-class": "closed_enum",
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free (keys)",
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
@@ -238,7 +242,8 @@
           "$ref": "#/definitions/OpaqueId"
         },
         "extractor_version": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string"
         },
         "report_id": {
@@ -681,7 +686,8 @@
   },
   "properties": {
     "schema_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string"
     },
     "config_results": {

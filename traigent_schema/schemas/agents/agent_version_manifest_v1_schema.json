@@ -29,7 +29,7 @@
           ]
         },
         "commit": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "digest",
           "type": "string",
           "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])",
           "description": "Full SHA-1 or SHA-256 git object id; abbreviations are not identities."
@@ -57,12 +57,14 @@
           ]
         },
         "language_version": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "maxLength": 64
         },
         "sdk_version": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 64
@@ -227,7 +229,8 @@
       ],
       "properties": {
         "provider": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}(?![\\s\\S])"
         },
@@ -249,7 +252,8 @@
           "description": "null when the provider response did not name a model: an honest 'unknown', never a copy of requested_model."
         },
         "system_fingerprint": {
-          "x-content-class": "digest",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was digest; contract has no digest pattern, so the value is not provably content-free",
           "type": [
             "string",
             "null"

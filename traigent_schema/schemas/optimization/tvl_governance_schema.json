@@ -20,7 +20,8 @@
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
           "type": {
-            "x-content-class": "closed_enum",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
             "type": "string",
             "pattern": "^(bool|int|float|str|enum\\[(str|int|float)\\]|tuple\\[.{1,64}\\]|callable\\[[A-Za-z0-9_.-]{1,64}\\])$",
             "description": "Declared TVL value type (closed grammar) \u2014 never a value."

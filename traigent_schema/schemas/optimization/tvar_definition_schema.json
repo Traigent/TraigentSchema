@@ -44,7 +44,8 @@
   },
   "properties": {
     "name": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Variable name (must be valid Python identifier)",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
@@ -70,7 +71,8 @@
       "default": "linear"
     },
     "agent": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Agent name for multi-agent grouping. Groups TVARs by the agent or component they belong to.",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"

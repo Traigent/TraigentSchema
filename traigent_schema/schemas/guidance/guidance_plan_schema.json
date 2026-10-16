@@ -15,14 +15,16 @@
   ],
   "properties": {
     "plan_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
       "description": "Stable identifier for this plan. The backend emits a non-empty string up to 128 characters."
     },
     "policy_version": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
@@ -57,7 +59,8 @@
       "additionalProperties": false
     },
     "plan_token": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 4096,

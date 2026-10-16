@@ -164,7 +164,8 @@
           "maxItems": 1000
         },
         "config_hash": {
-          "x-content-class": "digest",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was digest; contract has no digest pattern, so the value is not provably content-free",
           "description": "Hash of the exact configuration the rerun executed, binding the measurement to the promoted config.",
           "type": "string",
           "minLength": 1,

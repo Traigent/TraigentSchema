@@ -30,8 +30,8 @@
   "properties": {
     "schema_version": { "x-content-class": "closed_enum", "type": "string", "const": "traigent.guarantee_certificate.v1" },
     "mode": { "$ref": "#/definitions/SelectionMode" },
-    "anchor_id": { "x-content-class": "opaque_ref", "type": "string", "minLength": 1, "maxLength": 128 },
-    "selected_id": { "x-content-class": "opaque_ref", "type": ["string", "null"], "maxLength": 128 },
+    "anchor_id": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": "string", "minLength": 1, "maxLength": 128 },
+    "selected_id": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": ["string", "null"], "maxLength": 128 },
     "delta": {
       "x-content-class": "number",
       "type": "number",
@@ -120,7 +120,7 @@
     "no_decision_reason": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP no-route: not inventoried (free string): no_decision_reason", "type": ["string", "null"], "maxLength": 512 },
     "achievable_delta_at_budget": { "x-content-class": "number", "type": ["number", "null"], "minimum": 0 },
     "extra_examples_for_target_delta": { "x-content-class": "number", "type": ["integer", "null"], "minimum": 0 },
-    "config_id": { "x-content-class": "opaque_ref", "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "config_id": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
     "spec_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
     "config_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
     "runtime_config_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },

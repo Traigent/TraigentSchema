@@ -87,7 +87,8 @@
       "type": "object",
       "description": "Aggregate policy event counts only; no per-input rows or content.",
       "propertyNames": {
-        "x-content-class": "closed_enum",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
         "type": "string",
         "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
       },
@@ -102,7 +103,8 @@
       "type": "object",
       "description": "Aggregate executable effectuation event metadata only; raw prompts, examples, and outputs are not allowed.",
       "propertyNames": {
-        "x-content-class": "closed_enum",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
         "type": "string",
         "pattern": "^[A-Za-z0-9_.:/-]+$"
       },
@@ -136,7 +138,8 @@
           "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$"
         },
         "ref": {
-          "x-content-class": "opaque_ref",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 1024
@@ -161,24 +164,28 @@
   },
   "properties": {
     "schema_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Version of this trial summary contract."
     },
     "session_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256
     },
     "trial_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256
     },
     "config_space_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256
@@ -193,7 +200,8 @@
     "catalog_entry_ids": {
       "type": "array",
       "items": {
-        "x-content-class": "opaque_ref",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
         "type": "string",
         "minLength": 1,
         "maxLength": 256
@@ -237,7 +245,8 @@
       "$ref": "#/definitions/Privacy"
     },
     "sdk_version": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128

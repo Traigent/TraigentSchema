@@ -56,7 +56,8 @@
       "default": 0.05
     },
     "min_effect": {
-      "x-content-key-class": "closed_enum",
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free (keys)",
       "type": "object",
       "description": "Minimum practical effect size per metric (metric_name -> threshold)",
       "patternProperties": {
@@ -85,7 +86,8 @@
       }
     },
     "tie_breakers": {
-      "x-content-key-class": "closed_enum",
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free (keys)",
       "type": "object",
       "description": "Tie-breaking strategy per metric when configurations are statistically equivalent",
       "patternProperties": {

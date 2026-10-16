@@ -7,8 +7,8 @@
   "required": ["mode", "anchor_id", "selected_id", "delta", "epsilon", "epsilon_acc", "epsilon_cost", "eta", "eta_kind", "ci_method", "design", "multiplicity_scheme", "delta_prime_acc", "delta_prime_cost", "per_candidate", "quality_ci", "cost_ci", "sample_count"],
   "properties": {
     "mode": {"$ref": "#/definitions/SelectionMode"},
-    "anchor_id": {"x-content-class": "opaque_ref", "type": "string", "minLength": 1, "maxLength": 128},
-    "selected_id": {"x-content-class": "opaque_ref", "type": ["string", "null"], "maxLength": 128},
+    "anchor_id": {"x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": "string", "minLength": 1, "maxLength": 128},
+    "selected_id": {"x-content-class": "legacy_content", "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free", "type": ["string", "null"], "maxLength": 128},
     "delta": {"x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Accuracy non-inferiority margin."},
     "epsilon": {"x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
     "epsilon_acc": {"x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},

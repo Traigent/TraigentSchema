@@ -127,10 +127,10 @@ def test_one_envelope_per_purpose_opens_and_validates() -> None:
     "override",
     [
         {"purpose": "metric"},
-        {"object_ref": "obj_Someotherobject"},
+        {"object_ref": "knobref_00000000000000000000000000000000"},
         {"revision": 99},
-        {"tenant_ref": "ten_Othertenant01"},
-        {"project_ref": "prj_Otherproject01"},
+        {"tenant_ref": "00000000-0000-4000-8000-000000000001"},
+        {"project_ref": "00000000-0000-4000-8000-000000000002"},
     ],
 )
 def test_aad_mismatch_is_rejected(override: dict) -> None:
@@ -226,7 +226,7 @@ def test_member_wrap() -> None:
             _x(K["member_private_hex"]),
             wrap,
             tenant_ref=REFS["tenant_ref"],
-            project_ref="prj_Otherproject01",
+            project_ref="00000000-0000-4000-8000-000000000002",
         )
     with pytest.raises(L.LabelCryptoError):  # epoch is bound
         L.unwrap_from_member(
@@ -263,6 +263,84 @@ def test_recovery_wraps() -> None:
             tenant_ref=REFS["tenant_ref"],
             project_ref=REFS["project_ref"],
         )
+
+
+def test_recovery_wrap_subject_is_bound_into_the_aad() -> None:
+    secret = bytes.fromhex(K["recovery_secret_hex"])
+    project = VECTORS["recovery_wraps"]["project_key"]
+    root = VECTORS["recovery_wraps"]["root_key"]
+    for wrap, other in ((project, "root_key"), (root, "project_key")):
+        with pytest.raises(L.LabelCryptoError):  # same bytes, other subject
+            L.recovery_unwrap(
+                secret,
+                {**wrap, "subject": other},
+                tenant_ref=REFS["tenant_ref"],
+                project_ref=REFS["project_ref"],
+            )
+    assert '"subject":"project_key"' in VECTORS["recovery_wraps"]["project_key_aad_jcs"]
+    assert '"subject":"root_key"' in VECTORS["recovery_wraps"]["root_key_aad_jcs"]
+    assert (
+        VECTORS["recovery_wraps"]["project_key_aad_jcs"]
+        != VECTORS["recovery_wraps"]["root_key_aad_jcs"]
+    )
+    with pytest.raises(L.LabelCryptoError):
+        L.recovery_aad(REFS["tenant_ref"], REFS["project_ref"], 1, "other")
+
+
+def test_member_registration_has_no_self_signature() -> None:
+    reg = {
+        "version": 1,
+        "project_ref": REFS["project_ref"],
+        "key_id": L.key_id(bytes.fromhex(K["member_public_hex"])),
+        "public_key": L.b64u(bytes.fromhex(K["member_public_hex"])),
+        "algorithm": "x25519",
+        "member_kind": "human",
+        "requested_access": "read_write",
+    }
+    assert errors("label_member_key_schema.json", "/definitions/MemberKeyRegistration", reg) == []
+    for field in ("signature", "self_signature", "signer_key_id", "binding"):
+        assert errors(
+            "label_member_key_schema.json",
+            "/definitions/MemberKeyRegistration",
+            {**reg, field: "x" * 86},
+        )
+
+
+def test_ref_formats_follow_the_backend() -> None:
+    uuid = "7c0b2f6e-5d1a-4f3e-9a41-0c2d8e6b1f01"
+    common = "label_common_schema.json"
+    for name in ("TenantRef", "ProjectRef"):
+        assert errors(common, f"/definitions/{name}", uuid) == []
+        assert errors(common, f"/definitions/{name}", "ten_TestVector0001")
+        assert errors(common, f"/definitions/{name}", uuid.upper())
+    for name, kind in (
+        ("KnobRef", "knob"),
+        ("ChoiceRef", "choice"),
+        ("MetricRef", "metric"),
+        ("AgentRef", "agent"),
+        ("DatasetRef", "dataset"),
+        ("EvaluationSetRef", "evaluationset"),
+        ("EvaluatorRef", "evaluator"),
+    ):
+        assert errors(common, f"/definitions/{name}", f"{kind}ref_" + "0f" * 16) == []
+        assert errors(common, f"/definitions/{name}", f"{kind}ref_" + "0F" * 16)  # lowercase hex
+        assert errors(common, f"/definitions/{name}", f"{kind}ref_" + "0f" * 15)  # 32 hex exactly
+        assert errors(common, f"/definitions/{name}", "knb_TestVector0001")
+    assert errors(common, "/definitions/KnobRef", "metricref_" + "0f" * 16)  # kind is checked
+    assert errors(common, "/definitions/ObjectRef", "templateref_" + "0f" * 16) == []
+    assert errors(common, "/definitions/ObjectRef", "obj_TestVector0001")
+    for entry in VECTORS["label_envelopes"]:
+        assert errors(common, "/definitions/ObjectRef", entry["object_ref"]) == []
+
+
+def test_key_material_fields_are_not_digests() -> None:
+    classes = {
+        name: load_json(get_schemas_dir() / "labels" / "label_common_schema.json")["definitions"][
+            name
+        ]["x-content-class"]
+        for name in ("PublicKey", "Signature", "Nonce12", "Salt")
+    }
+    assert set(classes.values()) == {"key_material"}
 
 
 def test_local_protection_metadata_and_no_secret_fields() -> None:
@@ -342,7 +420,7 @@ def test_binding_chain_failures() -> None:
         forged = L.make_binding(root_sk, bytes.fromhex(K["root_public_hex"]), body)
         L.verify_chain(**_chain(member=forged))
     with pytest.raises(L.LabelCryptoError):
-        L.verify_chain(**{**_chain(), "tenant_ref": "ten_Othertenant01"})
+        L.verify_chain(**{**_chain(), "tenant_ref": "00000000-0000-4000-8000-000000000001"})
 
 
 def test_binding_schema_rules() -> None:
@@ -504,7 +582,13 @@ def test_label_schemas_are_closed_and_classed() -> None:
 
 
 def test_optimization_additions_validate() -> None:
-    cfg = {"knb_Temperature01": "chc_Gptmini00001", "knb_Topk000000001": 4}
+    knob_a, knob_b = "knobref_" + "a" * 32, "knobref_" + "b" * 32
+    choice, metric_a, metric_b = (
+        "choiceref_" + "c" * 32,
+        "metricref_" + "d" * 32,
+        "metricref_" + "e" * 32,
+    )
+    cfg = {knob_a: choice, knob_b: 4}
     assert errors("label_common_schema.json", "/definitions/ConfigRefMap", cfg) == []
     assert errors(
         "label_common_schema.json", "/definitions/ConfigRefMap", {"temperature": 0.2}
@@ -512,13 +596,13 @@ def test_optimization_additions_validate() -> None:
     assert errors(
         "label_common_schema.json",
         "/definitions/ConfigRefMap",
-        {"knb_Temperature01": "gpt-5.2-mini"},
+        {knob_a: "gpt-5.2-mini"},
     )
     assert (
         errors(
             "label_common_schema.json",
             "/definitions/MetricValueMap",
-            {"met_Correctness01": 0.9, "met_Cost0000000001": None},
+            {metric_a: 0.9, metric_b: None},
         )
         == []
     )
@@ -528,7 +612,7 @@ def test_optimization_additions_validate() -> None:
         "trial_id": "trial_1",
         "metrics": {},
         "config_refs": cfg,
-        "metric_values": {"met_Correctness01": 0.9},
+        "metric_values": {metric_a: 0.9},
     }
     assert ref_errors(REGISTRY, submit, ok) == []
     assert ref_errors(REGISTRY, submit, {**ok, "config_refs": {"temperature": 1}})

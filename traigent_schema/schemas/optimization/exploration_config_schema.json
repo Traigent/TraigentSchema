@@ -71,7 +71,8 @@
           "type": "object",
           "properties": {
             "type": {
-              "x-content-class": "closed_enum",
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
               "type": "string"
             }
           },

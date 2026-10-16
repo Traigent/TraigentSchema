@@ -28,13 +28,26 @@ VECTORS_PATH = (
     Path(__file__).resolve().parent.parent / "traigent_schema" / "data" / "label_vectors_v0.json"
 )
 
-TENANT = "ten_TestVector0001"
-PROJECT = "prj_TestVector0001"
+# Tenant and project ids are UUIDs in the Backend; the other refs follow its
+# ``<kind>ref_<32 hex>`` convention.  All values here are TEST-ONLY.
+TENANT = "7c0b2f6e-5d1a-4f3e-9a41-0c2d8e6b1f01"
+PROJECT = "3a9e4d10-8b27-4c65-b1f2-5e7a90c4d202"
+OBJECT_KIND = {
+    "label": "agent",
+    "knob": "knob",
+    "choice": "choice",
+    "metric": "metric",
+    "template": "template",
+}
 NOW = "2026-10-16T00:00:00Z"
 
 
 def seed(name: str) -> bytes:
     return hashlib.sha256(b"traigent.label.TEST-ONLY-VECTOR-SEED.v0/" + name.encode()).digest()
+
+
+def test_ref(kind: str, name: str) -> str:
+    return f"{kind}ref_" + seed("ref/" + kind + "/" + name)[:16].hex()
 
 
 def build() -> dict:
@@ -98,7 +111,7 @@ def build() -> dict:
     }
     envelopes = []
     for i, (purpose, text) in enumerate(texts.items()):
-        object_ref = f"obj_TestVector{purpose.capitalize():<8}".replace(" ", "0")
+        object_ref = test_ref(OBJECT_KIND[purpose], purpose)
         revision = i + 1
         ikm = seed(f"writer-{purpose}")
         env = L.seal_label(
@@ -276,8 +289,10 @@ def build() -> dict:
         "recovery_wraps": {
             "project_key": recovery_project,
             "root_key": recovery_root,
-            "project_key_aad_jcs": L.recovery_aad(TENANT, PROJECT, epoch).decode(),
-            "root_key_aad_jcs": L.recovery_aad(TENANT, PROJECT, L.ROOT_WRAP_EPOCH).decode(),
+            "project_key_aad_jcs": L.recovery_aad(TENANT, PROJECT, epoch, "project_key").decode(),
+            "root_key_aad_jcs": L.recovery_aad(
+                TENANT, PROJECT, L.ROOT_WRAP_EPOCH, "root_key"
+            ).decode(),
         },
         "local_protection": {
             "test_only_wrapping_ikm_hex": local_ikm.hex(),

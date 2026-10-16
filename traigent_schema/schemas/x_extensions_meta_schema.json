@@ -52,12 +52,12 @@
     },
     "x-content-class": {
       "type": "string",
-      "enum": ["opaque_ref", "closed_enum", "number", "digest", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
-      "description": "Content class of a value carried on an optimization channel (docs/content-classes.md). opaque_ref = server-issued reference; closed_enum = value from a closed vocabulary (booleans included); number = bounded number; digest = approved hash/digest; timestamp; code_identifier = verified code identifier (GNFR-PRIV-003 carve-out); encrypted_blob = label-service ciphertext; auth_header = allow-listed transport/authentication header. legacy_content is the transitional value: the field carries (or may carry) customer content today and is scheduled for removal by the content-less plan; it must carry x-content-note and the count may only go down. Placed on every property, array item, map value, propertyNames schema, parameter schema and response-header schema of an optimization-channel contract; enforced by scripts/content_class_lint.py."
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
+      "description": "Content class of a value carried on an optimization channel (docs/content-classes.md). opaque_ref = server-issued reference; closed_enum = value from a closed vocabulary (booleans included); number = bounded number; digest = approved hash/digest; key_material = public key, signature, salt or nonce (base64url, bounded); timestamp; code_identifier = verified code identifier (GNFR-PRIV-003 carve-out); encrypted_blob = label-service ciphertext; auth_header = allow-listed transport/authentication header. legacy_content is the transitional value: the field carries (or may carry) customer content today and is scheduled for removal by the content-less plan; it must carry x-content-note and may only be removed through a disposition record (docs/content-class-dispositions.json). Placed on every property, array item, map value, propertyNames schema, parameter schema and response-header schema of an optimization-channel contract; enforced by scripts/content_class_lint.py."
     },
     "x-content-key-class": {
       "type": "string",
-      "enum": ["opaque_ref", "closed_enum", "number", "digest", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
       "description": "Content class of the KEYS of a map-shaped object (additionalProperties / patternProperties) when propertyNames carries no x-content-class. Same vocabulary as x-content-class; legacy_content means the keys are customer-chosen names (knob names, metric names) today."
     },
     "x-content-note": {

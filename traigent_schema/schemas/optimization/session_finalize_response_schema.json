@@ -11,7 +11,8 @@
   ],
   "properties": {
     "session_id": {
-      "x-content-class": "opaque_ref",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string"
     },
     "best_config": {
@@ -67,13 +68,15 @@
           ]
         },
         "attested_by": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
           "description": "Attesting client identifier (e.g. python_sdk)."
         },
         "sdk_version": {
-          "x-content-class": "closed_enum",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
           "description": "Anchored version token — never free text (P8: no room for value/evidence snippets)."
@@ -107,7 +110,8 @@
       "type": "number"
     },
     "stop_reason": {
-      "x-content-class": "closed_enum",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": [
         "string",
         "null"
@@ -137,11 +141,13 @@
         "type": "object",
         "properties": {
           "session_id": {
-            "x-content-class": "opaque_ref",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           },
           "trial_id": {
-            "x-content-class": "opaque_ref",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           },
           "trial_number": {
@@ -166,7 +172,8 @@
             "type": "number"
           },
           "status": {
-            "x-content-class": "closed_enum",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
             "type": [
               "string",
               "null"

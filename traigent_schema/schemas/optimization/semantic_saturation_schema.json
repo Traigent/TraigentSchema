@@ -189,7 +189,8 @@
         "changed_example_ids": {
           "type": "array",
           "items": {
-            "x-content-class": "opaque_ref",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           }
         },
@@ -201,7 +202,8 @@
         "stable_example_ids": {
           "type": "array",
           "items": {
-            "x-content-class": "opaque_ref",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           }
         },

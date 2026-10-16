@@ -154,7 +154,8 @@
           "$ref": "#/definitions/RunIdentityBindingRejectionReasonV1"
         },
         "agent_id": {
-          "x-content-class": "opaque_ref",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": ["string", "null"],
           "maxLength": 512,
           "description": "The resolved, server-owned agent row id. Null when the declared agent id is a fallback label (no registered build) or the agent slot is unavailable/rejected."
@@ -195,7 +196,8 @@
           "description": "The server's own recomputed multiset root of the bound dataset. Null whenever the dataset slot was withheld, refused (e.g. unregistered key_id, root mismatch) or absent."
         },
         "dataset_version_id": {
-          "x-content-class": "opaque_ref",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": ["string", "null"],
           "minLength": 1,
           "x-reference": "../datasets/dataset_version_schema.json#/definitions/DatasetVersionV1/properties/id",
@@ -317,7 +319,8 @@
       "required": ["session_id", "binding", "trials"],
       "properties": {
         "session_id": {
-          "x-content-class": "opaque_ref",
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 128

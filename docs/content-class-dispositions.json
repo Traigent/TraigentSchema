@@ -458,13 +458,13 @@
   "success_envelope_schema.json#/properties/message",
   "success_envelope_schema.json#/properties/metadata",
   "success_envelope_schema.json#/properties/metadata [keys]",
-  "optimization/session_create_definitions_schema.json#/definitions/ArtifactVersion/properties/schema",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition [keys]",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition/properties/metric",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyObjectiveBand",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyObjectiveBand [keys]",
-  "optimization/session_create_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items"
+  "optimization/session_create_request_definitions_schema.json#/definitions/ArtifactVersion/properties/schema",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition [keys]",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition/properties/metric",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand [keys]",
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items"
  ],
  "dispositions": [
   {
@@ -478,49 +478,49 @@
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/ArtifactVersion/properties/schema",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/ArtifactVersion/properties/schema (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyObjectObjectiveDefinition",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyObjectObjectiveDefinition [keys]",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition [keys] (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyObjectObjectiveDefinition/properties/metric",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition/properties/metric (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyObjectiveBand",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyObjectiveBand [keys]",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand [keys] (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   },
   {
    "location": "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/definitions/LegacyStringObjectiveArray/items",
    "from": "legacy_content",
    "to": "removed",
-   "reason": "Moved unchanged to optimization/session_create_definitions_schema.json so old-dialect refs resolve against a document root; the same field is registered there at the matching pointer, with the same class and note.",
+   "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
   }
  ]

@@ -104,25 +104,25 @@
                     "properties": {
                       "agent": {
                         "allOf": [
-                          { "$ref": "./session_create_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
                           { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["afp2", "fp1"] } } }
                         ]
                       },
                       "dataset": {
                         "allOf": [
-                          { "$ref": "./session_create_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
                           { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["dfp2o", "fp1"] } } }
                         ]
                       },
                       "evaluator": {
                         "allOf": [
-                          { "$ref": "./session_create_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
                           { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["efp2", "fp1"] } } }
                         ]
                       },
                       "config_space": {
                         "allOf": [
-                          { "$ref": "./session_create_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
                           { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["cfp2", "fp1"] } } }
                         ]
                       }
@@ -204,10 +204,10 @@
                     "description": "Optimization objectives. Accepts canonical typed objective definitions, legacy SDK/backend objective objects, and the legacy SDK string-array form still accepted by the backend.",
                     "oneOf": [
                       {
-                        "$ref": "./session_create_definitions_schema.json#/definitions/TypedObjectiveArray"
+                        "$ref": "./session_create_request_definitions_schema.json#/definitions/TypedObjectiveArray"
                       },
                       {
-                        "$ref": "./session_create_definitions_schema.json#/definitions/LegacyStringObjectiveArray"
+                        "$ref": "./session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray"
                       }
                     ]
                   },

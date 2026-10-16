@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://schemas.traigent.ai/optimization/session_create_definitions_schema.json",
-  "title": "SessionCreateDefinitions",
+  "$id": "https://schemas.traigent.ai/optimization/session_create_request_definitions_schema.json",
+  "title": "SessionCreateRequestDefinitions",
   "description": "Shared definitions for the POST /api/v1/sessions request body in optimization_endpoints.json, moved out of the embedded schema unchanged so that every $ref resolves against a document root.",
   "definitions": {
     "CanonicalTypedObjectiveDefinition": {
@@ -46,7 +46,8 @@
           "x-content-class": "legacy_content",
           "x-content-note": "INV S1-23 (LEAK): metric",
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 255
         },
         "direction": {
           "x-content-class": "closed_enum",
@@ -140,7 +141,8 @@
         "x-content-class": "legacy_content",
         "x-content-note": "INV-GAP S1: not inventoried (free string): items",
         "type": "string",
-        "minLength": 1
+        "minLength": 1,
+        "maxLength": 255
       }
     },
     "ArtifactVersion": {
@@ -165,7 +167,8 @@
             "null"
           ],
           "pattern": "^sha256:[0-9a-f]{64}$",
-          "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent."
+          "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent.",
+          "maxLength": 71
         },
         "state": {
           "x-content-class": "closed_enum",
@@ -196,7 +199,8 @@
             ],
             "properties": {
               "digest": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 71
               }
             }
           }

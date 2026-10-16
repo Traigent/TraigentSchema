@@ -192,7 +192,7 @@ def test_creation_endpoints_wire_objective_contracts() -> None:
     ]["schema"]["properties"]["objectives"]
     assert (
         session_objectives["oneOf"][0]["$ref"]
-        == "./session_create_definitions_schema.json#/definitions/TypedObjectiveArray"
+        == "./session_create_request_definitions_schema.json#/definitions/TypedObjectiveArray"
     )
 
     with open(

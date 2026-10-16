@@ -7130,6 +7130,63 @@
       "reason": "The identity-binding session_id path parameter gains the UUID pattern so it can carry opaque_ref instead of an unproven legacy_content: every session id is server-minted uuid4 and the create route passes no client-supplied id. Pending contract review.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/artifact_versions/properties/agent/allOf/0/properties/digest",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 71,
+          "fingerprint": "cadf1a3bfa830b3141e19395e887751c29605fa4917a4f5b1f7c4ce8a1d3116f"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/artifact_versions/properties/config_space/allOf/0/properties/digest",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 71,
+          "fingerprint": "ab7789d8e21a049c9a275a65ac6e0a74402d2fbfb71531fcb4a5eeab13d56b88"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/artifact_versions/properties/dataset/allOf/0/properties/digest",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 71,
+          "fingerprint": "16bc1ba0313234d0f98bc95832408bf881f25887fb5ba8cc7f30e129a411ef7b"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/artifact_versions/properties/evaluator/allOf/0/properties/digest",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 71,
+          "fingerprint": "2a9ec81eef9276c1396fafb4803748d5dae86f8681b605585140224489182dfd"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/0/items/oneOf/1/properties/metric",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 255,
+          "fingerprint": "38111704d75d3067dacb6e8c4e52b3ec170d6d50aa5619a788f70575e881342d"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/1/items",
+          "role": "request",
+          "subject": "maxLength",
+          "old": null,
+          "new": 255,
+          "fingerprint": "7480ac132620feabe0f5a4769ca7c94a92a484a10ae68226a6a995dfa77711dc"
+        }
+      ],
+      "reason": "intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
     }
   ]
 }

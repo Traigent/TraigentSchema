@@ -60,6 +60,22 @@ def _bodies() -> dict[str, dict[str, Any]]:
     return bodies
 
 
+def _over_length_bodies() -> dict[str, dict[str, Any]]:
+    """Accepted before the bounds (#138) and refused now: the only intended difference.
+
+    The digest bound (71 = len("sha256:") + 64) restates what the pattern already enforces, so a
+    longer digest was refused before and is refused now: no behavioural difference.
+    """
+    b = lambda **kw: {**copy.deepcopy(BASE), **kw}  # noqa: E731
+    long_name = "m" * 256
+    return {
+        "legacy_string_objective_over_255": b(objectives=[long_name]),
+        "legacy_object_metric_over_255": b(
+            objectives=[{"metric": long_name, "direction": "maximize"}]
+        ),
+    }
+
+
 ENDPOINTS = (
     Path(__file__).parent.parent
     / "traigent_schema"
@@ -107,5 +123,31 @@ def test_moved_definitions_validate_exactly_as_the_embedded_ones_did() -> None:
 
 def test_the_moved_definitions_file_holds_the_same_definitions() -> None:
     old = json.loads(FIXTURE.read_text(encoding="utf-8"))["definitions"]
-    moved = SchemaValidator()._schemas["session_create_definitions_schema"]["definitions"]
+    moved = SchemaValidator()._schemas["session_create_request_definitions_schema"]["definitions"]
+    moved = copy.deepcopy(moved)
+    # the only difference is the four length bounds added afterwards (#138)
+    moved["LegacyObjectObjectiveDefinition"]["properties"]["metric"].pop("maxLength")
+    moved["LegacyStringObjectiveArray"]["items"].pop("maxLength")
+    moved["ArtifactVersion"]["properties"]["digest"].pop("maxLength")
+    for branch in moved["ArtifactVersion"]["allOf"]:
+        branch.get("then", {}).get("properties", {}).get("digest", {}).pop("maxLength", None)
     assert moved == old
+
+
+def test_the_length_bounds_are_the_only_tightening() -> None:
+    sv = SchemaValidator()
+    new_schema = _current_schema()
+    old_schema = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    at_limit = {
+        "string_objective_255": {**BASE, "objectives": ["m" * 255]},
+        "object_metric_255": {
+            **BASE,
+            "objectives": [{"metric": "m" * 255, "direction": "maximize"}],
+        },
+    }
+    for name, body in at_limit.items():
+        assert _validate(sv, old_schema, body) == _validate(sv, new_schema, body) == [], name
+    for name, body in _over_length_bodies().items():
+        assert _validate(sv, old_schema, copy.deepcopy(body)) == [], name  # old accepted it
+        refused = _validate(sv, new_schema, copy.deepcopy(body))
+        assert refused, name

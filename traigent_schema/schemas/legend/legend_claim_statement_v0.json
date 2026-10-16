@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/legend/v0/legend_claim_statement_v0.json",
   "title": "Legend Claim Statement V0",
-  "description": "The signed Pillar Legend claim statement: the canonical subject plus a signature envelope. Relying parties verify it offline with traigent_schema.legend_claim_verifier. Signing input = UTF8(domain) || 0x00 || canonical_json(subject), where canonical_json is the RFC 8785 (JSON Canonicalization Scheme) serialization of the subject as produced by traigent_schema.fp2.canonicalize (UTF-8; numbers per RFC 8785 number formatting, so a schema-valid 5.0 serializes as 5). A plain json.dumps profile is NOT the signing profile and yields a different signature input for such values. The domain traigent.legend_claim_subject.signature.v0 is distinct from the process-record issuer domain, so neither signature verifies as the other. Closed schema (additionalProperties false everywhere, closed enums, no free text: statement text is one of eight fixed templates paired to its type). Normative text: docs/identity/pillar-legend-v0.md section 5.1.",
+  "description": "The signed Pillar Legend claim statement: the canonical subject plus a signature envelope. Relying parties verify it offline with traigent_schema.legend_claim_verifier. Signing input = UTF8(domain) || 0x00 || canonical_json(subject), where canonical_json is the RFC 8785 (JSON Canonicalization Scheme) serialization of the subject as produced by traigent_schema.fp2.canonicalize (UTF-8; numbers per RFC 8785 number formatting, so a schema-valid 5.0 serializes as 5). A plain json.dumps profile is NOT the signing profile and yields a different signature input for such values. The domain traigent.legend_claim_subject.signature.v0 is distinct from the process-record issuer domain, so neither signature verifies as the other. Closed schema (additionalProperties false everywhere, closed enums, no free text: statement text is one of nine fixed templates paired to its type (and, for the witnessed evaluation, to the discrimination evidence)). Normative text: docs/identity/pillar-legend-v0.md section 5.1. The subject declares its canonicalization/digest method in digest_alg (see DigestAlgorithmId). An evaluated_traigent_witnessed statement whose commitments.discrimination is none may carry only the weaker text (it says evaluated, not that the check could fail); the strong text requires discrimination shown_by_run, control or prior_run.",
   "version": "0.1.0",
   "definitions": {
     "SubjectSchemaVersion": {
@@ -56,7 +56,8 @@
         "Traigent matched a restored copy of this version against its recorded manifest.",
         "This version was bound to the stated run and trial.",
         "The client reported an evaluation of this version; Traigent did not witness it.",
-        "This version was evaluated by Traigent."
+        "This version was evaluated by Traigent.",
+        "Traigent evaluated this version; the evaluation was not shown able to fail."
       ]
     },
     "SubjectStatement": {
@@ -272,7 +273,10 @@
           "then": {
             "properties": {
               "text": {
-                "const": "This version was evaluated by Traigent."
+                "enum": [
+                  "This version was evaluated by Traigent.",
+                  "Traigent evaluated this version; the evaluation was not shown able to fail."
+                ]
               },
               "evidence_source": {
                 "const": "traigent_witnessed"
@@ -345,8 +349,63 @@
               "type": "null"
             }
           ]
+        },
+        "evaluation_outcome": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "discrimination": {
+          "$ref": "./pillar_legend_v0.json#/definitions/Discrimination"
+        },
+        "discrimination_event_ref": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/EventRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "discrimination": {
+                "const": "none"
+              }
+            },
+            "required": [
+              "discrimination"
+            ]
+          },
+          "then": {
+            "properties": {
+              "discrimination_event_ref": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "if": {
+              "required": [
+                "discrimination"
+              ]
+            },
+            "then": {
+              "properties": {
+                "discrimination_event_ref": {
+                  "$ref": "./pillar_legend_v0.json#/definitions/EventRef"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "LegendClaimSubjectV0": {
       "type": "object",
@@ -354,6 +413,7 @@
       "required": [
         "schema_version",
         "policy_version",
+        "digest_alg",
         "statement",
         "version",
         "commitments",
@@ -411,8 +471,143 @@
         },
         "predicate_digest": {
           "$ref": "#/definitions/PredicateDigest"
+        },
+        "digest_alg": {
+          "$ref": "#/definitions/DigestAlgorithmId"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "statement": {
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "evaluated_client_reported",
+                      "evaluated_traigent_witnessed"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              }
+            },
+            "required": [
+              "statement"
+            ]
+          },
+          "then": {
+            "properties": {
+              "commitments": {
+                "required": [
+                  "evaluation_outcome",
+                  "discrimination",
+                  "discrimination_event_ref"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "commitments": {
+                "properties": {
+                  "evaluation_outcome": false,
+                  "discrimination": false,
+                  "discrimination_event_ref": false
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "statement": {
+                "properties": {
+                  "type": {
+                    "const": "evaluated_traigent_witnessed"
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              },
+              "commitments": {
+                "properties": {
+                  "discrimination": {
+                    "const": "none"
+                  }
+                },
+                "required": [
+                  "discrimination"
+                ]
+              }
+            },
+            "required": [
+              "statement",
+              "commitments"
+            ]
+          },
+          "then": {
+            "properties": {
+              "statement": {
+                "properties": {
+                  "text": {
+                    "const": "Traigent evaluated this version; the evaluation was not shown able to fail."
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "statement": {
+                "properties": {
+                  "type": {
+                    "const": "evaluated_traigent_witnessed"
+                  }
+                },
+                "required": [
+                  "type"
+                ]
+              },
+              "commitments": {
+                "properties": {
+                  "discrimination": {
+                    "enum": [
+                      "shown_by_run",
+                      "control",
+                      "prior_run"
+                    ]
+                  }
+                },
+                "required": [
+                  "discrimination"
+                ]
+              }
+            },
+            "required": [
+              "statement",
+              "commitments"
+            ]
+          },
+          "then": {
+            "properties": {
+              "statement": {
+                "properties": {
+                  "text": {
+                    "const": "This version was evaluated by Traigent."
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "LegendClaimSignatureV0": {
       "type": "object",
@@ -458,6 +653,11 @@
           "$ref": "#/definitions/LegendClaimSignatureV0"
         }
       }
+    },
+    "DigestAlgorithmId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,63}(?![\\s\\S])",
+      "description": "Declared canonicalization-plus-digest method for this subject (the signing canonical form and predicate_digest). The only id issued today is traigent-fp2-sha256: RFC 8785 canonical JSON (traigent_schema.fp2.canonicalize) then SHA-256, written sha256:<hex>. It is NOT the W3C id jcs-sha256: fp2 also canonicalizes floats, which that profile refuses. The verifier refuses any id it does not hold (DIGEST_ALG). Domain separation is declared separately by the signature domain."
     }
   },
   "allOf": [

@@ -6971,6 +6971,295 @@
       "reason": "Optional additive property as_of_ledger_position on QueryRequestV0 (query as_of snapshot selector). Optional (not in required); classified conservatively only because the old schema closes additionalProperties. Nothing shipped or consumed yet, so no existing request body changes meaning.",
       "version": "Unreleased",
       "pr": "none - local commits on feat/pillar-legend, repo under patent pause, no PR"
+    },
+    {
+      "file": "legend/legend_claim_predicate_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 19,
+          "new": 21,
+          "fingerprint": "bb237d44523ad14b7ec6183832412f38a4acbb8fc4ff39da418f1eea290e2c0f"
+        }
+      ],
+      "reason": "Two conditional rules are added to the claim predicate (evaluation fields required on evaluated_* and forbidden elsewhere; discrimination_event_ref non-null exactly when discrimination is not none), counted as an allOf branch change. Narrowing only for evaluation predicates; the contract is unreleased and has no consumers.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/legend_claim_predicate_v0.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/discrimination",
+          "role": "conservative",
+          "subject": "discrimination",
+          "old": false,
+          "new": true,
+          "fingerprint": "3789ab8426f2cd65fbcfa188c90f3fcaed55255ebf76353e2fd5462c7d61b13d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/discrimination_event_ref",
+          "role": "conservative",
+          "subject": "discrimination_event_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "5244e96531670dbac287303710f105f1ffa61696981487b6a3fa9f3ba7a369b4"
+        },
+        {
+          "pointer": "#/allOf/0/properties/evaluation_outcome",
+          "role": "conservative",
+          "subject": "evaluation_outcome",
+          "old": false,
+          "new": true,
+          "fingerprint": "90331c30417f40b6e2d32eff24588cd30908fe0e0e5e5ea7fba4d604eeaae27e"
+        }
+      ],
+      "reason": "The claim predicate gains evaluation_outcome (pass or fail only), discrimination and discrimination_event_ref. They are required only on the two evaluated_* predicate types and forbidden on the other six, so every non-evaluation predicate is unchanged; classified conservatively because the old schema closes additionalProperties. Nothing shipped or consumed yet.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/legend_claim_statement_v0.json",
+      "rule": "allOf_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/commitments/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 1,
+          "fingerprint": "aec81760cb993af7f4ee56d5561f50c796c74b20707a2ebfbf3d78576b1819e4"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 0,
+          "new": 3,
+          "fingerprint": "fdeb6efccc167852c80b6a9ea0532f940e304913f57c7902b116e4f08259b32e"
+        }
+      ],
+      "reason": "New conditional rules on the signed subject: evaluation commitments are required on evaluated statements and forbidden elsewhere, and a witnessed evaluation statement may carry the strong text 'evaluated by Traigent' only when discrimination is not none (the weaker text otherwise). Narrowing; the contract is unreleased and no statement has been issued.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/legend_claim_statement_v0.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/statement/properties/text",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"Traigent evaluated this version; the evaluation was not shown able to fail.\""
+            ]
+          },
+          "old": [
+            "\"The client declared this version.\"",
+            "\"The client reported an evaluation of this version; Traigent did not witness it.\"",
+            "\"The client reported an exact restore of this version; Traigent has not verified it.\"",
+            "\"The client reported this version as restorable at the stated time.\"",
+            "\"The client's SDK reported a capture of this version, with the stated coverage.\"",
+            "\"This version was bound to the stated run and trial.\"",
+            "\"This version was evaluated by Traigent.\"",
+            "\"Traigent matched a restored copy of this version against its recorded manifest.\""
+          ],
+          "new": [
+            "\"The client declared this version.\"",
+            "\"The client reported an evaluation of this version; Traigent did not witness it.\"",
+            "\"The client reported an exact restore of this version; Traigent has not verified it.\"",
+            "\"The client reported this version as restorable at the stated time.\"",
+            "\"The client's SDK reported a capture of this version, with the stated coverage.\"",
+            "\"This version was bound to the stated run and trial.\"",
+            "\"This version was evaluated by Traigent.\"",
+            "\"Traigent evaluated this version; the evaluation was not shown able to fail.\"",
+            "\"Traigent matched a restored copy of this version against its recorded manifest.\""
+          ],
+          "fingerprint": "289440b79e82c15aaf306d359bc29bb115120e7c360de7d9be3258a4560aa224"
+        }
+      ],
+      "reason": "The statement text enum gains one fixed template, 'Traigent evaluated this version; the evaluation was not shown able to fail.', the only text a witnessed evaluation statement may carry when its discrimination is none. A new enum member is breaking for a strict consumer of the text set; the contract is unreleased and no statement has been issued or consumed.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/legend_claim_statement_v0.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/commitments/properties/discrimination",
+          "role": "conservative",
+          "subject": "discrimination",
+          "old": false,
+          "new": true,
+          "fingerprint": "4687dbc58cd4be652dc61a198407d2d9115315bdf5ae5cf4954302d27e55ded9"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/commitments/properties/discrimination_event_ref",
+          "role": "conservative",
+          "subject": "discrimination_event_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "fe99723faea399ed27fb153eb7deaf765498996b2e4b69fc25d0a3b8b51222d3"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/commitments/properties/evaluation_outcome",
+          "role": "conservative",
+          "subject": "evaluation_outcome",
+          "old": false,
+          "new": true,
+          "fingerprint": "8e43592f6a8c00ec365d8c9058a540bb0184732f33d734043009e15e3967c66d"
+        },
+        {
+          "pointer": "#/allOf/0/properties/subject/properties/digest_alg",
+          "role": "conservative",
+          "subject": "digest_alg",
+          "old": false,
+          "new": true,
+          "fingerprint": "8f178af666ad0d9bf5a7ceb0e5472f1fa2ee8fa12bd25fb95376361e9ed03809"
+        }
+      ],
+      "reason": "Properties added to the signed subject: digest_alg (required, acknowledged above) and, inside commitments, evaluation_outcome, discrimination and discrimination_event_ref, which are present only on evaluated statements. Classified conservatively because the old schema closes additionalProperties; nothing shipped or consumed yet.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/legend_claim_statement_v0.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/subject",
+          "role": "conservative",
+          "subject": "digest_alg",
+          "old": false,
+          "new": true,
+          "fingerprint": "0db39b340f73b770d5253152ebcbf32b8be43016be3451ef305a6d4af343a61b"
+        }
+      ],
+      "reason": "The signed claim subject now REQUIRES digest_alg, the declared canonicalization-plus-digest id (only traigent-fp2-sha256 is issued; the verifier refuses any other id as DIGEST_ALG). An undeclared method would defeat the declaration, so it is required rather than optional. The golden vectors are re-signed with the public test-only key. The contract is unreleased and no statement has been issued or consumed.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/pillar_legend_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/oneOf/2/oneOf/6/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 2,
+          "new": 5,
+          "fingerprint": "a25f89e981f47b96f4a67a36f74179a15bd4c85b895e2747f963695c7db4b8bb"
+        }
+      ],
+      "reason": "The evaluated event gains three conditional rules (void_cause non-null exactly when the outcome is void, discrimination_event_ref non-null exactly when discrimination is not none, a control-run record carries discrimination none), counted as an allOf branch change. They narrow what an evaluated event may say; the contract is unreleased and has no consumers.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/pillar_legend_v0.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/oneOf/2/oneOf/6/properties/control_run",
+          "role": "conservative",
+          "subject": "control_run",
+          "old": false,
+          "new": true,
+          "fingerprint": "7af033d8ea21a19ad1d5b27e22c6124eee5add290515f9a8d61820031113dfbc"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6/properties/discrimination",
+          "role": "conservative",
+          "subject": "discrimination",
+          "old": false,
+          "new": true,
+          "fingerprint": "8c0d41365a9a09d7ba59abd519ffaa0c0d6733bb37382a4375a370b40670c315"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6/properties/discrimination_event_ref",
+          "role": "conservative",
+          "subject": "discrimination_event_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "76297c1d4c00939c800cb4d28fc67840c3ae2dc0c13030c66f4c9ec2e64003df"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6/properties/evaluation_outcome",
+          "role": "conservative",
+          "subject": "evaluation_outcome",
+          "old": false,
+          "new": true,
+          "fingerprint": "e84d238ca980b62a673e54d33ea9be74874a651b3ecd58590727ccbce14f7e79"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6/properties/void_cause",
+          "role": "conservative",
+          "subject": "void_cause",
+          "old": false,
+          "new": true,
+          "fingerprint": "5e86bef5f35cffade1481d792d033c93eb57108760a26ad777939c913cf86048"
+        }
+      ],
+      "reason": "The five new properties of the evaluated event (evaluation_outcome, void_cause, discrimination, discrimination_event_ref, control_run) are classified conservatively only because the old schema closes additionalProperties. They are the required fields acknowledged above; nothing shipped or consumed yet, so no existing event changes meaning.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
+    },
+    {
+      "file": "legend/pillar_legend_v0.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/oneOf/2/oneOf/6",
+          "role": "conservative",
+          "subject": "control_run",
+          "old": false,
+          "new": true,
+          "fingerprint": "6b7d9d49527528b20f4716a4d97ea3e23a0fdeb9f264665d057a5de3f7f3356f"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6",
+          "role": "conservative",
+          "subject": "discrimination",
+          "old": false,
+          "new": true,
+          "fingerprint": "05cd2b76007d038221c40a9a6e31b9d57ad257ac52cc23f18559895c6d2a0218"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6",
+          "role": "conservative",
+          "subject": "discrimination_event_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "d5848b904c26f5296d41b36eb5cb443fe6e0f68e99d8deb35f555eb3050665bd"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6",
+          "role": "conservative",
+          "subject": "evaluation_outcome",
+          "old": false,
+          "new": true,
+          "fingerprint": "a19a89340d701c0ababc9ea4950fe67653440321d0ed047dfb9feed44195747d"
+        },
+        {
+          "pointer": "#/oneOf/2/oneOf/6",
+          "role": "conservative",
+          "subject": "void_cause",
+          "old": false,
+          "new": true,
+          "fingerprint": "d14cc43d4b9613f67374dea9cbf4acc94c102f7d3f11e75c080d93da69dde2b7"
+        }
+      ],
+      "reason": "Owner-ruled 2026-10-16 adoption of three Reporting Format v0.1 ideas: the evaluated event now REQUIRES evaluation_outcome (five states), void_cause (null unless void), discrimination, discrimination_event_ref (null exactly when discrimination is none) and control_run (null unless the event is a control-run record). Required-field additions are breaking for any producer of the evaluated event; the contract is unreleased and has no consumers or stored events, and a pre-outcome event maps to inconclusive with discrimination none (design note section 5 and changelog).",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, no PR"
     }
   ]
 }

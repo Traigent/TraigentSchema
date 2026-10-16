@@ -149,7 +149,7 @@ One append-only ledger; closed `event_type`. Every event carries `schema_version
 | `restore_verified` | client, or server (Backend recompute) | client: `client_sdk_reported`; server: `server_recorded` | `kind`, `recovery_manifest_fingerprint`, `outcome`, `coverage`, `isolated_destination`, `representation_digests_match`, `pillar_fingerprint_match`, `backend_match_result` (`not_applicable | not_checked | match | mismatch`; `match|mismatch` only server-origin, `not_applicable|not_checked` only client-origin) |
 | `identity_verified` | server | `server_recorded` | `representation_commitment` (sha256 over the ordered representation digests), `backend_recomputed`, `result` (`match | mismatch`); appended **before** capture, bound to the version |
 | `bound_to_run` | server | `server_recorded` | `run_ref`, `trial_ref` (the **context's** trial, nullable), `slot_scope` (`run | trial`), `binding_role`, `binding_slot`, `run_tuple_digest` (the context's final digest); emitted atomically at `start_execution` |
-| `evaluated` | client or server | client: `client_reported`; server: `traigent_witnessed` | `run_ref`, `trial_ref` (nullable; must name a started context), `run_tuple_digest`, `evaluated_subset_root` (`msr1:`), `evaluation_protocol` |
+| `evaluated` | client or server | client: `client_reported`; server: `traigent_witnessed` | `run_ref`, `trial_ref` (nullable; must name a started context), `run_tuple_digest`, `evaluated_subset_root` (`msr1:`), `evaluation_protocol`, `evaluation_outcome` (five states, section 5.2), `void_cause` (closed; non-null exactly when the outcome is `void`), `discrimination` (`shown_by_run | control | prior_run | none`), `discrimination_event_ref` (non-null exactly when discrimination is not `none`), `control_run` (closed control-run record, nullable) |
 | `availability_changed` | client | `client_sdk_reported` | `recovery_manifest_fingerprint`, `status` (`available | missing | corrupted | retired`) |
 
 **Role-to-kind matrix and scopes.** Every pillar has an explicit binding role:
@@ -379,9 +379,9 @@ allowlist, not the pattern, is the safeguard.
 ### 5.1 Signed claim statement (relying-party verification)
 
 The Backend signs each compiled predicate as a **claim statement** `{subject, signature}`
-(`legend_claim_statement_v0.json`, closed schema, no free text: statement text is one of eight fixed templates
-paired to its `type`, `evidence_source` and `source_label`). The subject carries `schema_version`
-`traigent.legend_claim_subject.v0`, `policy_version`, `statement`, the predicate `version`, `commitments`,
+(`legend_claim_statement_v0.json`, closed schema, no free text: statement text is one of nine fixed templates
+paired to its `type`, `evidence_source` and `source_label`; the witnessed-evaluation type has two texts, chosen by discrimination, section 5.2). The subject carries `schema_version`
+`traigent.legend_claim_subject.v0`, `policy_version`, `digest_alg` (below), `statement`, the predicate `version`, `commitments`,
 `coverage_status`, `supporting_event_refs`, `ledger_cutoff_position`, the issuer-controlled `as_of` and `issued_at`, and
 `predicate_digest` (the replay identity). The `signature` envelope pins `domain`, `algorithm`
 (`ed25519` or `ecdsa_p256_sha256`), `key_id`, `encoding` (`base64`) and `value` (raw 64-byte signature, low-S P1363 for
@@ -393,21 +393,82 @@ ECDSA).
 code unit, no insignificant whitespace, strings escaped minimally, and numbers serialized with ECMAScript
 `Number.prototype.toString`. So `5`, `5.0` and `5e0` are one value and canonicalize to `5` (the schema accepts any of them
 as an integer); NaN, Infinity and integers beyond +/-(2^53 - 1) are refused (`CANONICALIZATION`). Python `json.dumps`
-is **not** this profile (it keeps `5.0`) and must not be used to sign or verify. Golden vectors use integers and are
-unchanged.
+is **not** this profile (it keeps `5.0`) and must not be used to sign or verify.
+
+**Declared digest id (`digest_alg`).** The subject declares its canonicalization-plus-digest method; verifiers reject
+ids they do not hold (`DIGEST_ALG`, checked after the domain and before the schema). The only id issued is
+**`traigent-fp2-sha256`**: RFC 8785 canonical JSON via `fp2.canonicalize`, then SHA-256, written `sha256:` + 64 lowercase hex
+(`fp2.digest`, `traigent_schema/fp2.py:321`). It governs the signing canonical form and `predicate_digest`. Domain separation is
+declared separately by `signature.domain`. Mapping to the W3C Agent Conformance CG Reporting Format v0.1 id `jcs-sha256`
+(per the group digest, not read from the spec text; the prefix spelling of that id is unverified here):
+for a value inside that profile (no floats, integers within +/-(2^53 - 1)) the bytes fp2 canonicalizes are RFC 8785 JCS and
+the SHA-256 is the same, so `traigent-fp2-sha256` and `jcs-sha256` agree. They are **not** one id because fp2 also
+canonicalizes floats (`5.0` is `5`, `1e21` is `1e+21`, `1e-7` is `1e-7`), which that profile refuses; a digest we publish over a
+float-bearing value is one a `jcs-sha256` reader would reject. We do not claim `jcs-sha256` for it. The id is a token
+(`^[a-z0-9][a-z0-9.-]{0,63}`), so a second id can be added with a verifier change and no schema change. For **fingerprints** the
+declaration is the existing `fingerprint_scheme` (section 2): it names the construction, domain and canonicalization of each
+pillar's digest and is closed per `kind`, so no second field is added there.
+
+`-0` and `0` are one value in fp2 (`{"n":-0}` and `{"n":0}` both canonicalize to `{"n":0}`; `-0.0` too), as ECMAScript
+`Number::toString` requires. A reader that keeps the literal `-0` diverges. The vector file carries input JSON text (not parsed
+values) with expected canonical text and digest for `-0`, `-0.0`, `0`, `5.0`, `1e21`, `1e-7`, `0.1` and `2^53 - 1`, each marked
+whether it lies in the float-free profile.
 The domain differs
 from the process-record issuer domain (`traigent.process_record.issuer_signature.v1`), so a signature of one kind never
 verifies as the other: the verifier refuses a foreign domain label (`DOMAIN`) and a foreign-domain signature under the
 Legend label (`SIGNATURE_INVALID`).
 
 **Verifier.** `traigent_schema.legend_claim_verifier.verify_legend_claim_statement(statement, trusted_keys)` is offline
-and takes a pinned `{key_id: TrustedLegendKey(algorithm, public_key)}`. Order: structure, domain, closed schema,
+and takes a pinned `{key_id: TrustedLegendKey(algorithm, public_key)}`. Order: structure, domain, declared digest id, closed schema,
 algorithm/key lookup (unknown key `UNKNOWN_KEY`, algorithm mismatch `ALGORITHM`), signature decode, recomputed canonical
 bytes, signature check. Any tampering fails `SIGNATURE_INVALID`. Errors carry only a fixed content-free code. Golden
-vectors (test-only key, one valid, four negatives) are in `tests/legend_claim_statement_v0_vectors.json`. A valid
+vectors (test-only key; one valid captured statement, two valid evaluated statements, six negatives, and the canonicalization cases above)
+are in `tests/legend_claim_statement_v0_vectors.json`. A valid
 signature authenticates the statement, not the truth of a client assertion (section 5).
 
 ---
+
+
+### 5.2 Evaluation outcome, discrimination and control runs
+
+Adopted (owner ruling 2026-10-16) from the W3C Agent Conformance CG Reporting Format v0.1 as summarised in the group digest; names
+are aligned, vocabularies are ours.
+
+**Five outcome states.** `evaluation_outcome` on the `evaluated` event is one of `pass`, `fail`, `not_exercised` (the check did not
+run on the stated subset), `inconclusive` (it ran and gave no verdict) and `void` (the result is withdrawn). `void` requires a
+closed `void_cause` (`evidence_does_not_hold`, `evaluator_version_mismatch`, `run_context_drifted`, `input_unavailable`,
+`withdrawn_by_producer`); every other state carries `void_cause` null. **Mapping of what existed before:** the contract recorded
+only that an evaluation happened, with provenance `evaluation_state` (`none | client_reported | traigent_witnessed`), which is an
+axis of *who vouches* and is unchanged. An event with no recorded verdict maps to `inconclusive` (occurrence kept, verdict
+unknown), `discrimination = none`. Only `pass` and `fail` are signed: an `evaluated_*` predicate (field `evaluation_outcome`,
+`pass | fail`) is refused (`coverage_insufficient`) for the other three states, so a signed statement never says "evaluated" about a
+check that gave no verdict.
+
+**Discrimination: could this check have failed?** `discrimination` is one of:
+
+| value | evidence (`discrimination_event_ref` names an earlier `evaluated` event that) |
+|---|---|
+| `shown_by_run` | returned `fail` in the same run (not a control record) |
+| `control` | is a control-run record (below) for the same evaluator version whose expected and observed verdicts are both `fail` |
+| `prior_run` | returned `fail` for the same version (not a control record) |
+| `none` | no reference; the claim may say only that an evaluation happened |
+
+A reference exists exactly when discrimination is not `none` (`invalid_request` otherwise); the cited event must exist in the prefix
+and be a real `fail` (`unknown_ref`); a witnessed event cannot rest on a client-reported fail (`unknown_ref`). The predicate and the
+signed statement repeat `evaluation_outcome`, `discrimination` and `discrimination_event_ref` (these fields exist only on
+`evaluated_*` types and are forbidden on the other six), and issuance requires them to equal what the event recorded.
+
+**Control-run record.** An `evaluated` event with a non-null `control_run` records a control: closed fields `control_kind`
+(`known_bad_input | known_good_input | empty_input | mutated_input`), `expected_verdict` (`pass | fail`), `observed_verdict` (the
+five states), `evaluator_version_ref` (an evaluator `version_ref`) and `run_ref`. It carries no input or output text. The record is
+itself undiscriminated and its `evaluation_outcome` equals `observed_verdict`. It discriminates a later run only when both its expected and observed verdicts are `fail` and its
+`evaluator_version_ref` is an evaluator version bound in that run's context (a control that passed a bad input shows nothing).
+
+**Compiler rule.** The text of a witnessed evaluation statement depends on discrimination: with `shown_by_run`, `control` or
+`prior_run` it is "This version was evaluated by Traigent."; with `none` it is "Traigent evaluated this version; the evaluation was
+not shown able to fail." The strong text with `none` is refused (`coverage_insufficient`; the schema also rejects a subject that pairs
+them), and the weak text cannot cover a discriminating check. The client-reported text is unchanged and never claims Traigent
+evaluated it.
 
 ---
 
@@ -611,8 +672,8 @@ a different one is `conflicting_report`, an incomplete one `manifest_mismatch`).
 | `record_availability` (`availability_from_request` projection) | `RecordAvailabilityRequestV0` | `Captured(version, manifest)` exists (`unknown_ref`); client origin | appends `availability_changed`; highest position per manifest wins; saves `{position}` |
 | `record_restore` (`restore_from_request` projection) | `RecordRestoreRequestV0` incl. `historical_key_available`, `dependencies_verified`, `verified_artifact_digest` (required, true / non-null, for `exact`) | kind and `backend_keyed` equal the version's derived values (`invalid_request`); `Captured(version, manifest)` exists (`unknown_ref`); `exact` => `ExactPrerequisites` read from the immutable capture metadata plus restore-time measurements, and not backend-keyed (`coverage_insufficient`); no Backend match field (`invalid_request`); the reported coverage equals the immutable capture coverage (`manifest_mismatch`); `exact` without the artifact digest (`invalid_request`); a second, different verified artifact (`conflicting_report`) | appends client-origin `restore_verified` carrying the three summaries; an `exact` records the verified artifact digest; saves `{position}` |
 | `server_match` | server-side recompute of the same manifest | `Captured(version, manifest)` exists (`unknown_ref`); format known and key held (`store_unavailable`); on `match`: `ExactPrerequisites` from the immutable metadata (`coverage_insufficient`); on `match` a second, different artifact (`conflicting_report`) | appends server-origin `restore_verified` (`match` => exact, `mismatch` => substituted); **only a `match` stages and records the artifact digest** — a mismatch records none and can never authorise activation; saves `{position}` |
-| `evaluate` | server-side: run, trial, subject, tuple digest, subset root, protocol | context started and digest equals its persisted final digest (`manifest_mismatch`); subject in the persisted snapshot (`foreign_ref`); witnessed only from the scoring execution | appends `evaluated` with `trial_ref`, subset root and protocol; saves `{position}` |
-| `issue_predicate` | type, subject projection, cutoff, manifest, tuple, trial, subset root, protocol | subject equals the authoritative projection and type is one of the eight (`invalid_request`); `0 < cutoff <= sealed high-water` (`invalid_request`); the type's matching evidence in the prefix (`unknown_ref`; `restorable_now`: `coverage_insufficient`): `declared`; `captured` through `Captured(version, manifest)` (partial captures are fine); `restorable_now` additionally needs the latest availability for that manifest to be `available` (`coverage_insufficient`), also for partial captures; `restore_verified_*` through `Captured(version, manifest)`, an `exact` event of the right origin, **and** complete immutable metadata; `bound_to_run` with tuple and trial, `evaluated_*` with tuple, trial, source, subset root and protocol | signs one statement citing the cutoff |
+| `evaluate` | server-side: run, trial, subject, tuple digest, subset root, protocol, outcome, void cause, discrimination (+ reference), optional control record | context started and digest equals its persisted final digest (`manifest_mismatch`); subject in the persisted snapshot (`foreign_ref`); witnessed only from the scoring execution; outcome closed and `void_cause` iff `void`, discrimination reference iff not `none`, control record closed with an evaluator version (`invalid_request`); cited discrimination event is an earlier real `fail` of the right kind (`unknown_ref`, section 5.2) | appends `evaluated` with `trial_ref`, subset root, protocol, outcome, void cause, discrimination, its reference and any control record; saves `{position}` |
+| `issue_predicate` | type, subject projection, cutoff, manifest, tuple, trial, subset root, protocol | subject equals the authoritative projection and type is one of the eight (`invalid_request`); `0 < cutoff <= sealed high-water` (`invalid_request`); the type's matching evidence in the prefix (`unknown_ref`; `restorable_now`: `coverage_insufficient`): `declared`; `captured` through `Captured(version, manifest)` (partial captures are fine); `restorable_now` additionally needs the latest availability for that manifest to be `available` (`coverage_insufficient`), also for partial captures; `restore_verified_*` through `Captured(version, manifest)`, an `exact` event of the right origin, **and** complete immutable metadata; `bound_to_run` with tuple and trial, `evaluated_*` with tuple, trial, source, subset root, protocol, outcome, discrimination and its reference (outcome must be `pass` or `fail`, `coverage_insufficient`) | signs one statement citing the cutoff |
 | `director_instruction` | operation, refs (`page_size` 1..100, `page_cursor`) | flag on; operation on the closed menu (`invalid_request`); refs in scope (`foreign_ref` / `unknown_ref`); restore operations need `Captured(version, manifest)`; `page_cursor` was issued for this entity (`invalid_request`) | stores the instruction with its entity/version/manifest binding and, for a query, the ordered snapshot and start boundary |
 | `director_result` | instruction ref, closed result | instruction exists (`unknown_ref`); per-operation relation of section 6: declaration entity/kind/version, query exact slice and `next_page_cursor` (`foreign_ref` / `invalid_request`), capture manifest on the ledger, restore with the **instruction-bound** manifest, retrieval, no mismatch and Backend-recorded `exact` evidence (`manifest_mismatch`); an agent-supplied `match` is never evidence | stores the result once; issues the next cursor on commit; an identical retry returns the saved result; a differing second report is `conflicting_report` |
 | `activate` | local, separately authorised | the artifact digest equals the one recorded by an `exact` restore of this manifest (`manifest_mismatch`); never a Director operation | records the activated artifact; never reverses external effects |
@@ -651,6 +712,15 @@ activation (items 7, 8) implement this contract and must not widen a field to fr
 ---
 
 ## 11. Changelog
+
+**Delta over 6bf1604 (NOT purely additive; owner ruling 2026-10-16, three ideas from the W3C Agent Conformance CG Reporting Format v0.1).** The contract is unreleased and unconsumed. All 23 breaking findings against 6bf1604 are acknowledged in `scripts/breaking_schema_allowlist.json` (nine entries, each with its own reason); `python3 scripts/breaking_schema_check.py --check` (merge-base default) and `--base-ref 6bf1604` both report `BREAKING (unacked): 0`.
+
+1. **Declared digest id.** Required `digest_alg` on the claim subject (`DigestAlgorithmId` token; issued: `traigent-fp2-sha256`). `legend_claim_verifier.py` refuses any other id as `DIGEST_ALG`. Not named `jcs-sha256` because fp2 canonicalizes floats; mapping in section 5.1. Fingerprints keep `fingerprint_scheme` as their declaration.
+2. **Discrimination and control runs.** `evaluated` event gains `discrimination`, `discrimination_event_ref`, `control_run` (closed `ControlRunEvidence`); `evaluated_*` predicates and statement commitments carry `discrimination` and `discrimination_event_ref`. New statement text for a witnessed evaluation with no discrimination; the strong text is refused for `none`. Section 5.2.
+3. **Five outcome states.** `evaluated` event gains `evaluation_outcome` (`pass | fail | not_exercised | inconclusive | void`) and `void_cause`; predicates and commitments carry `pass | fail` only. Pre-outcome events map to `inconclusive`. Section 5.2.
+4. **Vectors.** `tests/legend_claim_statement_v0_vectors.json` re-signed (test-only key) with `digest_alg`, two valid evaluated statements, two new negatives, and canonicalization cases including `-0` and `0` (both `{"n":0}`) and float-profile cases marked as outside the float-free profile.
+5. **Reference model and tests.** `Legend.evaluate` validates outcome/void cause/discrimination/control record and the cited event; `issue_predicate` requires and matches outcome and discrimination; `Legend.statement_text` is the compiler rule. New schema, model and verifier tests; two goldens and two existing model-test call sites updated for the new required fields.
+
 
 **Delta over 9d71d82 (purely additive).** The statement canonical-JSON profile is RFC 8785 via `fp2.canonicalize` (section 5.1). New `legend_claim_statement_v0.json` (signed claim statement: closed subject plus signature envelope with domain `traigent.legend_claim_subject.signature.v0`), reference verifier `traigent_schema/legend_claim_verifier.py`, golden vectors `tests/legend_claim_statement_v0_vectors.json`, tests `tests/test_legend_claim_verifier.py`, and section 5.1. No existing schema is changed.
 

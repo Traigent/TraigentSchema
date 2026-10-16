@@ -8,6 +8,8 @@ trusted-key set; nothing is fetched, no Backend code is imported.  The verifier
 
 * checks the signature domain is exactly ``LEGEND_SIGNATURE_DOMAIN`` (so a signature
   made for the process-record issuer domain is refused as ``DOMAIN``);
+* checks the subject's declared ``digest_alg`` is one this verifier holds (an unknown or
+  missing id is refused as ``DIGEST_ALG`` before any canonicalization is attempted);
 * validates the whole statement against the closed schema;
 * looks up ``(key_id, algorithm)`` in the trusted set (unknown key or wrong algorithm
   is refused before any signature maths);
@@ -42,11 +44,17 @@ from traigent_schema.validator import _FORMAT_CHECKER
 
 LEGEND_SIGNATURE_DOMAIN = b"traigent.legend_claim_subject.signature.v0"
 LEGEND_SIGNATURE_ALGORITHMS = frozenset({"ed25519", "ecdsa_p256_sha256"})
+# Declared canonicalization-plus-digest ids this verifier holds. "traigent-fp2-sha256" is RFC 8785
+# canonical JSON via fp2.canonicalize, then SHA-256 written "sha256:<hex>". It is deliberately not
+# the W3C id "jcs-sha256": fp2 canonicalizes floats, which that profile refuses. See
+# docs/identity/pillar-legend-v0.md section 5.1 for the mapping.
+LEGEND_DIGEST_ALGORITHMS = frozenset({"traigent-fp2-sha256"})
 
 LEGEND_CLAIM_VERIFICATION_ERROR_CODES = frozenset(
     {
         "STRUCTURE",
         "DOMAIN",
+        "DIGEST_ALG",
         "SCHEMA",
         "CANONICALIZATION",
         "ALGORITHM",
@@ -181,6 +189,10 @@ def verify_legend_claim_statement(
     # Domain first: a signature framed for another domain is never even schema-checked.
     if sig.get("domain") != LEGEND_SIGNATURE_DOMAIN.decode("ascii"):
         _fail("DOMAIN")
+    subject = stmt["subject"]
+    alg_id = subject.get("digest_alg") if type(subject) is dict else None
+    if type(alg_id) is not str or alg_id not in LEGEND_DIGEST_ALGORITHMS:
+        _fail("DIGEST_ALG")
     if _statement_validator().is_valid(stmt) is not True:
         _fail("SCHEMA")
     algorithm, key_id = sig["algorithm"], sig["key_id"]

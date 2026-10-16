@@ -330,6 +330,11 @@ GOLDEN: dict[str, tuple[str, str, dict[str, Any]]] = {
             "evaluated_subset_root": MSR,
             "trial_ref": None,
             "evaluation_protocol": "holdout",
+            "evaluation_outcome": "inconclusive",
+            "void_cause": None,
+            "discrimination": "none",
+            "discrimination_event_ref": None,
+            "control_run": None,
         },
     ),
     "evaluated_witnessed": (
@@ -342,6 +347,11 @@ GOLDEN: dict[str, tuple[str, str, dict[str, Any]]] = {
             "evaluated_subset_root": MSR,
             "trial_ref": ref_of("trial"),
             "evaluation_protocol": "full_dataset",
+            "evaluation_outcome": "pass",
+            "void_cause": None,
+            "discrimination": "control",
+            "discrimination_event_ref": ref_of("event"),
+            "control_run": None,
         },
     ),
     "availability_changed": (
@@ -834,6 +844,114 @@ def test_evaluation_events_and_predicates_carry_nullable_trial_context() -> None
     assert check(P, "ClaimPredicateV0", {**PREDICATE, "trial_ref": ref_of("trial")}) == []
 
 
+CONTROL = {
+    "control_kind": "known_bad_input",
+    "expected_verdict": "fail",
+    "observed_verdict": "fail",
+    "evaluator_version_ref": ref_of("version"),
+    "run_ref": ref_of("run"),
+}
+
+
+def _evaluated(**changes: Any) -> list[str]:
+    doc, definition, good = GOLDEN["evaluated_witnessed"]
+    return check(doc, definition, {**good, **changes})
+
+
+def test_evaluation_outcome_has_five_states_and_void_needs_a_closed_cause() -> None:
+    for state in ("pass", "fail", "not_exercised", "inconclusive"):
+        assert _evaluated(evaluation_outcome=state) == [], state
+    assert _evaluated(evaluation_outcome="void", void_cause="input_unavailable") == []
+    assert _evaluated(evaluation_outcome="void") != []  # void without a cause
+    assert _evaluated(evaluation_outcome="void", void_cause="because I said so") != []
+    assert _evaluated(evaluation_outcome="pass", void_cause="input_unavailable") != []
+    for bad in ("passed", "error", "skipped", None):
+        assert _evaluated(evaluation_outcome=bad) != [], bad
+    doc, definition, good = GOLDEN["evaluated_witnessed"]
+    for field in ("evaluation_outcome", "void_cause", "discrimination"):
+        assert check(doc, definition, {k: v for k, v in good.items() if k != field}) != [], field
+
+
+def test_evaluated_discrimination_is_closed_and_ref_matches() -> None:
+    for d in ("shown_by_run", "control", "prior_run"):
+        assert _evaluated(discrimination=d, discrimination_event_ref=ref_of("event")) == []
+        assert _evaluated(discrimination=d, discrimination_event_ref=None) != [], d
+    assert _evaluated(discrimination="none", discrimination_event_ref=None) == []
+    assert _evaluated(discrimination="none", discrimination_event_ref=ref_of("event")) != []
+    assert _evaluated(discrimination="sometimes", discrimination_event_ref=None) != []
+
+
+def test_control_run_shape_is_closed() -> None:
+    held = {"discrimination": "none", "discrimination_event_ref": None}
+    assert _evaluated(control_run=CONTROL, **held) == []
+    assert _evaluated(control_run={**CONTROL, "input_text": "free text"}, **held) != []
+    for field in CONTROL:
+        assert (
+            _evaluated(control_run={k: v for k, v in CONTROL.items() if k != field}, **held) != []
+        )
+    assert _evaluated(control_run={**CONTROL, "control_kind": "my kind"}, **held) != []
+    assert _evaluated(control_run={**CONTROL, "expected_verdict": "void"}, **held) != []
+    assert _evaluated(control_run={**CONTROL, "observed_verdict": "maybe"}, **held) != []
+    assert _evaluated(control_run={**CONTROL, "run_ref": "run one"}, **held) != []
+    # a control record is not itself discriminated
+    assert (
+        _evaluated(
+            control_run=CONTROL, discrimination="control", discrimination_event_ref=ref_of("event")
+        )
+        != []
+    )
+
+
+def test_evaluation_predicates_carry_a_verdict_and_discrimination() -> None:
+    def pred(**changes: Any) -> list[str]:
+        base = {
+            **PREDICATE,
+            "predicate_type": "evaluated_traigent_witnessed",
+            "evidence_source": "traigent_witnessed",
+            "recovery_manifest_fingerprint": None,
+            "coverage_status": None,
+            "run_tuple_digest": SHA,
+            "evaluated_subset_root": MSR,
+            "evaluation_protocol": "holdout",
+            "evaluation_outcome": "fail",
+            "discrimination": "prior_run",
+            "discrimination_event_ref": ref_of("event"),
+        }
+        return check(P, "ClaimPredicateV0", {**base, **changes})
+
+    assert pred() == []
+    assert pred(discrimination="none", discrimination_event_ref=None) == []
+    assert pred(discrimination="none") != []  # a reference with no discrimination
+    assert pred(discrimination_event_ref=None) != []  # discrimination with no reference
+    for bad in ("not_exercised", "inconclusive", "void", "unknown"):
+        assert pred(evaluation_outcome=bad) != [], bad
+    full = {
+        **PREDICATE,
+        "predicate_type": "evaluated_client_reported",
+        "evidence_source": "client_reported",
+        "recovery_manifest_fingerprint": None,
+        "coverage_status": None,
+        "run_tuple_digest": SHA,
+        "evaluated_subset_root": MSR,
+        "evaluation_protocol": "holdout",
+        "evaluation_outcome": "pass",
+        "discrimination": "none",
+        "discrimination_event_ref": None,
+    }
+    assert check(P, "ClaimPredicateV0", full) == []
+    for field in ("evaluation_outcome", "discrimination", "discrimination_event_ref"):
+        assert check(P, "ClaimPredicateV0", {k: v for k, v in full.items() if k != field}) != []
+    # other predicate types may not carry evaluation fields
+    assert (
+        check(
+            P,
+            "ClaimPredicateV0",
+            {**PREDICATE, "discrimination": "none", "discrimination_event_ref": None},
+        )
+        != []
+    )
+
+
 def test_declare_success_requires_a_version_ref() -> None:
     bad = result("declare_version", version_ref=None, created=True)
     assert check(O, "DeclareVersionResult", bad) != []
@@ -857,6 +975,9 @@ def test_predicate_evidence_source_and_coverage_are_pinned_per_type() -> None:
         "run_tuple_digest": SHA,
         "evaluated_subset_root": MSR,
         "evaluation_protocol": "holdout",
+        "evaluation_outcome": "pass",
+        "discrimination": "none",
+        "discrimination_event_ref": None,
     }
     assert check(P, "ClaimPredicateV0", witnessed) == []
     assert check(P, "ClaimPredicateV0", {**witnessed, "evidence_source": "client_reported"}) != []
@@ -1088,6 +1209,25 @@ REPLACES = {"trial_candidate": "base_agent", "trial_configuration": "run_base_co
 TRIAL_ONLY = {"trial_candidate", "trial_configuration"}
 RUN_ONLY = {"base_agent", "run_base_configuration", "dataset", "search_set", "search_space"}
 STRENGTH = {"stored_unverified": 1, "round_trip_verified": 2}
+OUTCOMES = ("pass", "fail", "not_exercised", "inconclusive", "void")
+VOID_CAUSES = (
+    "evidence_does_not_hold",
+    "evaluator_version_mismatch",
+    "run_context_drifted",
+    "input_unavailable",
+    "withdrawn_by_producer",
+)
+DISCRIMINATIONS = ("shown_by_run", "control", "prior_run", "none")
+CONTROL_KINDS = ("known_bad_input", "known_good_input", "empty_input", "mutated_input")
+CONTROL_FIELDS = {
+    "control_kind",
+    "expected_verdict",
+    "observed_verdict",
+    "evaluator_version_ref",
+    "run_ref",
+}
+STATEMENT_STRONG = "This version was evaluated by Traigent."
+STATEMENT_WEAK = "Traigent evaluated this version; the evaluation was not shown able to fail."
 PREDICATES = (
     "declared",
     "captured",
@@ -1397,9 +1537,30 @@ class Legend:
         subset: str = "msr-all",
         protocol: str = "full_dataset",
         key: str | None = None,
+        outcome: str = "inconclusive",
+        void_cause: str | None = None,
+        discrimination: str = "none",
+        disc_ref: int | None = None,
+        control: dict[str, Any] | None = None,
     ) -> Any:
+        """Record an evaluation. ``outcome`` defaults to ``inconclusive``: that is the mapping of
+        a pre-outcome event (occurrence recorded, verdict unrecorded). ``disc_ref`` is the ledger
+        position of the evaluated event that shows this check could fail."""
         key = self._key(key)
-        body = dict(r=run, t=trial, s=subject, d=tuple_digest, o=origin, ss=subset, p=protocol)
+        body = dict(
+            r=run,
+            t=trial,
+            s=subject,
+            d=tuple_digest,
+            o=origin,
+            ss=subset,
+            p=protocol,
+            oc=outcome,
+            vc=void_cause,
+            dc=discrimination,
+            dr=disc_ref,
+            cr=control,
+        )
         digest, saved = self._idem("evaluate", key, body)
         if saved is not None:
             return saved
@@ -1408,7 +1569,20 @@ class Legend:
             raise Refused("manifest_mismatch")  # must reference a started context
         if subject not in ctx["snapshot"].values():
             raise Refused("foreign_ref")  # membership comes from the persisted snapshot
-        source = "traigent_witnessed" if origin == "server" else "client_reported"
+        if outcome not in OUTCOMES or (outcome == "void") != (void_cause is not None):
+            raise Refused("invalid_request")  # void needs a closed cause; nothing else has one
+        if void_cause is not None and void_cause not in VOID_CAUSES:
+            raise Refused("invalid_request")
+        if discrimination not in DISCRIMINATIONS or (discrimination == "none") != (
+            disc_ref is None
+        ):
+            raise Refused("invalid_request")  # a reference exactly when discrimination is stated
+        if control is not None:
+            self._check_control(control, run, outcome, discrimination)
+        witnessed = origin == "server"
+        if discrimination != "none":
+            self._check_discrimination(discrimination, disc_ref, run, subject, ctx, witnessed)
+        source = "traigent_witnessed" if witnessed else "client_reported"
         self.autokey += 1
         pos = self._append(
             type="evaluated",
@@ -1419,8 +1593,83 @@ class Legend:
             source=source,
             subset=subset,
             protocol=protocol,
+            outcome=outcome,
+            void_cause=void_cause,
+            discrimination=discrimination,
+            disc_ref=disc_ref,
+            control=copy.deepcopy(control),
         )
         return self._save("evaluate", key, digest, {"position": pos})
+
+    def _check_control(
+        self, control: dict[str, Any], run: str, outcome: str, discrimination: str
+    ) -> None:
+        """A control-run record is closed, names a declared evaluator version of this run, and is
+        itself an undiscriminated event whose outcome is the observed verdict."""
+        if set(control) != CONTROL_FIELDS or discrimination != "none":
+            raise Refused("invalid_request")
+        if control["control_kind"] not in CONTROL_KINDS or control["run_ref"] != run:
+            raise Refused("invalid_request")
+        if control["expected_verdict"] not in ("pass", "fail"):
+            raise Refused("invalid_request")
+        if control["observed_verdict"] not in OUTCOMES or control["observed_verdict"] != outcome:
+            raise Refused("invalid_request")
+        entity, fp = control["evaluator_version_ref"].split(":")
+        if self._version(entity, fp)["kind"] != "evaluator":
+            raise Refused("invalid_request")
+
+    def _check_discrimination(
+        self,
+        kind: str,
+        position: int | None,
+        run: str,
+        subject: str,
+        ctx: dict[str, Any],
+        witnessed: bool,
+    ) -> None:
+        """The cited event must be an earlier evaluated event that really returned ``fail``."""
+        cited = self.ledger[position - 1] if position and 0 < position <= len(self.ledger) else None
+        if cited is None or cited["type"] != "evaluated" or cited["outcome"] != "fail":
+            raise Refused("unknown_ref")
+        if witnessed and cited["source"] != "traigent_witnessed":
+            raise Refused("unknown_ref")  # witnessed claims never rest on client-reported fails
+        if kind == "control":
+            c = cited["control"]
+            evaluators = {v for (role, _s, _n), v in ctx["snapshot"].items() if role == "evaluator"}
+            ok = c is not None and (c["expected_verdict"], c["observed_verdict"]) == (
+                "fail",
+                "fail",
+            )
+            if not ok or c["evaluator_version_ref"] not in evaluators:
+                raise Refused("unknown_ref")  # same evaluator version, known-bad input, real fail
+        elif cited["control"] is not None:
+            raise Refused("unknown_ref")  # a control record is evidence only as a control
+        elif kind == "shown_by_run" and cited["run"] != run:
+            raise Refused("unknown_ref")
+        elif kind == "prior_run" and cited["subject"] != subject:
+            raise Refused("unknown_ref")
+
+    @staticmethod
+    def statement_text(ptype: str, discrimination: str, requested: str | None = None) -> str:
+        """The compiler's text for an evaluation claim. A witnessed claim whose check was not
+        shown able to fail may say only that an evaluation happened; the strong text is refused."""
+        if ptype not in ("evaluated_client_reported", "evaluated_traigent_witnessed"):
+            raise Refused("invalid_request")
+        if discrimination not in DISCRIMINATIONS:
+            raise Refused("invalid_request")
+        if ptype == "evaluated_client_reported":
+            text = "The client reported an evaluation of this version; Traigent did not witness it."
+        elif discrimination == "none":
+            if requested == STATEMENT_STRONG:
+                raise Refused("coverage_insufficient")
+            text = STATEMENT_WEAK
+        else:
+            if requested == STATEMENT_WEAK:
+                raise Refused("invalid_request")  # the weak text cannot hide a discriminating check
+            text = STATEMENT_STRONG
+        if requested is not None and requested != text:
+            raise Refused("invalid_request")
+        return text
 
     # -- recovery -------------------------------------------------------------------------
     @staticmethod
@@ -1870,6 +2119,9 @@ class Legend:
         trial: str | None = None,
         subset: str | None = None,
         protocol: str | None = None,
+        outcome: str | None = None,
+        discrimination: str | None = None,
+        disc_ref: int | None = None,
     ) -> bool:
         entity, fp, kind = subject
         v = self._version(entity, fp)
@@ -1911,6 +2163,10 @@ class Legend:
             source = (
                 "client_reported" if ptype.endswith("client_reported") else "traigent_witnessed"
             )
+            if outcome is None or discrimination is None:
+                raise Refused("invalid_request")  # evaluation claims state both, always
+            if outcome not in ("pass", "fail"):
+                raise Refused("coverage_insufficient")  # only a verdict is signed
             found = (
                 subset is not None
                 and protocol is not None
@@ -1922,6 +2178,9 @@ class Legend:
                     and e["source"] == source
                     and e["subset"] == subset
                     and e["protocol"] == protocol
+                    and e["outcome"] == outcome
+                    and e["discrimination"] == discrimination
+                    and e["disc_ref"] == disc_ref
                     for e in ev
                 )
             )
@@ -2274,6 +2533,10 @@ def test_model_evaluation_needs_started_context_and_membership() -> None:
     assert led.ledger[-1]["source"] == "traigent_witnessed" and led.ledger[-1]["trial"] is None
 
 
+NONE_PASS = {"outcome": "pass", "discrimination": "none", "disc_ref": None}
+NONE_FAIL = {"outcome": "fail", "discrimination": "none", "disc_ref": None}
+
+
 def test_model_all_eight_predicates_positive_and_wrong_evidence() -> None:
     led = _seed()
     ent = lambda fp: _ent(led, fp)  # noqa: E731
@@ -2281,8 +2544,8 @@ def test_model_all_eight_predicates_positive_and_wrong_evidence() -> None:
     led.propose("r", None, "base_agent", 0, a, "A")
     led.propose("r", None, "evaluator", 0, ent("E0"), "E0")
     td = led.start_execution("r", None, dict(led.effective("r", None)), "strict")
-    led.evaluate("r", None, f"{a}:A", td, "server", "msr-1", "holdout")
-    led.evaluate("r", None, f"{a}:A", td, "client", "msr-2", "full_dataset")
+    led.evaluate("r", None, f"{a}:A", td, "server", "msr-1", "holdout", outcome="pass")
+    led.evaluate("r", None, f"{a}:A", td, "client", "msr-2", "full_dataset", outcome="fail")
     led.capture("c1", a, "A", "m1", "round_trip_verified", True, True, True, False, None)
     led.record_availability("av1", a, "A", "m1", "available")
     led.record_restore("rs1", a, "A", "agent", "m1", "exact", True, True, True, True, False, "art")
@@ -2296,12 +2559,12 @@ def test_model_all_eight_predicates_positive_and_wrong_evidence() -> None:
         "restore_verified_backend_matched": ({"manifest": "m1"}, {"manifest": "m1"}),  # client only
         "bound_to_run": ({"tuple_digest": td}, {"tuple_digest": "bad"}),
         "evaluated_client_reported": (
-            {"tuple_digest": td, "subset": "msr-2", "protocol": "full_dataset"},
-            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset"},
+            {"tuple_digest": td, "subset": "msr-2", "protocol": "full_dataset", **NONE_FAIL},
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset", **NONE_FAIL},
         ),
         "evaluated_traigent_witnessed": (
-            {"tuple_digest": td, "subset": "msr-1", "protocol": "holdout"},
-            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset"},
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "holdout", **NONE_PASS},
+            {"tuple_digest": td, "subset": "msr-1", "protocol": "full_dataset", **NONE_PASS},
         ),
     }
     assert set(cases) == set(PREDICATES)
@@ -3587,3 +3850,167 @@ def test_model_coverage_partition_covers_every_required_component() -> None:
     )  # runtime, helpers, ... are in neither list
     ok = {"status": "partial", "covered": REQUIRED["agent"][1:], "missing": [REQUIRED["agent"][0]]}
     led.capture("c2", a, "A", "m", "stored_unverified", False, ok, True, False, None)
+
+
+def _eval_ledger() -> tuple[Legend, str, str, str]:
+    led = _seed()
+    a, e0 = _ent(led, "A"), _ent(led, "E0")
+    led.propose("r", None, "base_agent", 0, a, "A")
+    led.propose("r", None, "evaluator", 0, e0, "E0")
+    td = led.start_execution("r", None, dict(led.effective("r", None)), "strict")
+    return led, f"{a}:A", f"{e0}:E0", td
+
+
+def _control(evaluator: str, **changes: Any) -> dict[str, Any]:
+    return {
+        "control_kind": "known_bad_input",
+        "expected_verdict": "fail",
+        "observed_verdict": "fail",
+        "evaluator_version_ref": evaluator,
+        "run_ref": "r",
+        **changes,
+    }
+
+
+def test_model_outcome_states_and_void_cause_are_closed() -> None:
+    led, a, _e, td = _eval_ledger()
+    for outcome in ("pass", "fail", "not_exercised", "inconclusive"):
+        assert led.evaluate("r", None, a, td, "server", outcome=outcome)["position"] > 0
+    assert led.evaluate("r", None, a, td, "server", outcome="void", void_cause="input_unavailable")
+    for bad in (
+        {"outcome": "void"},  # void needs a closed cause
+        {"outcome": "void", "void_cause": "because"},
+        {"outcome": "pass", "void_cause": "input_unavailable"},
+        {"outcome": "passed"},
+    ):
+        _atomic(led, "invalid_request", led.evaluate, "r", None, a, td, "server", **bad)
+
+
+def test_model_legacy_event_without_outcome_maps_to_inconclusive_with_no_discrimination() -> None:
+    led, a, _e, td = _eval_ledger()
+    led.evaluate("r", None, a, td, "server")
+    last = led.ledger[-1]
+    assert (last["outcome"], last["discrimination"], last["disc_ref"]) == (
+        "inconclusive",
+        "none",
+        None,
+    )
+
+
+def test_model_discrimination_needs_an_earlier_real_fail() -> None:
+    led, a, e0, td = _eval_ledger()
+    ev = led.evaluate
+    # none carries no reference; any other kind must carry one
+    _atomic(led, "invalid_request", ev, "r", None, a, td, "server", discrimination="prior_run")
+    _atomic(led, "invalid_request", ev, "r", None, a, td, "server", disc_ref=1)
+    passed = ev("r", None, a, td, "server", outcome="pass", subset="s1")["position"]
+    _atomic(
+        led, "unknown_ref", ev, "r", None, a, td, "server",
+        discrimination="prior_run", disc_ref=passed,  # a pass shows nothing
+    )  # fmt: skip
+    _atomic(
+        led, "unknown_ref", ev, "r", None, a, td, "server",
+        discrimination="prior_run", disc_ref=9999,
+    )  # fmt: skip
+    failed = ev("r", None, a, td, "server", outcome="fail", subset="s2")["position"]
+    for kind in ("prior_run", "shown_by_run"):
+        assert ev("r", None, a, td, "server", discrimination=kind, disc_ref=failed, subset=kind)
+    # a plain fail is not a control, and a control record is not a plain fail
+    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
+            discrimination="control", disc_ref=failed)  # fmt: skip
+    ctl = ev("r", None, a, td, "server", outcome="fail", subset="c", control=_control(e0))
+    assert ev("r", None, a, td, "server", discrimination="control", disc_ref=ctl["position"],
+              subset="c2")  # fmt: skip
+    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
+            discrimination="prior_run", disc_ref=ctl["position"])  # fmt: skip
+
+
+def test_model_control_run_is_closed_and_must_really_fail_under_this_evaluator() -> None:
+    led, a, e0, td = _eval_ledger()
+    ev = led.evaluate
+    bad_controls = (
+        _control(e0, input_text="free text"),
+        _control(e0, control_kind="my kind"),
+        _control(e0, run_ref="other"),
+        _control(e0, expected_verdict="void"),
+        _control(e0, observed_verdict="pass"),  # must equal the event's outcome (fail below)
+        _control(a),  # an agent version is not an evaluator version
+    )
+    for c in bad_controls:
+        _atomic(led, "invalid_request", ev, "r", None, a, td, "server", outcome="fail", control=c)
+    # a control record is undiscriminated
+    first = ev("r", None, a, td, "server", outcome="fail", subset="f")["position"]
+    _atomic(led, "invalid_request", ev, "r", None, a, td, "server", outcome="fail",
+            discrimination="prior_run", disc_ref=first, control=_control(e0))  # fmt: skip
+    # a control whose evaluator returned PASS on a known-bad input shows nothing
+    weak = ev("r", None, a, td, "server", outcome="pass",
+              control=_control(e0, observed_verdict="pass"), subset="w")["position"]  # fmt: skip
+    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
+            discrimination="control", disc_ref=weak)  # fmt: skip
+    # a control under a DIFFERENT evaluator version does not discriminate this run's evaluator
+    other = _ent(led, "E1")
+    foreign = ev("r", None, a, td, "server", outcome="fail",
+                 control=_control(f"{other}:E1"), subset="x")["position"]  # fmt: skip
+    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
+            discrimination="control", disc_ref=foreign)  # fmt: skip
+
+
+def test_model_witnessed_discrimination_never_rests_on_client_reported_fails() -> None:
+    led, a, _e, td = _eval_ledger()
+    client_fail = led.evaluate("r", None, a, td, "client", outcome="fail")["position"]
+    _atomic(led, "unknown_ref", led.evaluate, "r", None, a, td, "server",
+            discrimination="prior_run", disc_ref=client_fail)  # fmt: skip
+    assert led.evaluate("r", None, a, td, "client", discrimination="prior_run",
+                        disc_ref=client_fail, subset="c")  # fmt: skip
+
+
+def test_model_claims_are_issued_only_for_verdicts_and_must_state_the_events_discrimination() -> (
+    None
+):
+    led, a, _e, td = _eval_ledger()
+    fail = led.evaluate("r", None, a, td, "server", outcome="fail", subset="m1")["position"]
+    led.evaluate("r", None, a, td, "server", outcome="pass", subset="m2",
+                 discrimination="prior_run", disc_ref=fail)  # fmt: skip
+    led.evaluate("r", None, a, td, "server", outcome="void", void_cause="input_unavailable",
+                 subset="m3")  # fmt: skip
+    led.evaluate("r", None, a, td, "server", outcome="inconclusive", subset="m4")
+    hw = led.high_water
+    ent, fp = a.split(":")
+    sub = (ent, fp, "agent")
+    base = {"tuple_digest": td, "protocol": "full_dataset"}
+    kw = {"discrimination": "prior_run", "disc_ref": fail, "outcome": "pass", "subset": "m2"}
+    assert led.issue_predicate("evaluated_traigent_witnessed", sub, hw, **base, **kw)
+    # the claim must repeat what the event says, field by field
+    for change in ({"outcome": "fail"}, {"discrimination": "none", "disc_ref": None},
+                   {"disc_ref": fail + 1}):  # fmt: skip
+        _atomic(led, "unknown_ref", led.issue_predicate, "evaluated_traigent_witnessed", sub, hw,
+                **base, **{**kw, **change})  # fmt: skip
+    # only pass and fail are signed
+    for outcome, m in (("void", "m3"), ("inconclusive", "m4"), ("not_exercised", "m4")):
+        _atomic(led, "coverage_insufficient", led.issue_predicate, "evaluated_traigent_witnessed",
+                sub, hw, **base, outcome=outcome, discrimination="none", disc_ref=None,
+                subset=m)  # fmt: skip
+    # both fields are always stated
+    _atomic(led, "invalid_request", led.issue_predicate, "evaluated_traigent_witnessed", sub, hw,
+            **base, subset="m2")  # fmt: skip
+
+
+def test_model_compiler_refuses_the_strong_witnessed_text_without_discrimination() -> None:
+    text = Legend.statement_text
+    assert text("evaluated_traigent_witnessed", "control") == STATEMENT_STRONG
+    assert text("evaluated_traigent_witnessed", "none") == STATEMENT_WEAK
+    _atomic_static("coverage_insufficient", text, "evaluated_traigent_witnessed", "none",
+                   STATEMENT_STRONG)  # fmt: skip
+    _atomic_static("invalid_request", text, "evaluated_traigent_witnessed", "prior_run",
+                   STATEMENT_WEAK)  # fmt: skip
+    # the client-reported text never claims Traigent evaluated it, discriminated or not
+    for d in DISCRIMINATIONS:
+        assert "did not witness" in text("evaluated_client_reported", d)
+    _atomic_static("invalid_request", text, "declared", "none")
+    _atomic_static("invalid_request", text, "evaluated_traigent_witnessed", "sometimes")
+
+
+def _atomic_static(code: str, fn: Any, *args: Any) -> None:
+    with pytest.raises(Refused) as exc:
+        fn(*args)
+    assert str(exc.value) == code

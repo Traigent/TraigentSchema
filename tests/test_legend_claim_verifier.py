@@ -44,6 +44,9 @@ TEST_KEY_ID = "test-only-legend-key-1"
 H64 = "a" * 64
 HEX32 = "0123456789abcdef0123456789abcdef"
 TS = "2026-10-15T10:00:00Z"
+DIGEST_ALG = "traigent-fp2-sha256"
+STRONG = "This version was evaluated by Traigent."
+WEAK = "Traigent evaluated this version; the evaluation was not shown able to fail."
 TEXT = "The client's SDK reported a capture of this version, with the stated coverage."
 
 
@@ -51,6 +54,7 @@ def _subject() -> dict[str, Any]:
     return {
         "schema_version": "traigent.legend_claim_subject.v0",
         "policy_version": "legend.claims.v0",
+        "digest_alg": DIGEST_ALG,
         "statement": {
             "type": "captured",
             "text": TEXT,
@@ -80,6 +84,58 @@ def _subject() -> dict[str, Any]:
     }
 
 
+def _evaluated_subject(discrimination: str, text: str | None = None) -> dict[str, Any]:
+    """A witnessed-evaluation subject; ``text`` defaults to the template the rule allows."""
+    s = _subject()
+    s["statement"] = {
+        "type": "evaluated_traigent_witnessed",
+        "text": text or (WEAK if discrimination == "none" else STRONG),
+        "evidence_source": "traigent_witnessed",
+        "source_label": "witnessed by Traigent",
+    }
+    s["commitments"].update(
+        recovery_manifest_fingerprint=None,
+        run_tuple_digest="sha256:" + "d" * 64,
+        evaluated_subset_root="msr1:k0123456789abcdef:" + "e" * 64,
+        evaluation_protocol="holdout",
+        evaluation_outcome="pass",
+        discrimination=discrimination,
+        discrimination_event_ref=None if discrimination == "none" else f"eventref_{HEX32}",
+    )
+    s["coverage_status"] = None
+    return s
+
+
+# Canonicalization vectors: INPUT is JSON text (so a non-Python reader parses the literal itself).
+# fp2 emits 0 for -0 and ECMAScript number text for floats. "in_w3c_jcs_sha256_profile" is false
+# where the W3C jcs-sha256 profile (no floats) would refuse the value; the digest id is ours.
+CANONICALIZATION_INPUTS = [
+    ('{"n":-0}', True),
+    ('{"n":-0.0}', False),
+    ('{"n":0}', True),
+    ('{"n":5.0}', False),
+    ('{"n":1e21}', False),
+    ('{"n":1e-7}', False),
+    ('{"n":0.1}', False),
+    ('{"n":9007199254740991}', True),
+]
+
+
+def _canonicalization_vectors() -> list[dict[str, Any]]:
+    import traigent_schema.fp2 as fp2
+
+    return [
+        {
+            "input_json": text,
+            "digest_alg": DIGEST_ALG,
+            "canonical": fp2.canonicalize(json.loads(text)),
+            "digest": fp2.digest(json.loads(text)),
+            "in_w3c_jcs_sha256_profile": in_profile,
+        }
+        for text, in_profile in CANONICALIZATION_INPUTS
+    ]
+
+
 _PRIV = ed25519.Ed25519PrivateKey.from_private_bytes(TEST_SEED)
 TRUSTED = {TEST_KEY_ID: TrustedLegendKey("ed25519", _PRIV.public_key())}
 
@@ -102,6 +158,12 @@ def _statement(subject: dict[str, Any] | None = None, **sig: Any) -> dict[str, A
     return {"subject": subject, "signature": signature}
 
 
+def _subject_with(**changes: Any) -> dict[str, Any]:
+    s = _subject()
+    s.update(changes)
+    return s
+
+
 def _vectors() -> dict[str, Any]:
     valid = _statement()
     tampered = copy.deepcopy(valid)
@@ -117,7 +179,19 @@ def _vectors() -> dict[str, Any]:
         ),
         "trusted_key_id": TEST_KEY_ID,
         "canonical_subject_json": canonical_subject_json(valid["subject"]),
+        "digest_alg": DIGEST_ALG,
+        "canonicalization": _canonicalization_vectors(),
         "valid": {"statement": valid, "expect": "VERIFIED"},
+        "valid_evaluated": {
+            "witnessed_discrimination_none_weak_text": {
+                "statement": _statement(_evaluated_subject("none")),
+                "expect": "VERIFIED",
+            },
+            "witnessed_discrimination_control_strong_text": {
+                "statement": _statement(_evaluated_subject("control")),
+                "expect": "VERIFIED",
+            },
+        },
         "negative": {
             "tampered_subject": {"statement": tampered, "expect": "SIGNATURE_INVALID"},
             "wrong_domain_process_record": {"statement": process_domain, "expect": "DOMAIN"},
@@ -128,6 +202,14 @@ def _vectors() -> dict[str, Any]:
             "unknown_key_id": {
                 "statement": _statement(key_id="test-only-other-key"),
                 "expect": "UNKNOWN_KEY",
+            },
+            "unknown_digest_alg": {
+                "statement": _statement(_subject_with(digest_alg="jcs-sha256")),
+                "expect": "DIGEST_ALG",
+            },
+            "witnessed_strong_text_without_discrimination": {
+                "statement": _statement(_evaluated_subject("none", STRONG)),
+                "expect": "SCHEMA",
             },
             "wrong_algorithm": {
                 "statement": _statement(algorithm="ecdsa_p256_sha256"),
@@ -311,3 +393,98 @@ def test_float_position_is_emitted_without_fraction_and_non_finite_refused() -> 
         subject["ledger_cutoff_position"] = bad
         with pytest.raises(TypeError):
             canonical_subject_json(subject)
+
+
+def test_vector_canonicalization_cases_recompute_and_pin_negative_zero() -> None:
+    import traigent_schema.fp2 as fp2
+
+    vec = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))
+    assert vec["digest_alg"] == DIGEST_ALG
+    by_input = {c["input_json"]: c for c in vec["canonicalization"]}
+    for case in vec["canonicalization"]:
+        parsed = json.loads(case["input_json"])
+        assert fp2.canonicalize(parsed) == case["canonical"]
+        assert fp2.digest(parsed) == case["digest"]
+        assert case["digest"].startswith("sha256:") and len(case["digest"]) == 71
+    # -0 and 0 are one value; so are 5.0 and 5; floats keep ECMAScript text
+    assert by_input['{"n":-0}']["canonical"] == by_input['{"n":0}']["canonical"] == '{"n":0}'
+    assert by_input['{"n":-0}']["digest"] == by_input['{"n":0}']["digest"]
+    assert by_input['{"n":-0.0}']["canonical"] == '{"n":0}'
+    assert by_input['{"n":5.0}']["canonical"] == '{"n":5}'
+    assert by_input['{"n":1e21}']["canonical"] == '{"n":1e+21}'
+    assert by_input['{"n":1e-7}']["canonical"] == '{"n":1e-7}'
+    # float-bearing values are ours only: a jcs-sha256 reader refuses them
+    assert by_input['{"n":0.1}']["in_w3c_jcs_sha256_profile"] is False
+    assert by_input['{"n":-0}']["in_w3c_jcs_sha256_profile"] is True
+    assert fp2.canonicalize({"n": float("-0.0")}) == '{"n":0}'
+
+
+def test_valid_evaluated_vectors_verify() -> None:
+    vec = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))
+    for name, case in vec["valid_evaluated"].items():
+        assert _code(case["statement"]) == case["expect"], name
+
+
+@pytest.mark.parametrize("bad", ["jcs-sha256", "traigent-fp2-sha512", "", "TRAIGENT-FP2-SHA256"])
+def test_unknown_digest_alg_is_refused_before_schema(bad: str) -> None:
+    assert _code(_statement(_subject_with(digest_alg=bad))) == "DIGEST_ALG"
+
+
+@pytest.mark.parametrize("bad", [None, 1, ["traigent-fp2-sha256"], {"a": 1}])
+def test_non_string_digest_alg_is_refused(bad: Any) -> None:
+    assert _code(_statement(_subject_with(digest_alg=bad))) == "DIGEST_ALG"
+
+
+def test_missing_digest_alg_is_refused() -> None:
+    subject = _subject()
+    del subject["digest_alg"]
+    assert _code(_statement(subject)) == "DIGEST_ALG"
+
+
+def test_digest_alg_is_signed_so_swapping_it_is_tampering_when_both_ids_known() -> None:
+    stmt = _statement()
+    stmt["subject"]["digest_alg"] = "traigent-fp2-sha256 "
+    assert _code(stmt) == "DIGEST_ALG"
+
+
+def test_witnessed_strong_text_requires_discrimination() -> None:
+    assert _statement_schema_valid(_statement(_evaluated_subject("none")))
+    assert _statement_schema_valid(_statement(_evaluated_subject("control")))
+    # "evaluated by Traigent" without a discriminating check is refused ...
+    assert not _statement_schema_valid(_statement(_evaluated_subject("none", STRONG)))
+    # ... and the weak text cannot hide a discriminating one
+    for d in ("shown_by_run", "control", "prior_run"):
+        assert not _statement_schema_valid(_statement(_evaluated_subject(d, WEAK)))
+        assert _code(_statement(_evaluated_subject(d, WEAK))) == "SCHEMA"
+
+
+def test_discrimination_ref_is_non_null_exactly_when_not_none() -> None:
+    s = _evaluated_subject("prior_run")
+    s["commitments"]["discrimination_event_ref"] = None
+    assert not _statement_schema_valid(_statement(s))
+    s = _evaluated_subject("none")
+    s["commitments"]["discrimination_event_ref"] = f"eventref_{HEX32}"
+    assert not _statement_schema_valid(_statement(s))
+
+
+def test_signed_outcome_is_a_verdict_only_and_evaluated_fields_are_type_scoped() -> None:
+    for bad in ("not_exercised", "inconclusive", "void", "maybe"):
+        s = _evaluated_subject("control")
+        s["commitments"]["evaluation_outcome"] = bad
+        assert not _statement_schema_valid(_statement(s)), bad
+    s = _evaluated_subject("control")
+    del s["commitments"]["discrimination"]
+    assert not _statement_schema_valid(_statement(s))
+    # a non-evaluation statement may not carry evaluation fields
+    s = _subject()
+    s["commitments"]["discrimination"] = "none"
+    assert not _statement_schema_valid(_statement(s))
+    # a client-reported evaluation carries the fields but keeps its own text
+    c = _evaluated_subject("none")
+    c["statement"] = {
+        "type": "evaluated_client_reported",
+        "text": "The client reported an evaluation of this version; Traigent did not witness it.",
+        "evidence_source": "client_reported",
+        "source_label": "client-reported",
+    }
+    assert _statement_schema_valid(_statement(c))

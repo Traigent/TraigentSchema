@@ -949,3 +949,39 @@ def test_old_dialect_ref_target_alone_decides_whatever_the_siblings_say(tmp_path
             ):
                 res = _mini(tmp_path / f"{i}{j}{k}", {**schema, **dialect})
                 assert any("/properties/v" in line for line in res.invalid), (sib, cls, dialect)
+
+
+def test_old_dialect_sibling_definitions_next_to_a_ref_are_not_a_resolution_scope(
+    tmp_path: Path,
+) -> None:
+    text = {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP test",
+        "type": "string",
+    }
+    number = {"type": "number", "x-content-class": "number"}
+    for i, (key, dialect) in enumerate(
+        (
+            ("definitions", {}),
+            ("definitions", {"$schema": "http://json-schema.org/draft-07/schema#"}),
+            ("$defs", {}),
+            ("$defs", {"$schema": "http://json-schema.org/draft-07/schema#"}),
+        )
+    ):
+        schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "definitions": {"Text": text},
+            "properties": {
+                "v": {
+                    "$ref": f"#/{key}/Text" if key == "$defs" else "#/definitions/Text",
+                    "x-content-class": "number",
+                    key: {"Text": number},
+                }
+            },
+            **dialect,
+        }
+        if key == "$defs":
+            schema["$defs"] = {"Text": text}
+        res = _mini(tmp_path / str(i), schema)
+        assert any("/properties/v" in line for line in res.invalid), (key, dialect, res.invalid)

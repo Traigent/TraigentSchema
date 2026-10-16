@@ -656,6 +656,16 @@ class Linter:
                 names |= self.declared_names(res[0], res[3], res[2], depth + 1)
         return names
 
+    def _opens_scope(self, doc: str, node: dict, ptr: str) -> bool:
+        """Whether sibling ``definitions``/``$defs`` of ``node`` can resolve a ``#/...`` ref.
+
+        In Draft 4-7 a ``#/...`` reference resolves against the document (or an embedded
+        ``$id``/``id`` base), never against a nested sibling, and siblings of a ``$ref`` are
+        ignored: reading them would let the lint accept what the validator does not use. (Embedded
+        schemas that carry their own definitions without a ``$ref`` keep their local scope.)
+        """
+        return self._modern_dialect(doc) or not isinstance(node.get("$ref"), str)
+
     def walk_schema(
         self,
         doc: str,
@@ -679,7 +689,7 @@ class Linter:
             return
         self.seen.add(key)
         loc = f"{doc}#{ptr}" if ptr else doc
-        if node.get("definitions") or node.get("$defs"):
+        if (node.get("definitions") or node.get("$defs")) and self._opens_scope(doc, node, ptr):
             scope = scope + [(doc, node, ptr)]
 
         if value:

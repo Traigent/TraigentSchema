@@ -985,3 +985,38 @@ def test_old_dialect_sibling_definitions_next_to_a_ref_are_not_a_resolution_scop
             schema["$defs"] = {"Text": text}
         res = _mini(tmp_path / str(i), schema)
         assert any("/properties/v" in line for line in res.invalid), (key, dialect, res.invalid)
+
+
+def test_old_dialect_nested_definitions_without_an_id_do_not_open_a_resolution_root(
+    tmp_path: Path,
+) -> None:
+    text = {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP test",
+        "type": "string",
+    }
+    number = {"type": "number", "x-content-class": "number"}
+    for i, key in enumerate(("definitions", "$defs")):
+        for j, dialect in enumerate(({}, {"$schema": "http://json-schema.org/draft-07/schema#"})):
+            ref = f"#/{key}/Text"
+            schema = {
+                "type": "object",
+                "additionalProperties": False,
+                key: {"Text": text},
+                "properties": {
+                    "box": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "x-content-class": "closed_enum",
+                        key: {"Text": number},
+                        "properties": {"v": {"$ref": ref, "x-content-class": "number"}},
+                    }
+                },
+                **dialect,
+            }
+            res = _mini(tmp_path / f"{i}{j}", schema)
+            assert any("/box/properties/v" in line for line in res.invalid), (key, dialect)
+            # with an $id the nested definitions really are the base, so the number is honoured
+            schema["properties"]["box"]["$id"] = "https://example.test/box.json"
+            ok = _mini(tmp_path / f"id{i}{j}", schema)
+            assert not any("/box/properties/v" in line for line in ok.invalid), (key, dialect)

@@ -59,6 +59,8 @@ LEGACY = "legacy_content"
 # that the node's own keywords satisfy the class; the approved forms are documented in
 # docs/content-classes.md.
 UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+# The two session id formats the Backend mints: a uuid4 and ``tv0_`` + uuid4 (typed sessions).
+SESSION_ID_PATTERN = "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 KEY_ID_PATTERN = "^[A-Za-z0-9_-]{22}$"
 BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
 # ``<kind>ref_<32 lowercase hex>`` (Backend minting convention: ``_new_id(prefix)`` in
@@ -73,6 +75,7 @@ _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 _FIXED_REF_PATTERNS = frozenset(
     {
         UUID_PATTERN,
+        SESSION_ID_PATTERN,
         KEY_ID_PATTERN,
         "^k[0-9a-f]{16}(?![\\s\\S])",  # content identity key id
         "^ex1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # keyed example id
@@ -281,6 +284,13 @@ class Linter:
             cur_doc = doc
             new_scope = scope
             base, base_ptr = (scope[-1][1], scope[-1][2]) if scope else (self.load(doc), "")
+            if scope and not self._modern_dialect(doc) and not self._sets_base(base):
+                # Draft 4-7: ``#/...`` is a pointer into the document unless an ``id``/``$id``
+                # changes the base, so a nested ``definitions`` is only a fallback for refs
+                # the document root cannot answer (schemas embedded in an OpenAPI document).
+                root_doc = self.load(doc)
+                if self._pointer(root_doc, frag) is not _MISSING:
+                    base, base_ptr = root_doc, ""
         node = self._pointer(base, frag)
         if node is _MISSING and not target and scope:
             # inline schema scope did not hold it: fall back to the file root
@@ -289,6 +299,10 @@ class Linter:
         if node is _MISSING:
             return None
         return cur_doc, base_ptr + frag, node, new_scope
+
+    @staticmethod
+    def _sets_base(node: Any) -> bool:
+        return isinstance(node, dict) and any(isinstance(node.get(k), str) for k in ("$id", "id"))
 
     @staticmethod
     def _pointer(base: Any, frag: str) -> Any:

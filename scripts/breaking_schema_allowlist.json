@@ -5266,36 +5266,12 @@
       "rule": "pattern",
       "findings": [
         {
-          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/0/items/oneOf/0/allOf/0/properties/name",
+          "pointer": "#/paths//api/v1/sessions/{session_id}/identity-binding/get/parameters/session_id/schema",
           "role": "request",
           "subject": "pattern",
-          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
-          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
-          "fingerprint": "2c2bc4afc67bddbfcc5dd97fc3eea54d1f758f8792724b1d7897f8674c1088ee"
-        },
-        {
-          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/name",
-          "role": "request",
-          "subject": "pattern",
-          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
-          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
-          "fingerprint": "5fec47ada71b08c17c4e5e0b758f5e3e7341d6e069d304ca8b9a8a889ba792eb"
-        },
-        {
-          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/objectives/oneOf/0/items/oneOf/0/allOf/0/properties/name",
-          "role": "request",
-          "subject": "pattern",
-          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
-          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
-          "fingerprint": "89a5e2594c8b957545e625caa45737e2591fa7f8724e29d2a8df1ea4c841b06f"
-        },
-        {
-          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/name",
-          "role": "request",
-          "subject": "pattern",
-          "old": "^[a-zA-Z_][a-zA-Z0-9_]*$",
-          "new": "^[a-zA-Z_][a-zA-Z0-9_.-]*$",
-          "fingerprint": "0b713ab5db89cb4bf4c8dd37ffc778d7855a7ddaae659758811dd9abb5ff3fa6"
+          "old": null,
+          "new": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "fingerprint": "c5baf11e3d6c12da582d97701f352844f51d4682c888872baa2c35ce76fc07db"
         }
       ],
       "reason": "Promotion acknowledgement for release 7.0.0 (PR #507). These exact findings are aggregate and endpoint projections of PR #499's intentional metric-name widening from ^[a-zA-Z_][a-zA-Z0-9_]*$ to ^[a-zA-Z_][a-zA-Z0-9_.-]*$. The new language is a strict superset: it adds only dot and hyphen after the unchanged first-character rule, so every previously accepted request name remains valid. Because a patternProperties regex is the map key, an in-place widening is reported mechanically as the old key removed plus a new key added; nothing was deleted. tests/test_metric_name_pattern_consistency.py proves the superset over a boundary-spanning alphabet and pins every metric surface while keeping TVAR/agent identifiers strict. A strict old response validator can reject newly emitted dotted or hyphenated metric keys; that additive compatibility edge was explicitly accepted in #499 so the canonical objective migration does not silently drop real metric names. Exact identities and fingerprints only.",

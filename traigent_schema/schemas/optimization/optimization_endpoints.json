@@ -859,8 +859,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -986,8 +986,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -1096,8 +1096,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -1199,7 +1199,7 @@
             "name": "session_id",
             "in": "path",
             "required": true,
-            "schema": { "x-content-class": "opaque_ref", "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "description": "Server-minted session id (uuid4)." }
+            "schema": { "x-content-class": "opaque_ref", "type": "string", "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions." }
           }
         ],
         "responses": {
@@ -1267,8 +1267,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -1498,8 +1498,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -1616,8 +1616,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],
@@ -1734,8 +1734,8 @@
             "schema": {
               "x-content-class": "opaque_ref",
               "type": "string",
-              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-              "description": "Server-minted session id (uuid4)."
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
             }
           }
         ],

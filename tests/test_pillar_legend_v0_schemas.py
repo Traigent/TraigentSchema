@@ -1646,8 +1646,19 @@ class Legend:
             raise Refused("unknown_ref")  # a control record is evidence only as a control
         elif kind == "shown_by_run" and cited["run"] != run:
             raise Refused("unknown_ref")
-        elif kind == "prior_run" and cited["subject"] != subject:
-            raise Refused("unknown_ref")
+        elif kind == "prior_run":
+            if cited["subject"] != subject:
+                raise Refused("unknown_ref")
+            # the failure must come from the same evaluator version(s) as the claimed evaluation
+            cited_ctx = self.contexts.get((cited["run"], cited["trial"]))
+            cited_evaluators = (
+                {v for (role, _s, _n), v in cited_ctx["snapshot"].items() if role == "evaluator"}
+                if cited_ctx
+                else set()
+            )
+            here = {v for (role, _s, _n), v in ctx["snapshot"].items() if role == "evaluator"}
+            if not here or cited_evaluators != here:
+                raise Refused("unknown_ref")
 
     @staticmethod
     def statement_text(ptype: str, discrimination: str, requested: str | None = None) -> str:
@@ -3923,6 +3934,30 @@ def test_model_discrimination_needs_an_earlier_real_fail() -> None:
               subset="c2")  # fmt: skip
     _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
             discrimination="prior_run", disc_ref=ctl["position"])  # fmt: skip
+
+
+def test_model_prior_run_must_come_from_the_same_evaluator_version() -> None:
+    led, a, e0, td = _eval_ledger()
+    ev = led.evaluate
+    # run r2 scores the same agent version under a different evaluator version (E1)
+    e1 = f"{_ent(led, 'E1')}:E1"
+    led.propose("r2", None, "base_agent", 0, a.split(":")[0], "A")
+    led.propose("r2", None, "evaluator", 0, e1.split(":")[0], "E1")
+    td2 = led.start_execution("r2", None, dict(led.effective("r2", None)), "strict")
+    fail_e1 = ev("r2", None, a, td2, "server", outcome="fail", subset="f1")["position"]
+    # same subject, but the failure was recorded under E1: it says nothing about E0
+    _atomic(led, "unknown_ref", ev, "r", None, a, td, "server",
+            discrimination="prior_run", disc_ref=fail_e1, subset="x")  # fmt: skip
+    # the same failure under E1 does discriminate a later E1 evaluation
+    assert ev("r2", None, a, td2, "server", discrimination="prior_run", disc_ref=fail_e1,
+              subset="y")  # fmt: skip
+    # and an E0 failure in another run still discriminates E0 (same evaluator version)
+    led.propose("r3", None, "base_agent", 0, a.split(":")[0], "A")
+    led.propose("r3", None, "evaluator", 0, e0.split(":")[0], "E0")
+    td3 = led.start_execution("r3", None, dict(led.effective("r3", None)), "strict")
+    fail_e0 = ev("r3", None, a, td3, "server", outcome="fail", subset="f0")["position"]
+    assert ev("r", None, a, td, "server", discrimination="prior_run", disc_ref=fail_e0,
+              subset="z")  # fmt: skip
 
 
 def test_model_control_run_is_closed_and_must_really_fail_under_this_evaluator() -> None:

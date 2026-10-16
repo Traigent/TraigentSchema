@@ -450,7 +450,7 @@ check that gave no verdict.
 |---|---|
 | `shown_by_run` | returned `fail` in the same run (not a control record) |
 | `control` | is a control-run record (below) for the same evaluator version whose expected and observed verdicts are both `fail` |
-| `prior_run` | returned `fail` for the same version (not a control record) |
+| `prior_run` | returned `fail` for the same evaluator version (and the same subject), not a control record |
 | `none` | no reference; the claim may say only that an evaluation happened |
 
 A reference exists exactly when discrimination is not `none` (`invalid_request` otherwise); the cited event must exist in the prefix

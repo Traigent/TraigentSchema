@@ -159,7 +159,7 @@ def test_golden_vectors_verify_as_expected() -> None:
 def test_canonical_bytes_are_pinned_and_match_backend_construction() -> None:
     subject = _subject()
     text = canonical_subject_json(subject)
-    # Backend legend_claims._canonical_json: sort_keys, (",", ":"), ensure_ascii=False, no NaN.
+    # For integer-only ASCII subjects the RFC 8785 profile equals the old json.dumps profile.
     assert text == json.dumps(
         subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
     )
@@ -280,3 +280,34 @@ def test_statement_schema_is_valid_draft7_and_accepts_vector() -> None:
     Draft7Validator.check_schema(schema)
     validator = Draft7Validator(schema, registry=build_registry())
     assert list(validator.iter_errors(_statement())) == []
+
+
+def _statement_schema_valid(statement: dict[str, Any]) -> bool:
+    schema = json.loads(STATEMENT_PATH.read_text(encoding="utf-8"))
+    return Draft7Validator(schema, registry=build_registry()).is_valid(statement)
+
+
+@pytest.mark.parametrize("literal", ["5", "5.0", "5e0", "0.5e1", "50e-1"])
+def test_integral_number_spellings_canonicalize_and_verify_identically(literal: str) -> None:
+    """RFC 8785: 5, 5.0 and 5e0 are one number; a schema-valid float position must verify."""
+    base = _subject()
+    text = json.dumps(base).replace(
+        '"ledger_cutoff_position": 5', f'"ledger_cutoff_position": {literal}'
+    )
+    parsed = json.loads(text)
+    assert _statement_schema_valid({"subject": parsed, "signature": _statement()["signature"]})
+    assert canonical_subject_json(parsed) == canonical_subject_json(base)
+    assert legend_signing_material(parsed) == legend_signing_material(base)
+    statement = _statement(base)  # signed over the integer spelling
+    statement["subject"] = parsed
+    assert _code(statement) == "VERIFIED"
+
+
+def test_float_position_is_emitted_without_fraction_and_non_finite_refused() -> None:
+    subject = _subject()
+    subject["ledger_cutoff_position"] = 5.0
+    assert '"ledger_cutoff_position":5,' in canonical_subject_json(subject)
+    for bad in (float("nan"), float("inf"), 2**53):
+        subject["ledger_cutoff_position"] = bad
+        with pytest.raises(TypeError):
+            canonical_subject_json(subject)

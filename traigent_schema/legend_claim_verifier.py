@@ -37,6 +37,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed25519, utils
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from traigent_schema import fp2
 from traigent_schema.validator import _FORMAT_CHECKER
 
 LEGEND_SIGNATURE_DOMAIN = b"traigent.legend_claim_subject.signature.v0"
@@ -97,10 +98,13 @@ class LegendClaimVerification:
 
 
 def canonical_subject_json(subject: Any) -> str:
-    """Canonical subject text; byte-identical to the Backend's ``_canonical_json``."""
-    return json.dumps(
-        subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
-    )
+    """Canonical subject text: RFC 8785 (JCS) via the shared fp2 canonicalizer.
+
+    Byte-identical to the Backend's ``_canonical_json``. Numbers use ECMAScript
+    ``Number::toString`` (``5``, ``5.0`` and ``5e0`` all canonicalize to ``5``); NaN, Infinity
+    and integers beyond +/-(2**53 - 1) raise ``Fp2UnsupportedValue`` (a ``TypeError``).
+    """
+    return fp2.canonicalize(subject)
 
 
 def legend_signing_material(subject: Any) -> bytes:

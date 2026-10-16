@@ -387,9 +387,15 @@ paired to its `type`, `evidence_source` and `source_label`). The subject carries
 (`ed25519` or `ecdsa_p256_sha256`), `key_id`, `encoding` (`base64`) and `value` (raw 64-byte signature, low-S P1363 for
 ECDSA).
 
-**Signing input** = `UTF8("traigent.legend_claim_subject.signature.v0") || 0x00 || canonical_json(subject)`, with
-`canonical_json = json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)`.
-The schema restricts every subject string to ASCII, so these bytes equal the fp2/RFC 8785 form. The domain differs
+**Signing input** = `UTF8("traigent.legend_claim_subject.signature.v0") || 0x00 || canonical_json(subject)`, where
+`canonical_json` is **RFC 8785 (JSON Canonicalization Scheme)** as implemented by the shared
+`traigent_schema/fp2.py` `canonicalize` (the Backend signer uses the identical profile): object members sorted by UTF-16
+code unit, no insignificant whitespace, strings escaped minimally, and numbers serialized with ECMAScript
+`Number.prototype.toString`. So `5`, `5.0` and `5e0` are one value and canonicalize to `5` (the schema accepts any of them
+as an integer); NaN, Infinity and integers beyond +/-(2^53 - 1) are refused (`CANONICALIZATION`). Python `json.dumps`
+is **not** this profile (it keeps `5.0`) and must not be used to sign or verify. Golden vectors use integers and are
+unchanged.
+The domain differs
 from the process-record issuer domain (`traigent.process_record.issuer_signature.v1`), so a signature of one kind never
 verifies as the other: the verifier refuses a foreign domain label (`DOMAIN`) and a foreign-domain signature under the
 Legend label (`SIGNATURE_INVALID`).
@@ -646,7 +652,7 @@ activation (items 7, 8) implement this contract and must not widen a field to fr
 
 ## 11. Changelog
 
-**Delta over 9d71d82 (purely additive).** New `legend_claim_statement_v0.json` (signed claim statement: closed subject plus signature envelope with domain `traigent.legend_claim_subject.signature.v0`), reference verifier `traigent_schema/legend_claim_verifier.py`, golden vectors `tests/legend_claim_statement_v0_vectors.json`, tests `tests/test_legend_claim_verifier.py`, and section 5.1. No existing schema is changed.
+**Delta over 9d71d82 (purely additive).** The statement canonical-JSON profile is RFC 8785 via `fp2.canonicalize` (section 5.1). New `legend_claim_statement_v0.json` (signed claim statement: closed subject plus signature envelope with domain `traigent.legend_claim_subject.signature.v0`), reference verifier `traigent_schema/legend_claim_verifier.py`, golden vectors `tests/legend_claim_statement_v0_vectors.json`, tests `tests/test_legend_claim_verifier.py`, and section 5.1. No existing schema is changed.
 
 **Delta over 9b0451d (additive; the 06a0f5f contract is otherwise unchanged).** This delta is **not** purely additive. Query results with `outcome` `failed` or `refused` that carry a non-null `next_page_cursor` were valid at 9b0451d and are now refused, intentionally (security narrowing found by sol review; the contract is unreleased and unconsumed). Both breaking findings are acknowledged in `scripts/breaking_schema_allowlist.json`: the `QueryVersionsResult` allOf branch change in `director_legend_ops_v0.json`, and the optional `as_of_ledger_position` property in `legend_requests_v0.json`. `python3 scripts/breaking_schema_check.py --check` reports no unacknowledged BREAKING findings.
 

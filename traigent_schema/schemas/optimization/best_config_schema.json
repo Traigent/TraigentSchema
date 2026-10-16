@@ -11,10 +11,13 @@
   ],
   "properties": {
     "schema_version": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "const": "traigent.best_config.v1"
     },
     "config_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV B1-2 (OPEN): config_id",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
@@ -23,6 +26,7 @@
       }
     },
     "function_ref": {
+      "x-content-class": "code_identifier",
       "type": "string",
       "minLength": 3,
       "maxLength": 512,
@@ -32,6 +36,8 @@
       "$ref": "#/definitions/best_config_environment"
     },
     "config": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV B1-5 (LEAK): config",
       "type": "object",
       "maxProperties": 512,
       "additionalProperties": true
@@ -44,34 +50,47 @@
           "$ref": "./optimization_strategy_schema.json#/definitions/SupportedOptimizationStrategyName"
         },
         "created_at": {
+          "x-content-class": "timestamp",
           "type": "string",
           "format": "date-time"
         },
         "exported_at": {
+          "x-content-class": "timestamp",
           "type": "string",
           "format": "date-time"
         },
         "optimization_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV B1-6 (OPEN): optimization_id",
           "type": "string",
           "maxLength": 512
         },
         "published_at": {
+          "x-content-class": "timestamp",
           "type": "string",
           "format": "date-time"
         },
         "source": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV B1-6 (OPEN): source",
           "type": "string",
           "maxLength": 512
         },
         "source_optimization_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV B1-6 (OPEN): source_optimization_id",
           "type": "string",
           "maxLength": 512
         },
         "source_session_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV B1-6 (OPEN): source_session_id",
           "type": "string",
           "maxLength": 512
         },
         "traigent_version": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV B1-6 (OPEN): traigent_version",
           "type": "string",
           "maxLength": 512
         }
@@ -79,6 +98,8 @@
       "additionalProperties": false
     },
     "validation": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP B1,B2: not inventoried (free object/array): validation",
       "type": "object",
       "maxProperties": 128,
       "properties": {
@@ -89,12 +110,14 @@
       "additionalProperties": true
     },
     "forward_compat": {
+      "x-content-class": "closed_enum",
       "type": "boolean"
     }
   },
   "additionalProperties": false,
   "definitions": {
     "best_config_environment": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "default",

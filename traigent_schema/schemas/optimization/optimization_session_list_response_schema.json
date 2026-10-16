@@ -18,6 +18,7 @@
       }
     },
     "total": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0,
       "description": "Number of sessions in this response (len(sessions))."
@@ -25,6 +26,8 @@
   },
   "definitions": {
     "session_summary": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S8: not inventoried (free object/array): session_summary",
       "type": "object",
       "additionalProperties": true,
       "required": [
@@ -33,32 +36,42 @@
       ],
       "properties": {
         "session_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S8-3 (OPEN): session_id",
           "type": "string",
           "description": "Opaque session identifier."
         },
         "status": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S8-3 (OPEN): status",
           "type": "string",
           "description": "Lifecycle state of the session (e.g. active / running / completed / failed). Free-form string so the SDK tolerates new server states without a schema bump."
         },
         "created_at": {
+          "x-content-class": "timestamp",
           "type": "string",
           "format": "date-time",
           "description": "ISO-8601 creation timestamp when the server provides one."
         },
         "progress": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S8: not inventoried (free object/array): progress",
           "type": "object",
           "additionalProperties": true,
           "description": "Trial progress counters when available.",
           "properties": {
             "completed": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "total": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "failed": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             }

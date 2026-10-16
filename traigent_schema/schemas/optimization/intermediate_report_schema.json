@@ -20,23 +20,30 @@
       ],
       "properties": {
         "session_id": {
+          "x-content-class": "opaque_ref",
           "type": "string"
         },
         "trial_id": {
+          "x-content-class": "opaque_ref",
           "type": "string"
         },
         "running_score": {
+          "x-content-class": "number",
           "type": "number"
         },
         "examples_attempted": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0
         },
         "partial_cost_usd": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0
         },
         "objective_name": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S4-5 (LEAK): objective_name",
           "type": "string"
         }
       }
@@ -50,9 +57,12 @@
       ],
       "properties": {
         "prune": {
+          "x-content-class": "closed_enum",
           "type": "boolean"
         },
         "prune_reason": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S4-8 (OPEN): prune_reason",
           "type": [
             "string",
             "null"

@@ -11,6 +11,7 @@
       "type": "object",
       "properties": {
         "error_code": {
+          "x-content-class": "closed_enum",
           "const": "RATE_LIMIT_EXCEEDED"
         },
         "details": {
@@ -18,21 +19,27 @@
           "additionalProperties": false,
           "properties": {
             "scope": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): scope",
               "type": "string",
               "minLength": 1,
               "description": "Rate-limit scope the breach applies to (e.g. \"global\")."
             },
             "retry_after": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 1,
               "description": "Seconds the client should wait before retrying (mirrors the Retry-After header)."
             },
             "limit": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): limit",
               "type": "string",
               "minLength": 1,
               "description": "Configured limit window, e.g. \"100 per minute\" (present only when the limiter includes headers)."
             },
             "reset_time": {
+              "x-content-class": "timestamp",
               "type": "string",
               "format": "date-time",
               "description": "When the window resets, ISO-8601 UTC (present only when the limiter includes headers)."

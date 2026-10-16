@@ -6,6 +6,7 @@
   "type": "object",
   "definitions": {
     "hash_algorithm": {
+      "x-content-class": "closed_enum",
       "description": "Identifies the canonicalization and preimage rules used to produce every digest on a record. Carried OUTSIDE the hashed spec, alongside the digests, so a record is self-describing without being self-referential. A consumer meeting an unknown value MUST fail closed: never fall back to another algorithm, because that is a downgrade path.",
       "type": "string",
       "enum": [
@@ -13,11 +14,13 @@
       ]
     },
     "sha256_digest": {
+      "x-content-class": "digest",
       "description": "Lowercase hex SHA-256 with an explicit prefix, so a digest is never mistaken for an opaque token.",
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "domain_tag": {
+      "x-content-class": "closed_enum",
       "description": "Domain separator bound into every preimage. The preimage is `domain_tag || 0x00 || canonical_bytes`. The NUL separator is unambiguous because tags are ASCII and fp2 canonical JSON escapes NUL as \\u0000 rather than emitting a raw byte. Domain separation prevents a digest computed for one role being accepted for another (role substitution, cross-protocol comparison, wrong-digest wiring) - all failures within the corruption/wrong-record model above. It adds no authentication. The algorithm version is a component of the tag, so changing hash_algorithm necessarily changes every digest.",
       "type": "string",
       "enum": [
@@ -30,15 +33,18 @@
       "type": "object",
       "properties": {
         "profile": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "const": "fp2"
         },
         "max_depth": {
+          "x-content-class": "closed_enum",
           "description": "Containers from the root. Normative rather than left to each runtime's stack, so implementations agree on which payloads are digestible at all.",
           "type": "integer",
           "const": 100
         },
         "max_canonical_spec_bytes": {
+          "x-content-class": "closed_enum",
           "description": "Upper bound on the UTF-8 length of the canonical spec text. Bounds the cost of recursive key ordering on untrusted input. This is inherently a POST-canonicalization check: the bound is on the canonical text's length, which does not exist until fp2 has already run. fp2 itself (traigent_schema/fp2.py) performs no byte-length check at all - this limit is enforced by the best-config hash profile (traigent_schema/best_config_profile.py) after fp2.canonicalize() returns and before hashing.",
           "type": "integer",
           "const": 262144
@@ -55,6 +61,7 @@
       "description": "Values that MUST be rejected before a preimage is hashed, in every implementation and every language. Rejection is required rather than resolution: any silent coercion produces a digest that looks verified while depending on one runtime's accident. These rules are enforced at two different layers, and this list intentionally does not distinguish them by keyword - implementers MUST consult both fp2 (traigent_schema/fp2.py, docs/fingerprints/fp2.md) and the best-config hash profile (traigent_schema/best_config_profile.py) to find where a given rule actually lives: non_finite_number and lone_surrogate are enforced BY fp2 canonicalization itself, and only by fp2 - the best-config hash profile's prevalidation does not duplicate these two, because they can only be evaluated inside fp2's own float/string handling; the profile wraps fp2's rejection into its own error type rather than leaving either check unenforced. cycle, exceeds_max_depth, non_string_key and unsupported_type are structural-shape rules that fp2 also enforces internally (an unbounded recursive implementation would eventually hit each of them), but the best-config hash profile independently pre-validates all four BEFORE fp2 ever runs, using the identical depth bound (canonicalization.max_depth) and the identical shared-substructure-safe (path-local, not global) cycle tracking fp2 itself uses - so with the profile in front of fp2, a rejection on any of these four never reaches fp2 at all. unsafe_integral_number is only PARTLY fp2's job: fp2 rejects the unsafe Python int TYPE but, by design, canonicalizes an equal-magnitude float (fp2.digest({'n': 1e20}) succeeds) because ordinary finite floats are otherwise valid fp2 input - the best-config hash profile closes this gap by rejecting the numeric VALUE, across both int and float, before fp2 ever sees it. exceeds_max_canonical_spec_bytes cannot be a canonicalization-time rule at all, because the bound is on the canonical text fp2 produces; the best-config hash profile enforces it after canonicalization and before hashing. duplicate_property_name CANNOT be detected after parsing, because the parser has already collapsed them - detection requires a duplicate-aware decoder at the HTTP or file boundary, before objects are materialized, so neither fp2 nor a parsed-value best-config hash profile function (config_digest, spec_digest) can enforce it from an already-parsed value. traigent_schema/best_config_profile.py's loads_strict() is the reference implementation of that duplicate-aware, non-finite-constant-rejecting parse-boundary decoder; other runtimes MUST implement equivalent behavior at their own parse boundary (a file reader or an HTTP body decoder), because no digest function operating on an already-parsed value can recover a duplicate that decoding has already collapsed.",
       "type": "array",
       "items": {
+        "x-content-class": "closed_enum",
         "type": "string",
         "enum": [
           "duplicate_property_name",
@@ -93,10 +100,12 @@
       "type": "object",
       "properties": {
         "customer_content": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "const": "preserve"
         },
         "internal_identifiers": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "const": "may_normalize"
         }

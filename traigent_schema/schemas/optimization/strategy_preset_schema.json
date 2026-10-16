@@ -8,6 +8,7 @@
   "x-privacy-classification": "sdk_runtime_metadata",
   "definitions": {
     "PresetName": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "max_accuracy_then_cheapest_within_epsilon",
@@ -17,6 +18,7 @@
       "description": "Registered SDK strategy preset name."
     },
     "SelectionGrade": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "advisory"
@@ -30,6 +32,7 @@
       ],
       "properties": {
         "epsilon": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 1,
@@ -45,6 +48,7 @@
       ],
       "properties": {
         "floor": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0,
           "maximum": 1,
@@ -54,6 +58,8 @@
       "additionalProperties": false
     },
     "NoParams": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): NoParams",
       "type": "object",
       "maxProperties": 0,
       "additionalProperties": false,
@@ -70,6 +76,8 @@
       "$ref": "#/definitions/PresetName"
     },
     "params": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): params",
       "type": "object",
       "description": "Typed parameters for the named advisory preset."
     },
@@ -77,6 +85,8 @@
       "$ref": "#/definitions/SelectionGrade"
     },
     "selection_rationale": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): selection_rationale",
       "type": "string",
       "maxLength": 280,
       "description": "Short non-signal note for display. Do not include prompts, examples, metric values, objective expressions, or candidate details."

@@ -12,6 +12,7 @@
   ],
   "properties": {
     "trial_id": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
@@ -33,11 +34,14 @@
         ],
         "properties": {
           "cvar_name": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S5-7 (LEAK): cvar_name",
             "type": "string",
             "maxLength": 256,
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
           "decision": {
+            "x-content-class": "closed_enum",
             "type": "string",
             "enum": [
               "CERTIFIED_SELECTION",
@@ -47,6 +51,7 @@
             "description": "Shared certificate-decision vocabulary. A certified winner requires CERTIFIED_SELECTION for every governed CVAR; the other values exist so a client can be honest about partial state, but any governed CVAR below CERTIFIED_SELECTION makes the report incomplete and the server rejects it."
           },
           "freshness_hash": {
+            "x-content-class": "digest",
             "type": "string",
             "pattern": "^[a-f0-9]{64}$",
             "description": "The certificate's issued hash: lowercase sha256 hex over the canonical freshness context (RFC 0001 §3.5). The context itself never crosses the wire. REQUIRED here (a certified report must bind freshness) even though tvl_governance.certificates[] keeps it optional — declaration-time entries (e.g. NO_DECISION at create) may not have one yet."
@@ -56,6 +61,7 @@
       "uniqueItems": true
     },
     "attestation": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "sdk_client_attested"

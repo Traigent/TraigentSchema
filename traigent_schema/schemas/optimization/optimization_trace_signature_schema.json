@@ -11,9 +11,11 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
+      "x-content-class": "closed_enum",
       "type": "string"
     },
     "covered_step_count": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     }

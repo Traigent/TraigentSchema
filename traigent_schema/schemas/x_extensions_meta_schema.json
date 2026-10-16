@@ -50,6 +50,20 @@
       "type": "boolean",
       "description": "True when a field carries user-authored or LLM-generated content (e.g. prompt text, completion output, evaluation scores). Fields marked x-content:true require a co-located x-privacy-classification annotation."
     },
+    "x-content-class": {
+      "type": "string",
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
+      "description": "Content class of a value carried on an optimization channel (docs/content-classes.md). opaque_ref = server-issued reference; closed_enum = value from a closed vocabulary (booleans included); number = bounded number; digest = approved hash/digest; timestamp; code_identifier = verified code identifier (GNFR-PRIV-003 carve-out); encrypted_blob = label-service ciphertext; auth_header = allow-listed transport/authentication header. legacy_content is the transitional value: the field carries (or may carry) customer content today and is scheduled for removal by the content-less plan; it must carry x-content-note and the count may only go down. Placed on every property, array item, map value, propertyNames schema, parameter schema and response-header schema of an optimization-channel contract; enforced by scripts/content_class_lint.py."
+    },
+    "x-content-key-class": {
+      "type": "string",
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
+      "description": "Content class of the KEYS of a map-shaped object (additionalProperties / patternProperties) when propertyNames carries no x-content-class. Same vocabulary as x-content-class; legacy_content means the keys are customer-chosen names (knob names, metric names) today."
+    },
+    "x-content-note": {
+      "type": "string",
+      "description": "Short justification for a legacy_content annotation, citing the inventory row (for example 'INV S1-14 (LEAK): function_name') or 'INV-GAP' when the field is not in the inventory. Required wherever x-content-class or x-content-key-class is legacy_content."
+    },
     "x-deprecated": {
       "type": "string",
       "description": "Human-readable deprecation message for a field or definition, including the replacement field name and the removal milestone (e.g. 'Use dataset_id instead. eval_dataset_id will be removed after 2026-Q4.'). Set on the deprecated property."

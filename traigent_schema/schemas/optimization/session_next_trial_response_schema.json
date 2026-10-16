@@ -10,31 +10,43 @@
   ],
   "properties": {
     "has_next": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "description": "Whether a next trial suggestion is available. false once the pre-generated trial queue is exhausted."
     },
     "trial": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S2: not inventoried (free object/array): trial",
       "type": ["object", "null"],
       "description": "The next trial suggestion, or null when has_next is false.",
       "additionalProperties": true,
       "properties": {
         "trial_id": {
+          "x-content-class": "opaque_ref",
           "type": "string",
           "description": "Identifier of the suggested trial."
         },
         "agent_specification": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S2: not inventoried (free object/array): agent_specification",
           "type": "object",
           "additionalProperties": true,
           "description": "The agent configuration to evaluate for this trial.",
           "properties": {
             "agent_platform": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV S2-19 (OPEN): agent_platform",
               "type": "string",
               "description": "Target agent platform (e.g. openai)."
             },
             "prompt_template": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV S2-20 (REMOVE): prompt_template",
               "type": "string"
             },
             "model_parameters": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV S2-21 (OPEN): model_parameters",
               "type": "object",
               "additionalProperties": true,
               "description": "Model invocation parameters (model, temperature, max_tokens, ...)."
@@ -42,32 +54,40 @@
           }
         },
         "dataset_subset_indices": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S2: not inventoried (free object/array): dataset_subset_indices",
           "type": "object",
           "additionalProperties": true,
           "description": "Which dataset examples this trial is evaluated against.",
           "properties": {
             "indices": {
               "type": "array",
-              "items": { "type": "integer", "minimum": 0 }
+              "items": { "x-content-class": "number", "type": "integer", "minimum": 0 }
             },
             "strategy": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S2: not inventoried (free string): strategy",
               "type": "string",
               "description": "Subset selection strategy (e.g. random)."
             }
           }
         },
         "metadata": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S2-22 (OPEN): metadata",
           "type": "object",
           "additionalProperties": true
         }
       }
     },
     "remaining_trials": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0,
       "description": "Number of trials remaining in the session queue after this suggestion."
     },
     "session_status": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Canonical session lifecycle status (normalized server-side)."
     }

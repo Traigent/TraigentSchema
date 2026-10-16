@@ -50,19 +50,25 @@
   },
   "properties": {
     "success": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "const": true,
       "description": "Discriminator. Always true for success responses."
     },
     "message": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "maxLength": 240,
       "description": "Optional human-readable summary."
     },
     "data": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): data",
       "description": "Route-specific success payload."
     },
     "metadata": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": "object",
       "additionalProperties": true
     }

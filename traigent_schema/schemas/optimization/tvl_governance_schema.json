@@ -14,15 +14,19 @@
         ],
         "properties": {
           "name": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S1-39 (LEAK): name",
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
           "type": {
+            "x-content-class": "closed_enum",
             "type": "string",
             "pattern": "^(bool|int|float|str|enum\\[(str|int|float)\\]|tuple\\[.{1,64}\\]|callable\\[[A-Za-z0-9_.-]{1,64}\\])$",
             "description": "Declared TVL value type (closed grammar) \u2014 never a value."
           },
           "governed": {
+            "x-content-class": "closed_enum",
             "type": "boolean",
             "description": "DECLARED governance (per-CVAR require_calibration, pinned certificate, or certificate-backed target) \u2014 never inferred from runtime evidence."
           }
@@ -40,10 +44,13 @@
         ],
         "properties": {
           "cvar_name": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S5-7 (LEAK): cvar_name",
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
           "decision": {
+            "x-content-class": "closed_enum",
             "type": "string",
             "enum": [
               "CERTIFIED_SELECTION",
@@ -52,6 +59,7 @@
             ]
           },
           "freshness_hash": {
+            "x-content-class": "digest",
             "type": "string",
             "pattern": "^[a-f0-9]{64}$",
             "description": "Lowercase sha256 hex of the canonical freshness context (hash only \u2014 the context itself never crosses)."
@@ -69,10 +77,13 @@
         ],
         "properties": {
           "name": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S1-23 (LEAK): name",
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
           },
           "strategy": {
+            "x-content-class": "closed_enum",
             "type": "string",
             "enum": [
               "cascade"

@@ -11,6 +11,7 @@
   ],
   "properties": {
     "seed_ref": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 255,

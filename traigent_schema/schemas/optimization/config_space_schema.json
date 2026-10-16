@@ -6,16 +6,21 @@
   "version": "0.10.0",
   "properties": {
     "id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): id",
       "type": "string",
       "description": "Unique identifier for this config space",
       "x-identifier": true
     },
     "schema_version": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "TVL schema version",
       "default": "0.9"
     },
     "tunable_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): tunable_id",
       "type": "string",
       "description": "Reference to the tunable this config space belongs to",
       "x-reference": "./tunable_schema.json#/properties/id"
@@ -32,12 +37,16 @@
       "description": "Structural and behavioral constraints (legacy textual or typed TVL 0.9)",
       "oneOf": [
         {
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV S1-31 (OPEN): keys of constraints",
           "type": "object",
           "description": "Legacy textual constraints: parameter_name -> [constraint strings]",
           "minProperties": 1,
           "additionalProperties": {
             "type": "array",
             "items": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV S1-31 (OPEN): constraints",
               "type": "string"
             }
           }
@@ -50,6 +59,8 @@
           "type": "array",
           "description": "Generic constraint objects",
           "items": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S1-31 (OPEN): constraints",
             "type": "object",
             "additionalProperties": true
           }
@@ -72,6 +83,8 @@
       "description": "Promotion policy for selecting optimal configurations"
     },
     "defaults": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): defaults",
       "type": "object",
       "description": "Default configuration values (tvar_name -> default_value)",
       "additionalProperties": true
@@ -80,21 +93,27 @@
       "type": "array",
       "description": "List of metric names produced by the service for this config space",
       "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV S3-15 (OPEN): measures",
         "type": "string",
         "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
       }
     },
     "created_at": {
+      "x-content-class": "timestamp",
       "type": "string",
       "format": "date-time",
       "description": "ISO 8601 timestamp of when this config space was created"
     },
     "updated_at": {
+      "x-content-class": "timestamp",
       "type": "string",
       "format": "date-time",
       "description": "ISO 8601 timestamp of the last modification to this config space"
     },
     "metadata": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": "object",
       "description": "Additional metadata about the config space",
       "additionalProperties": true

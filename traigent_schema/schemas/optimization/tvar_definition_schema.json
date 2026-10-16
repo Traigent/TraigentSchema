@@ -6,6 +6,7 @@
   "version": "0.9.0",
   "definitions": {
     "TVARType": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["bool", "int", "float", "str", "enum"],
       "description": "Variable type:\n- bool: Boolean toggle\n- int: Integer value\n- float: Floating-point value\n- str: Free-form string\n- enum: One of a fixed set of values"
@@ -15,6 +16,8 @@
       "description": "Domain specification defining the range of valid values for a TVAR",
       "properties": {
         "values": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free object/array): values",
           "type": "array",
           "description": "Allowed values (for enum and str types)",
           "minItems": 1
@@ -23,12 +26,14 @@
           "type": "array",
           "description": "[min, max] range (for int and float types)",
           "items": {
+            "x-content-class": "number",
             "type": "number"
           },
           "minItems": 2,
           "maxItems": 2
         },
         "resolution": {
+          "x-content-class": "number",
           "type": "number",
           "description": "Step size for numeric types (defines discretization granularity)",
           "exclusiveMinimum": 0
@@ -39,6 +44,7 @@
   },
   "properties": {
     "name": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Variable name (must be valid Python identifier)",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
@@ -52,20 +58,25 @@
       "description": "Valid value domain for this TVAR"
     },
     "default": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free object/array): default",
       "description": "Default value (type depends on TVAR type)"
     },
     "scale": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["linear", "log"],
       "description": "Sampling scale for numeric types. Use 'log' for parameters like learning_rate where logarithmic exploration is appropriate.",
       "default": "linear"
     },
     "agent": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Agent name for multi-agent grouping. Groups TVARs by the agent or component they belong to.",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
     },
     "is_tool": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "description": "True if this TVAR configures an MCP tool",
       "default": false
@@ -74,6 +85,8 @@
       "type": "array",
       "description": "Conditional constraints on this TVAR (e.g., 'requires model == gpt-4')",
       "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP no-route: not inventoried (free string): constraints",
         "type": "string"
       }
     }

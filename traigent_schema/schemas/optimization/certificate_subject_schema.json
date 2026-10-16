@@ -31,6 +31,7 @@
       "$ref": "./best_config_v2_schema.json#/definitions/best_config_environment"
     },
     "best_config_schema_version": {
+      "x-content-class": "closed_enum",
       "description": "The spec envelope the certified config was expressed in, so a subject issued against one envelope cannot be replayed against another.",
       "type": "string",
       "enum": [

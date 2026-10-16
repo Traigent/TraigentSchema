@@ -9,6 +9,7 @@
       "$ref": "../datasets/content_identity_v1_schema.json#/definitions/RecordStateV1"
     },
     "RunIdentityBindingRejectionReasonV1": {
+      "x-content-class": "closed_enum",
       "description": "Closed vocabulary of why the declared content_identity block was not accepted as evidence (TraigentBackend src/services/content_identity/run_binding.py REASON_*). A rejection never fails the run: the binding is still stored, as record_state draft. content_identity_too_large: the declared block exceeded the server's byte cap and was discarded (declared is null). content_identity_not_an_object: the value was not a JSON object (declared is null). wire_schema_invalid: the value was an object but failed SessionContentIdentityWireV1 / TrialContentIdentityWireV1 (declared is still stored, raw). wire_schema_unavailable: the wire contract itself could not be loaded server-side; fails closed to draft rather than 5xx.",
       "type": ["string", "null"],
       "enum": [
@@ -50,11 +51,13 @@
           "description": "dataset_root on the run binding, or evaluated_root on a trial binding -- always equal to the root of the binding this list is served from."
         },
         "distinct_count": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
         },
         "total_count": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
@@ -63,6 +66,7 @@
           "$ref": "../datasets/content_identity_v1_schema.json#/definitions/ConflictingExampleIdsV1"
         },
         "members_source": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": ["server_computed", "client_submitted"],
           "description": "Provenance of the stored list itself (ContentIdentityMemberList.members_source): server_computed when the Backend minted it (e.g. from a hosted dataset version), client_submitted when it was accepted from a declared block whose stated root the server verified."
@@ -71,6 +75,7 @@
           "$ref": "../datasets/content_identity_v1_schema.json#/definitions/MultisetMembersV1"
         },
         "provenance": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "const": "server_recorded",
           "description": "Always server_recorded: this whole object is the server's own read of a stored row, never a copy of what a client sent."
@@ -87,6 +92,8 @@
           "$ref": "../datasets/content_identity_v1_schema.json#/definitions/MemberListRefV1"
         },
         "status": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S9: not inventoried (free string): status",
           "type": "string",
           "minLength": 1,
           "description": "Stable failure code, e.g. MemberListNotFound, or an integrity-error reason. Never a raw exception message."
@@ -147,11 +154,14 @@
           "$ref": "#/definitions/RunIdentityBindingRejectionReasonV1"
         },
         "agent_id": {
+          "x-content-class": "opaque_ref",
           "type": ["string", "null"],
           "maxLength": 512,
           "description": "The resolved, server-owned agent row id. Null when the declared agent id is a fallback label (no registered build) or the agent slot is unavailable/rejected."
         },
         "agent_key": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S9-2 (LEAK): agent_key",
           "type": ["string", "null"],
           "maxLength": 128,
           "description": "The declared agent identity key the base_build_digest was recomputed against, whether or not it resolved to a registered agent row."
@@ -166,6 +176,7 @@
           "description": "Server-RECOMPUTED digest of the base agent build manifest. Never trusted from the client's declared value alone; equal to it only because the server recomputed and it matched."
         },
         "base_head_generation": {
+          "x-content-class": "number",
           "type": ["integer", "null"],
           "minimum": 0,
           "description": "Server-captured Director head-table generation at run creation (Director W3). Always null in Release 1 -- nothing captures it yet."
@@ -184,17 +195,22 @@
           "description": "The server's own recomputed multiset root of the bound dataset. Null whenever the dataset slot was withheld, refused (e.g. unregistered key_id, root mismatch) or absent."
         },
         "dataset_version_id": {
+          "x-content-class": "opaque_ref",
           "type": ["string", "null"],
           "minLength": 1,
           "x-reference": "../datasets/dataset_version_schema.json#/definitions/DatasetVersionV1/properties/id",
           "description": "The ONE hosted dataset version whose server-computed root equals dataset_root, when exactly one exists. Null when the dataset is not hosted, no version resolves, or more than one candidate is ambiguous (see facts.dataset.dataset_version)."
         },
         "facts": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S9-4 (OPEN): facts",
           "type": "object",
           "additionalProperties": true,
           "description": "The server's own, versioned account of what it established (facts.version is FACTS_VERSION). Every sub-fact is labelled provenance 'server_recorded' or 'declared'; the label is computed server-side and never copied from the client. Open-ended and evolving with the binder (key_id, agent, dataset, evaluator, base_head_generation, record_state, wire, and, on a trial, trial_id/evaluated/trial_origin) -- not itself a closed contract yet."
         },
         "declared": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S9-4 (OPEN): declared",
           "type": ["object", "null"],
           "additionalProperties": true,
           "description": "The client's raw content_identity block, kept verbatim up to the server's size cap -- a DECLARATION, never evidence. Null when the value was too large to keep, was not a JSON object, or no content_identity was sent. NOT guaranteed to match SessionContentIdentityWireV1: a value that failed wire-schema validation (rejection_reason wire_schema_invalid) is still stored here exactly as sent."
@@ -239,6 +255,7 @@
           "x-reference": "../evaluation/experiment_run_schema.json#/properties/id"
         },
         "trial_origin": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": ["server_issued", "client_submitted"],
           "description": "server_issued: the trial id came from POST .../next-trial. client_submitted: a client-sequenced trial (trial_sequencing='client')."
@@ -275,10 +292,14 @@
           "description": "Recorded verbatim from the declared block's observed_provider_versions once it validates; [] otherwise (never absent)."
         },
         "facts": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S9-4 (OPEN): facts",
           "type": "object",
           "additionalProperties": true
         },
         "declared": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S9-4 (OPEN): declared",
           "type": ["object", "null"],
           "additionalProperties": true
         },
@@ -296,6 +317,7 @@
       "required": ["session_id", "binding", "trials"],
       "properties": {
         "session_id": {
+          "x-content-class": "opaque_ref",
           "type": "string",
           "minLength": 1,
           "maxLength": 128

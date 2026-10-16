@@ -14,11 +14,13 @@
   ],
   "properties": {
     "schema_version": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "const": "traigent.guaranteed_selection_request.v1",
       "maxLength": 255
     },
     "selection_mode": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "keep_accuracy_reduce_cost",
@@ -26,12 +28,14 @@
       ]
     },
     "delta": {
+      "x-content-class": "number",
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 1,
       "description": "Accuracy non-inferiority margin (e.g. 0.02 = within 2 accuracy points of the anchor)."
     },
     "epsilon": {
+      "x-content-class": "number",
       "type": "number",
       "exclusiveMinimum": 0,
       "exclusiveMaximum": 1,
@@ -47,11 +51,13 @@
       ],
       "properties": {
         "acc": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 1
         },
         "cost": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 1
@@ -59,12 +65,14 @@
       }
     },
     "eta": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0,
       "default": 0,
       "description": "Cost-optimality tolerance for ties between candidates (interpreted per eta_kind)."
     },
     "eta_kind": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "relative",
@@ -74,12 +82,14 @@
       "default": "relative"
     },
     "baseline_ref": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
       "description": "Reference to the baseline config (config_id) anchoring keep_accuracy_reduce_cost."
     },
     "ci_method": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "empirical_bernstein_fixed",
@@ -88,12 +98,14 @@
       "default": "empirical_bernstein_fixed"
     },
     "min_pairs": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 2,
       "default": 2,
       "description": "Minimum paired fixed-benchmark tasks required before a candidate can be decided."
     },
     "cost_value_range": {
+      "x-content-class": "number",
       "type": [
         "number",
         "null"
@@ -102,6 +114,7 @@
       "description": "Upper bound on per-example cost (e.g. max_output_tokens * price). Null treats cost as deterministic on the eval workload."
     },
     "allow_best_effort_uncertified": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "default": false,
       "description": "Opt-in: when no config can be certified, return a BEST_EFFORT_UNCERTIFIED suggestion. Still never deployable."

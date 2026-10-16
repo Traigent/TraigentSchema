@@ -28,93 +28,108 @@
     "sample_count"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "traigent.guarantee_certificate.v1" },
+    "schema_version": { "x-content-class": "closed_enum", "type": "string", "const": "traigent.guarantee_certificate.v1" },
     "mode": { "$ref": "#/definitions/SelectionMode" },
-    "anchor_id": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "selected_id": { "type": ["string", "null"], "maxLength": 128 },
+    "anchor_id": { "x-content-class": "opaque_ref", "type": "string", "minLength": 1, "maxLength": 128 },
+    "selected_id": { "x-content-class": "opaque_ref", "type": ["string", "null"], "maxLength": 128 },
     "delta": {
+      "x-content-class": "number",
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 1,
       "description": "Accuracy non-inferiority margin."
     },
-    "epsilon": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-    "epsilon_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-    "epsilon_cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-    "eta": { "type": "number", "minimum": 0 },
-    "eta_kind": { "type": "string", "enum": ["relative", "absolute", "max_abs_rel"] },
+    "epsilon": { "x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "epsilon_acc": { "x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "epsilon_cost": { "x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "eta": { "x-content-class": "number", "type": "number", "minimum": 0 },
+    "eta_kind": { "x-content-class": "closed_enum", "type": "string", "enum": ["relative", "absolute", "max_abs_rel"] },
     "ci_method": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["empirical_bernstein_fixed", "anytime_valid_confidence_sequence"],
       "description": "v1 ships the fixed-budget empirical-Bernstein method; anytime-valid is a future drop-in."
     },
     "design": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "const": "paired",
       "description": "v1 mandates paired evaluation (anchor and candidate scored on the same tasks)."
     },
     "multiplicity_scheme": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["mode1_2K", "mode2_pairwise_ordered", "mode2_arm_level"],
       "description": "Bonferroni allocation over one-sided bounds: Mode 1 uses 2K, Mode 2 uses K(K-1) ordered pairs."
     },
-    "delta_prime_acc": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
-    "delta_prime_cost": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "delta_prime_acc": { "x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "delta_prime_cost": { "x-content-class": "number", "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
     "per_candidate": {
+      "x-content-key-class": "closed_enum",
       "type": "object",
       "description": "candidate_id -> disposition.",
       "minProperties": 1,
       "maxProperties": 4096,
-      "propertyNames": { "type": "string", "maxLength": 128 },
+      "propertyNames": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP no-route: not inventoried (free string): per_candidate", "type": "string", "maxLength": 128 },
       "additionalProperties": { "$ref": "#/definitions/CandidateDisposition" }
     },
     "quality_ci": {
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (map keys): quality_ci",
       "type": "object",
       "description": "candidate_id -> [lcb, ucb] on the paired accuracy difference vs the anchor.",
       "maxProperties": 4096,
       "additionalProperties": { "$ref": "#/definitions/Interval" }
     },
     "cost_ci": {
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (map keys): cost_ci",
       "type": "object",
       "description": "candidate_id -> [lcb, ucb] on per-example cost.",
       "maxProperties": 4096,
       "additionalProperties": { "$ref": "#/definitions/Interval" }
     },
     "sample_count": {
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (map keys): sample_count",
       "type": "object",
       "description": "candidate_id -> number of paired fixed-benchmark tasks used.",
       "maxProperties": 4096,
-      "additionalProperties": { "type": "integer", "minimum": 0 }
+      "additionalProperties": { "x-content-class": "number", "type": "integer", "minimum": 0 }
     },
-    "cost_treated_as": { "type": "string", "enum": ["deterministic", "bounded_stochastic"] },
+    "cost_treated_as": { "x-content-class": "closed_enum", "type": "string", "enum": ["deterministic", "bounded_stochastic"] },
     "peak_gap_upper_bound": {
+      "x-content-class": "number",
       "type": ["number", "null"],
       "minimum": 0,
       "description": "Mode 2 only: tau, a UCB on (true in-set max accuracy - selected peak accuracy)."
     },
     "composite_gap_to_true_max": {
+      "x-content-class": "number",
       "type": ["number", "null"],
       "minimum": 0,
       "description": "Mode 2 only: delta + tau, the honest worst-case gap of the selection to the true in-set max."
     },
     "best_effort_candidate": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): best_effort_candidate",
       "type": ["string", "null"],
       "maxLength": 128,
       "description": "An uncertified cheaper candidate surfaced only under explicit best-effort opt-in; never deployable."
     },
-    "no_decision_reason": { "type": ["string", "null"], "maxLength": 512 },
-    "achievable_delta_at_budget": { "type": ["number", "null"], "minimum": 0 },
-    "extra_examples_for_target_delta": { "type": ["integer", "null"], "minimum": 0 },
-    "config_id": { "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
-    "spec_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
-    "config_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
-    "runtime_config_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
-    "eval_workload_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
-    "candidate_set_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
-    "price_snapshot_hash": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "no_decision_reason": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP no-route: not inventoried (free string): no_decision_reason", "type": ["string", "null"], "maxLength": 512 },
+    "achievable_delta_at_budget": { "x-content-class": "number", "type": ["number", "null"], "minimum": 0 },
+    "extra_examples_for_target_delta": { "x-content-class": "number", "type": ["integer", "null"], "minimum": 0 },
+    "config_id": { "x-content-class": "opaque_ref", "type": ["string", "null"], "minLength": 1, "maxLength": 128 },
+    "spec_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "config_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "runtime_config_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "eval_workload_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "candidate_set_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "price_snapshot_hash": { "x-content-class": "digest", "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
     "scope_notes": {
       "type": "array",
-      "items": { "type": "string", "maxLength": 512 },
+      "items": { "x-content-class": "legacy_content", "x-content-note": "INV-GAP no-route: not inventoried (free string): scope_notes", "type": "string", "maxLength": 512 },
       "maxItems": 32
     }
   },
@@ -136,17 +151,19 @@
   ],
   "definitions": {
     "SelectionMode": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["keep_accuracy_reduce_cost", "accuracy_then_cost"]
     },
     "CandidateDisposition": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["selected", "feasible", "infeasible", "undecided", "peak", "anchor"]
     },
     "Interval": {
       "type": "array",
       "description": "[lower_confidence_bound, upper_confidence_bound]",
-      "items": { "type": "number" },
+      "items": { "x-content-class": "number", "type": "number" },
       "minItems": 2,
       "maxItems": 2
     }

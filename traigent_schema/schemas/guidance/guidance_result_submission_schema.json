@@ -10,12 +10,14 @@
   ],
   "properties": {
     "plan_id": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
       "description": "The plan_id this submission corresponds to."
     },
     "plan_token": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 4096,
@@ -34,6 +36,8 @@
         ],
         "properties": {
           "seed_ref": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV G2-2 (OPEN): seed_ref",
             "type": "string",
             "minLength": 1,
             "maxLength": 255,
@@ -43,6 +47,7 @@
             "$ref": "./guidance_action_schema.json#/definitions/Action"
           },
           "generated_count": {
+            "x-content-class": "number",
             "type": "integer",
             "minimum": 0,
             "maximum": 100000,
@@ -53,6 +58,8 @@
             "description": "Deterministic ids of newly synthesized examples. No content.",
             "maxItems": 1000,
             "items": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV G2-5 (OPEN): new_example_refs",
               "type": "string",
               "maxLength": 130,
               "pattern": "^ex_[A-Za-z0-9][A-Za-z0-9_-]{0,126}$"

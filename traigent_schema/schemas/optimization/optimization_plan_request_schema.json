@@ -7,6 +7,7 @@
   "additionalProperties": false,
   "definitions": {
     "MetricName": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
@@ -22,17 +23,20 @@
       "additionalProperties": false,
       "properties": {
         "size": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 1,
           "description": "Number of examples available for optimization planning."
         },
         "has_holdout": {
+          "x-content-class": "number",
           "type": "boolean",
           "description": "Whether the dataset already has a holdout split."
         }
       }
     },
     "ObjectiveWeights": {
+      "x-content-key-class": "closed_enum",
       "type": "object",
       "description": "Optional objective-name to relative-weight map. Keys must match entries in objectives; cross-field consistency is enforced by consumers.",
       "propertyNames": {
@@ -40,6 +44,7 @@
       },
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_.-]*$": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0
         }
@@ -55,11 +60,13 @@
       "additionalProperties": false,
       "properties": {
         "max_trials": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 1,
           "description": "Maximum trial count requested for the planned run."
         },
         "cost_limit_usd": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0,
           "description": "Maximum user-approved spend for the planned run, in USD."
@@ -75,18 +82,24 @@
   ],
   "properties": {
     "task_description": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O2-1 (LEAK): task_description",
       "type": "string",
       "minLength": 1,
       "maxLength": 10000,
       "description": "Short natural-language description of the optimization task."
     },
     "task_type": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O2-2 (OPEN): task_type",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
       "description": "Optional safe task category supplied by the SDK or skill."
     },
     "agent_shape": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O2-2 (OPEN): agent_shape",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
@@ -111,6 +124,7 @@
       "$ref": "#/definitions/Budget"
     },
     "offline": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "default": false,
       "description": "Whether the caller requires a fully offline plan."

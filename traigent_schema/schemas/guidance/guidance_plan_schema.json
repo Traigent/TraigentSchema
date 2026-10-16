@@ -15,12 +15,14 @@
   ],
   "properties": {
     "plan_id": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
       "description": "Stable identifier for this plan. The backend emits a non-empty string up to 128 characters."
     },
     "policy_version": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
@@ -45,6 +47,7 @@
       ],
       "properties": {
         "total_generations": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0,
           "maximum": 100000,
@@ -54,12 +57,14 @@
       "additionalProperties": false
     },
     "plan_token": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "minLength": 1,
       "maxLength": 4096,
       "description": "Opaque, server-signed token binding tenant, project, run, policy_version, item-set, and expiry. Not client-interpretable; echoed back unchanged on guidance-results."
     },
     "expires_at": {
+      "x-content-class": "timestamp",
       "type": "string",
       "format": "date-time",
       "description": "UTC timestamp after which the plan_token is no longer accepted."

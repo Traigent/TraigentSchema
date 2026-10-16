@@ -10,6 +10,7 @@
   ],
   "properties": {
     "schema_version": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "const": "traigent.guarantee_certificate.v2"
     },
@@ -18,6 +19,7 @@
       "$ref": "./certificate_subject_schema.json"
     },
     "runtime_config_hash": {
+      "x-content-class": "digest",
       "description": "Retained from v1 unchanged. Freshness hook: the gate may compare this against the CURRENT runtime environment, which is a different question from what the certificate is about, so it stays outside subject.",
       "type": [
         "string",
@@ -26,6 +28,7 @@
       "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "price_snapshot_hash": {
+      "x-content-class": "digest",
       "description": "Retained from v1 unchanged. Freshness hook, as above.",
       "type": [
         "string",
@@ -47,6 +50,7 @@
       "description": "Recorded so the removal is a documented contract decision rather than an omission a future reader might restore. spec_hash: circular, see the schema description. config_hash and config_id: not removed but MOVED into subject, where they became required rather than nullable.",
       "type": "array",
       "items": {
+        "x-content-class": "closed_enum",
         "type": "string",
         "enum": [
           "spec_hash"

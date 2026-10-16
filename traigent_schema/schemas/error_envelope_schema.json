@@ -7,26 +7,33 @@
   "additionalProperties": false,
   "properties": {
     "success": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "const": false,
       "description": "Discriminator. Always false for error responses (success envelopes set this true)."
     },
     "message": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "minLength": 1,
       "description": "Human-readable summary rendered by the client (e.g. toast text). Must be safe to display to end users."
     },
     "error": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S1-72 (OPEN): error",
       "type": "string",
       "minLength": 1,
       "description": "Machine-readable error name the client can branch on. Stable, not a raw exception string."
     },
     "error_code": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "minLength": 1,
       "description": "Optional stable code for finer client branching (e.g. \"quota_exceeded\"). Distinct from `error`, which is the broad name."
     },
     "details": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): details",
       "type": "object",
       "description": "Optional structured, client-safe diagnostic data. MUST NOT contain stack traces, SQL, raw exception strings, internal identifiers, column names, or any server internals — producers redact before populating. See validation_error_schema.json for the validation-specific shape."
     }

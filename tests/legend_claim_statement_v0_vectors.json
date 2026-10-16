@@ -1,0 +1,272 @@
+{
+  "_comment": "TEST-ONLY vectors; key seed is public, see the test module.",
+  "test_public_key_raw_b64": "9zXAfiafigpI0nm7zmOLmakmRtw2xmHFAVJ+eILrik0=",
+  "trusted_key_id": "test-only-legend-key-1",
+  "canonical_subject_json": "{\"as_of\":\"2026-10-15T10:00:00Z\",\"commitments\":{\"evaluated_subset_root\":null,\"evaluation_protocol\":null,\"recovery_manifest_fingerprint\":\"rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"run_tuple_digest\":null,\"trial_ref\":null},\"coverage_status\":\"complete\",\"issued_at\":\"2026-10-15T10:00:01Z\",\"ledger_cutoff_position\":5,\"policy_version\":\"legend.claims.v0\",\"predicate_digest\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"schema_version\":\"traigent.legend_claim_subject.v0\",\"statement\":{\"evidence_source\":\"client_sdk_reported\",\"source_label\":\"client-reported (SDK-computed)\",\"text\":\"The client's SDK reported a capture of this version, with the stated coverage.\",\"type\":\"captured\"},\"supporting_event_refs\":[\"eventref_0123456789abcdef0123456789abcdef\"],\"version\":{\"fingerprint\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fingerprint_scheme\":\"agent_build_digest_v1\",\"key_id\":null,\"kind\":\"agent\",\"version_ref\":\"versionref_0123456789abcdef0123456789abcdef\"}}",
+  "valid": {
+    "statement": {
+      "subject": {
+        "schema_version": "traigent.legend_claim_subject.v0",
+        "policy_version": "legend.claims.v0",
+        "statement": {
+          "type": "captured",
+          "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+          "evidence_source": "client_sdk_reported",
+          "source_label": "client-reported (SDK-computed)"
+        },
+        "version": {
+          "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+          "kind": "agent",
+          "fingerprint_scheme": "agent_build_digest_v1",
+          "key_id": null,
+          "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "commitments": {
+          "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "run_tuple_digest": null,
+          "trial_ref": null,
+          "evaluated_subset_root": null,
+          "evaluation_protocol": null
+        },
+        "coverage_status": "complete",
+        "supporting_event_refs": [
+          "eventref_0123456789abcdef0123456789abcdef"
+        ],
+        "ledger_cutoff_position": 5,
+        "as_of": "2026-10-15T10:00:00Z",
+        "issued_at": "2026-10-15T10:00:01Z",
+        "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "signature": {
+        "domain": "traigent.legend_claim_subject.signature.v0",
+        "algorithm": "ed25519",
+        "key_id": "test-only-legend-key-1",
+        "encoding": "base64",
+        "value": "mXD1FOwZ4/+RKLKDWVYZWlHB1RSg1CAvrsYu+1/4QaC3AbvfdbG1SRSi9glTfDdu+dZWP60w47ocU0MILGxkDQ=="
+      }
+    },
+    "expect": "VERIFIED"
+  },
+  "negative": {
+    "tampered_subject": {
+      "statement": {
+        "subject": {
+          "schema_version": "traigent.legend_claim_subject.v0",
+          "policy_version": "legend.claims.v0",
+          "statement": {
+            "type": "captured",
+            "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+            "evidence_source": "client_sdk_reported",
+            "source_label": "client-reported (SDK-computed)"
+          },
+          "version": {
+            "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+            "kind": "agent",
+            "fingerprint_scheme": "agent_build_digest_v1",
+            "key_id": null,
+            "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "commitments": {
+            "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "run_tuple_digest": null,
+            "trial_ref": null,
+            "evaluated_subset_root": null,
+            "evaluation_protocol": null
+          },
+          "coverage_status": "complete",
+          "supporting_event_refs": [
+            "eventref_0123456789abcdef0123456789abcdef"
+          ],
+          "ledger_cutoff_position": 6,
+          "as_of": "2026-10-15T10:00:00Z",
+          "issued_at": "2026-10-15T10:00:01Z",
+          "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "signature": {
+          "domain": "traigent.legend_claim_subject.signature.v0",
+          "algorithm": "ed25519",
+          "key_id": "test-only-legend-key-1",
+          "encoding": "base64",
+          "value": "mXD1FOwZ4/+RKLKDWVYZWlHB1RSg1CAvrsYu+1/4QaC3AbvfdbG1SRSi9glTfDdu+dZWP60w47ocU0MILGxkDQ=="
+        }
+      },
+      "expect": "SIGNATURE_INVALID"
+    },
+    "wrong_domain_process_record": {
+      "statement": {
+        "subject": {
+          "schema_version": "traigent.legend_claim_subject.v0",
+          "policy_version": "legend.claims.v0",
+          "statement": {
+            "type": "captured",
+            "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+            "evidence_source": "client_sdk_reported",
+            "source_label": "client-reported (SDK-computed)"
+          },
+          "version": {
+            "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+            "kind": "agent",
+            "fingerprint_scheme": "agent_build_digest_v1",
+            "key_id": null,
+            "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "commitments": {
+            "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "run_tuple_digest": null,
+            "trial_ref": null,
+            "evaluated_subset_root": null,
+            "evaluation_protocol": null
+          },
+          "coverage_status": "complete",
+          "supporting_event_refs": [
+            "eventref_0123456789abcdef0123456789abcdef"
+          ],
+          "ledger_cutoff_position": 5,
+          "as_of": "2026-10-15T10:00:00Z",
+          "issued_at": "2026-10-15T10:00:01Z",
+          "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "signature": {
+          "domain": "traigent.process_record.issuer_signature.v1",
+          "algorithm": "ed25519",
+          "key_id": "test-only-legend-key-1",
+          "encoding": "base64",
+          "value": "Qj+nGE8hhbguZiVW9hb8PjtH4U6ffdTZMDcNXRnL1PDUIGjqu/SR/tTM8xDVkOZzE9gTYXfw8BEdymW1GzVhCQ=="
+        }
+      },
+      "expect": "DOMAIN"
+    },
+    "wrong_domain_signature_under_legend_label": {
+      "statement": {
+        "subject": {
+          "schema_version": "traigent.legend_claim_subject.v0",
+          "policy_version": "legend.claims.v0",
+          "statement": {
+            "type": "captured",
+            "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+            "evidence_source": "client_sdk_reported",
+            "source_label": "client-reported (SDK-computed)"
+          },
+          "version": {
+            "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+            "kind": "agent",
+            "fingerprint_scheme": "agent_build_digest_v1",
+            "key_id": null,
+            "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "commitments": {
+            "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "run_tuple_digest": null,
+            "trial_ref": null,
+            "evaluated_subset_root": null,
+            "evaluation_protocol": null
+          },
+          "coverage_status": "complete",
+          "supporting_event_refs": [
+            "eventref_0123456789abcdef0123456789abcdef"
+          ],
+          "ledger_cutoff_position": 5,
+          "as_of": "2026-10-15T10:00:00Z",
+          "issued_at": "2026-10-15T10:00:01Z",
+          "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "signature": {
+          "domain": "traigent.legend_claim_subject.signature.v0",
+          "algorithm": "ed25519",
+          "key_id": "test-only-legend-key-1",
+          "encoding": "base64",
+          "value": "Qj+nGE8hhbguZiVW9hb8PjtH4U6ffdTZMDcNXRnL1PDUIGjqu/SR/tTM8xDVkOZzE9gTYXfw8BEdymW1GzVhCQ=="
+        }
+      },
+      "expect": "SIGNATURE_INVALID"
+    },
+    "unknown_key_id": {
+      "statement": {
+        "subject": {
+          "schema_version": "traigent.legend_claim_subject.v0",
+          "policy_version": "legend.claims.v0",
+          "statement": {
+            "type": "captured",
+            "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+            "evidence_source": "client_sdk_reported",
+            "source_label": "client-reported (SDK-computed)"
+          },
+          "version": {
+            "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+            "kind": "agent",
+            "fingerprint_scheme": "agent_build_digest_v1",
+            "key_id": null,
+            "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "commitments": {
+            "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "run_tuple_digest": null,
+            "trial_ref": null,
+            "evaluated_subset_root": null,
+            "evaluation_protocol": null
+          },
+          "coverage_status": "complete",
+          "supporting_event_refs": [
+            "eventref_0123456789abcdef0123456789abcdef"
+          ],
+          "ledger_cutoff_position": 5,
+          "as_of": "2026-10-15T10:00:00Z",
+          "issued_at": "2026-10-15T10:00:01Z",
+          "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "signature": {
+          "domain": "traigent.legend_claim_subject.signature.v0",
+          "algorithm": "ed25519",
+          "key_id": "test-only-other-key",
+          "encoding": "base64",
+          "value": "mXD1FOwZ4/+RKLKDWVYZWlHB1RSg1CAvrsYu+1/4QaC3AbvfdbG1SRSi9glTfDdu+dZWP60w47ocU0MILGxkDQ=="
+        }
+      },
+      "expect": "UNKNOWN_KEY"
+    },
+    "wrong_algorithm": {
+      "statement": {
+        "subject": {
+          "schema_version": "traigent.legend_claim_subject.v0",
+          "policy_version": "legend.claims.v0",
+          "statement": {
+            "type": "captured",
+            "text": "The client's SDK reported a capture of this version, with the stated coverage.",
+            "evidence_source": "client_sdk_reported",
+            "source_label": "client-reported (SDK-computed)"
+          },
+          "version": {
+            "version_ref": "versionref_0123456789abcdef0123456789abcdef",
+            "kind": "agent",
+            "fingerprint_scheme": "agent_build_digest_v1",
+            "key_id": null,
+            "fingerprint": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "commitments": {
+            "recovery_manifest_fingerprint": "rmf0:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "run_tuple_digest": null,
+            "trial_ref": null,
+            "evaluated_subset_root": null,
+            "evaluation_protocol": null
+          },
+          "coverage_status": "complete",
+          "supporting_event_refs": [
+            "eventref_0123456789abcdef0123456789abcdef"
+          ],
+          "ledger_cutoff_position": 5,
+          "as_of": "2026-10-15T10:00:00Z",
+          "issued_at": "2026-10-15T10:00:01Z",
+          "predicate_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "signature": {
+          "domain": "traigent.legend_claim_subject.signature.v0",
+          "algorithm": "ecdsa_p256_sha256",
+          "key_id": "test-only-legend-key-1",
+          "encoding": "base64",
+          "value": "mXD1FOwZ4/+RKLKDWVYZWlHB1RSg1CAvrsYu+1/4QaC3AbvfdbG1SRSi9glTfDdu+dZWP60w47ocU0MILGxkDQ=="
+        }
+      },
+      "expect": "ALGORITHM"
+    }
+  }
+}

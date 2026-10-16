@@ -13,8 +13,8 @@
       "refOrEndpointGraph": 412
     },
     "reachableCount": 445,
-    "schemaFileCount": 495,
-    "unreachableCount": 50
+    "schemaFileCount": 496,
+    "unreachableCount": 51
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -48,6 +48,7 @@
     "execution/service_registration_schema.json",
     "legend/director_legend_ops_v0.json",
     "legend/legend_claim_predicate_v0.json",
+    "legend/legend_claim_statement_v0.json",
     "legend/legend_requests_v0.json",
     "legend/pillar_legend_v0.json",
     "legend/recovery_manifest_v0.json",

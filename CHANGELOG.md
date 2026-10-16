@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Pillar Legend signed claim statement (`schemas/legend/legend_claim_statement_v0.json`) and offline verifier (`traigent_schema/legend_claim_verifier.py`). Additive.** Closed subject plus signature envelope (domain `traigent.legend_claim_subject.signature.v0`, algorithm enum, key id, base64 value); verifier with pinned trusted keys, recomputed canonical bytes, domain-separation from the process-record issuer signature; golden vectors with a test-only key. Section 5.1 of `docs/identity/pillar-legend-v0.md`.
 - **Pillar Legend v0 contract (`schemas/legend/`, `docs/identity/pillar-legend-v0.md`). Additive, design contract only.**
   Four new closed (`additionalProperties: false`, closed enums, no free text) draft-07 schemas under
   `/legend/v0/`: `pillar_legend_v0.json` (entity, version, the six event types `declared`, `captured`,

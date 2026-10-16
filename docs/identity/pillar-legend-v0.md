@@ -376,6 +376,33 @@ lowercase token, not a closed enum: the compiler holds an allowlist of issued po
 others. Syntax alone does not make a token content-free (an arbitrary lowercase token validates), so the
 allowlist, not the pattern, is the safeguard.
 
+### 5.1 Signed claim statement (relying-party verification)
+
+The Backend signs each compiled predicate as a **claim statement** `{subject, signature}`
+(`legend_claim_statement_v0.json`, closed schema, no free text: statement text is one of eight fixed templates
+paired to its `type`, `evidence_source` and `source_label`). The subject carries `schema_version`
+`traigent.legend_claim_subject.v0`, `policy_version`, `statement`, the predicate `version`, `commitments`,
+`coverage_status`, `supporting_event_refs`, `ledger_cutoff_position`, the issuer-controlled `as_of` and `issued_at`, and
+`predicate_digest` (the replay identity). The `signature` envelope pins `domain`, `algorithm`
+(`ed25519` or `ecdsa_p256_sha256`), `key_id`, `encoding` (`base64`) and `value` (raw 64-byte signature, low-S P1363 for
+ECDSA).
+
+**Signing input** = `UTF8("traigent.legend_claim_subject.signature.v0") || 0x00 || canonical_json(subject)`, with
+`canonical_json = json.dumps(subject, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)`.
+The schema restricts every subject string to ASCII, so these bytes equal the fp2/RFC 8785 form. The domain differs
+from the process-record issuer domain (`traigent.process_record.issuer_signature.v1`), so a signature of one kind never
+verifies as the other: the verifier refuses a foreign domain label (`DOMAIN`) and a foreign-domain signature under the
+Legend label (`SIGNATURE_INVALID`).
+
+**Verifier.** `traigent_schema.legend_claim_verifier.verify_legend_claim_statement(statement, trusted_keys)` is offline
+and takes a pinned `{key_id: TrustedLegendKey(algorithm, public_key)}`. Order: structure, domain, closed schema,
+algorithm/key lookup (unknown key `UNKNOWN_KEY`, algorithm mismatch `ALGORITHM`), signature decode, recomputed canonical
+bytes, signature check. Any tampering fails `SIGNATURE_INVALID`. Errors carry only a fixed content-free code. Golden
+vectors (test-only key, one valid, four negatives) are in `tests/legend_claim_statement_v0_vectors.json`. A valid
+signature authenticates the statement, not the truth of a client assertion (section 5).
+
+---
+
 ---
 
 ## 6. Director operations (closed menu)
@@ -618,6 +645,8 @@ activation (items 7, 8) implement this contract and must not widen a field to fr
 ---
 
 ## 11. Changelog
+
+**Delta over 9d71d82 (purely additive).** New `legend_claim_statement_v0.json` (signed claim statement: closed subject plus signature envelope with domain `traigent.legend_claim_subject.signature.v0`), reference verifier `traigent_schema/legend_claim_verifier.py`, golden vectors `tests/legend_claim_statement_v0_vectors.json`, tests `tests/test_legend_claim_verifier.py`, and section 5.1. No existing schema is changed.
 
 **Delta over 9b0451d (additive; the 06a0f5f contract is otherwise unchanged).** This delta is **not** purely additive. Query results with `outcome` `failed` or `refused` that carry a non-null `next_page_cursor` were valid at 9b0451d and are now refused, intentionally (security narrowing found by sol review; the contract is unreleased and unconsumed). Both breaking findings are acknowledged in `scripts/breaking_schema_allowlist.json`: the `QueryVersionsResult` allOf branch change in `director_legend_ops_v0.json`, and the optional `as_of_ledger_position` property in `legend_requests_v0.json`. `python3 scripts/breaking_schema_check.py --check` reports no unacknowledged BREAKING findings.
 

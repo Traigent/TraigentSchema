@@ -1,0 +1,468 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/legend/v0/legend_claim_statement_v0.json",
+  "title": "Legend Claim Statement V0",
+  "description": "The signed Pillar Legend claim statement: the canonical subject plus a signature envelope. Relying parties verify it offline with traigent_schema.legend_claim_verifier. Signing input = UTF8(domain) || 0x00 || canonical_json(subject), where canonical_json is json.dumps(sort_keys=True, separators=(',',':'), ensure_ascii=False, allow_nan=False) (every subject string is ASCII-restricted by this schema, so the bytes equal RFC 8785 output). The domain traigent.legend_claim_subject.signature.v0 is distinct from the process-record issuer domain, so neither signature verifies as the other. Closed schema (additionalProperties false everywhere, closed enums, no free text: statement text is one of eight fixed templates paired to its type). Normative text: docs/identity/pillar-legend-v0.md section 5.1.",
+  "version": "0.1.0",
+  "definitions": {
+    "SubjectSchemaVersion": {
+      "type": "string",
+      "const": "traigent.legend_claim_subject.v0"
+    },
+    "SignatureDomain": {
+      "type": "string",
+      "const": "traigent.legend_claim_subject.signature.v0"
+    },
+    "SignatureAlgorithm": {
+      "type": "string",
+      "enum": [
+        "ed25519",
+        "ecdsa_p256_sha256"
+      ]
+    },
+    "SignerKeyId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}(?![\\s\\S])"
+    },
+    "SignatureValue": {
+      "type": "string",
+      "minLength": 88,
+      "maxLength": 88,
+      "pattern": "^[A-Za-z0-9+/]{86}==(?![\\s\\S])",
+      "description": "Base64 of the raw 64-byte signature (Ed25519, or low-S IEEE-P1363 r||s for ecdsa_p256_sha256)."
+    },
+    "PredicateDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "SourceLabel": {
+      "type": "string",
+      "enum": [
+        "client-reported",
+        "client-reported (SDK-computed)",
+        "recorded by Traigent",
+        "witnessed by Traigent"
+      ]
+    },
+    "StatementText": {
+      "type": "string",
+      "enum": [
+        "The client declared this version.",
+        "The client's SDK reported a capture of this version, with the stated coverage.",
+        "The client reported this version as restorable at the stated time.",
+        "The client reported an exact restore of this version; Traigent has not verified it.",
+        "Traigent matched a restored copy of this version against its recorded manifest.",
+        "This version was bound to the stated run and trial.",
+        "The client reported an evaluation of this version; Traigent did not witness it.",
+        "This version was evaluated by Traigent."
+      ]
+    },
+    "SubjectStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "text",
+        "evidence_source",
+        "source_label"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "./legend_claim_predicate_v0.json#/definitions/PredicateType"
+        },
+        "text": {
+          "$ref": "#/definitions/StatementText"
+        },
+        "evidence_source": {
+          "$ref": "./pillar_legend_v0.json#/definitions/EvidenceSource"
+        },
+        "source_label": {
+          "$ref": "#/definitions/SourceLabel"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "declared"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "The client declared this version."
+              },
+              "evidence_source": {
+                "const": "client_reported"
+              },
+              "source_label": {
+                "const": "client-reported"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "captured"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "The client's SDK reported a capture of this version, with the stated coverage."
+              },
+              "evidence_source": {
+                "const": "client_sdk_reported"
+              },
+              "source_label": {
+                "const": "client-reported (SDK-computed)"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "restorable_now"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "The client reported this version as restorable at the stated time."
+              },
+              "evidence_source": {
+                "const": "client_sdk_reported"
+              },
+              "source_label": {
+                "const": "client-reported (SDK-computed)"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "restore_verified_client_reported"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "The client reported an exact restore of this version; Traigent has not verified it."
+              },
+              "evidence_source": {
+                "const": "client_sdk_reported"
+              },
+              "source_label": {
+                "const": "client-reported (SDK-computed)"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "restore_verified_backend_matched"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "Traigent matched a restored copy of this version against its recorded manifest."
+              },
+              "evidence_source": {
+                "const": "server_recorded"
+              },
+              "source_label": {
+                "const": "recorded by Traigent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "bound_to_run"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "This version was bound to the stated run and trial."
+              },
+              "evidence_source": {
+                "const": "server_recorded"
+              },
+              "source_label": {
+                "const": "recorded by Traigent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "evaluated_client_reported"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "The client reported an evaluation of this version; Traigent did not witness it."
+              },
+              "evidence_source": {
+                "const": "client_reported"
+              },
+              "source_label": {
+                "const": "client-reported"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "evaluated_traigent_witnessed"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "text": {
+                "const": "This version was evaluated by Traigent."
+              },
+              "evidence_source": {
+                "const": "traigent_witnessed"
+              },
+              "source_label": {
+                "const": "witnessed by Traigent"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SubjectCommitments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recovery_manifest_fingerprint",
+        "run_tuple_digest",
+        "trial_ref",
+        "evaluated_subset_root",
+        "evaluation_protocol"
+      ],
+      "properties": {
+        "recovery_manifest_fingerprint": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/ManifestFingerprint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_tuple_digest": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/Sha256Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trial_ref": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/TrialRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluated_subset_root": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/MultisetRoot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluation_protocol": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/EvaluationProtocol"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "LegendClaimSubjectV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "policy_version",
+        "statement",
+        "version",
+        "commitments",
+        "coverage_status",
+        "supporting_event_refs",
+        "ledger_cutoff_position",
+        "as_of",
+        "issued_at",
+        "predicate_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/definitions/SubjectSchemaVersion"
+        },
+        "policy_version": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}(?![\\s\\S])"
+        },
+        "statement": {
+          "$ref": "#/definitions/SubjectStatement"
+        },
+        "version": {
+          "$ref": "./legend_claim_predicate_v0.json#/definitions/PredicateSubject"
+        },
+        "commitments": {
+          "$ref": "#/definitions/SubjectCommitments"
+        },
+        "coverage_status": {
+          "oneOf": [
+            {
+              "$ref": "./pillar_legend_v0.json#/definitions/CoverageStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supporting_event_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "./pillar_legend_v0.json#/definitions/EventRef"
+          }
+        },
+        "ledger_cutoff_position": {
+          "$ref": "./pillar_legend_v0.json#/definitions/LedgerPosition"
+        },
+        "as_of": {
+          "$ref": "./pillar_legend_v0.json#/definitions/Timestamp"
+        },
+        "issued_at": {
+          "$ref": "./pillar_legend_v0.json#/definitions/Timestamp"
+        },
+        "predicate_digest": {
+          "$ref": "#/definitions/PredicateDigest"
+        }
+      }
+    },
+    "LegendClaimSignatureV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "algorithm",
+        "key_id",
+        "encoding",
+        "value"
+      ],
+      "properties": {
+        "domain": {
+          "$ref": "#/definitions/SignatureDomain"
+        },
+        "algorithm": {
+          "$ref": "#/definitions/SignatureAlgorithm"
+        },
+        "key_id": {
+          "$ref": "#/definitions/SignerKeyId"
+        },
+        "encoding": {
+          "type": "string",
+          "const": "base64"
+        },
+        "value": {
+          "$ref": "#/definitions/SignatureValue"
+        }
+      }
+    },
+    "LegendClaimStatementV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "signature"
+      ],
+      "properties": {
+        "subject": {
+          "$ref": "#/definitions/LegendClaimSubjectV0"
+        },
+        "signature": {
+          "$ref": "#/definitions/LegendClaimSignatureV0"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/LegendClaimStatementV0"
+    }
+  ]
+}

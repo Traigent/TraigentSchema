@@ -102,6 +102,13 @@ disposition whose `reference` verifies (`path:line` of an existing line, `INV <r
 introduction) the working-tree manifest must equal the live annotations exactly. If git or the ref
 is unavailable the check fails; it never skips (`python3 scripts/content_class_manifest.py --check`).
 
+### Old-dialect references
+
+In Draft 4-7, OpenAPI 3.0 and documents without `$schema`, a `$ref` resolves against the document
+root. The lint does not model base URIs, so such a document may not declare a nested `id`/`$id` or a
+`definitions`/`$defs` outside the root, except the one embedded request schema of
+`POST /api/v1/sessions` in `optimization_endpoints.json`. Anything else fails with a fixed error.
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

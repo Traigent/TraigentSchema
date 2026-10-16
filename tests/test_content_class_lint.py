@@ -987,9 +987,7 @@ def test_old_dialect_sibling_definitions_next_to_a_ref_are_not_a_resolution_scop
         assert any("/properties/v" in line for line in res.invalid), (key, dialect, res.invalid)
 
 
-def test_old_dialect_nested_definitions_without_an_id_do_not_open_a_resolution_root(
-    tmp_path: Path,
-) -> None:
+def test_old_dialect_refuses_nested_ids_and_non_root_definitions(tmp_path: Path) -> None:
     text = {
         "x-content-class": "legacy_content",
         "x-content-note": "INV-GAP test",
@@ -998,25 +996,34 @@ def test_old_dialect_nested_definitions_without_an_id_do_not_open_a_resolution_r
     number = {"type": "number", "x-content-class": "number"}
     for i, key in enumerate(("definitions", "$defs")):
         for j, dialect in enumerate(({}, {"$schema": "http://json-schema.org/draft-07/schema#"})):
-            ref = f"#/{key}/Text"
+            box = {
+                "type": "object",
+                "additionalProperties": False,
+                "x-content-class": "closed_enum",
+                key: {"Text": number},
+                "properties": {"v": {"$ref": f"#/{key}/Text", "x-content-class": "number"}},
+            }
             schema = {
                 "type": "object",
                 "additionalProperties": False,
                 key: {"Text": text},
-                "properties": {
-                    "box": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "x-content-class": "closed_enum",
-                        key: {"Text": number},
-                        "properties": {"v": {"$ref": ref, "x-content-class": "number"}},
-                    }
-                },
+                "properties": {"box": box},
                 **dialect,
             }
             res = _mini(tmp_path / f"{i}{j}", schema)
+            assert any(lint.OLD_DIALECT_BASE_ERROR in line for line in res.invalid), (key, dialect)
+            # the ref still resolves against the document root: the legacy string, not the number
             assert any("/box/properties/v" in line for line in res.invalid), (key, dialect)
-            # with an $id the nested definitions really are the base, so the number is honoured
-            schema["properties"]["box"]["$id"] = "https://example.test/box.json"
-            ok = _mini(tmp_path / f"id{i}{j}", schema)
-            assert not any("/box/properties/v" in line for line in ok.invalid), (key, dialect)
+            # a nested id/$id (either keyword, even empty) is refused the same way
+            for idkey in ("id", "$id"):
+                nested = {**schema, "properties": {"box": {**box, idkey: ""}}}
+                nested["properties"]["box"].pop(key)
+                nested["properties"]["box"]["properties"] = {
+                    "v": {"x-content-class": "number", "type": "number"}
+                }
+                res = _mini(tmp_path / f"id{i}{j}{idkey}", nested)
+                assert any(lint.OLD_DIALECT_BASE_ERROR in line for line in res.invalid), idkey
+            # 2019-09 keeps the nested scope
+            modern = {**schema, "$schema": "https://json-schema.org/draft/2019-09/schema"}
+            ok = _mini(tmp_path / f"m{i}{j}", modern)
+            assert not any(lint.OLD_DIALECT_BASE_ERROR in line for line in ok.invalid)

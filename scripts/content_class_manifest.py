@@ -21,12 +21,16 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs" / "content-class-manifest.json"
 DISPOSITIONS = ROOT / "docs" / "content-class-dispositions.json"
+REFERENCE_IDS = ROOT / "docs" / "content-class-reference-ids.json"
+ANCHOR_REF = "origin/develop"
 
 _spec = importlib.util.spec_from_file_location(
     "content_class_lint", Path(__file__).resolve().parent / "content_class_lint.py"
@@ -54,6 +58,120 @@ def render(classes: dict[str, str]) -> str:
     return json.dumps(body, indent=1, sort_keys=False, ensure_ascii=False) + "\n"
 
 
+# --- ratchet anchor ----------------------------------------------------------------------
+# The manifest and dispositions live in the same editable tree as the annotations, so a change
+# could add legacy_content (or relabel legacy as content-free) and edit both files to match.
+# The ratchet therefore compares against the copies on ``origin/develop`` when they exist.
+
+
+class RatchetError(RuntimeError):
+    """The anchor could not be read (git missing, ref unknown, timeout): the check fails."""
+
+
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RatchetError(f"git unavailable: {exc}") from exc
+
+
+def anchor_text(path: str, root: Path = ROOT, ref: str = ANCHOR_REF) -> str | None:
+    """``git show <ref>:<path>``; None when the path is absent on the ref (first introduction)."""
+    if _git(root, "rev-parse", "--verify", "--quiet", ref + "^{commit}").returncode != 0:
+        raise RatchetError(f"cannot resolve {ref} (git fetch origin develop)")
+    if _git(root, "cat-file", "-e", f"{ref}:{path}").returncode != 0:
+        return None
+    shown = _git(root, "show", f"{ref}:{path}")
+    if shown.returncode != 0:
+        raise RatchetError(f"git show {ref}:{path} failed: {shown.stderr.strip()}")
+    return shown.stdout
+
+
+def reference_problem(ref: str, root: Path = ROOT, ids_path: Path = REFERENCE_IDS) -> str | None:
+    """Why a disposition reference is not verifiable (None when it is).
+
+    Accepted: ``<repo path>:<line>`` naming an existing line of an existing file,
+    ``INV <route>[-<n>]`` for a route id of the checked-in inventory id list, or
+    ``DESIGN-v2.2 §<section>`` for a checked-in design section.
+    """
+    if not isinstance(ref, str):
+        return "reference is not a string"
+    ids = json.loads(ids_path.read_text(encoding="utf-8"))
+    if m := re.fullmatch(r"INV[ -]([A-Z][0-9]+)(?:-[0-9]+)?", ref):
+        return None if m.group(1) in ids["inventory_routes"] else f"unknown inventory id {ref!r}"
+    if m := re.fullmatch(r"DESIGN-v2\.2 §([0-9]+(?:\.[0-9]+)?)", ref):
+        return (
+            None if m.group(1) in ids["design_v2_2_sections"] else f"unknown design section {ref!r}"
+        )
+    if m := re.fullmatch(r"([A-Za-z0-9_./-]+):([0-9]+)", ref):
+        rel, line = m.group(1), int(m.group(2))
+        target = (root / rel).resolve()
+        if root.resolve() not in target.parents or not target.is_file():
+            return f"{rel} is not a file in this repository"
+        count = len(target.read_text(encoding="utf-8", errors="replace").splitlines())
+        return None if 1 <= line <= count else f"{rel} has no line {line}"
+    return f"reference {ref!r} is not file:line, INV <id> or DESIGN-v2.2 §<section>"
+
+
+def ratchet_problems(
+    live: dict[str, str],
+    tree_manifest: dict[str, str],
+    tree_disp: dict,
+    anchor_manifest: dict[str, str] | None,
+    anchor_disp: dict | None,
+    root: Path = ROOT,
+    ids_path: Path = REFERENCE_IDS,
+) -> list[str]:
+    """Everything wrong with the working-tree manifest/dispositions relative to the anchor."""
+    out: list[str] = []
+    if tree_manifest != live:
+        out.append("working-tree manifest does not equal the live annotations")
+    if anchor_manifest is None:
+        return out  # first introduction: the tree manifest must equal live, nothing more
+    legacy = "legacy_content"
+    for loc in sorted(
+        k for k, v in live.items() if v == legacy and anchor_manifest.get(k) != legacy
+    ):
+        out.append(f"new legacy_content not in the anchored manifest: {loc}")
+    anchor_register = set((anchor_disp or {}).get("legacy_register", []))
+    tree_register = set(tree_disp.get("legacy_register", []))
+    if lost := sorted(anchor_register - tree_register):
+        out.append(f"legacy_register lost anchored entries: {lost[:3]}")
+    anchored = {d["location"]: d for d in (anchor_disp or {}).get("dispositions", [])}
+    current = {d["location"]: d for d in tree_disp.get("dispositions", [])}
+    for loc, d in anchored.items():
+        if current.get(loc) != d:
+            out.append(f"anchored disposition edited or removed: {loc}")
+    for loc, was in sorted(anchor_manifest.items()):
+        now = live.get(loc)
+        if was != legacy or now == legacy:
+            continue
+        d = current.get(loc)
+        if d is None:
+            out.append(f"{loc} left legacy_content ({now or 'removed'}) with no disposition")
+            continue
+        if d.get("to") != (now or "removed"):
+            out.append(f"{loc}: disposition says {d.get('to')}, live is {now or 'removed'}")
+        if why := reference_problem(d.get("reference"), root, ids_path):
+            out.append(f"{loc}: {why}")
+    return out
+
+
+def load_anchor(root: Path = ROOT) -> tuple[dict[str, str] | None, dict | None]:
+    manifest = anchor_text("docs/content-class-manifest.json", root)
+    disp = anchor_text("docs/content-class-dispositions.json", root)
+    return (
+        json.loads(manifest)["classes"] if manifest is not None else None,
+        json.loads(disp) if disp is not None else None,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
@@ -67,6 +185,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if not MANIFEST.exists() or MANIFEST.read_text(encoding="utf-8") != text:
         print(f"{MANIFEST} is stale; run with --update", file=sys.stderr)
+        return 1
+    try:
+        a_manifest, a_disp = load_anchor()
+    except RatchetError as exc:
+        print(f"ratchet anchor unavailable: {exc}", file=sys.stderr)
+        return 1
+    problems = ratchet_problems(
+        live_classes(),
+        json.loads(MANIFEST.read_text(encoding="utf-8"))["classes"],
+        json.loads(DISPOSITIONS.read_text(encoding="utf-8")),
+        a_manifest,
+        a_disp,
+    )
+    for line in problems:
+        print(f"RATCHET  {line}", file=sys.stderr)
+    if problems:
         return 1
     print("content-class manifest up to date")
     return 0

@@ -81,6 +81,17 @@ reads `INV-GAP: was <class>` were claimed content-free by the first annotation p
 contract has no enum or ref pattern to prove it. Notes reading `reclassified by review` mark the
 2026-10-16 honesty pass, the one pass allowed to add to the register.
 
+### Anchored ratchet
+
+The manifest and dispositions sit in the same tree as the annotations, so the ratchet reads the
+copies on `origin/develop` (`git show`, 30 s timeout) as its anchor. With an anchor: a
+`legacy_content` location absent from the anchored manifest fails, a registry entry or disposition
+cannot be removed or edited, and an anchored legacy location moved to a content-free class needs a
+disposition whose `reference` verifies (`path:line` of an existing line, `INV <route>[-<n>]` from
+`docs/content-class-reference-ids.json`, or `DESIGN-v2.2 §<section>`). Without an anchor (first
+introduction) the working-tree manifest must equal the live annotations exactly. If git or the ref
+is unavailable the check fails; it never skips (`python3 scripts/content_class_manifest.py --check`).
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

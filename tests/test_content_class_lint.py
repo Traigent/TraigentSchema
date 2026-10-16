@@ -126,9 +126,8 @@ def test_every_legacy_removal_has_a_disposition() -> None:
         assert d["from"] == "legacy_content"
         assert d["to"] in CONTENT_FREE | {"removed"}, d
         assert len(d["reason"].strip()) >= 20, f"{loc}: reason too short"
-        assert d["reference"].startswith(("INV", "DESIGN-v2.2", "GNFR-", "TraigentSchema#")), (
-            f"{loc}: reference must cite the inventory row or design/issue"
-        )
+        why = _manifest_module().reference_problem(d["reference"])
+        assert why is None, f"{loc}: {why}"
     for loc in sorted(register):
         now = recorded.get(loc)
         if now == "legacy_content":
@@ -619,3 +618,138 @@ def test_explicitly_closed_and_classified_objects_pass(tmp_path: Path) -> None:
         "x-content-note": "INV-GAP test",
     }
     assert _mini(tmp_path / "c", legacy, close=False).ok
+
+
+# --- ratchet anchored on origin/develop ------------------------------------------------
+
+
+def _git_repo(tmp_path: Path, files: dict[str, str] | None) -> Path:
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> None:
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo),
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.invalid",
+                *args,
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+    git("init", "-q")
+    (repo / "keep.txt").write_text("x\n")
+    for rel, text in (files or {}).items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
+    git("add", "-A")
+    git("commit", "-q", "-m", "base")
+    git("update-ref", "refs/remotes/origin/develop", "HEAD")
+    return repo
+
+
+def test_the_working_tree_satisfies_the_anchored_ratchet() -> None:
+    mod = _manifest_module()
+    a_manifest, a_disp = mod.load_anchor()  # raises (fails the test) when git/ref is unavailable
+    live = {f.loc: f.cls for f in lint.run_lint().findings if f.cls}
+    problems = mod.ratchet_problems(
+        live,
+        json.loads(MANIFEST.read_text(encoding="utf-8"))["classes"],
+        json.loads(DISPOSITIONS.read_text(encoding="utf-8")),
+        a_manifest,
+        a_disp,
+    )
+    assert problems == []
+
+
+def test_anchor_text_absent_present_and_unavailable(tmp_path: Path) -> None:
+    import pytest
+
+    mod = _manifest_module()
+    repo = _git_repo(tmp_path, {"docs/m.json": "{}"})
+    assert mod.anchor_text("docs/m.json", repo) == "{}"
+    assert mod.anchor_text("docs/missing.json", repo) is None  # first introduction
+    with pytest.raises(mod.RatchetError):
+        mod.anchor_text("docs/m.json", tmp_path / "not_a_repo")
+    with pytest.raises(mod.RatchetError):
+        mod.anchor_text("docs/m.json", repo, ref="origin/nope")
+
+
+def test_first_introduction_requires_the_manifest_to_equal_live() -> None:
+    mod = _manifest_module()
+    live = {"a.json#/x": "closed_enum"}
+    assert mod.ratchet_problems(live, dict(live), {}, None, None) == []
+    hidden = {**live, "b.json#/y": "legacy_content"}
+    assert mod.ratchet_problems(live, hidden, {}, None, None)
+
+
+def test_edited_manifest_cannot_hide_a_new_legacy_location() -> None:
+    mod = _manifest_module()
+    anchor = {"a.json#/x": "closed_enum"}
+    live = {"a.json#/x": "closed_enum", "b.json#/y": "legacy_content"}
+    tree_manifest = dict(live)  # the manifest was edited to match
+    tree_disp = {"legacy_register": ["b.json#/y"], "dispositions": []}  # and so was the register
+    problems = mod.ratchet_problems(
+        live, tree_manifest, tree_disp, anchor, {"legacy_register": [], "dispositions": []}
+    )
+    assert any("new legacy_content" in p and "b.json#/y" in p for p in problems)
+    # relabelling an anchored closed_enum as legacy is also an addition
+    live2 = {"a.json#/x": "legacy_content"}
+    assert any(
+        "new legacy_content" in p
+        for p in mod.ratchet_problems(
+            live2, dict(live2), {"legacy_register": ["a.json#/x"]}, anchor, None
+        )
+    )
+
+
+def test_relabelling_legacy_to_content_free_needs_a_verifiable_disposition() -> None:
+    mod = _manifest_module()
+    loc = "a.json#/x"
+    anchor = {loc: "legacy_content"}
+    a_disp = {"legacy_register": [loc], "dispositions": []}
+    live = {loc: "opaque_ref"}
+    base = {"location": loc, "from": "legacy_content", "to": "opaque_ref", "reason": "x" * 30}
+
+    def run(disp: list[dict]) -> list[str]:
+        tree = {"legacy_register": [loc], "dispositions": disp}
+        return mod.ratchet_problems(live, dict(live), tree, anchor, a_disp)
+
+    assert any("no disposition" in p for p in run([]))
+    assert any("not file:line" in p for p in run([{**base, "reference": "see the PR"}]))
+    assert any("unknown inventory id" in p for p in run([{**base, "reference": "INV Z99-1"}]))
+    assert any("no line" in p for p in run([{**base, "reference": "docs/labels-v0.md:99999"}]))
+    assert any("not a file" in p for p in run([{**base, "reference": "nope/missing.py:1"}]))
+    assert any(
+        "unknown design section" in p for p in run([{**base, "reference": "DESIGN-v2.2 §9.9"}])
+    )
+    for good in ("INV S5-5", "INV H2", "DESIGN-v2.2 §3.6", "docs/labels-v0.md:1"):
+        assert run([{**base, "reference": good}]) == [], good
+    wrong_to = {**base, "to": "digest", "reference": "INV S5-5"}
+    assert any("disposition says digest" in p for p in run([wrong_to]))
+
+
+def test_anchored_dispositions_and_register_cannot_be_edited_away() -> None:
+    mod = _manifest_module()
+    loc = "a.json#/x"
+    disp = {
+        "location": loc,
+        "from": "legacy_content",
+        "to": "digest",
+        "reason": "x" * 30,
+        "reference": "INV S5-5",
+    }
+    a_disp = {"legacy_register": [loc], "dispositions": [disp]}
+    live = {loc: "digest"}
+    tree = {"legacy_register": [], "dispositions": [{**disp, "reference": "INV S1-1"}]}
+    problems = mod.ratchet_problems(live, dict(live), tree, live, a_disp)
+    assert any("lost anchored entries" in p for p in problems)
+    assert any("edited or removed" in p for p in problems)

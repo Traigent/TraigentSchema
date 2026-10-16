@@ -169,7 +169,9 @@ against the new head) and publishes with that run's own captured generation.
 appears), the ordinary publish conflicts (If-Match on a new configuration, a changed configuration without a matching
 If-Match, function_ref conflict) are `head_publish_conflict`, other server failures `internal_error`. The 409 response
 (`optimization/best_config_publish_409_schema.json`) has two disjoint branches: the closed protected refusals and the
-unchanged legacy bodies (which must not carry a protected closed code).
+unchanged legacy bodies (which must not carry a protected closed code). The 500 response
+(`optimization/best_config_publish_500_schema.json`) is built the same way: the closed `internal_error` refusal, or the
+unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`.
 
 **Refusal precedence.** Authentication and permissions; then malformed syntax (400 `head_capture_invalid`); then a
 well-formed but unknown or foreign ref (404 `reference_not_found`, nothing echoed); then agent WRITE

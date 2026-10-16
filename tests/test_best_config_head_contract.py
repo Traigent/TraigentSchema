@@ -206,7 +206,7 @@ def test_publish_409_has_two_disjoint_branches_and_other_statuses_are_closed():
     assert protected["$ref"].endswith("optimization/best_config_publish_409_schema.json")
     assert legacy["not"]["properties"]["error_code"]["enum"] == PROTECTED_409
     assert legacy["x-content-class"] == "legacy_content"
-    for status in ("400", "403", "404", "500"):
+    for status in ("400", "403", "404"):
         got = post["responses"][status]["content"]["application/json"]["schema"]
         assert got["$ref"].endswith("best_config_head_refusal_schema.json"), status
 
@@ -239,6 +239,58 @@ def test_legacy_409_bodies_are_still_valid(body):
 def test_a_malformed_protected_body_is_rejected(code):
     validator = _publish_409_validator()
     good = _envelope_body(code)
+    for bad in (
+        {**good, "message": "CANARY free text"},
+        {**good, "extra": "member"},
+        {**good, "error": "upgrade_required"},
+        {k: v for k, v in good.items() if k != "message"},
+    ):
+        assert not validator.is_valid(bad), bad
+
+
+def _publish_500_validator():
+    registry = _registry().with_resource(
+        BASE + "optimization/best_config_publish_500_schema.json",
+        Resource.from_contents(_load("best_config_publish_500_schema.json")),
+    )
+    schema = _publish()["responses"]["500"]["content"]["application/json"]["schema"]
+    base = BASE + "execution/best_config_endpoints.json"
+    return Draft7Validator({"$id": base, **schema}, registry=registry)
+
+
+# The body the Backend emits for an unchanged legacy publish that fails unexpectedly
+# (src/routes/best_config_routes.py error_response(..., status=500, error_code="BEST_CONFIG_ERROR")
+# through the 5xx branch of src/utils/response_handler.py).
+LEGACY_500 = {"success": False, "message": "Internal server error", "error": "Internal server error",
+              "error_code": "BEST_CONFIG_ERROR"}
+
+
+def test_publish_500_has_two_disjoint_branches():
+    schema = _publish()["responses"]["500"]["content"]["application/json"]["schema"]
+    protected, legacy = schema["oneOf"]
+    assert protected["$ref"].endswith("optimization/best_config_publish_500_schema.json")
+    assert legacy["not"]["properties"]["error_code"]["enum"] == ["internal_error"]
+    assert legacy["x-content-class"] == "legacy_content"
+
+
+def test_protected_500_internal_error_matches_exactly_one_branch():
+    body = _envelope_body("internal_error")
+    assert _publish_500_validator().is_valid(body)  # oneOf: exactly one branch
+    assert _validator("best_config_publish_500_schema.json").is_valid(body)  # the closed branch
+    legacy = _publish()["responses"]["500"]["content"]["application/json"]["schema"]["oneOf"][1]
+    assert not Draft7Validator(legacy).is_valid(body)  # and not the legacy branch
+
+
+def test_legacy_500_body_validates_and_matches_exactly_one_branch():
+    assert _publish_500_validator().is_valid(LEGACY_500)
+    assert not _validator("best_config_publish_500_schema.json").is_valid(LEGACY_500)
+    legacy = _publish()["responses"]["500"]["content"]["application/json"]["schema"]["oneOf"][1]
+    assert Draft7Validator(legacy).is_valid(LEGACY_500)
+
+
+def test_a_malformed_protected_500_is_rejected():
+    validator = _publish_500_validator()
+    good = _envelope_body("internal_error")
     for bad in (
         {**good, "message": "CANARY free text"},
         {**good, "extra": "member"},

@@ -164,14 +164,38 @@
             }
           },
           "500": {
-            "description": "Protected path: internal_error (closed refusal envelope, fixed text). Legacy path: its own error body, unchanged.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../optimization/best_config_head_refusal_schema.json"
-                }
+"description": "Protected path: internal_error (closed refusal envelope, fixed text). Legacy path: its own generic error body (BEST_CONFIG_ERROR, \"Internal server error\"), unchanged. The branches are disjoint, discriminate on the closed `error_code`.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "../optimization/best_config_publish_500_schema.json"
+                  },
+                  {
+                    "type": "object",
+                    "x-content-class": "legacy_content",
+                    "x-content-key-class": "legacy_content",
+                    "x-content-note": "LEGACY-path 500 body, unchanged (generic server-error body, e.g. BEST_CONFIG_ERROR); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry the protected closed code.",
+                    "not": {
+                      "required": [
+                        "error_code"
+                      ],
+                      "properties": {
+                        "error_code": {
+                          "x-content-class": "closed_enum",
+                          "enum": [
+                            "internal_error"
+                          ]
+                        }
+                      }
+                    },
+                    "description": "Legacy-path 500 body, unchanged. The `not` keeps this branch disjoint from the protected closed internal_error refusal."
+                  }
+                ]
               }
             }
+          }
           }
         },
         "description": "PROTECTED PATH (content-less plan v2.1, phase 0b). APPLICABILITY: a publish is PROTECTED if and only if the request carries X-Traigent-Agent-Ref, or the publish belongs to a session negotiated with content_less_v1 (or content_less_v2 once negotiated); every other publish is the LEGACY path and behaves exactly as before. DECISION TABLE (first matching row; 'session' = the session named in spec.provenance, content-less when its stored shape is content-less): [1] Agent-Ref and Agent-Id both present -> 400 head_capture_invalid. [2] Agent-Ref present, Expected-Head-Generation missing or not an integer 0..2^53-1 -> 400 head_capture_invalid. [3] Agent-Ref malformed (not agentref_<32 hex>) -> 400 head_capture_invalid. [4] Agent-Ref present but no resolvable content-less session binding -> 400 head_capture_invalid. [5] Agent-Ref and a valid Expected-Head-Generation, content-less session -> PROTECTED (below). [6] No Agent-Ref, content-less session (with or without Agent-Id / Expected-Head-Generation) -> 400 head_capture_invalid (the capture is required). [7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged (including the legacy Agent-Id promotion and its STALE_HEAD_GENERATION 409 and its own validation errors). [8] No Agent-Ref, no capture headers, non-content-less or no session -> LEGACY, unchanged. PROTECTED RULE: the Backend resolves agent, run and environment from the authoritative session binding, never from the body; keeps agent WRITE authorization; and refuses with a closed code (best_config_head_refusal_schema.json), with no publication row and no head change. ORDER OF REFUSALS: malformed or incomplete capture 400 head_capture_invalid; well-formed but unknown or foreign ref 404 reference_not_found (nothing echoed); agent WRITE denied 403 head_write_unauthorized; ref's agent is not the session's 409 head_agent_mismatch; publish environment differs from the session's 409 head_environment_mismatch; body fails validation 400 head_body_invalid (fixed text, no key or value of the request echoed); head moved 409 head_generation_stale; ordinary publish conflict (If-Match on a new configuration, a changed existing configuration without a matching If-Match, function_ref conflict) 409 head_publish_conflict; any other server-side failure 500 internal_error. A protected request never receives the generic BEST_CONFIG_CONFLICT or a free-text validation body. STALE: the run's result is stale; the client MUST NOT refresh the generation and resubmit the same result, and the SDK MUST NEVER auto-retry a stale refusal (it starts a new run, or re-evaluates against the new head, and publishes with that run's own captured generation). Publish and promote are ONE transaction: a refused or failed promotion leaves no visible configuration version; the head moves g -> g+1 (first promotion 0 -> 1) atomically with the publication, and of several concurrent promotions naming the same expected generation exactly one wins."

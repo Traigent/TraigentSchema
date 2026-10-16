@@ -494,6 +494,21 @@ class Linter:
         self, cls: str, node: Any, doc: str, scope, *, root: bool = False, depth: int = 0
     ) -> list[str]:
         """Reasons the claim ``cls`` does not hold for ``node`` ([] when it holds)."""
+        if (
+            isinstance(node, dict)
+            and isinstance(node.get("$ref"), str)
+            and not self._modern_dialect(doc)
+        ):
+            # Draft-4/6/7 and OpenAPI 3.0 ignore every keyword beside $ref (including
+            # ``type: null``): the target alone determines the accepted values.
+            res = self._resolve(doc, scope, node["$ref"])
+            if res is None or not isinstance(res[2], dict):
+                return [f"unresolvable $ref {node['$ref']}"]
+            if depth > 12:
+                return ["composition too deep to verify"]
+            if not root and node.get(CLASS_KEY) == LEGACY:
+                return ["a branch is legacy_content"]
+            return self._class_problems(cls, res[2], res[0], res[3], depth=depth + 1)
         if node is False or (isinstance(node, dict) and node.get("type") == "null"):
             return []  # accepts nothing / only null
         if node is True or not isinstance(node, dict):

@@ -917,3 +917,35 @@ def test_a_branch_class_does_not_prove_the_parents_class(tmp_path: Path) -> None
         },
     )
     assert ok.ok
+
+
+def test_old_dialect_ref_target_alone_decides_whatever_the_siblings_say(tmp_path: Path) -> None:
+    text = {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP test",
+        "type": "string",
+    }
+    siblings = [
+        {"type": "null"},
+        {"type": "number"},
+        {"type": "integer", "minimum": 0},
+        {"enum": ["a"]},
+        {"const": 1},
+        {"anyOf": [{"type": "null"}]},
+        {"allOf": [{"type": "number"}]},
+        {"x-content-class": "closed_enum", "enum": ["a"]},
+    ]
+    for i, sib in enumerate(siblings):
+        for j, cls in enumerate(("number", "closed_enum")):
+            schema = {
+                "type": "object",
+                "additionalProperties": False,
+                "definitions": {"Text": text},
+                "properties": {"v": {"$ref": "#/definitions/Text", "x-content-class": cls, **sib}},
+            }
+            # Draft-7 (and no $schema): the legacy string target is accepted whatever sits beside it
+            for k, dialect in enumerate(
+                ({}, {"$schema": "http://json-schema.org/draft-07/schema#"})
+            ):
+                res = _mini(tmp_path / f"{i}{j}{k}", {**schema, **dialect})
+                assert any("/properties/v" in line for line in res.invalid), (sib, cls, dialect)

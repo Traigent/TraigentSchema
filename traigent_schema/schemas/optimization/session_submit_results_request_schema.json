@@ -23,6 +23,14 @@
       "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
       "description": "Per-measure scores for this trial. Inherits the canonical MeasuresDict contract enforced by the backend at the boundary (max 50 keys, identifier keys, numeric|null values)."
     },
+    "config_refs": {
+      "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
+      "description": "Content-less trial configuration as knob_ref -> choice_ref|number (phase 2, additive), sent instead of config."
+    },
+    "metric_values": {
+      "$ref": "../labels/label_common_schema.json#/definitions/MetricValueMap",
+      "description": "Content-less per-measure scores keyed by metric_ref (phase 2, additive), sent instead of metrics."
+    },
     "config": {
       "x-content-class": "legacy_content",
       "x-content-note": "INV S3-5 (LEAK): config",

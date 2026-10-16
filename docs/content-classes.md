@@ -37,7 +37,7 @@ walked, nor are empty placeholder properties (`{}`) next to `allOf`/`$ref`.
 
 ## Scope and commands
 
-Every document under `traigent_schema/schemas/optimization/` (OpenAPI inventories included),
+Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),
 the guidance plan/result documents, and every fragment those reference (configuration-run
 measures, content identity, common types, error/success envelopes). `legend/*` is closed by
 design and excluded.

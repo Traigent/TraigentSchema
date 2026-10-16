@@ -334,6 +334,38 @@
                     "additionalProperties": false,
                     "x-privacy-classification": "metadata"
                   },
+                  "agent_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+                    "description": "Content-less opaque reference for the agent, sent INSTEAD of agent_key/agent_id by content-less clients (phase 2, additive). Legacy fields stay accepted during the mixed-version window."
+                  },
+                  "dataset_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/DatasetRef",
+                    "description": "Content-less opaque reference for the evaluation dataset, sent instead of dataset_id."
+                  },
+                  "evaluation_set_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/EvaluationSetRef",
+                    "description": "Content-less opaque reference for the evaluation set, sent instead of the evaluation-set name in dataset_metadata/metadata."
+                  },
+                  "evaluator_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
+                    "description": "Content-less opaque reference for the evaluator, sent instead of evaluator_id."
+                  },
+                  "knob_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/KnobRefList",
+                    "description": "Opaque refs of the declared knobs, in declaration order. Replaces the keys of configuration_space."
+                  },
+                  "choice_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/ChoiceRefMap",
+                    "description": "knob_ref -> declared choice_refs. Replaces categorical choices in configuration_space."
+                  },
+                  "metric_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/MetricRefList",
+                    "description": "Opaque refs of the objective metrics, in objectives order. Replaces objective metric names."
+                  },
+                  "default_config_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
+                    "description": "Default configuration as knob_ref -> choice_ref|number. Replaces default_config."
+                  },
                   "configuration_space": {
                     "x-content-class": "legacy_content",
                     "x-content-note": "INV S1-20 (LEAK): configuration_space",

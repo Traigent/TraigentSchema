@@ -26,6 +26,10 @@
     "environment": {
       "$ref": "#/definitions/best_config_environment"
     },
+    "config_refs": {
+      "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
+      "description": "Content-less promoted configuration as knob_ref -> choice_ref|number (phase 2, additive). Does not participate in config_hash, which stays defined over `config`; the content-less hash definition is a P3 decision."
+    },
     "config": {
       "x-content-class": "legacy_content",
       "x-content-note": "INV B1-5 (LEAK): config",

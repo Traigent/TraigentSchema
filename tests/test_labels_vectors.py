@@ -1,0 +1,534 @@
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
+# Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
+"""Label-service contract (docs/labels-v0.md): schemas, crypto vectors, negative cases.
+
+The reference crypto in scripts/labels_reference.py is first proven against the
+RFC 9180 Appendix A.1 / A.2 X25519 base-mode vectors, then used to check the
+committed conformance vectors.  All keys are TEST-ONLY.
+"""
+
+from __future__ import annotations
+
+import copy
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import pytest
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
+from tests._schema_refs import build_registry, load_json, ref_errors
+from traigent_schema.utils import get_schemas_dir
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load(name: str):
+    path = ROOT / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+L = _load("labels_reference")
+GEN = _load("generate_label_vectors")
+VECTORS = json.loads(
+    (ROOT / "traigent_schema" / "data" / "label_vectors_v0.json").read_text("utf-8")
+)
+RFC = json.loads((ROOT / "tests" / "data" / "rfc9180_x25519_base_vectors.json").read_text("utf-8"))
+REGISTRY = build_registry()
+BASE = "https://schemas.traigent.ai/labels/"
+REFS = VECTORS["refs"]
+K = VECTORS["keys"]
+
+
+def _x(hex_: str) -> X25519PrivateKey:
+    return X25519PrivateKey.from_private_bytes(bytes.fromhex(hex_))
+
+
+def errors(doc: str, pointer: str, instance) -> list[str]:
+    return ref_errors(REGISTRY, f"{BASE}{doc}#{pointer}", instance)
+
+
+# --- RFC 9180 ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", sorted(RFC))
+def test_rfc9180_base_mode_vectors(name: str) -> None:
+    aead_id = RFC[name]["aead_id"]
+    v = {k: bytes.fromhex(x) for k, x in RFC[name].items() if isinstance(x, str) and k != "source"}
+    sk_e, pk_e = L.derive_keypair(v["ikmE"])
+    assert pk_e == v["enc"]
+    _, pk_r = L.derive_keypair(v["ikmR"])
+    assert pk_r == v["pkRm"]
+    shared = L._extract_and_expand(L._dh(sk_e, v["pkRm"]), v["enc"] + v["pkRm"])
+    assert shared == v["shared_secret"]
+    assert L._key_schedule(aead_id, shared, v["info"]) == (v["key"], v["base_nonce"])
+    enc, ct = L.hpke_seal(v["pkRm"], v["info"], v["aad"], v["pt"], v["ikmE"], RFC[name]["aead_id"])
+    assert (enc, ct) == (v["enc"], v["ct"])
+    assert (
+        L.hpke_open(_x(RFC[name]["skRm"]), enc, v["info"], v["aad"], ct, RFC[name]["aead_id"])
+        == v["pt"]
+    )
+
+
+def test_suite_uses_a_256_bit_aead_key() -> None:
+    key, nonce = L._key_schedule(L.AEAD_AES256, bytes(32), b"")
+    assert (len(key), len(nonce)) == (32, 12)
+
+
+# --- committed vectors are reproducible ---------------------------------------------
+
+
+def test_committed_vectors_match_the_generator() -> None:
+    assert GEN.render() == (ROOT / "traigent_schema" / "data" / "label_vectors_v0.json").read_text(
+        "utf-8"
+    )
+
+
+# --- envelopes ------------------------------------------------------------------------
+
+
+def _open(entry: dict, **override):
+    args = dict(
+        tenant_ref=REFS["tenant_ref"],
+        project_ref=REFS["project_ref"],
+        purpose=entry["purpose"],
+        object_ref=entry["object_ref"],
+        revision=entry["revision"],
+    )
+    args.update(override)
+    return L.open_label(_x(K["project_private_hex"]), entry["envelope"], **args)
+
+
+def test_one_envelope_per_purpose_opens_and_validates() -> None:
+    assert [e["purpose"] for e in VECTORS["label_envelopes"]] == [
+        "label",
+        "knob",
+        "choice",
+        "metric",
+        "template",
+    ]
+    for entry in VECTORS["label_envelopes"]:
+        assert _open(entry) == entry["plaintext"]
+        assert errors("label_envelope_schema.json", "", entry["envelope"]) == []
+        packed = bytes.fromhex(entry["packed_hex"])
+        assert (
+            packed[0] == 1 and int.from_bytes(packed[1:5], "big") == entry["envelope"]["key_epoch"]
+        )
+        assert len(L.unb64u(entry["envelope"]["ciphertext"])) in (48, 80, 144, 272)
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"purpose": "metric"},
+        {"object_ref": "obj_Someotherobject"},
+        {"revision": 99},
+        {"tenant_ref": "ten_Othertenant01"},
+        {"project_ref": "prj_Otherproject01"},
+    ],
+)
+def test_aad_mismatch_is_rejected(override: dict) -> None:
+    entry = VECTORS["label_envelopes"][0]
+    if override.get("purpose") == entry["purpose"]:
+        pytest.skip("same purpose")
+    with pytest.raises(L.LabelCryptoError):
+        _open(entry, **override)
+
+
+def test_epoch_and_tamper_are_rejected() -> None:
+    entry = VECTORS["label_envelopes"][1]
+    wrong_epoch = {**entry["envelope"], "key_epoch": 2}
+    with pytest.raises(L.LabelCryptoError):
+        L.open_label(
+            _x(K["project_private_hex"]),
+            wrong_epoch,
+            tenant_ref=REFS["tenant_ref"],
+            project_ref=REFS["project_ref"],
+            purpose=entry["purpose"],
+            object_ref=entry["object_ref"],
+            revision=entry["revision"],
+        )
+    ct = bytearray(L.unb64u(entry["envelope"]["ciphertext"]))
+    ct[0] ^= 1
+    with pytest.raises(L.LabelCryptoError):
+        _open({**entry, "envelope": {**entry["envelope"], "ciphertext": L.b64u(bytes(ct))}})
+    with pytest.raises(L.LabelCryptoError):
+        L.open_label(
+            _x(K["member_private_hex"]),
+            entry["envelope"],
+            tenant_ref=REFS["tenant_ref"],
+            project_ref=REFS["project_ref"],
+            purpose=entry["purpose"],
+            object_ref=entry["object_ref"],
+            revision=entry["revision"],
+        )
+
+
+def test_envelope_schema_is_closed_and_bounded() -> None:
+    good = VECTORS["label_envelopes"][0]["envelope"]
+    assert errors("label_envelope_schema.json", "", {**good, "plaintext": "x"})
+    assert errors("label_envelope_schema.json", "", {**good, "version": 2})
+    assert errors("label_envelope_schema.json", "", {**good, "ciphertext": "A" * 400})
+    assert errors("label_envelope_schema.json", "", {**good, "enc": good["enc"] + "="})
+
+
+# --- padding --------------------------------------------------------------------------
+
+
+def test_padding_vectors() -> None:
+    for case in VECTORS["padding"]["ok"]:
+        padded = L.pad(case["plaintext"])
+        assert padded.hex() == case["padded_hex"] and len(padded) == case["bucket"]
+        assert case["bucket"] in L.BUCKETS and L.unpad(padded) == case["plaintext"]
+    by_name = {c["name"]: c for c in VECTORS["padding"]["ok"]}
+    assert by_name["31_bytes_fills_bucket_32"]["bucket"] == 32
+    assert by_name["32_bytes_next_bucket_64"]["bucket"] == 64
+    assert by_name["255_bytes_max"]["bucket"] == 256
+
+
+def test_malformed_padding_is_refused() -> None:
+    for case in VECTORS["padding"]["malformed"]:
+        with pytest.raises(L.LabelCryptoError):
+            if case["operation"] == "pad":
+                L.pad(case["plaintext"])
+            else:
+                L.unpad(bytes.fromhex(case["padded_hex"]))
+
+
+# --- member wrap, recovery wrap, local protection -------------------------------------
+
+
+def test_member_wrap() -> None:
+    wrap = VECTORS["member_wrap"]["wrap"]
+    assert errors("label_wrap_schema.json", "/definitions/MemberWrap", wrap) == []
+    sk = L.unwrap_from_member(
+        _x(K["member_private_hex"]),
+        wrap,
+        tenant_ref=REFS["tenant_ref"],
+        project_ref=REFS["project_ref"],
+    )
+    assert sk.private_bytes_raw().hex() == K["project_private_hex"]
+    with pytest.raises(L.LabelCryptoError):  # addressed to another key
+        L.unwrap_from_member(
+            _x(K["project_private_hex"]),
+            wrap,
+            tenant_ref=REFS["tenant_ref"],
+            project_ref=REFS["project_ref"],
+        )
+    with pytest.raises(L.LabelCryptoError):  # info mismatch
+        L.unwrap_from_member(
+            _x(K["member_private_hex"]),
+            wrap,
+            tenant_ref=REFS["tenant_ref"],
+            project_ref="prj_Otherproject01",
+        )
+    with pytest.raises(L.LabelCryptoError):  # epoch is bound
+        L.unwrap_from_member(
+            _x(K["member_private_hex"]),
+            {**wrap, "epoch": 2},
+            tenant_ref=REFS["tenant_ref"],
+            project_ref=REFS["project_ref"],
+        )
+
+
+def test_recovery_wraps() -> None:
+    secret = bytes.fromhex(K["recovery_secret_hex"])
+    for key, expect in (
+        ("project_key", K["project_private_hex"]),
+        ("root_key", K["root_ed25519_seed_hex"]),
+    ):
+        wrap = VECTORS["recovery_wraps"][key]
+        assert errors("label_wrap_schema.json", "/definitions/RecoveryWrap", wrap) == []
+        assert (
+            L.recovery_unwrap(
+                secret, wrap, tenant_ref=REFS["tenant_ref"], project_ref=REFS["project_ref"]
+            ).hex()
+            == expect
+        )
+    wrap = VECTORS["recovery_wraps"]["project_key"]
+    with pytest.raises(L.LabelCryptoError):
+        L.recovery_unwrap(
+            bytes(32), wrap, tenant_ref=REFS["tenant_ref"], project_ref=REFS["project_ref"]
+        )
+    with pytest.raises(L.LabelCryptoError):
+        L.recovery_unwrap(
+            secret,
+            {**wrap, "epoch": 2},
+            tenant_ref=REFS["tenant_ref"],
+            project_ref=REFS["project_ref"],
+        )
+
+
+def test_local_protection_metadata_and_no_secret_fields() -> None:
+    lp = VECTORS["local_protection"]
+    for key in ("passkey_prf", "passphrase_argon2id"):
+        assert (
+            errors("label_local_protection_schema.json", "/definitions/LocalProtection", lp[key])
+            == []
+        )
+    ikm = bytes.fromhex(lp["test_only_wrapping_ikm_hex"])
+    raw = L.local_unwrap(
+        ikm,
+        lp["passkey_prf"],
+        tenant_ref=REFS["tenant_ref"],
+        member_key_id=lp["passkey_prf"]["member_key_id"],
+    )
+    assert raw.hex() == K["member_private_hex"]
+    # a PRF output / passphrase / wrapping key has nowhere to go in the closed schema
+    for forbidden in ("prf_output", "prf_results", "passphrase", "wrapping_key", "ikm"):
+        assert errors(
+            "label_local_protection_schema.json",
+            "/definitions/LocalProtection",
+            {**lp["passkey_prf"], forbidden: "x"},
+        )
+    assert errors(
+        "label_local_protection_schema.json",
+        "/definitions/LocalProtection",
+        {**lp["passkey_prf"], "protection": "passphrase_argon2id"},
+    )
+    bad = copy.deepcopy(lp["passkey_prf"])
+    del bad["credential_id"]
+    assert errors("label_local_protection_schema.json", "/definitions/LocalProtection", bad)
+
+
+# --- signed binding chain --------------------------------------------------------------
+
+
+def _chain(**tweak):
+    chain = copy.deepcopy(VECTORS["binding_chain"])
+    root_pub = bytes.fromhex(K["root_public_hex"])
+    return dict(
+        pinned_root_fingerprint=tweak.get("pinned", K["root_fingerprint_sha256"]),
+        root_pub=root_pub,
+        admin_binding=tweak.get("admin", chain["admin_identity"]),
+        project_binding=tweak.get("project", chain["project_key"]),
+        member_binding=tweak.get("member", chain["member_key"]),
+        tenant_ref=REFS["tenant_ref"],
+        project_ref=REFS["project_ref"],
+    )
+
+
+def test_binding_chain_verifies_and_validates() -> None:
+    for binding in VECTORS["binding_chain"].values():
+        assert errors("label_key_binding_schema.json", "/definitions/KeyBinding", binding) == []
+    L.verify_chain(**_chain())
+
+
+def test_binding_chain_failures() -> None:
+    chain = VECTORS["binding_chain"]
+    with pytest.raises(L.LabelCryptoError):
+        L.verify_chain(**_chain(pinned="0" * 64))
+    tampered = {**chain["project_key"], "epoch": 2}
+    with pytest.raises(L.LabelCryptoError):
+        L.verify_chain(**_chain(project=tampered))
+    swapped_key = {**chain["member_key"], "public_key": chain["project_key"]["public_key"]}
+    with pytest.raises(L.LabelCryptoError):  # server key substitution
+        L.verify_chain(**_chain(member=swapped_key))
+    with pytest.raises(L.LabelCryptoError):  # purposes cannot be exchanged
+        L.verify_chain(**_chain(project=chain["member_key"], member=chain["project_key"]))
+    with pytest.raises(
+        L.LabelCryptoError
+    ):  # signed by the wrong key (member signed by root, not admin)
+        root_sk = L.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(K["root_ed25519_seed_hex"]))
+        body = {
+            k: v for k, v in chain["member_key"].items() if k not in ("signature", "signer_key_id")
+        }
+        forged = L.make_binding(root_sk, bytes.fromhex(K["root_public_hex"]), body)
+        L.verify_chain(**_chain(member=forged))
+    with pytest.raises(L.LabelCryptoError):
+        L.verify_chain(**{**_chain(), "tenant_ref": "ten_Othertenant01"})
+
+
+def test_binding_schema_rules() -> None:
+    chain = VECTORS["binding_chain"]
+    assert errors(
+        "label_key_binding_schema.json",
+        "/definitions/KeyBinding",
+        {**chain["project_key"], "project_ref": None},
+    )
+    assert errors(
+        "label_key_binding_schema.json",
+        "/definitions/KeyBinding",
+        {**chain["admin_identity"], "epoch": 1},
+    )
+    assert errors(
+        "label_key_binding_schema.json",
+        "/definitions/KeyBinding",
+        {**chain["project_key"], "extra": 1},
+    )
+    assert errors(
+        "label_key_binding_schema.json",
+        "/definitions/KeyBinding",
+        {**chain["project_key"], "purpose": "root"},
+    )
+
+
+def test_jcs_is_rfc8785_for_this_subset() -> None:
+    assert (
+        L.jcs({"b": 1, "a": [True, None, "x"], "c": {"z": 0, "y": "é"}})
+        == '{"a":[true,null,"x"],"b":1,"c":{"y":"é","z":0}}'.encode()
+    )
+    with pytest.raises(L.LabelCryptoError):
+        L.jcs({"a": 1.5})
+
+
+# --- service bodies, epochs, member keys --------------------------------------------------
+
+
+def test_label_io_schemas() -> None:
+    env = VECTORS["label_envelopes"][0]
+    write = {
+        "object_ref": env["object_ref"],
+        "purpose": "label",
+        "base_revision": 0,
+        "epoch": 1,
+        "envelope": env["envelope"],
+    }
+    assert errors("label_io_schema.json", "/definitions/LabelWriteRequest", write) == []
+    assert errors(
+        "label_io_schema.json", "/definitions/LabelWriteRequest", {**write, "purpose": "free_text"}
+    )
+    assert errors(
+        "label_io_schema.json", "/definitions/LabelWriteRequest", {**write, "label": "plain text"}
+    )
+    assert errors(
+        "label_io_schema.json",
+        "/definitions/LabelWriteRequest",
+        {k: v for k, v in write.items() if k != "epoch"},
+    )
+    resp = {
+        "object_ref": env["object_ref"],
+        "purpose": "label",
+        "revision": 1,
+        "epoch": 1,
+        "updated_at": "2026-10-16T00:00:00Z",
+    }
+    assert errors("label_io_schema.json", "/definitions/LabelWriteResponse", resp) == []
+    read = {**resp, "envelope": env["envelope"]}
+    assert errors("label_io_schema.json", "/definitions/LabelReadResponse", read) == []
+    assert (
+        errors(
+            "label_io_schema.json",
+            "/definitions/LabelListResponse",
+            {"items": [read], "next_cursor": None},
+        )
+        == []
+    )
+
+
+def test_epoch_and_member_schemas() -> None:
+    kid = L.key_id(bytes.fromhex(K["member_public_hex"]))
+    epoch = {
+        "version": 1,
+        "project_ref": REFS["project_ref"],
+        "epoch": 1,
+        "status": "current",
+        "reason": "bootstrap",
+        "project_key_id": VECTORS["binding_chain"]["project_key"]["key_id"],
+        "created_at": "2026-10-16T00:00:00Z",
+    }
+    assert errors("label_epoch_schema.json", "/definitions/EpochRecord", epoch) == []
+    assert errors(
+        "label_epoch_schema.json", "/definitions/EpochRecord", {**epoch, "reason": "because"}
+    )
+    rot = {
+        "version": 1,
+        "project_ref": REFS["project_ref"],
+        "from_epoch": 1,
+        "to_epoch": 2,
+        "state": "reencrypting",
+        "objects_total": 10,
+        "objects_reencrypted": 4,
+        "started_at": "2026-10-16T00:00:00Z",
+        "updated_at": "2026-10-16T00:00:00Z",
+    }
+    assert errors("label_epoch_schema.json", "/definitions/RotationRecord", rot) == []
+    reg = {
+        "version": 1,
+        "project_ref": REFS["project_ref"],
+        "key_id": kid,
+        "public_key": L.b64u(bytes.fromhex(K["member_public_hex"])),
+        "algorithm": "x25519",
+        "member_kind": "machine",
+        "requested_access": "write_only",
+    }
+    assert errors("label_member_key_schema.json", "/definitions/MemberKeyRegistration", reg) == []
+    approval = {
+        "version": 1,
+        "status": "approved",
+        "access": "write_only",
+        "binding": VECTORS["binding_chain"]["member_key"],
+        "updated_at": "2026-10-16T00:00:00Z",
+    }
+    assert errors("label_member_key_schema.json", "/definitions/MemberKeyApproval", approval) == []
+
+
+# --- structural guarantees over the new schemas ----------------------------------------------
+
+
+def _walk(node, path=""):
+    if isinstance(node, dict):
+        yield path, node
+        for k, v in node.items():
+            yield from _walk(v, f"{path}/{k}")
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk(v, f"{path}/{i}")
+
+
+def test_label_schemas_are_closed_and_classed() -> None:
+    files = sorted((get_schemas_dir() / "labels").glob("*.json"))
+    assert len(files) == 8
+    for f in files:
+        doc = load_json(f)
+        for path, node in _walk(doc):
+            if node.get("type") == "object" and "properties" in node:
+                assert node.get("additionalProperties") is False, f"{f.name}{path} is not closed"
+            if "/if/" in path or "/then/" in path or "/else/" in path:
+                continue
+            if (
+                "/properties/" in path
+                and path.rsplit("/", 2)[-2] == "properties"
+                and isinstance(node, dict)
+            ):
+                assert "x-content-class" in node or any(
+                    k in node for k in ("$ref", "oneOf", "items")
+                ), f"{f.name}{path}"
+            assert node.get("x-content-class") != "legacy_content", f"{f.name}{path}"
+
+
+def test_optimization_additions_validate() -> None:
+    cfg = {"knb_Temperature01": "chc_Gptmini00001", "knb_Topk000000001": 4}
+    assert errors("label_common_schema.json", "/definitions/ConfigRefMap", cfg) == []
+    assert errors(
+        "label_common_schema.json", "/definitions/ConfigRefMap", {"temperature": 0.2}
+    )  # a name is not a ref
+    assert errors(
+        "label_common_schema.json",
+        "/definitions/ConfigRefMap",
+        {"knb_Temperature01": "gpt-5.2-mini"},
+    )
+    assert (
+        errors(
+            "label_common_schema.json",
+            "/definitions/MetricValueMap",
+            {"met_Correctness01": 0.9, "met_Cost0000000001": None},
+        )
+        == []
+    )
+    assert errors("label_common_schema.json", "/definitions/MetricValueMap", {"accuracy": 0.9})
+    submit = BASE.replace("labels/", "optimization/") + "session_submit_results_request_schema.json"
+    ok = {
+        "trial_id": "trial_1",
+        "metrics": {},
+        "config_refs": cfg,
+        "metric_values": {"met_Correctness01": 0.9},
+    }
+    assert ref_errors(REGISTRY, submit, ok) == []
+    assert ref_errors(REGISTRY, submit, {**ok, "config_refs": {"temperature": 1}})

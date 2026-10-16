@@ -26,6 +26,10 @@
           "type": "string",
           "description": "Identifier of the suggested trial."
         },
+        "config_refs": {
+          "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
+          "description": "Content-less suggested configuration as knob_ref -> choice_ref|number (phase 2, additive), present instead of the name-keyed suggestion in agent_specification."
+        },
         "agent_specification": {
           "x-content-class": "legacy_content",
           "x-content-note": "INV-GAP S2: not inventoried (free object/array): agent_specification",

@@ -55,7 +55,7 @@ LEGACY = "legacy_content"
 # inventories are walked as OpenAPI), plus the guidance and run-measure
 # documents the optimization routes reference.  Other referenced documents
 # are walked only at the fragment that is referenced.
-ROOT_DIRS = ("optimization",)
+ROOT_DIRS = ("optimization", "labels")
 EXTRA_ROOT_FILES = (
     "guidance/guidance_plan_request_schema.json",
     "guidance/guidance_plan_schema.json",

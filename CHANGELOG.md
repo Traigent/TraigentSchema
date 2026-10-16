@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime dispatch continues to reject unsupported Hyperband execution (#277).
 
 ### Added
+- **Label service contract and opaque-identity fields (additive, content-less plan phase 2).**
+  New `labels/` schemas: label envelope (HPKE base mode, X25519/HKDF-SHA256/AES-256-GCM, bucket-padded),
+  signed key bindings (root -> admin -> project epoch -> member), member key registration/approval,
+  member and recovery wraps, local-protection metadata, label write/read bodies, epoch and rotation
+  records. Optional `opaque_ref` fields (`agent_ref`, `dataset_ref`, `evaluation_set_ref`, `evaluator_ref`,
+  `knob_refs`, `choice_refs`, `metric_refs`, `*_config_refs`, `metric_values`, `best_metric_values`,
+  `objective_ref`) sit beside the legacy fields on the optimization schemas; nothing is removed or
+  changed. Conformance vectors in `traigent_schema/data/label_vectors_v0.json`, a test-only reference
+  (`scripts/labels_reference.py`, proven on RFC 9180 A.1/A.2) and `docs/labels-v0.md`. The content-class
+  lint now also walks `labels/`; the `legacy_content` count is unchanged.
 - **Optional pricing-coverage counts on the project-usage dashboard (additive).**
   `project_scoped_project_usage_dashboard_schema.json` gains optional
   `priced_configuration_runs` / `unpriced_configuration_runs` on each `top_experiments[]` item

@@ -619,7 +619,7 @@ activation (items 7, 8) implement this contract and must not widen a field to fr
 
 ## 11. Changelog
 
-**Delta over 9b0451d (additive; the 06a0f5f contract is otherwise unchanged).** Existing valid bodies still validate (`python3 scripts/breaking_schema_check.py --check` reports no BREAKING findings).
+**Delta over 9b0451d (additive; the 06a0f5f contract is otherwise unchanged).** This delta is **not** purely additive. Query results with `outcome` `failed` or `refused` that carry a non-null `next_page_cursor` were valid at 9b0451d and are now refused, intentionally (security narrowing found by sol review; the contract is unreleased and unconsumed). Both breaking findings are acknowledged in `scripts/breaking_schema_allowlist.json`: the `QueryVersionsResult` allOf branch change in `director_legend_ops_v0.json`, and the optional `as_of_ledger_position` property in `legend_requests_v0.json`. `python3 scripts/breaking_schema_check.py --check` reports no unacknowledged BREAKING findings.
 
 1. `legend_requests_v0.json`: `QueryRequestV0` gains OPTIONAL `as_of_ledger_position` (integer >= 0; omitted = current); cursors are bound to it (section 6).
 2. `director_legend_ops_v0.json`: new closed definitions `PageCursor`, `LegendInstructionMember` (carries `as_of_ledger_position`, the position the agent passes to the query request; no separate `legend_snapshot`) and `LegendResultAckMember`.

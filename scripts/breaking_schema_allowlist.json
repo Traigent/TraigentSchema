@@ -6937,6 +6937,40 @@
       "reason": "Owner-approved 2026-10-15 in chat (evaluator cost null: go), extending decision cards product-2026-09-30-legacy-cost-null A and product-2026-10-10-trial-cost-nullable A as applied in TraigentSchema#554: an evaluator run whose cost is unknown reports cost_usd null (minimum 0 on the number branch) instead of a false 0. Response-side widening; cost_usd stays optional and a priced run still returns a number. Backend, FE and SDK consumers must treat null as unknown, never zero. Scoped to this exact pointer.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#557"
+    },
+    {
+      "file": "legend/director_legend_ops_v0.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/oneOf/1/oneOf/1/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 2,
+          "new": 3,
+          "fingerprint": "b1b274a8f865205f512cb554fa3d37feab4a0d3ca0c0ab5fb540f33733a81a58"
+        }
+      ],
+      "reason": "Intentional security narrowing found by sol review (round 8): the new if/then requires next_page_cursor null on failed and refused query results, so a non-null cursor can no longer be emitted on a result that did not succeed. Counted as the 2 -> 3 allOf branch change. The contract is unreleased and has no consumers, so this is an acknowledged tightening, not a break of shipped clients.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, repo under patent pause, no PR"
+    },
+    {
+      "file": "legend/legend_requests_v0.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/oneOf/1/properties/as_of_ledger_position",
+          "role": "conservative",
+          "subject": "as_of_ledger_position",
+          "old": false,
+          "new": true,
+          "fingerprint": "a3abdbe12043fa49636af9abfb4f130fea0cac7e8341cae5f009eedd20eed957"
+        }
+      ],
+      "reason": "Optional additive property as_of_ledger_position on QueryRequestV0 (query as_of snapshot selector). Optional (not in required); classified conservatively only because the old schema closes additionalProperties. Nothing shipped or consumed yet, so no existing request body changes meaning.",
+      "version": "Unreleased",
+      "pr": "none - local commits on feat/pillar-legend, repo under patent pause, no PR"
     }
   ]
 }

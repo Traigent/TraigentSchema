@@ -60,7 +60,7 @@
             "name": "X-Traigent-Expected-Head-Generation",
             "in": "header",
             "required": false,
-            "description": "The head generation the run captured when it started (the `generation` of GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}). Compare-and-set precondition of the promotion; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion).",
+            "description": "The head generation the run captured when it STARTED (the `generation` of GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}). Compare-and-set precondition of the promotion of that run's own result; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion). Never refreshed to cure a stale refusal.",
             "schema": {
               "x-content-class": "number",
               "type": "integer",
@@ -87,7 +87,37 @@
             "description": "Best config published successfully"
           },
           "409": {
-            "description": "Publish precondition failed or function_ref conflict; on the protected path head_environment_mismatch, head_agent_mismatch or head_generation_stale (closed refusal envelope)."
+            "description": "Publish precondition failed or function_ref conflict (LEGACY path, unchanged), or a PROTECTED-path refusal: head_environment_mismatch, head_agent_mismatch or head_generation_stale (closed envelope; discriminate on the closed `error_code`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "../optimization/best_config_head_refusal_schema.json"
+                        },
+                        {
+                          "properties": {
+                            "error_code": {
+                              "enum": [
+                                "head_environment_mismatch",
+                                "head_agent_mismatch",
+                                "head_generation_stale"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "description": "Legacy-path 409 bodies, unchanged: publish precondition failures, function_ref conflicts and the STALE_HEAD_GENERATION body of the X-Traigent-Agent-Id promotion."
+                    }
+                  ]
+                }
+              }
+            }
           },
           "400": {
             "description": "Protected path: head_capture_invalid (closed refusal envelope).",
@@ -130,7 +160,7 @@
             }
           }
         },
-        "description": "PROTECTED PATH (content-less plan v2.1, phase 0b). A publish is on the protected path when it carries X-Traigent-Agent-Ref or is made within a content_less_v1 session (its provenance names such a session). On that path the Backend requires BOTH X-Traigent-Agent-Ref and X-Traigent-Expected-Head-Generation; it resolves the agent, run and environment from the authoritative session binding, never from the request body; it keeps agent WRITE authorization; and it refuses with a closed code (best_config_head_refusal_schema.json) and with no publication row and no head change when the capture is missing or malformed (head_capture_invalid), the environment differs from the session's (head_environment_mismatch), the ref names another agent than the session's (head_agent_mismatch), the head moved since the capture (head_generation_stale), or the caller may not write the agent (head_write_unauthorized); an unknown or foreign ref is reference_not_found. Publish and promote are ONE transaction: a refused or failed promotion leaves no visible configuration version, and of several concurrent promotions at the same generation exactly one wins. LEGACY PATH: a publish without those headers and outside a content_less_v1 session, including the existing X-Traigent-Agent-Id / X-Traigent-Expected-Head-Generation promotion, behaves exactly as before. Closed refusal envelope: ../optimization/best_config_head_refusal_schema.json."
+        "description": "PROTECTED PATH (content-less plan v2.1, phase 0b). APPLICABILITY: a publish is PROTECTED if and only if the request carries X-Traigent-Agent-Ref, or the publish belongs to a session negotiated with content_less_v1 (or content_less_v2 once negotiated); every other publish is the LEGACY path and behaves exactly as before. DECISION TABLE (first matching row; 'session' = the session named in spec.provenance, content-less when its stored shape is content-less): [1] Agent-Ref and Agent-Id both present -> 400 head_capture_invalid. [2] Agent-Ref present, Expected-Head-Generation missing or not an integer 0..2^53-1 -> 400 head_capture_invalid. [3] Agent-Ref malformed (not agentref_<32 hex>) -> 400 head_capture_invalid. [4] Agent-Ref present but no resolvable content-less session binding -> 400 head_capture_invalid. [5] Agent-Ref and a valid Expected-Head-Generation, content-less session -> PROTECTED (below). [6] No Agent-Ref, content-less session (with or without Agent-Id / Expected-Head-Generation) -> 400 head_capture_invalid (the capture is required). [7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged (including the legacy Agent-Id promotion and its STALE_HEAD_GENERATION 409 and its own validation errors). [8] No Agent-Ref, no capture headers, non-content-less or no session -> LEGACY, unchanged. PROTECTED RULE: the Backend resolves agent, run and environment from the authoritative session binding, never from the body; keeps agent WRITE authorization; and refuses with a closed code (best_config_head_refusal_schema.json), with no publication row and no head change. ORDER OF REFUSALS: malformed or incomplete capture 400 head_capture_invalid; well-formed but unknown or foreign ref 404 reference_not_found (nothing echoed); agent WRITE denied 403 head_write_unauthorized; ref's agent is not the session's 409 head_agent_mismatch; publish environment differs from the session's 409 head_environment_mismatch; head moved 409 head_generation_stale. STALE: the run's result is stale; the client MUST NOT refresh the generation and resubmit the same result, and the SDK MUST NEVER auto-retry a stale refusal (it starts a new run, or re-evaluates against the new head, and publishes with that run's own captured generation). Publish and promote are ONE transaction: a refused or failed promotion leaves no visible configuration version; the head moves g -> g+1 (first promotion 0 -> 1) atomically with the publication, and of several concurrent promotions naming the same expected generation exactly one wins."
       }
     },
     "/api/v1/best-configs/{config_id}": {

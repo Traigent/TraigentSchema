@@ -9,7 +9,7 @@
     "/api/v1/best-configs/agent-heads/by-ref/{agent_ref}": {
       "get": {
         "summary": "Read an agent's promotion head by its opaque ref",
-        "description": "TraigentBackend src/routes/best_config_routes.py get_agent_head_by_ref. Resolves `agent_ref` (optimization_identity.resolve_ref, kind agent) inside the caller's tenant and project, keeps agent READ authorization, and returns the head generation (0 / exists=false when never promoted). An SDK captures this generation when an optimization starts and sends it back as X-Traigent-Expected-Head-Generation when it publishes the winner. A foreign, unknown or malformed ref is refused with reference_not_found and nothing is echoed.",
+        "description": "TraigentBackend src/routes/best_config_routes.py get_agent_head_by_ref. Resolves `agent_ref` (optimization_identity.resolve_ref, kind agent) inside the caller's tenant and project, keeps agent READ authorization, and returns the head generation (0 / exists=false when never promoted; invariant exists <=> generation >= 1). A run captures this generation when it STARTS and sends it as X-Traigent-Expected-Head-Generation when it publishes its own result; a stale refusal is never cured by re-reading the head and resubmitting the same result. ORDER OF REFUSALS: (1) unauthenticated 401 / forbidden 403 (permissions); (2) malformed path ref or `environment` outside the closed enum: 400 head_capture_invalid; (3) well-formed but unknown, foreign or unreadable ref: 404 reference_not_found, nothing echoed. Every error body of this route is the closed envelope best_config_head_refusal_schema.json except 429 (rate_limit_info).",
         "operationId": "getAgentHeadByRef",
         "x-asserted-against-backend": false,
         "parameters": [
@@ -43,7 +43,7 @@
             }
           },
           "400": {
-            "description": "head_capture_invalid — the `environment` query value is not in the closed environment enum. Closed refusal envelope; nothing is echoed.",
+            "description": "head_capture_invalid — malformed `agent_ref` path value or `environment` outside the closed enum. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -53,27 +53,27 @@
             }
           },
           "401": {
-            "description": "Unauthenticated — missing or invalid credentials.",
+            "description": "unauthenticated — closed envelope with fixed text.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./best_config_head_refusal_schema.json"
                 }
               }
             }
           },
           "403": {
-            "description": "Forbidden — caller lacks experiment.read or agent READ authorization.",
+            "description": "forbidden — caller lacks experiment.read or the project role. Closed envelope with fixed text. (A caller who may not READ the agent gets 404 reference_not_found, never a distinguishable denial.)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./best_config_head_refusal_schema.json"
                 }
               }
             }
           },
           "404": {
-            "description": "reference_not_found — the ref is unknown, foreign, malformed or no longer visible. Closed refusal envelope; nothing is echoed.",
+            "description": "reference_not_found — the well-formed ref is unknown, foreign, no longer visible or not readable. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -93,11 +93,11 @@
             }
           },
           "500": {
-            "description": "Internal server error.",
+            "description": "internal_error — closed envelope with fixed text; no exception data.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./best_config_head_refusal_schema.json"
                 }
               }
             }

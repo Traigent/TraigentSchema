@@ -145,18 +145,31 @@ members of its closed vocabulary.
 
 | Item | Contract |
 |---|---|
-| `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names |
+| `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names; `exists` is false iff `generation` is 0 |
 | `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
-| Refusals | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403) |
+| Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
 
-**Protected path.** A publish (`POST /api/v1/best-configs`) is protected when it carries `X-Traigent-Agent-Ref` or
-is made within a `content_less_v1` session. It must send both headers; the Backend resolves agent, run and
-environment from the authoritative session binding (never the body), keeps agent WRITE authorization, and on
-any refusal writes no publication row and moves no head. Publish and promote are one transaction; of several
-concurrent promotions at the same generation exactly one wins. A publish without the header and outside a
-content-less session is the legacy path and is unchanged (including `X-Traigent-Agent-Id` promotion and its
-`STALE_HEAD_GENERATION` body).
+**Applicability (decision table in the `POST /api/v1/best-configs` description).** A publish is protected if and
+only if it carries `X-Traigent-Agent-Ref` or belongs to a session negotiated with `content_less_v1`
+(`content_less_v2` once it exists). Agent-Ref without a valid generation, or together with
+`X-Traigent-Agent-Id`, is `head_capture_invalid`; the legacy `X-Traigent-Agent-Id` promotion outside a content-less
+session, and a publish with no capture headers outside one, are the legacy path and unchanged.
+
+**Protected rule.** The Backend resolves agent, run and environment from the stored session binding (never the
+body), keeps agent WRITE authorization, and on any refusal writes no publication row and moves no head. Publish
+and promote are one transaction; the head moves g -> g+1 (first promotion 0 -> 1) atomically with the
+publication; of several promotions naming the same expected generation exactly one wins.
+
+**Stale means the result is stale.** A `head_generation_stale` refusal is never cured by refreshing the
+generation and resubmitting the same result. The SDK never auto-retries it: it starts a new run (or re-evaluates
+against the new head) and publishes with that run's own captured generation.
+
+**Refusal precedence.** Authentication and permissions; then malformed syntax (400 `head_capture_invalid`); then a
+well-formed but unknown or foreign ref (404 `reference_not_found`, nothing echoed); then agent WRITE
+(`head_write_unauthorized`); then session agreement (`head_agent_mismatch`, `head_environment_mismatch`); then the
+head compare (`head_generation_stale`). On the read route a malformed path ref or `environment` is 400, an unknown or
+foreign ref 404.
 
 ## Scope and commands
 

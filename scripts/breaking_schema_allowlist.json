@@ -7500,6 +7500,422 @@
       "reason": "Deliberate and announced: the endpoint catalog inherits the optional cost-coverage members (cost_status, priced_cost_usd, total_cost_usd, unpriced_* counts, priced_/unpriced_configuration_runs) already acknowledged on the standalone project-scoped observability-summary and project-usage dashboard schemas (owner-approved 2026-09-30 and 2026-10-13; TraigentSchema#534 and #546). They are new optional response members on closed objects, so a strict old consumer could reject them. Known consumers tolerate extra members: Python SDK traigent/core_metrics/dtos.py from_dict reads named keys only; traigent-js core-metrics returns unwrapData() payloads without schema validation; Frontend uses TypeScript types. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#546"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/cohorts/compare/post/responses/200/content/application/json/schema/properties/comparison/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "c3685e61d19fee91c1131cf53c1cab3ebb8456154f827adb31986b933d3186a2"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/cohorts/compare/post/responses/200/content/application/json/schema/properties/comparison/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "a5f8480aff800ee3b62f984198436f628294ee0b6f89463b968cdfe370d0d4b4"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/cohorts/compare/post/responses/200/content/application/json/schema/properties/reference/properties/metrics/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "793c2bbe760e7e7de48f58474d4c1c42f2d4a2c02dd72701343289434f55b936"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/cohorts/compare/post/responses/200/content/application/json/schema/properties/reference/properties/metrics/items/properties/unknown_count",
+          "role": "response",
+          "subject": "unknown_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "8b68431a8ce998e40bc55997b1caeda59241b0c9c8269cf477c77fac62461efb"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/tools/get/responses/200/content/application/json/schema/properties/items/items/properties/cost_status",
+          "role": "response",
+          "subject": "cost_status",
+          "old": false,
+          "new": true,
+          "fingerprint": "ef7e88647de7bf4f342b7e61183de1dee38c719d30b1b7583f15c65e31bfaf3a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/tools/get/responses/200/content/application/json/schema/properties/items/items/properties/priced_cost_usd",
+          "role": "response",
+          "subject": "priced_cost_usd",
+          "old": false,
+          "new": true,
+          "fingerprint": "8f69537ed49a01e63d97de4d9e7071bfbeadf44370de6c46634fcc10ef6ddc87"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/tools/get/responses/200/content/application/json/schema/properties/items/items/properties/unpriced_attempt_count",
+          "role": "response",
+          "subject": "unpriced_attempt_count",
+          "old": false,
+          "new": true,
+          "fingerprint": "2c2469fc257cd0c8abed36a1b05233fdecb5a4b524217a804ad0915a49ef965b"
+        }
+      ],
+      "reason": "Deliberate and announced: the endpoint catalog inherits the optional cost-coverage members (cost_status, unknown_count, priced_cost_usd, unpriced_attempt_count) already acknowledged on the observability analysis schemas (TraigentSchema#534, CHANGELOG [Unreleased] observability cost accounting; owner-approved via decision cards product-2026-09-30-legacy-cost-null and product-2026-10-10-trial-cost-nullable). They are new optional response members on closed objects, so a strict old validator would reject them. The earlier hold-back was that the Python SDK crashed on them; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. traigent-js returns unwrapData() payloads without schema validation. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#534"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluator-runs/get/responses/200/content/application/json/schema/properties/items/items/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "f85c65b0d21fed48b4061f927951ddc8168c7b175eea0bba009bbd873de7dc38"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluator-runs/{run_id}/get/responses/200/content/application/json/schema/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "6c597aefaed6de2086a2091bae7392d4757924515a9ed5e2d5a1c1ed533aad58"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluator-runs/{run_id}/retry/post/responses/201/content/application/json/schema/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "3bf5a54eb5672a8c8f806bf8bf9d30432eb5a6ddf4088abf04dcbedaf369a92e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/responses/202/content/application/json/schema/properties/items/items/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "2f1f98f4da7d5431a1fa74a5deb225b84253640889730fbccc426dff4a3fbf40"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/execute/post/responses/202/content/application/json/schema/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "60fc09bc80b47479ee3e8b773c1c8cb3af2f45392bcee1685a3cfb1a574e4f25"
+        }
+      ],
+      "reason": "Owner-approved 2026-10-15 in chat (evaluator cost null: go), extending decision cards product-2026-09-30-legacy-cost-null A and product-2026-10-10-trial-cost-nullable A as applied in TraigentSchema#557: an evaluator run whose cost is unknown reports cost_usd null (minimum 0 on the number branch) instead of a false 0, on the list, retrieve, retry, backfill and execute responses. Response-side widening; a priced run still returns a number. The earlier hold-back was that the Python SDK crashed on a null evaluator-run cost; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#557"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/observability/analysis/tools/get/responses/200/content/application/json/schema/properties/items/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "6b5201f387fe3062f1c4ccae2bc8e1fdf4bc0e3c1beef68b541c69be5cc3f863"
+        }
+      ],
+      "reason": "Owner-approved via decision cards product-2026-09-30-legacy-cost-null A and product-2026-10-10-trial-cost-nullable A: tool-analysis items[].total_cost_usd becomes number|null (minimum 0 on the number branch) so a tool with no priced usage reports unknown cost as null instead of a false 0, matching the cost_status coverage members acknowledged under TraigentSchema#534. Response-side widening; a priced tool still returns a number. The earlier hold-back was that the Python SDK crashed on a null total_cost_usd; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#534"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality/get/responses/200/content/application/json/schema/properties/recent_evaluators/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "816e56db3115d085a85c90ede012e1813f0ef7e0c295274c19c08e61f231d873"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality/get/responses/200/content/application/json/schema/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "96a5d265eabbec232124ae44fdfc5b784834d5252423fed3a9d09392172c80af"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary/get/responses/200/content/application/json/schema/properties/activity_trend/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "b9fd35e5f7a8d90d76c7f9236e1ec6869efd74686a5d278cc3ba4c75b018d912"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary/get/responses/200/content/application/json/schema/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "12d667c5e488ed612585d97d2b3f272b9effbc6b52a0e569a1754c829dba21f2"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary/get/responses/200/content/application/json/schema/properties/top_traces/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "ba841fa44759cb33c6ecf21926210c4a3ad34849becd9a67c34526f8c4cb7e80"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema/properties/recent_experiments/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "01128c7c0657cd54c6cfde11c662ccc0d375727e9700580b122131258845c788"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "679de0a36053ed55b421942f0c65c02a48d21b61f699ce06d56f5066338ba066"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/project-usage/get/responses/200/content/application/json/schema/properties/summary_cards/properties/total_cost_usd_in_range",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "650e65c2833de0616217c215e794027e8625f218348de9e290335ecd745cb802"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/project-usage/get/responses/200/content/application/json/schema/properties/top_experiments/items/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "0e46caf57c389419f8148b11349178786137a9a1e60f6247e44252a6df1ddf05"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/project-usage/get/responses/200/content/application/json/schema/properties/usage_trend/items/properties/cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "627e077d663fbe41a17884899414ff08523c7529866864aade9b446479f6f2b0"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/summary/get/responses/200/content/application/json/schema/properties/usage_summary/properties/avg_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "6422b90f4e54290173389f43989feb9f5c40b7d5cdf8f6b80ea1e4c5555ccf82"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/summary/get/responses/200/content/application/json/schema/properties/usage_summary/properties/total_cost_usd",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "number"
+          ],
+          "new": [
+            "null",
+            "number"
+          ],
+          "fingerprint": "706521307cfa8de503ce05a77a9d1cbcd91487c1bc612de38c2e03dbb49fc0e2"
+        }
+      ],
+      "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A, as recorded on the TraigentSchema#554 entries for the standalone project-scoped dashboard schemas): these planned-projects endpoint catalog dashboard cost fields become number|null (minimum 0 on the number branch) so an unknown cost is reported as null instead of a false 0. Response-side widening; a priced aggregate still returns a number. The earlier hold-back was that the Python SDK crashed on null dashboard costs; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#554"
     }
   ]
 }

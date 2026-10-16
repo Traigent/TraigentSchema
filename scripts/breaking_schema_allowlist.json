@@ -7184,7 +7184,7 @@
           "fingerprint": "7480ac132620feabe0f5a4769ca7c94a92a484a10ae68226a6a995dfa77711dc"
         }
       ],
-      "reason": "intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused.",
+      "reason": "intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused. Correction: that is not the whole story. Python's regex '$' also matches just before a final newline, so the pattern previously admitted a 72-character digest ending in a newline ('sha256:' + 64 hex + a trailing newline). The 71-character bound additionally rejects those trailing-newline digests. This is an intentional tightening; no digest without a trailing newline is affected.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
     }

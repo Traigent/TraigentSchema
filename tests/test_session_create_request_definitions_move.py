@@ -63,8 +63,9 @@ def _bodies() -> dict[str, dict[str, Any]]:
 def _over_length_bodies() -> dict[str, dict[str, Any]]:
     """Accepted before the bounds (#138) and refused now: the only intended difference.
 
-    The digest bound (71 = len("sha256:") + 64) restates what the pattern already enforces, so a
-    longer digest was refused before and is refused now: no behavioural difference.
+    The digest bound (71 = len("sha256:") + 64) is not a pure restatement of the pattern: Python's
+    regex "$" also matches before a final newline, so the old pattern admitted a 72-character
+    digest ending in "\\n". That case is covered by its own regression test below.
     """
     b = lambda **kw: {**copy.deepcopy(BASE), **kw}  # noqa: E731
     long_name = "m" * 256
@@ -151,3 +152,28 @@ def test_the_length_bounds_are_the_only_tightening() -> None:
         assert _validate(sv, old_schema, copy.deepcopy(body)) == [], name  # old accepted it
         refused = _validate(sv, new_schema, copy.deepcopy(body))
         assert refused, name
+
+
+def test_digest_with_trailing_newline_is_refused_by_the_bound_only() -> None:
+    """The 71-char digest bound is an intentional tightening over the frozen pre-move schema.
+
+    ``pattern`` is ``^sha256:[0-9a-f]{64}$`` and Python's ``$`` also matches before a final
+    newline, so the old schema admitted ``"sha256:" + 64 hex + "\\n"`` (72 chars). The new
+    maxLength refuses it. A digest without the newline stays valid under both.
+    """
+    sv = SchemaValidator()
+    new_schema = _current_schema()
+    old_schema = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    digest = "sha256:" + "0" * 64
+    with_newline = {
+        **copy.deepcopy(BASE),
+        "artifact_versions": {
+            "agent": {"schema": "afp2", "state": "verified", "digest": digest + "\n"}
+        },
+    }
+    without_newline = copy.deepcopy(with_newline)
+    without_newline["artifact_versions"]["agent"]["digest"] = digest
+    assert _validate(sv, old_schema, copy.deepcopy(with_newline)) == []
+    assert _validate(sv, new_schema, copy.deepcopy(with_newline)) != []
+    assert _validate(sv, old_schema, copy.deepcopy(without_newline)) == []
+    assert _validate(sv, new_schema, copy.deepcopy(without_newline)) == []

@@ -119,7 +119,9 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
     "probably fine".
     """
     changes_entry = needs.get(CHANGES_JOB)
-    changes_result = changes_entry.get("result") if isinstance(changes_entry, dict) else None
+    if not isinstance(changes_entry, dict):
+        changes_entry = {}
+    changes_result = changes_entry.get("result")
     if changes_result != "success":
         return False, (
             f"{BREAKING_SCHEMA_JOB}=skipped, but '{CHANGES_JOB}' did not "
@@ -127,7 +129,7 @@ def verify_breaking_schema_check_skip(needs: dict) -> tuple[bool, str]:
             "trusted to justify this skip"
         )
 
-    outputs = changes_entry.get("outputs") if isinstance(changes_entry, dict) else None
+    outputs = changes_entry.get("outputs")
     outputs = outputs if isinstance(outputs, dict) else {}
 
     event_applicable = outputs.get(EVENT_APPLICABLE_OUTPUT)

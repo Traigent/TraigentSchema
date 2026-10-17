@@ -443,10 +443,14 @@ def test_every_predicate_statement_names_the_layer_condition():
     assert "iff the layer is enabled and it carries `X-Traigent-Agent-Ref`" in docs
 
 
-def test_accepted_gap_covers_a_failed_session_lookup_failing_closed():
+def test_accepted_gap_refuses_a_typed_session_that_cannot_be_read_never_legacy():
     text = _post_description()
     stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
-    assert "session lookup itself fails" in stage and "500 internal_error" in stage
+    assert "typed (content-less registry) id" in stage
+    for fragment in ("403 head_write_unauthorized", "404 reference_not_found", "500 internal_error"):
+        assert fragment in stage
     assert "never falls back to the legacy path" in stage
+    assert "reports as not a typed session is legacy" in stage
     docs = _docs()
-    assert "a failed session lookup fails closed with 500 `internal_error`, never the legacy path" in docs
+    assert "the publish is never legacy and writes nothing" in docs
+    assert "only an id the control plane reports as not a typed session is legacy" in docs

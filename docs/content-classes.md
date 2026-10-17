@@ -184,7 +184,7 @@ envelopes of the publish's authentication layers and are selected by a header pr
 session is resolved: the request is protected for that stage iff the layer is enabled and it carries `X-Traigent-Agent-Ref` (layer disabled: every response is legacy). Everything after
 authentication follows the session-based decision table of the publish operation. A content_less_v1-session publish
 without the header therefore gets the generic 401/403 on an authentication or permission failure (accepted: it is
-refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture; a failed session lookup fails closed with 500 `internal_error`, never the legacy path: only a confirmed absence of a content-less session is legacy). On the read route a
+refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture; when the provenance session id is a typed (content-less registry) id whose binding cannot be positively read, the publish is never legacy and writes nothing: a caller not allowed to use the session gets 403 `head_write_unauthorized`, a deleted, unregistered or out-of-scope one 404 `reference_not_found`, an ambiguous, unreadable or damaged one 500 `internal_error`; a malformed capture is reported first, and only an id the control plane reports as not a typed session is legacy). On the read route a
 malformed path ref or `environment` is 400, an unknown or foreign ref 404.
 
 ## Scope and commands

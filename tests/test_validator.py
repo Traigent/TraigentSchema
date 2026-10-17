@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-import traigent_schema.validator as validator_module
+from traigent_schema import validator as validator_module
 from traigent_schema.validator import SchemaValidator
 
 

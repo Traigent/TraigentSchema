@@ -1340,8 +1340,7 @@ def test_trust_status_list_cap_guard_rejects_10000_entries_without_touching_any(
         def __eq__(self, other: object) -> bool:
             raise AssertionError("sentinel entry was touched")
 
-        def __hash__(self) -> int:
-            raise AssertionError("sentinel entry was touched")
+        __hash__ = None
 
         def __getattr__(self, name: str) -> Any:
             raise AssertionError("sentinel entry was touched")
@@ -2481,8 +2480,10 @@ def test_importing_the_verifier_fails_when_shipped_registry_data_is_malformed() 
             [
                 sys.executable,
                 "-c",
-                "import traigent_schema.certification.process_record_verifier as m\n"
-                "print(m.__file__)\n",
+                (
+                    "import traigent_schema.certification.process_record_verifier as m\n"
+                    "print(m.__file__)\n"
+                ),
             ],
             env=env,
             cwd=root,

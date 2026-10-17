@@ -397,15 +397,17 @@ def test_nc_swapped_precedence_changes_vector_result():
 
 
 def test_nc_explicit_allowed_values_drift_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["observation_type_mapping"]["explicit_attribute"]["allowed_values"].append(
             "llm"
         )
     )
+    assert rejected
 
 
 def test_nc_explicit_not_first_rejected():
-    assert _mut(lambda c: c["observation_type_mapping"]["evaluation_order"].reverse())
+    rejected = _mut(lambda c: c["observation_type_mapping"]["evaluation_order"].reverse())
+    assert rejected
 
 
 def test_nc_explicit_not_allowlisted_rejected():
@@ -424,11 +426,12 @@ def test_nc_explicit_losing_to_genai_changes_vector_result():
 
 
 def test_nc_usage_key_missing_from_egress_set_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["metadata_allowlist"]["attributes"].pop(
             "llm.token_count.prompt_details.cache_read"
         )
     )
+    assert rejected
 
 
 def test_nc_usage_key_wrong_type_rejected():

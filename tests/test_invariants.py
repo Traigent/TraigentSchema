@@ -16,14 +16,18 @@ from typing import Any
 
 import pytest
 
-import traigent_schema as public_schema
-import traigent_schema.invariants as invariants_module
 from traigent_schema import (
     InvariantComparisonBoundError,
     InvariantDeclarationError,
     InvariantNoncanonicalPayloadError,
     InvariantViolation,
     validate_declared_invariants,
+)
+from traigent_schema import (
+    __all__ as public_exports,
+)
+from traigent_schema import (
+    invariants as invariants_module,
 )
 from traigent_schema.invariants import (
     _ARRAY_INDEX_SEGMENT,
@@ -43,7 +47,7 @@ def test_public_invariant_exceptions_are_the_submodule_classes() -> None:
         "InvariantDeclarationError",
         "InvariantNoncanonicalPayloadError",
     }
-    assert expected_exports <= set(public_schema.__all__)
+    assert expected_exports <= set(public_exports)
     assert expected_exports <= set(invariants_module.__all__)
     assert InvariantComparisonBoundError is invariants_module.InvariantComparisonBoundError
     assert InvariantDeclarationError is invariants_module.InvariantDeclarationError
@@ -165,8 +169,6 @@ def _patch_declarations(
     malformed against a payload-shaped dict. This dispatches by name
     instead, matching what the real module does at runtime.
     """
-    import traigent_schema.invariants as invariants_module
-
     def fake_load_schema(name: str) -> dict[str, Any]:
         if name == _META_SCHEMA_NAME:
             return _real_load_schema(name)
@@ -272,8 +274,6 @@ def test_malformed_declaration_error_is_content_free(monkeypatch: pytest.MonkeyP
 
 def test_malformed_meta_schema_itself_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     """If x_extensions_meta_schema.json itself is unusable, fail closed, not open."""
-    import traigent_schema.invariants as invariants_module
-
     def fake_load_schema(name: str) -> dict[str, Any]:
         if name == _META_SCHEMA_NAME:
             return {"not": "the expected shape"}

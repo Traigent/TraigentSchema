@@ -112,7 +112,6 @@ _STREAM_FAMILIES = {
     "receipt_event_stream": "receipt_event",
     "transition_stream": "transition",
 }
-_SEALED_STATES = frozenset({"sealed", "empty_sealed"})
 _COVERAGE = (
     "subject",
     "seal",
@@ -568,7 +567,7 @@ def _g1_template_text() -> str:
             catalog["definitions"]["TemplateG1V2"]["properties"]["template_text"]["const"],
         )
     except Exception:
-        _fail("CLAIM_RENDERING")
+        return _fail("CLAIM_RENDERING")
 
 
 def _render_g1_text(params: dict[str, Any]) -> str:
@@ -579,7 +578,7 @@ def _render_g1_text(params: dict[str, Any]) -> str:
             client_attestor_version=params["client_attestor_version"],
         )
     except (KeyError, ValueError):
-        _fail("CLAIM_RENDERING")
+        return _fail("CLAIM_RENDERING")
 
 
 @lru_cache(maxsize=1)
@@ -1000,7 +999,7 @@ def _manifest_bytes(manifest: dict[str, Any]) -> bytes:
     try:
         return cast(str, fp2.canonicalize(manifest)).encode("utf-8")
     except Exception:
-        _fail("MANIFEST_NOT_FP2")
+        return _fail("MANIFEST_NOT_FP2")
 
 
 @lru_cache(maxsize=1)
@@ -1064,7 +1063,7 @@ def _public_key_der(public_key: object) -> bytes:
             ),
         )
     except Exception:
-        _fail("MATERIALS_BINDING")
+        return _fail("MATERIALS_BINDING")
 
 
 def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
@@ -1082,7 +1081,7 @@ def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
         )
         return RelyingPartyPolicy(registers, bindings)
     except (KeyError, TypeError, ValueError):
-        _fail("MATERIALS_POLICY")
+        return _fail("MATERIALS_POLICY")
 
 
 def _check_materials_digest(document: dict[str, Any], expected_materials_digest: str) -> None:

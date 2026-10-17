@@ -674,8 +674,10 @@ def test_placeholder_reasons_are_rejected(placeholder: str) -> None:
     "real_reason",
     [
         "Product decided all widgets must declare a color for the new catalog UI (#330).",
-        "Bound-hardening sweep: caps a previously-unconstrained string per the input-bounds "
-        "policy; no legitimate client sends values anywhere near this length.",
+        (
+            "Bound-hardening sweep: caps a previously-unconstrained string per the input-bounds "
+            "policy; no legitimate client sends values anywhere near this length."
+        ),
         "narrowed per the security review; see PR #333 for the audit trail",
     ],
 )

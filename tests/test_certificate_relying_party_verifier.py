@@ -14,9 +14,10 @@ import json
 import struct
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import FrozenInstanceError, fields, replace
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
@@ -58,6 +59,110 @@ _ISSUER_DOMAIN = b"traigent.agent_certificate.issuer_signature.v0"
 _MATERIALS_DOMAIN = b"traigent.agent_certificate.verification_materials.v0"
 _ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
 _CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
+
+# Test-side ownership classification.  Tests compare these with the packaged
+# schemas and the production binding tables so a newly added
+# unsigned-manifest, subject, or G1 parameter cannot silently escape client
+# pinning or explicit issuer/compiler classification.
+# Structural ownership partitions.  Tests compare these sets with the packaged
+# schemas so a newly added unsigned-manifest, subject, or G1 parameter cannot
+# silently escape client pinning or explicit issuer/compiler classification.
+_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP: Mapping[str, Mapping[str, frozenset[str]]] = (
+    MappingProxyType(
+        {
+            "subject": MappingProxyType(
+                {
+                    "client_pinned": frozenset(
+                        {"project_ref", "build_session_ref", "session_commitment_digest"}
+                    ),
+                    "schema_owned_constant": frozenset({"subject_kind", "hash_algorithm"}),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "disclosure_profile": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"profile_id"}),
+                    "schema_owned_constant": frozenset({"selective_disclosure_line"}),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "privacy_mode": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"declared_mode"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "sdk_identity": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"sdk_ref", "sdk_version"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "compiler_register_versions": MappingProxyType(
+                {
+                    "client_pinned": frozenset(verifier_impl._COMPILER_REGISTER_KEYS),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "key_ring_identifiers": MappingProxyType(
+                {
+                    "client_pinned": frozenset(
+                        {
+                            "issuer_key_ref",
+                            "trust_ring_ref",
+                            "issuer_signature_algorithm",
+                            "client_key_ref",
+                            "client_signature_algorithm",
+                        }
+                    ),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "freshness": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"nonce"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+        }
+    )
+)
+_UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS = frozenset(_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP)
+_UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS = frozenset(
+    {"seal", "claims", "tiers", "evidence_digests", "non_claims"}
+)
+_UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS = frozenset(
+    f"{section}.{field}"
+    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
+    for field in ownership["client_pinned"]
+)
+_UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS = frozenset(
+    f"{section}.{field}"
+    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
+    for field in ownership["schema_owned_constant"]
+)
+_SUBJECT_CLIENT_PINNED_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"]["client_pinned"]
+_SUBJECT_SCHEMA_CONSTANT_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
+    "schema_owned_constant"
+]
+_G1_CLIENT_PINNED_PARAM_FIELDS = frozenset(
+    {
+        "manifest_root_digest",
+        "commitment_scheme",
+        "client_attestor_version",
+        "build_session_ref",
+        "client_key_ref",
+    }
+)
+_G1_CLIENT_PINNED_VERIFIER_FIELDS = frozenset({"verifier_id", "verifier_version"})
+_G1_SCHEMA_CONSTANT_VERIFIER_FIELDS = frozenset({"result"})
+# The packaged PrepareResponseV0 graph's maximum JSON-value depth.
+_EXPECTED_SCHEMA_PREPARE_VALUE_DEPTH = 9
 _SESSION = "bsn:" + "a" * 43
 _NONCE = "ab" * 16
 _ECDSA_ORDER = int("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", 16)
@@ -192,22 +297,26 @@ def test_client_key_ref_is_deterministic_and_project_scoped(algorithm: str) -> N
 
     with pytest.raises(VerificationError, match="^CLIENT_KEY_REF$"):
         verifier_impl.derive_client_key_ref(
-            "project_contract001", [], public_key  # type: ignore[arg-type]
+            "project_contract001",
+            [],
+            public_key,  # type: ignore[arg-type]
         )
 
 
-@pytest.mark.parametrize("kat", json.loads(
-    (Path(__file__).parent / "data" / "certification_key_ref_kats.json").read_text()
-))
+@pytest.mark.parametrize(
+    "kat",
+    json.loads((Path(__file__).parent / "data" / "certification_key_ref_kats.json").read_text()),
+)
 def test_client_key_ref_matches_checked_in_kat(kat: dict) -> None:
     if kat["algorithm"] == "ed25519":
         key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes(range(32))).public_key()
     else:
         key = ec.derive_private_key(1, ec.SECP256R1()).public_key()
     assert base64.b64encode(_public_key_der(key)).decode() == kat["public_key_der_b64"]
-    assert verifier_impl.derive_client_key_ref(kat["project_ref"], kat["algorithm"], key) == kat[
-        "expected_client_key_ref"
-    ]
+    assert (
+        verifier_impl.derive_client_key_ref(kat["project_ref"], kat["algorithm"], key)
+        == kat["expected_client_key_ref"]
+    )
 
 
 def _digest(domain: bytes, value: object) -> str:
@@ -266,9 +375,7 @@ def _sign_fixture(
         for claim in claim_group:
             if claim["claim_id"] == "B1":
                 claim["payload"]["params"]["seal_ref"] = seal["seal_ref"]
-                claim["payload"]["params"]["seal_statement_digest"] = seal[
-                    "seal_statement_digest"
-                ]
+                claim["payload"]["params"]["seal_statement_digest"] = seal["seal_statement_digest"]
                 claim["rendered_text"] = (
                     "The issuer signed this seal statement: seal "
                     + seal["seal_ref"]
@@ -336,10 +443,7 @@ def _sign_fixture(
     for claim_group in (cert["claims"], unsigned["claims"]):
         for claim in claim_group:
             for ref in claim["evidence_refs"]:
-                if (
-                    claim["claim_id"] == "B1"
-                    and ref["evidence_kind"] == "seal_statement"
-                ):
+                if claim["claim_id"] == "B1" and ref["evidence_kind"] == "seal_statement":
                     ref["evidence_digest"] = seal["seal_statement_digest"]
                 if ref["evidence_kind"] == "audit_report_digest":
                     ref["evidence_digest"] = audit_digest
@@ -414,9 +518,7 @@ def _client_preparation_context(
         expected_issuer_key_ref=issuer["issuer_key_ref"],
         expected_trust_ring_ref=issuer["trust_ring_ref"],
         expected_issuer_algorithm=issuer["algorithm"],
-        expected_compiler_register_versions=tuple(
-            unsigned["compiler_register_versions"].items()
-        ),
+        expected_compiler_register_versions=tuple(unsigned["compiler_register_versions"].items()),
         expected_g1_verifier_id=g1["verifier"]["verifier_id"],
         expected_g1_verifier_version=g1["verifier"]["verifier_version"],
         manifest_root_digest=params["manifest_root_digest"],
@@ -424,9 +526,9 @@ def _client_preparation_context(
         client_attestor_version=params["client_attestor_version"],
         expected_client_algorithm=verification_context.expected_client_algorithm,
         client_public_key=verification_context.client_public_key,
-        issuer_public_key=_private_keys(
-            verification_context.expected_issuer_algorithm
-        )[0].public_key(),
+        issuer_public_key=_private_keys(verification_context.expected_issuer_algorithm)[
+            0
+        ].public_key(),
     )
 
 
@@ -558,9 +660,7 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     assert result.status_evidence == "not_checked"
 
 
-@pytest.mark.parametrize(
-    "verifier", [verify_certificate, verify, verify_agent_certificate]
-)
+@pytest.mark.parametrize("verifier", [verify_certificate, verify, verify_agent_certificate])
 def test_public_verifier_aliases_return_signature_only_result(
     verifier: Callable[..., VerificationResult],
 ) -> None:
@@ -656,9 +756,9 @@ def test_prepare_authenticates_issuer_signature_before_returning_signing_bytes(
     assert prepared.signing_bytes
 
     tampered = copy.deepcopy(cert)
-    tampered["signatures"]["issuer_signature"]["signature"] = base64.b64encode(
-        b"\x00" * 64
-    ).decode("ascii")
+    tampered["signatures"]["issuer_signature"]["signature"] = base64.b64encode(b"\x00" * 64).decode(
+        "ascii"
+    )
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
         prepare_client_co_attestation(tampered, context=context)
 
@@ -792,9 +892,7 @@ def test_prepare_and_final_schemas_enforce_authoritative_seal_statement_statuses
     )
     assert {
         stream: entry["chain_status"]
-        for stream, entry in cert["ledger_seal_projection"][
-            "expected_stream_projection"
-        ].items()
+        for stream, entry in cert["ledger_seal_projection"]["expected_stream_projection"].items()
     } == {
         "decision_stream": "empty_sealed",
         "receipt_event_stream": "sealed",
@@ -874,9 +972,11 @@ def test_prepare_commitment_scheme_is_a_singleton_client_and_schema_vocabulary()
     )
     common = json.loads(schema_path.read_text(encoding="utf-8"))
 
-    assert tuple(common["definitions"]["CommitmentSchemeV0"]["enum"]) == tuple(
-        verifier_impl._COMMITMENT_SCHEMES
-    ) == ("sha256_secret_blinded_v1",)
+    assert (
+        tuple(common["definitions"]["CommitmentSchemeV0"]["enum"])
+        == tuple(verifier_impl._COMMITMENT_SCHEMES)
+        == ("sha256_secret_blinded_v1",)
+    )
     with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
         replace(context, commitment_scheme="different_scheme")
 
@@ -906,13 +1006,10 @@ def test_prepare_context_field_manifest_is_complete_and_content_free() -> None:
     context = _client_preparation_context(cert, verification_context)
     field_names = tuple(field.name for field in fields(ClientCoAttestationContext))
 
-    assert field_names == CLIENT_CO_ATTESTATION_CONTEXT_FIELDS + (
-        "issuer_public_key",
-    )
+    assert field_names == CLIENT_CO_ATTESTATION_CONTEXT_FIELDS + ("issuer_public_key",)
     assert CLIENT_CO_ATTESTATION_CONTEXT_FIELDS == tuple(
         field_name for field_name, _ in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
     )
-    assert verifier_impl._CLIENT_CO_ATTESTATION_TRUST_FIELDS == ("issuer_public_key",)
     assert len({path for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS}) == len(
         CLIENT_CO_ATTESTATION_CONTEXT_FIELDS
     )
@@ -1098,25 +1195,19 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
 
     unsigned_properties = set(unsigned["definitions"]["UnsignedManifestV0"]["properties"])
     assert unsigned_properties == (
-        verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS
-        | verifier_impl._UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
+        _UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS | _UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
     )
     assert not (
-        verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS
-        & verifier_impl._UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
+        _UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS & _UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS
     )
 
     subject_properties = set(common["definitions"]["BuildSessionSubjectV0"]["properties"])
-    assert subject_properties == (
-        verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS | verifier_impl._SUBJECT_SCHEMA_CONSTANT_FIELDS
-    )
-    assert not (
-        verifier_impl._SUBJECT_CLIENT_PINNED_FIELDS & verifier_impl._SUBJECT_SCHEMA_CONSTANT_FIELDS
-    )
+    assert subject_properties == (_SUBJECT_CLIENT_PINNED_FIELDS | _SUBJECT_SCHEMA_CONSTANT_FIELDS)
+    assert not (_SUBJECT_CLIENT_PINNED_FIELDS & _SUBJECT_SCHEMA_CONSTANT_FIELDS)
 
     g1_params = payloads["definitions"]["ClaimPayloadG1V0"]["properties"]["params"]
-    assert set(g1_params["properties"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
-    assert set(g1_params["required"]) == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
+    assert set(g1_params["properties"]) == _G1_CLIENT_PINNED_PARAM_FIELDS
+    assert set(g1_params["required"]) == _G1_CLIENT_PINNED_PARAM_FIELDS
 
     nested_definitions = {
         "subject": (common_path, common["definitions"]["BuildSessionSubjectV0"]),
@@ -1148,7 +1239,7 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
                 node = node[token.replace("~1", "/").replace("~0", "~")]
         return node
 
-    ownership = verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
+    ownership = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
     assert set(ownership) == set(nested_definitions)
     for section, (definition_path, definition) in nested_definitions.items():
         categories = ownership[section]
@@ -1172,14 +1263,6 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
     assert tuple(compiler["properties"]) == verifier_impl._COMPILER_REGISTER_KEYS
     assert tuple(compiler["required"]) == verifier_impl._COMPILER_REGISTER_KEYS
 
-    pinned_nested = {
-        section: fields["client_pinned"] for section, fields in ownership.items()
-    }
-    assert {
-        f"{section}.{field}"
-        for section, field_names in pinned_nested.items()
-        for field in field_names
-    } == verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS
     binding_paths = {
         path.removeprefix("unsigned.")
         for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
@@ -1189,7 +1272,7 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
     binding_paths.update(
         f"compiler_register_versions.{key}" for key in verifier_impl._COMPILER_REGISTER_KEYS
     )
-    assert binding_paths == verifier_impl._UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS
+    assert binding_paths == _UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS
     directly_bound_g1_params = {
         path.removeprefix("g1.payload.params.")
         for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
@@ -1197,27 +1280,23 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
     }
     assert (
         directly_bound_g1_params | set(verifier_impl._G1_CROSS_BOUND_PARAM_PATHS)
-        == verifier_impl._G1_CLIENT_PINNED_PARAM_FIELDS
+        == _G1_CLIENT_PINNED_PARAM_FIELDS
     )
     verifier_properties = claims["definitions"]["VerifierRefV0"]["properties"]
     assert set(verifier_properties) == (
-        verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
-        | verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS
+        _G1_CLIENT_PINNED_VERIFIER_FIELDS | _G1_SCHEMA_CONSTANT_VERIFIER_FIELDS
     )
-    assert not (
-        verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
-        & verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS
-    )
+    assert not (_G1_CLIENT_PINNED_VERIFIER_FIELDS & _G1_SCHEMA_CONSTANT_VERIFIER_FIELDS)
     directly_bound_g1_verifier = {
         path.removeprefix("g1.verifier.")
         for _, path in verifier_impl._CLIENT_CO_ATTESTATION_PIN_BINDINGS
         if path.startswith("g1.verifier.")
     }
-    assert directly_bound_g1_verifier == verifier_impl._G1_CLIENT_PINNED_VERIFIER_FIELDS
-    for field in verifier_impl._G1_SCHEMA_CONSTANT_VERIFIER_FIELDS:
+    assert directly_bound_g1_verifier == _G1_CLIENT_PINNED_VERIFIER_FIELDS
+    for field in _G1_SCHEMA_CONSTANT_VERIFIER_FIELDS:
         node = verifier_properties[field]
         assert "const" in node or len(node.get("enum", ())) == 1
-    assert verifier_impl._UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS == {
+    assert _UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS == {
         "subject.subject_kind",
         "subject.hash_algorithm",
         "disclosure_profile.selective_disclosure_line",
@@ -1484,9 +1563,7 @@ def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
 
 
 def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext, dict, dict]:
-    cert, _, verification_context, _ = _sign_fixture(
-        claims=[_b1_claim(tier=3), _g1_claim(tier=1)]
-    )
+    cert, _, verification_context, _ = _sign_fixture(claims=[_b1_claim(tier=3), _g1_claim(tier=1)])
     cert["signatures"].pop("co_attestation")
     unsigned = cert["signatures"]["unsigned_manifest"]["document"]
     max_opaque_ref = "a" * 64 + ":" + "A" * 128
@@ -1547,9 +1624,9 @@ def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext,
             )
         if claim["claim_id"] == "B1":
             claim["payload"]["params"]["seal_ref"] = max_opaque_ref
-            claim["payload"]["params"]["seal_statement_digest"] = cert[
-                "ledger_seal_projection"
-            ]["seal_statement_digest"]
+            claim["payload"]["params"]["seal_statement_digest"] = cert["ledger_seal_projection"][
+                "seal_statement_digest"
+            ]
             claim["rendered_text"] = (
                 "The issuer signed this seal statement: seal "
                 + max_opaque_ref
@@ -1572,9 +1649,7 @@ def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext,
         claims.append(claim)
     cert["claims"] = claims
     unsigned["claims"] = copy.deepcopy(claims)
-    unsigned["tiers"] = [
-        {"claim_id": claim["claim_id"], "tier": claim["tier"]} for claim in claims
-    ]
+    unsigned["tiers"] = [{"claim_id": claim["claim_id"], "tier": claim["tier"]} for claim in claims]
     unsigned["evidence_digests"] = []
     for row in cert["audit_report"]["claim_support_rows"]:
         if row["claim_id"] in {"B1", "G1"}:
@@ -1596,8 +1671,11 @@ def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext,
         client_public_key=client_public_key,
     )
     preparation_context = _client_preparation_context(cert, verification_context)
-    return cert, preparation_context, claims[0]["evidence_refs"][0], max(
-        claims, key=lambda value: len(_compact_json(value))
+    return (
+        cert,
+        preparation_context,
+        claims[0]["evidence_refs"][0],
+        max(claims, key=lambda value: len(_compact_json(value))),
     )
 
 
@@ -1619,9 +1697,7 @@ def _schema_value_depth(schema_path: Path, node: dict, stack: tuple[str, ...] = 
         reference_path, _, fragment = reference.partition("#")
         schemas_root = Path(verifier_impl.__file__).resolve().parent.parent / "schemas"
         if reference_path.startswith("https://schemas.traigent.ai/"):
-            schema_path = schemas_root / reference_path.removeprefix(
-                "https://schemas.traigent.ai/"
-            )
+            schema_path = schemas_root / reference_path.removeprefix("https://schemas.traigent.ai/")
         elif reference_path:
             schema_path = (schema_path.parent / reference_path).resolve()
         marker = f"{schema_path}#{fragment}"
@@ -1634,8 +1710,7 @@ def _schema_value_depth(schema_path: Path, node: dict, stack: tuple[str, ...] = 
     depths = [1]
     for keyword in ("allOf", "anyOf", "oneOf"):
         depths.extend(
-            _schema_value_depth(schema_path, branch, stack)
-            for branch in node.get(keyword, ())
+            _schema_value_depth(schema_path, branch, stack) for branch in node.get(keyword, ())
         )
     for keyword in ("if", "then", "else", "not"):
         branch = node.get(keyword)
@@ -1669,10 +1744,7 @@ def test_b1_g1_bounded_prepare_projection_is_below_structural_size_bound() -> No
         (schema_dir / "certificate_claims_v0_schema.json").read_text(encoding="utf-8")
     )
 
-    assert (
-        claims_schema["definitions"]["ClaimV0"]["properties"]["evidence_refs"]["maxItems"]
-        == 64
-    )
+    assert claims_schema["definitions"]["ClaimV0"]["properties"]["evidence_refs"]["maxItems"] == 64
     assert [claim["claim_id"] for claim in cert["claims"]] == ["B1", "G1"]
     assert all(len(claim["evidence_refs"]) == 2 for claim in cert["claims"])
     assert len(cert["signatures"]["unsigned_manifest"]["document"]["evidence_digests"]) == 3
@@ -1703,7 +1775,7 @@ def test_prepare_depth_cap_has_headroom_over_complete_schema_graph() -> None:
     endpoints = json.loads(schema_path.read_text(encoding="utf-8"))
     prepare_schema = endpoints["components"]["schemas"]["PrepareResponseV0"]
     schema_depth = _schema_value_depth(schema_path, prepare_schema)
-    assert schema_depth == verifier_impl._MAX_SCHEMA_PREPARE_VALUE_DEPTH == 9
+    assert schema_depth == _EXPECTED_SCHEMA_PREPARE_VALUE_DEPTH
     assert verifier_impl._MAX_CLIENT_CERTIFICATE_VALUE_DEPTH >= 4 * schema_depth
 
     normal, _, _, _ = _sign_fixture()
@@ -1727,9 +1799,7 @@ def test_prepare_rejects_just_over_depth_cap_before_schema_validation(
     def validator_must_not_run() -> None:
         raise AssertionError("schema validator reached for over-depth input")
 
-    monkeypatch.setattr(
-        verifier_impl, "_certificate_preparation_validator", validator_must_not_run
-    )
+    monkeypatch.setattr(verifier_impl, "_certificate_preparation_validator", validator_must_not_run)
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
         prepare_client_co_attestation(hostile, context=object())
 

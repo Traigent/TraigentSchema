@@ -103,10 +103,17 @@ def normalise_usage(contract: dict, vector: dict) -> dict:
     elif semantics not in marker["values"]:
         semantics = "inclusive"
         unreported = ["cache_read_tokens", "cache_creation_tokens"]
-    for key, name in (("cache_read", "cache_read_tokens"), ("cache_write", "cache_creation_tokens")):
+    for key, name in (
+        ("cache_read", "cache_read_tokens"),
+        ("cache_write", "cache_creation_tokens"),
+    ):
         if vector.get(key) is None and name not in unreported:
             unreported.append(name)
-    cr, cw, rs = vector.get("cache_read") or 0, vector.get("cache_write") or 0, vector.get("reasoning") or 0
+    cr, cw, rs = (
+        vector.get("cache_read") or 0,
+        vector.get("cache_write") or 0,
+        vector.get("reasoning") or 0,
+    )
     inp, out = vector["input"], vector["output"]
     if semantics == "inclusive":
         fresh = inp - cr - cw
@@ -278,7 +285,8 @@ def test_unreported_vocabulary_is_the_common_types_enum():
 def test_nc_invalid_semantics_silently_valid_changes_vector_result():
     c = _load()
     vec = next(
-        v for v in c["usage_classes"]["normalisation_vectors"]
+        v
+        for v in c["usage_classes"]["normalisation_vectors"]
         if v["id"] == "invalid_semantics_is_unknown_inclusive"
     )
     silent = dict(vec, semantics="inclusive")
@@ -346,37 +354,43 @@ def _mut(fn):
 
 
 def test_nc_wildcard_allowlist_entry_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["metadata_allowlist"]["attributes"].update({"traigent.*": {"type": "string"}})
     )
+    assert rejected
 
 
 def test_nc_content_key_in_allowlist_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["metadata_allowlist"]["attributes"].update({"input.value": {"type": "string"}})
     )
+    assert rejected
 
 
 def test_nc_dropping_prefix_exception_flags_prompt_name():
-    assert _mut(lambda c: c["content_keys"].update({"prefix_exceptions": []}))
+    rejected = _mut(lambda c: c["content_keys"].update({"prefix_exceptions": []}))
+    assert rejected
 
 
 def test_nc_default_mode_record_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["content_mode"].update(
             {"default_when_missing_invalid_or_conflicting": "record"}
         )
     )
+    assert rejected
 
 
 def test_nc_declaration_grants_permission_rejected():
-    assert _mut(lambda c: c["content_mode"].update({"declaration_grants_permission": True}))
+    rejected = _mut(lambda c: c["content_mode"].update({"declaration_grants_permission": True}))
+    assert rejected
 
 
 def test_nc_unknown_observation_type_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["observation_type_mapping"]["gen_ai_operation_name"].update({"chat": "llm"})
     )
+    assert rejected
 
 
 def test_nc_missing_usage_class_rejected():
@@ -411,7 +425,10 @@ def test_nc_explicit_not_first_rejected():
 
 
 def test_nc_explicit_not_allowlisted_rejected():
-    assert _mut(lambda c: c["metadata_allowlist"]["attributes"].pop("traigent.observation_type"))
+    rejected = _mut(
+        lambda c: c["metadata_allowlist"]["attributes"].pop("traigent.observation_type")
+    )
+    assert rejected
 
 
 def test_nc_explicit_losing_to_genai_changes_vector_result():
@@ -435,15 +452,17 @@ def test_nc_usage_key_missing_from_egress_set_rejected():
 
 
 def test_nc_usage_key_wrong_type_rejected():
-    assert _mut(
+    rejected = _mut(
         lambda c: c["metadata_allowlist"]["attributes"]["gen_ai.usage.input_tokens"].update(
             {"type": "string"}
         )
     )
+    assert rejected
 
 
 def test_nc_wire_semantics_disjoint_rejected():
-    assert _mut(lambda c: c["usage_classes"].update({"wire_semantics": "disjoint"}))
+    rejected = _mut(lambda c: c["usage_classes"].update({"wire_semantics": "disjoint"}))
+    assert rejected
 
 
 def test_nc_invalid_declaration_not_failing_closed_changes_vector_result():

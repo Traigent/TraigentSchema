@@ -84,12 +84,15 @@ classified `legacy_content` ("implicit-open, reclassified by review") rather tha
 `python3 scripts/content_class_manifest.py --update` regenerates it and the test fails if it
 differs from the live annotations. `docs/content-class-dispositions.json` holds the
 `legacy_register` (every location that was `legacy_content` when the manifest was created) and the
-dispositions. `legacy_content` can be added nowhere. A location leaves it only with a disposition
+dispositions. `legacy_content` can be added nowhere: a NEW contract property is never allowed to be `legacy_content`, and the
+inventory exception below does not change that. A location leaves it only with a disposition
 entry `{location, from, to, reason, reference}` (reason in words, reference to the inventory row or
 design section); the test fails for a declassified location without one. Locations whose note
 reads `INV-GAP: was <class>` were claimed content-free by the first annotation pass, but their
 contract has no enum or ref pattern to prove it. Notes reading `reclassified by review` mark the
-2026-10-16 honesty pass. The second sanctioned addition is the 2026-10-17 phase 0c pass: the
+2026-10-16 honesty pass. The second sanctioned addition is the 2026-10-17 phase 0c pass. It discovers EXISTING wire locations that the lint
+did not yet walk and records them as `legacy_content`; it never authorizes a new `legacy_content` field, and a
+property added to any contract after that pass must carry a content-free class. In that pass the
 best-config endpoints and their publish / rollback request bodies
 (`execution/best_config_endpoints.json`, `best_config_publish_request_schema.json`,
 `best_config_rollback_request_schema.json`) became lint roots, so values that were always on the wire

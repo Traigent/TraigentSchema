@@ -409,3 +409,44 @@ def test_refusal_order_starts_with_auth_then_permission_then_capture():
              "400 head_body_invalid", "409 head_generation_stale", "409 head_publish_conflict"]
     pos = [flat.index(c) for c in codes]
     assert pos == sorted(pos), pos
+
+
+# --- the layer-disabled contract is stated once and every predicate statement is qualified (sol r6 P2) ---
+
+def _docs():
+    from pathlib import Path
+
+    return (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text(encoding="utf-8")
+
+
+def test_layer_disabled_means_every_response_is_legacy_and_is_stated_once():
+    text = _post_description()
+    assert text.count("LAYER CONDITION") == 1
+    assert "EVERY response on this route is the legacy one, whatever the headers" in text
+    assert "defaults OFF" in text
+    docs = _docs()
+    assert "With the layer disabled every response on this route is the legacy\none, whatever the headers" in docs
+
+
+def test_every_predicate_statement_names_the_layer_condition():
+    for status in ("401", "403"):
+        desc = _publish()["responses"][status]["description"]
+        assert "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in desc
+        assert "this header alone" not in desc
+        assert "every request while the layer is disabled" in desc
+    assert "this header alone" not in _load("best_config_publish_401_schema.json")["description"]
+    assert "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in _load(
+        "best_config_publish_401_schema.json"
+    )["description"]
+    docs = _docs()
+    assert "iff it carries `X-Traigent-Agent-Ref`" not in docs
+    assert "iff the layer is enabled and it carries `X-Traigent-Agent-Ref`" in docs
+
+
+def test_accepted_gap_covers_a_failed_session_lookup_failing_closed():
+    text = _post_description()
+    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
+    assert "session lookup itself fails" in stage and "500 internal_error" in stage
+    assert "never falls back to the legacy path" in stage
+    docs = _docs()
+    assert "a failed session lookup fails closed with 500 `internal_error`, never the legacy path" in docs

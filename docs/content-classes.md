@@ -150,7 +150,9 @@ members of its closed vocabulary.
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
 | Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), `head_body_invalid` (400), `head_publish_conflict` (409), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
 
-**Applicability (decision table in the `POST /api/v1/best-configs` description).** A publish is protected if and
+**Applicability (decision table in the `POST /api/v1/best-configs` description).** Everything on this route applies only while the content-less identity layer is enabled (a server
+deployment condition; the flag defaults OFF). With the layer disabled every response on this route is the legacy
+one, whatever the headers. With the layer enabled, a publish is protected if and
 only if it carries `X-Traigent-Agent-Ref` or belongs to a session negotiated with `content_less_v1`
 (`content_less_v2` once it exists). Agent-Ref without a valid generation, or together with
 `X-Traigent-Agent-Id`, is `head_capture_invalid`; the legacy `X-Traigent-Agent-Id` promotion outside a content-less
@@ -171,7 +173,7 @@ If-Match, function_ref conflict) are `head_publish_conflict`, other server failu
 (`optimization/best_config_publish_409_schema.json`) has two disjoint branches: the closed protected refusals and the
 unchanged legacy bodies (which must not carry a protected closed code). The 500 response
 (`optimization/best_config_publish_500_schema.json`) is built the same way: the closed `internal_error` refusal, or the
-unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a request that carries `X-Traigent-Agent-Ref`: the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
+unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a request that carries `X-Traigent-Agent-Ref` while the layer is enabled: the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
 
 **Refusal precedence.** Authentication (401 `unauthenticated`); then permissions and project role (403 `forbidden`);
 then malformed or incomplete capture (400 `head_capture_invalid`); then a well-formed but unknown or foreign ref (404
@@ -179,10 +181,10 @@ then malformed or incomplete capture (400 `head_capture_invalid`); then a well-f
 `head_agent_mismatch`, then 409 `head_environment_mismatch`); then the body (400 `head_body_invalid`), the head compare
 (409 `head_generation_stale`) and the ordinary conflict (409 `head_publish_conflict`). The first two are the closed
 envelopes of the publish's authentication layers and are selected by a header predicate alone, evaluated before any
-session is resolved: the request is protected for that stage iff it carries `X-Traigent-Agent-Ref`. Everything after
+session is resolved: the request is protected for that stage iff the layer is enabled and it carries `X-Traigent-Agent-Ref` (layer disabled: every response is legacy). Everything after
 authentication follows the session-based decision table of the publish operation. A content_less_v1-session publish
 without the header therefore gets the generic 401/403 on an authentication or permission failure (accepted: it is
-refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture). On the read route a
+refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture; a failed session lookup fails closed with 500 `internal_error`, never the legacy path: only a confirmed absence of a content-less session is legacy). On the read route a
 malformed path ref or `environment` is 400, an unknown or foreign ref 404.
 
 ## Scope and commands

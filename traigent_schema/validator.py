@@ -419,13 +419,6 @@ class SchemaValidator:
         schema_name = self._endpoint_schemas.get(key)
         inline_schema = self._inline_request_schemas.get(key)
 
-        if not schema_name and not inline_schema:
-            if key in self._known_endpoints:
-                # Known route (e.g. a GET with no request body) that
-                # structurally has nothing to validate -- not a policy gap.
-                return []
-            return self._handle_unmapped_endpoint(method, endpoint)
-
         if inline_schema:
             return self._validate_inline_schema(
                 data,
@@ -433,9 +426,14 @@ class SchemaValidator:
                 self._inline_request_schema_base_ids.get(key, _INLINE_SCHEMA_BASE_ID),
             )
 
-        if schema_name is None:
-            return [f"Schema not found for endpoint: {method.upper()} {endpoint}"]
-        return self.validate_json(data, schema_name)
+        if schema_name:
+            return self.validate_json(data, schema_name)
+
+        if key in self._known_endpoints:
+            # Known route (e.g. a GET with no request body) that
+            # structurally has nothing to validate -- not a policy gap.
+            return []
+        return self._handle_unmapped_endpoint(method, endpoint)
 
     def _handle_unmapped_endpoint(self, method: str, endpoint: str) -> list[str]:
         """Apply ``unknown_endpoint_policy`` when no schema is registered.

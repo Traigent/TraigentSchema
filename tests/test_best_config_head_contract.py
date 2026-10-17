@@ -354,3 +354,58 @@ def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, 
         _envelope_body(other),
     ):
         assert not validator.is_valid(bad), bad
+
+
+# --- the authentication stage, the decision table and the refusal order agree (sol r5 P2) ---
+
+def _post_description():
+    return _publish()["description"]
+
+
+def test_auth_envelope_predicate_is_the_agent_ref_header_alone():
+    text = _post_description()
+    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
+    assert "iff" not in stage and "if and only if the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in stage
+    assert "before any session is resolved" in stage
+    assert "Expected-Head-Generation and Agent-Id play no part" in stage
+    # the response descriptions and the vendored envelopes state the same predicate, no other
+    for status in ("401", "403"):
+        desc = _publish()["responses"][status]["description"]
+        assert "carries X-Traigent-Agent-Ref" in desc and "Expected-Head-Generation" not in desc
+        assert "Expected-Head-Generation" not in _load(f"best_config_publish_{status}_schema.json")["description"]
+
+
+def test_row_7_is_legacy_for_the_auth_stage_too():
+    text = _post_description()
+    assert "[7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged" in text
+    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
+    assert "decision-table row [7]" in stage and "legacy generic 401/403" in stage
+    assert "everything AFTER authentication" in stage
+
+
+def test_known_content_less_session_without_header_gap_is_documented():
+    text = _post_description()
+    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
+    assert "KNOWN, ACCEPTED GAP" in stage and "row [6]" in stage
+    assert "refused 400 head_capture_invalid" in stage
+    assert "[6] No Agent-Ref, content-less session" in text and "-> 400 head_capture_invalid" in text
+
+
+ORDER = ["401 unauthenticated", "403 forbidden", "400 head_capture_invalid", "404 reference_not_found",
+         "403 head_write_unauthorized", "409 head_agent_mismatch", "409 head_environment_mismatch",
+         "400 head_body_invalid", "409 head_generation_stale", "409 head_publish_conflict"]
+
+
+def test_refusal_order_starts_with_auth_then_permission_then_capture():
+    text = _post_description()
+    order = text[text.index("ORDER OF REFUSALS"):]
+    positions = [order.index(item) for item in ORDER]
+    assert positions == sorted(positions), positions
+    docs = (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text()
+    section = docs[docs.index("**Refusal precedence.**"):docs.index("## Scope and commands")]
+    flat = " ".join(section.split()).replace("`", "")
+    codes = ["401 unauthenticated", "403 forbidden", "400 head_capture_invalid", "404 reference_not_found",
+             "403 head_write_unauthorized", "409 head_agent_mismatch", "409 head_environment_mismatch",
+             "400 head_body_invalid", "409 head_generation_stale", "409 head_publish_conflict"]
+    pos = [flat.index(c) for c in codes]
+    assert pos == sorted(pos), pos

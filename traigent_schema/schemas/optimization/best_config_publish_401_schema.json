@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/best_config_publish_401_schema.json",
   "title": "BestConfigProtectedPublish401",
-  "description": "The 401 body of a PROTECTED POST /api/v1/best-configs (a request carrying X-Traigent-Agent-Ref, or X-Traigent-Expected-Head-Generation without X-Traigent-Agent-Id): the closed refusal envelope (best_config_head_refusal_schema.json) restricted to `unauthenticated` (fixed text), whatever the authentication layer would otherwise have said. A malformed protected body matches nothing. The execution endpoint combines this with the unchanged legacy 401 body in two DISJOINT branches (the legacy branch must not carry `unauthenticated`).",
+  "description": "The 401 body of a PROTECTED POST /api/v1/best-configs (a request carrying X-Traigent-Agent-Ref; that header alone selects the envelope, before any session is resolved): the closed refusal envelope (best_config_head_refusal_schema.json) restricted to `unauthenticated` (fixed text), whatever the authentication layer would otherwise have said. A malformed protected body matches nothing. The execution endpoint combines this with the unchanged legacy 401 body in two DISJOINT branches (the legacy branch must not carry `unauthenticated`).",
   "allOf": [
     {
       "$ref": "./best_config_head_refusal_schema.json"

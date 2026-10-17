@@ -171,13 +171,19 @@ If-Match, function_ref conflict) are `head_publish_conflict`, other server failu
 (`optimization/best_config_publish_409_schema.json`) has two disjoint branches: the closed protected refusals and the
 unchanged legacy bodies (which must not carry a protected closed code). The 500 response
 (`optimization/best_config_publish_500_schema.json`) is built the same way: the closed `internal_error` refusal, or the
-unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a protected request (`X-Traigent-Agent-Ref`, or `X-Traigent-Expected-Head-Generation` without `X-Traigent-Agent-Id`): the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
+unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a request that carries `X-Traigent-Agent-Ref`: the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
 
-**Refusal precedence.** Authentication and permissions; then malformed syntax (400 `head_capture_invalid`); then a
-well-formed but unknown or foreign ref (404 `reference_not_found`, nothing echoed); then agent WRITE
-(`head_write_unauthorized`); then session agreement (`head_agent_mismatch`, `head_environment_mismatch`); then the
-body (`head_body_invalid`), the head compare (`head_generation_stale`) and the ordinary conflict (`head_publish_conflict`). On the read route a malformed path ref or `environment` is 400, an unknown or
-foreign ref 404.
+**Refusal precedence.** Authentication (401 `unauthenticated`); then permissions and project role (403 `forbidden`);
+then malformed or incomplete capture (400 `head_capture_invalid`); then a well-formed but unknown or foreign ref (404
+`reference_not_found`, nothing echoed); then agent WRITE (403 `head_write_unauthorized`); then session agreement (409
+`head_agent_mismatch`, then 409 `head_environment_mismatch`); then the body (400 `head_body_invalid`), the head compare
+(409 `head_generation_stale`) and the ordinary conflict (409 `head_publish_conflict`). The first two are the closed
+envelopes of the publish's authentication layers and are selected by a header predicate alone, evaluated before any
+session is resolved: the request is protected for that stage iff it carries `X-Traigent-Agent-Ref`. Everything after
+authentication follows the session-based decision table of the publish operation. A content_less_v1-session publish
+without the header therefore gets the generic 401/403 on an authentication or permission failure (accepted: it is
+refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture). On the read route a
+malformed path ref or `environment` is 400, an unknown or foreign ref 404.
 
 ## Scope and commands
 

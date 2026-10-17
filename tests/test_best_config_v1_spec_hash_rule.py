@@ -54,10 +54,40 @@ def _nfc(value: Any) -> Any:
     return value
 
 
+_MAX_JSON_DEPTH = 16
+
+
+def _check_depth(value: Any, depth: int = 0) -> None:
+    if depth > _MAX_JSON_DEPTH:
+        raise ValueError("exceeds maximum JSON depth")
+    if isinstance(value, dict):
+        for item in value.values():
+            _check_depth(item, depth + 1)
+    elif isinstance(value, list):
+        for item in value:
+            _check_depth(item, depth + 1)
+
+
+def _refusal_cases() -> list[dict[str, Any]]:
+    return json.loads(_VECTORS.read_text(encoding="utf-8"))["refusal_cases"]
+
+
+def _materialize(case: dict[str, Any]) -> dict[str, Any]:
+    request = copy.deepcopy(case["request"])
+    substitution = case.get("non_finite_substitution")
+    if substitution:
+        target = request
+        for key in substitution["path"][:-1]:
+            target = target[key]
+        target[substitution["path"][-1]] = float(substitution["value"])
+    return request
+
+
 def reference_hashed_payload(spec: dict[str, Any], request_environment: str | None) -> dict[str, Any]:
     """The payload that is serialized and digested, built only from the schema's rule text."""
     rule = _rule()
     excluded = frozenset(rule["validation_excluded_keys"])
+    _check_depth(spec)
     payload = _nfc(copy.deepcopy(spec))
     # Identifier normalization (after the NFC pass, so these two are NOT NFC-normalized).
     payload["config_id"] = spec["config_id"].strip()
@@ -158,3 +188,39 @@ def test_vectors_cover_every_mismatch_source() -> None:
         "forward_compat_and_function_ref_absent",
         "number_forms",
     } <= names
+
+
+@pytest.mark.parametrize("case", _refusal_cases(), ids=lambda c: c["name"])
+def test_reference_refuses_every_refusal_case(case: dict[str, Any]) -> None:
+    request = _materialize(case)
+    with pytest.raises(ValueError):
+        reference_spec_hash(request["spec"], request.get("environment"))
+
+
+def test_refusal_cases_cover_non_finite_numbers_and_the_depth_boundary() -> None:
+    names = {case["name"] for case in _refusal_cases()}
+    assert {
+        "nan_refused",
+        "positive_infinity_refused",
+        "negative_infinity_refused",
+        "depth_boundary_refused",
+    } <= names
+
+
+def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
+    by_name = {case["name"]: case for case in _cases()}
+    # NFC-colliding keys collapse; the later key in document order wins; order matters.
+    forward = by_name["nfc_colliding_keys_last_wins"]["hashed_payload"]["config"]
+    reverse = by_name["nfc_colliding_keys_last_wins_reversed"]["hashed_payload"]["config"]
+    assert forward == {"\u00e9": 2} and reverse == {"\u00e9": 1}
+    assert (
+        by_name["nfc_colliding_keys_last_wins"]["spec_hash"]
+        != by_name["nfc_colliding_keys_last_wins_reversed"]["spec_hash"]
+    )
+    # -0.0 and 0.0, and 1 and 1.0 at the same position, are different digests.
+    assert '"x":-0.0' in by_name["negative_zero"]["canonical_json"]
+    assert by_name["negative_zero"]["spec_hash"] != by_name["positive_zero_distinct_from_negative_zero"]["spec_hash"]
+    assert '"x":[1]' in by_name["array_integer_one"]["canonical_json"]
+    assert '"x":[1.0]' in by_name["array_float_one_distinct_from_integer"]["canonical_json"]
+    assert by_name["array_integer_one"]["spec_hash"] != by_name["array_float_one_distinct_from_integer"]["spec_hash"]
+    assert "depth_boundary_accepted" in by_name

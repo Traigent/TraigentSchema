@@ -27,7 +27,12 @@
       "allow_nan": false,
       "numbers": "Python json rendering: integers exact; floats shortest round-trip repr (1.0, 1e-07); true, false and null as JSON literals."
     },
-    "verification": "A client verifies a Backend response by applying this rule to the spec the Backend RETURNED (not to its original request, which the Backend may have normalized) and comparing with the returned spec_hash; it never just accepts the returned digest.",
+    "edge_cases": [
+      "Refused, never hashed (no digest is produced): a NaN, +Infinity or -Infinity number anywhere in the spec; a spec nested deeper than 16 levels (spec = depth 0; an array nested 14 deep under config.a is the last accepted, 15 is refused).",
+      "Not refused: object keys that become equal after NFC collapse to one key and the LATER key in document order wins (so the order is part of the rule).",
+      "Distinct digests: -0.0 and 0.0; the integer 1 and the float 1.0 at the same position (rendered 1 and 1.0)."
+    ],
+    "verification": "A client verifies a Backend response by applying this rule to the spec the Backend RETURNED (not to its original request, which the Backend may have normalized) and comparing with the returned spec_hash; it never just accepts the returned digest. For a publish the returned digest must also equal the rule applied to the spec the client SENT (with the request environment), which binds the answer to the request's environment, function and content while allowing exactly the normalization above.",
     "vectors": "tests/data/best_config_v1_spec_hash_vectors.json"
   },
   "type": "object",

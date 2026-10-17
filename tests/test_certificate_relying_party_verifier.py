@@ -14,9 +14,10 @@ import json
 import struct
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import FrozenInstanceError, fields, replace
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
@@ -60,29 +61,93 @@ _ISSUER_SPKI_DOMAIN = b"traigent.agent_certificate.issuer_spki_der.v0"
 _CLIENT_SPKI_DOMAIN = b"traigent.agent_certificate.client_spki_der.v0"
 
 # Test-side ownership classification.  Tests compare these with the packaged
-# schemas and the production ownership/binding tables so a newly added
+# schemas and the production binding tables so a newly added
 # unsigned-manifest, subject, or G1 parameter cannot silently escape client
 # pinning or explicit issuer/compiler classification.
-_UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS = frozenset(
-    verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
+# Structural ownership partitions.  Tests compare these sets with the packaged
+# schemas so a newly added unsigned-manifest, subject, or G1 parameter cannot
+# silently escape client pinning or explicit issuer/compiler classification.
+_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP: Mapping[str, Mapping[str, frozenset[str]]] = (
+    MappingProxyType(
+        {
+            "subject": MappingProxyType(
+                {
+                    "client_pinned": frozenset(
+                        {"project_ref", "build_session_ref", "session_commitment_digest"}
+                    ),
+                    "schema_owned_constant": frozenset({"subject_kind", "hash_algorithm"}),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "disclosure_profile": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"profile_id"}),
+                    "schema_owned_constant": frozenset({"selective_disclosure_line"}),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "privacy_mode": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"declared_mode"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "sdk_identity": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"sdk_ref", "sdk_version"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "compiler_register_versions": MappingProxyType(
+                {
+                    "client_pinned": frozenset(verifier_impl._COMPILER_REGISTER_KEYS),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "key_ring_identifiers": MappingProxyType(
+                {
+                    "client_pinned": frozenset(
+                        {
+                            "issuer_key_ref",
+                            "trust_ring_ref",
+                            "issuer_signature_algorithm",
+                            "client_key_ref",
+                            "client_signature_algorithm",
+                        }
+                    ),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+            "freshness": MappingProxyType(
+                {
+                    "client_pinned": frozenset({"nonce"}),
+                    "schema_owned_constant": frozenset(),
+                    "issuer_compiler_evidence": frozenset(),
+                }
+            ),
+        }
+    )
 )
+_UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS = frozenset(_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP)
 _UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS = frozenset(
     {"seal", "claims", "tiers", "evidence_digests", "non_claims"}
 )
 _UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS = frozenset(
     f"{section}.{field}"
-    for section, ownership in verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
+    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
     for field in ownership["client_pinned"]
 )
 _UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS = frozenset(
     f"{section}.{field}"
-    for section, ownership in verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
+    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
     for field in ownership["schema_owned_constant"]
 )
-_SUBJECT_CLIENT_PINNED_FIELDS = verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
-    "client_pinned"
-]
-_SUBJECT_SCHEMA_CONSTANT_FIELDS = verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
+_SUBJECT_CLIENT_PINNED_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"]["client_pinned"]
+_SUBJECT_SCHEMA_CONSTANT_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
     "schema_owned_constant"
 ]
 _G1_CLIENT_PINNED_PARAM_FIELDS = frozenset(
@@ -1174,7 +1239,7 @@ def test_unsigned_manifest_subject_and_g1_fields_have_explicit_ownership() -> No
                 node = node[token.replace("~1", "/").replace("~0", "~")]
         return node
 
-    ownership = verifier_impl._UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
+    ownership = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP
     assert set(ownership) == set(nested_definitions)
     for section, (definition_path, definition) in nested_definitions.items():
         categories = ownership[section]

@@ -25,11 +25,9 @@ import hashlib
 import json
 import re
 import struct
-from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any, NoReturn, cast
 
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -185,74 +183,6 @@ CLIENT_CO_ATTESTATION_ERROR_CODES = frozenset(
     {"CO_CONTEXT", "CO_G1_REQUIRED", "CO_PROJECTION", "CO_SCHEMA_DEPENDENCY"}
 )
 
-# Structural ownership partitions.  Tests compare these sets with the packaged
-# schemas so a newly added unsigned-manifest, subject, or G1 parameter cannot
-# silently escape client pinning or explicit issuer/compiler classification.
-_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP: Mapping[str, Mapping[str, frozenset[str]]] = (
-    MappingProxyType(
-        {
-            "subject": MappingProxyType(
-                {
-                    "client_pinned": frozenset(
-                        {"project_ref", "build_session_ref", "session_commitment_digest"}
-                    ),
-                    "schema_owned_constant": frozenset({"subject_kind", "hash_algorithm"}),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "disclosure_profile": MappingProxyType(
-                {
-                    "client_pinned": frozenset({"profile_id"}),
-                    "schema_owned_constant": frozenset({"selective_disclosure_line"}),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "privacy_mode": MappingProxyType(
-                {
-                    "client_pinned": frozenset({"declared_mode"}),
-                    "schema_owned_constant": frozenset(),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "sdk_identity": MappingProxyType(
-                {
-                    "client_pinned": frozenset({"sdk_ref", "sdk_version"}),
-                    "schema_owned_constant": frozenset(),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "compiler_register_versions": MappingProxyType(
-                {
-                    "client_pinned": frozenset(_COMPILER_REGISTER_KEYS),
-                    "schema_owned_constant": frozenset(),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "key_ring_identifiers": MappingProxyType(
-                {
-                    "client_pinned": frozenset(
-                        {
-                            "issuer_key_ref",
-                            "trust_ring_ref",
-                            "issuer_signature_algorithm",
-                            "client_key_ref",
-                            "client_signature_algorithm",
-                        }
-                    ),
-                    "schema_owned_constant": frozenset(),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-            "freshness": MappingProxyType(
-                {
-                    "client_pinned": frozenset({"nonce"}),
-                    "schema_owned_constant": frozenset(),
-                    "issuer_compiler_evidence": frozenset(),
-                }
-            ),
-        }
-    )
-)
 _G1_CROSS_BOUND_PARAM_PATHS = {
     "build_session_ref": "subject.build_session_ref",
     "client_key_ref": "unsigned.key_ring_identifiers.client_key_ref",

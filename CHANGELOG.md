@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicitly not the v2 / fp2 contract. The vector file also freezes the edge cases: NaN/±Infinity
   and a spec nested deeper than 16 levels are refused; NFC-colliding object keys collapse with the
   later key winning; `-0.0` vs `0.0` and `1` vs `1.0` hash differently.
+  Non-finite numbers are refused over the original spec, before NFC and before the validation exclusions (a NaN
+  in `validation.status`, or an Infinity lost to an NFC key collision, is refused too). A NEW publish whose spec
+  holds object keys equal after NFC is refused at ingress; the hash rule keeps last-wins for already-stored specs.
 - **Observability trace/session list query parameters now match the backend (#550).
   Additive only.** `tags` stays a `string` parameter and its new description
   says what one occurrence means: each `tags=` value is ONE tag, taken literally (a comma is

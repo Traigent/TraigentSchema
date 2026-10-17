@@ -83,10 +83,39 @@ def _materialize(case: dict[str, Any]) -> dict[str, Any]:
     return request
 
 
+def _check_finite(value: Any) -> None:
+    """Finiteness is checked over the ORIGINAL spec, before NFC and before the validation exclusions."""
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            raise ValueError("NaN and Infinity are refused")
+    elif isinstance(value, dict):
+        for item in value.values():
+            _check_finite(item)
+    elif isinstance(value, list):
+        for item in value:
+            _check_finite(item)
+
+
+def reference_publish_ingress_check(spec: Any) -> None:
+    """The extra refusal applied only to a NEW publish: object keys equal after NFC (hash keeps last-wins)."""
+    if isinstance(spec, dict):
+        seen: set[str] = set()
+        for key, item in spec.items():
+            normalized = unicodedata.normalize("NFC", key)
+            if normalized in seen:
+                raise ValueError("object keys collide after NFC")
+            seen.add(normalized)
+            reference_publish_ingress_check(item)
+    elif isinstance(spec, list):
+        for item in spec:
+            reference_publish_ingress_check(item)
+
+
 def reference_hashed_payload(spec: dict[str, Any], request_environment: str | None) -> dict[str, Any]:
     """The payload that is serialized and digested, built only from the schema's rule text."""
     rule = _rule()
     excluded = frozenset(rule["validation_excluded_keys"])
+    _check_finite(spec)
     _check_depth(spec)
     payload = _nfc(copy.deepcopy(spec))
     # Identifier normalization (after the NFC pass, so these two are NOT NFC-normalized).
@@ -128,6 +157,14 @@ def _cases() -> list[dict[str, Any]]:
     return json.loads(_VECTORS.read_text(encoding="utf-8"))["cases"]
 
 
+def _historical_cases() -> list[dict[str, Any]]:
+    return json.loads(_VECTORS.read_text(encoding="utf-8"))["historical_cases"]
+
+
+def _ingress_refusal_cases() -> list[dict[str, Any]]:
+    return json.loads(_VECTORS.read_text(encoding="utf-8"))["ingress_refusal_cases"]
+
+
 def test_schema_states_the_frozen_rule_and_scopes_it_to_the_legacy_envelope() -> None:
     rule = _rule()
     assert rule["applies_to"] == "traigent.best_config.v1"
@@ -151,7 +188,7 @@ def test_v2_description_and_v1_rule_agree_that_only_v2_covers_provenance() -> No
     assert "provenance" in _rule()["excluded_keys"]
 
 
-@pytest.mark.parametrize("case", _cases(), ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", _cases() + _historical_cases(), ids=lambda c: c["name"])
 def test_reference_reproduces_every_backend_vector(case: dict[str, Any]) -> None:
     request = case["request"]
     payload = reference_hashed_payload(request["spec"], request.get("environment"))
@@ -204,11 +241,30 @@ def test_refusal_cases_cover_non_finite_numbers_and_the_depth_boundary() -> None
         "positive_infinity_refused",
         "negative_infinity_refused",
         "depth_boundary_refused",
+        "nan_in_excluded_validation_member_refused",
+        "non_finite_lost_to_nfc_collision_refused",
     } <= names
 
 
+@pytest.mark.parametrize("case", _ingress_refusal_cases(), ids=lambda c: c["name"])
+def test_publish_ingress_refuses_nfc_colliding_keys_but_the_hash_keeps_last_wins(case: dict[str, Any]) -> None:
+    spec = case["request"]["spec"]
+    with pytest.raises(ValueError):
+        reference_publish_ingress_check(spec)
+    # The frozen hash rule is unchanged: a stored spec with such keys still verifies.
+    assert reference_spec_hash(spec, case["request"].get("environment")).startswith("sha256:")
+
+
+def test_every_historical_and_ordinary_case_passes_the_publish_ingress_check_or_is_historical() -> None:
+    for case in _cases():
+        reference_publish_ingress_check(case["request"]["spec"])
+    for case in _historical_cases():
+        with pytest.raises(ValueError):
+            reference_publish_ingress_check(case["request"]["spec"])
+
+
 def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
-    by_name = {case["name"]: case for case in _cases()}
+    by_name = {case["name"]: case for case in _cases() + _historical_cases()}
     # NFC-colliding keys collapse; the later key in document order wins; order matters.
     forward = by_name["nfc_colliding_keys_last_wins"]["hashed_payload"]["config"]
     reverse = by_name["nfc_colliding_keys_last_wins_reversed"]["hashed_payload"]["config"]

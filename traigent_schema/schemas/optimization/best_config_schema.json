@@ -9,6 +9,7 @@
     "scope": "Defined over a spec that passed publish validation. This is the rule the Backend has applied since #819; frozen here without change.",
     "digest_format": "sha256:<64 lowercase hex>",
     "steps": [
+      "0. Refuse first: check the ORIGINAL spec, as received (before NFC and before the validation exclusions of step 6), and refuse, never hash, a NaN, +Infinity or -Infinity number anywhere in it and a spec nested deeper than 16 levels. The order matters: a non-finite value inside a member that step 6 removes, or under an object key that step 1 collapses into another key, is still refused.",
       "1. NFC: apply Unicode NFC to every string value and every object key of the spec, recursively.",
       "2. config_id: replace by the ORIGINAL config_id with surrounding whitespace removed (str.strip). This value is not NFC-normalized.",
       "3. function_ref: when present and not null, replace by the original with surrounding whitespace removed (a no-op on contract-valid input, whose pattern admits none).",
@@ -28,8 +29,8 @@
       "numbers": "Python json rendering: integers exact; floats shortest round-trip repr (1.0, 1e-07); true, false and null as JSON literals."
     },
     "edge_cases": [
-      "Refused, never hashed (no digest is produced): a NaN, +Infinity or -Infinity number anywhere in the spec; a spec nested deeper than 16 levels (spec = depth 0; an array nested 14 deep under config.a is the last accepted, 15 is refused).",
-      "Not refused: object keys that become equal after NFC collapse to one key and the LATER key in document order wins (so the order is part of the rule).",
+      "Refused, never hashed (no digest is produced), checked over the original spec before NFC and before exclusions: a NaN, +Infinity or -Infinity number anywhere in the spec, including inside a validation member the hash would exclude and under a key that an NFC collision would discard; a spec nested deeper than 16 levels (spec = depth 0; an array nested 14 deep under config.a is the last accepted, 15 is refused).",
+      "Hash rule, not refused: object keys that become equal after NFC collapse to one key and the LATER key in document order wins (so the order is part of the rule). This keeps already-stored specs verifiable and revalidatable (rollback). PUBLISH INGRESS differs: a NEW publish whose spec holds two object keys that are equal after NFC is refused before anything is persisted or sent (Backend: the closed head_body_invalid 400 on the protected path, the legacy validation 400 otherwise, never echoing the keys; SDK: ConfigurationError before the request). The hash function itself never refuses such keys.",
       "Distinct digests: -0.0 and 0.0; the integer 1 and the float 1.0 at the same position (rendered 1 and 1.0)."
     ],
     "verification": "A client verifies a Backend response by applying this rule to the spec the Backend RETURNED (not to its original request, which the Backend may have normalized) and comparing with the returned spec_hash; it never just accepts the returned digest. For a publish the returned digest must also equal the rule applied to the spec the client SENT (with the request environment), which binds the answer to the request's environment, function and content while allowing exactly the normalization above.",

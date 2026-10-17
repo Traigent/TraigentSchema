@@ -210,6 +210,8 @@
   "optimization/best_config_manifest_v2_schema.json#/definitions/manifest_entry/properties/path": "legacy_content",
   "optimization/best_config_manifest_v2_schema.json#/properties/exported_at": "timestamp",
   "optimization/best_config_manifest_v2_schema.json#/properties/schema_version": "closed_enum",
+  "optimization/best_config_publish_401_schema.json#/allOf/1/properties/error_code": "closed_enum",
+  "optimization/best_config_publish_403_schema.json#/allOf/1/properties/error_code": "closed_enum",
   "optimization/best_config_publish_409_schema.json#/allOf/1/properties/error_code": "closed_enum",
   "optimization/best_config_publish_500_schema.json#/allOf/1/properties/error_code": "closed_enum",
   "optimization/best_config_schema.json#/definitions/best_config_environment": "closed_enum",

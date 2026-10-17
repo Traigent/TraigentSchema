@@ -96,12 +96,90 @@
               }
             }
           },
-          "403": {
-            "description": "Protected path: head_write_unauthorized (closed refusal envelope).",
+          "401": {
+            "description": "Protected path (X-Traigent-Agent-Ref, or X-Traigent-Expected-Head-Generation without X-Traigent-Agent-Id): unauthenticated (closed refusal envelope, fixed text, whatever the authentication or permission layer would otherwise say). Legacy path: its own generic error body, unchanged. The branches are disjoint, discriminate on the closed `error_code`.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                  "oneOf": [
+                    {
+                      "$ref": "../optimization/best_config_publish_401_schema.json"
+                    },
+                    {
+                      "type": "object",
+                      "x-content-class": "legacy_content",
+                      "x-content-key-class": "legacy_content",
+                      "x-content-note": "LEGACY-path 401 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
+                      "not": {
+                        "required": [
+                          "error_code"
+                        ],
+                        "properties": {
+                          "error_code": {
+                            "x-content-class": "closed_enum",
+                            "enum": [
+                              "reference_not_found",
+                              "head_capture_invalid",
+                              "head_environment_mismatch",
+                              "head_agent_mismatch",
+                              "head_generation_stale",
+                              "head_write_unauthorized",
+                              "head_body_invalid",
+                              "head_publish_conflict",
+                              "unauthenticated",
+                              "forbidden",
+                              "internal_error"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Legacy-path 401 body, unchanged. The `not` keeps this branch disjoint from the protected closed refusal."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Protected path (X-Traigent-Agent-Ref, or X-Traigent-Expected-Head-Generation without X-Traigent-Agent-Id): forbidden (permissions or project role) or head_write_unauthorized (no agent WRITE) (closed refusal envelope, fixed text, whatever the authentication or permission layer would otherwise say). Legacy path: its own generic error body, unchanged. The branches are disjoint, discriminate on the closed `error_code`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "../optimization/best_config_publish_403_schema.json"
+                    },
+                    {
+                      "type": "object",
+                      "x-content-class": "legacy_content",
+                      "x-content-key-class": "legacy_content",
+                      "x-content-note": "LEGACY-path 403 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
+                      "not": {
+                        "required": [
+                          "error_code"
+                        ],
+                        "properties": {
+                          "error_code": {
+                            "x-content-class": "closed_enum",
+                            "enum": [
+                              "reference_not_found",
+                              "head_capture_invalid",
+                              "head_environment_mismatch",
+                              "head_agent_mismatch",
+                              "head_generation_stale",
+                              "head_write_unauthorized",
+                              "head_body_invalid",
+                              "head_publish_conflict",
+                              "unauthenticated",
+                              "forbidden",
+                              "internal_error"
+                            ]
+                          }
+                        }
+                      },
+                      "description": "Legacy-path 403 body, unchanged. The `not` keeps this branch disjoint from the protected closed refusal."
+                    }
+                  ]
                 }
               }
             }

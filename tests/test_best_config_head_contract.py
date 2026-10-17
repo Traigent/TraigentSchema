@@ -206,7 +206,7 @@ def test_publish_409_has_two_disjoint_branches_and_other_statuses_are_closed():
     assert protected["$ref"].endswith("optimization/best_config_publish_409_schema.json")
     assert legacy["not"]["properties"]["error_code"]["enum"] == PROTECTED_409
     assert legacy["x-content-class"] == "legacy_content"
-    for status in ("400", "403", "404"):
+    for status in ("400", "404"):
         got = post["responses"][status]["content"]["application/json"]["schema"]
         assert got["$ref"].endswith("best_config_head_refusal_schema.json"), status
 
@@ -296,5 +296,61 @@ def test_a_malformed_protected_500_is_rejected():
         {**good, "extra": "member"},
         {**good, "error": "upgrade_required"},
         {k: v for k, v in good.items() if k != "message"},
+    ):
+        assert not validator.is_valid(bad), bad
+
+
+# --- 401 / 403 of the protected publish: closed `unauthenticated` / `forbidden`, disjoint from legacy ---
+
+LEGACY_401 = {"success": False, "message": "Authentication required",
+              "error": "AUTHENTICATION_REQUIRED", "error_code": "AUTHENTICATION_REQUIRED"}
+LEGACY_403 = {"success": False, "message": "Permission denied", "error": "PERMISSION_DENIED",
+              "error_code": "PERMISSION_DENIED"}
+
+
+def _auth_status_validator(status):
+    registry = _registry().with_resource(
+        BASE + f"optimization/best_config_publish_{status}_schema.json",
+        Resource.from_contents(_load(f"best_config_publish_{status}_schema.json")),
+    )
+    schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
+    return Draft7Validator({"$id": BASE + "execution/best_config_endpoints.json", **schema},
+                           registry=registry)
+
+
+@pytest.mark.parametrize(
+    ("status", "closed", "legacy_body"),
+    [("401", ["unauthenticated"], LEGACY_401),
+     ("403", ["forbidden", "head_write_unauthorized"], LEGACY_403)],
+)
+def test_publish_auth_statuses_have_two_disjoint_branches(status, closed, legacy_body):
+    schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
+    protected, legacy = schema["oneOf"]
+    assert protected["$ref"].endswith(f"optimization/best_config_publish_{status}_schema.json")
+    assert legacy["not"]["properties"]["error_code"]["enum"] == CODES  # every closed code
+    assert legacy["x-content-class"] == "legacy_content"
+    validator = _auth_status_validator(status)
+    for code in closed:
+        body = _envelope_body(code)
+        assert validator.is_valid(body)  # oneOf: exactly one branch
+        assert not Draft7Validator(legacy).is_valid(body)
+    assert validator.is_valid(legacy_body)
+    assert not _validator(f"best_config_publish_{status}_schema.json").is_valid(legacy_body)
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "other"),
+    [("401", "unauthenticated", "forbidden"), ("403", "forbidden", "unauthenticated"),
+     ("403", "head_write_unauthorized", "head_body_invalid")],
+)
+def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, other):
+    validator = _auth_status_validator(status)
+    good = _envelope_body(code)
+    assert validator.is_valid(good)
+    for bad in (
+        {**good, "message": "CANARY free text"},
+        {**good, "extra": "member"},
+        {k: v for k, v in good.items() if k != "message"},
+        _envelope_body(other),
     ):
         assert not validator.is_valid(bad), bad

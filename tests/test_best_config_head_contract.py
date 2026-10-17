@@ -542,10 +542,10 @@ def test_the_canonical_session_id_parse_is_stated_once_in_each_place_and_identic
     docs = _flat_docs()
     assert docs.count("Canonical session id") == 2
     clauses = (
-        "session id is spec.provenance.source_session_id, else session_id",
+        "session id is spec.provenance.source_session_id",
         "Surrounding whitespace is trimmed once",
         "empty-after-trim value means the publish names no session id (a manual publication)",
-        "is longer than 128 characters after the trim, or holds a whitespace or control character inside is MALFORMED",
+        "is longer than 128 characters after the trim, or holds a whitespace or control character inside, or changes under Unicode NFC is MALFORMED",
         "it is refused and never treated as a manual publication",
         "400 head_capture_invalid on the protected path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed error_code)",
         "Only the trimmed value is stored, so a padded genuine session id is that session",
@@ -554,6 +554,86 @@ def test_the_canonical_session_id_parse_is_stated_once_in_each_place_and_identic
     for clause in clauses:
         assert clause in flat_text, clause
         assert clause.replace("MALFORMED", "malformed") in docs, clause
+    # r10: the prose may not promise representations the closed, string-only body schema rejects.
+    for stale in ("else session_id", "missing, null or", "null or empty"):
+        assert stale not in flat_text, stale
+        assert stale not in docs, stale
+
+
+def _publish_request_validator():
+    name = "execution/best_config_publish_request_schema.json"
+    registry = Registry()
+    for rel in ("optimization/best_config_schema.json",):
+        doc = json.loads((SCHEMAS / rel).read_text(encoding="utf-8"))
+        registry = registry.with_resource(BASE + rel, Resource.from_contents(doc))
+    schema = json.loads((SCHEMAS / name).read_text(encoding="utf-8"))
+    return Draft7Validator(schema, registry=registry)
+
+
+def _publish_body(provenance=None):
+    spec = {"schema_version": "traigent.best_config.v1", "config_id": "c1", "config": {}}
+    if provenance is not None:
+        spec["provenance"] = provenance
+    return {"spec": spec}
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [None, {}, {"source_session_id": "sess_1"}, {"source_session_id": "  sess_1  "},
+     {"source_session_id": ""}, {"source_session_id": "s" * 512}],
+)
+def test_the_request_schema_accepts_every_session_id_representation_the_prose_names(provenance):
+    """Manual publication = the field omitted (or empty); a padded id is a string the Backend trims."""
+    assert _publish_request_validator().is_valid(_publish_body(provenance))
+
+
+@pytest.mark.parametrize(
+    "provenance",
+    [{"source_session_id": None}, {"source_session_id": 7}, {"source_session_id": ["sess_1"]},
+     {"session_id": "sess_1"}, {"source_session_id": "s" * 513}],
+)
+def test_the_request_schema_rejects_the_representations_the_prose_no_longer_promises(provenance):
+    """null, non-strings, a `session_id` fallback and >512 characters are not valid bodies."""
+    assert not _publish_request_validator().is_valid(_publish_body(provenance))
+
+
+def test_the_prose_names_the_schema_bound_and_the_backend_only_rules():
+    flat_text = " ".join(_post_description().split())
+    assert "the request schema bounds source_session_id to a string of at most 512 characters" in flat_text
+    assert "the trim, the 128-character limit, the whitespace/control check and NFC stability are applied by the Backend to the raw value" in flat_text
+
+
+def test_the_403_description_separates_authentication_refusals_from_ownership_refusals():
+    text = " ".join(_publish()["responses"]["403"]["description"].split())
+    assert "and every request without X-Traigent-Agent-Ref)" not in text  # the old blanket promise
+    assert "AUTHENTICATION AND ROLE REFUSALS" in text
+    assert "SESSION-OWNERSHIP REFUSALS" in text
+    ownership = text[text.index("SESSION-OWNERSHIP REFUSALS"):]
+    assert "closed head_write_unauthorized" in ownership
+    assert "with or without X-Traigent-Agent-Ref" in ownership
+
+
+def test_each_403_example_lands_on_exactly_the_intended_oneof_branch():
+    schema = _publish()["responses"]["403"]["content"]["application/json"]["schema"]
+    protected, legacy = schema["oneOf"]
+    validator = _auth_status_validator("403")
+    ownership_refusal = _envelope_body("head_write_unauthorized")  # authenticated editor, another user's session
+    auth_refusal_without_ref = LEGACY_403  # unauthenticated-layer/role refusal, no Agent-Ref
+    registry = _registry().with_resource(
+        BASE + "optimization/best_config_publish_403_schema.json",
+        Resource.from_contents(_load("best_config_publish_403_schema.json")),
+    )
+    assert protected["$ref"].endswith("optimization/best_config_publish_403_schema.json")
+    protected_validator = Draft7Validator(
+        {"$ref": BASE + "optimization/best_config_publish_403_schema.json"}, registry=registry
+    )
+    legacy_validator = Draft7Validator(legacy)
+    assert validator.is_valid(ownership_refusal)
+    assert protected_validator.is_valid(ownership_refusal)
+    assert not legacy_validator.is_valid(ownership_refusal)
+    assert validator.is_valid(auth_refusal_without_ref)
+    assert legacy_validator.is_valid(auth_refusal_without_ref)
+    assert not protected_validator.is_valid(auth_refusal_without_ref)
 
 
 def test_a_malformed_session_id_is_stage_3_and_never_a_manual_publication():

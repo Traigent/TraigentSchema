@@ -168,12 +168,16 @@ generation and resubmitting the same result. The SDK never auto-retries it: it s
 against the new head) and publishes with that run's own captured generation.
 
 **Canonical session id.** One parse, used identically to classify the publish and to store it. The session id is
-`spec.provenance.source_session_id`, else `session_id`. Surrounding whitespace is trimmed once; a missing, null or
-empty-after-trim value means the publish names no session id (a manual publication). An id that is not a string, is longer
-than 128 characters after the trim, or holds a whitespace or control character inside is malformed: it is refused and never
-treated as a manual publication, 400 `head_capture_invalid` on the protected path (Agent-Ref present) and the
-existing legacy 400 validation body otherwise (no closed `error_code`); nothing is written and no head moves. Only the
-trimmed value is stored, so a padded genuine session id is that session.
+`spec.provenance.source_session_id` (a string; the provenance object is closed, so there is no other session field, and
+JSON null is not a valid value). Surrounding whitespace is trimmed once; an omitted or empty-after-trim value means the
+publish names no session id (a manual publication). An id that is not a string, is longer than 128 characters after the
+trim, or holds a whitespace or control character inside, or changes under Unicode NFC is malformed (an identifier is never
+silently rewritten): it is refused and never treated as a manual publication, 400 `head_capture_invalid` on the protected
+path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed `error_code`); nothing is written
+and no head moves. Only the trimmed value is stored, so a padded genuine session id is that session. Division of labour: the
+request schema bounds source_session_id to a string of at most 512 characters; the trim, the 128-character limit, the
+whitespace/control check and NFC stability are applied by the Backend to the raw value, identically for classification and
+storage.
 
 **Protected publish never returns free text.** Body validation failures are `head_body_invalid` (no key or value of the request
 appears), the ordinary publish conflicts (If-Match on a new configuration, a changed configuration without a matching

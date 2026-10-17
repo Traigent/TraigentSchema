@@ -167,6 +167,14 @@ publication; of several promotions naming the same expected generation exactly o
 generation and resubmitting the same result. The SDK never auto-retries it: it starts a new run (or re-evaluates
 against the new head) and publishes with that run's own captured generation.
 
+**Canonical session id.** One parse, used identically to classify the publish and to store it. The session id is
+`spec.provenance.source_session_id`, else `session_id`. Surrounding whitespace is trimmed once; a missing, null or
+empty-after-trim value means the publish names no session id (a manual publication). An id that is not a string, is longer
+than 128 characters after the trim, or holds a whitespace or control character inside is malformed: it is refused and never
+treated as a manual publication, 400 `head_capture_invalid` on the protected path (Agent-Ref present) and the
+existing legacy 400 validation body otherwise (no closed `error_code`); nothing is written and no head moves. Only the
+trimmed value is stored, so a padded genuine session id is that session.
+
 **Protected publish never returns free text.** Body validation failures are `head_body_invalid` (no key or value of the request
 appears), the ordinary publish conflicts (If-Match on a new configuration, a changed configuration without a matching
 If-Match, function_ref conflict) are `head_publish_conflict`, other server failures `internal_error`. The 409 response
@@ -177,9 +185,9 @@ unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `inter
 
 **Refusal precedence.** One order; the first stage that applies answers: (1) not authenticated, 401
 `unauthenticated`; (2) permissions or project role denied, 403 `forbidden`; (3) malformed or incomplete capture, 400
-`head_capture_invalid` (decision-table rows 1-3, judged from the request headers alone, before any session is read); (4)
+`head_capture_invalid` (decision-table rows 1-3, judged from the request headers alone, before any session is read; a malformed provenance session id, see **Canonical session id**, is refused here the same way once the headers pass); (4)
 **session binding resolution**, only when `spec.provenance` names a session id: the caller may not use the session 403
-`head_write_unauthorized`, the session is deleted, not registered or outside the caller's scope 404 `reference_not_found`,
+`head_write_unauthorized`, including a classic session positively read but owned by another caller, never 500 (a classic session is used by its owner only: for a user the central owner policy decides; for an API key that carries no user id in the default tenant the owner is the server-stamped key that created the session, so the same key reads it and publishes on the legacy path and a different key is refused), the session is deleted, not registered or outside the caller's scope 404 `reference_not_found`,
 the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed
 `content_less` block) 500 `internal_error`; (5) the resolved binding against the request (decision-table rows 4 and 6), 400
 `head_capture_invalid`; (6) a well-formed but unknown or foreign ref, 404 `reference_not_found` (nothing echoed); (7) agent

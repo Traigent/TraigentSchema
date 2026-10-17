@@ -528,3 +528,60 @@ def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
     assert "reports as not a typed session is legacy" not in text
     docs = _docs()
     assert "every other outcome is refused at stage 4 and writes nothing" in " ".join(docs.split())
+
+
+# --- sol r9: one canonical provenance session-id parse, and the userless-key ownership rule ---
+
+def _flat_docs():
+    return " ".join(_docs().split()).replace("`", "").replace("**", "")
+
+
+def test_the_canonical_session_id_parse_is_stated_once_in_each_place_and_identically():
+    text = _post_description()
+    assert text.count("CANONICAL SESSION ID") == 2  # the definition + the stage 3 pointer
+    docs = _flat_docs()
+    assert docs.count("Canonical session id") == 2
+    clauses = (
+        "session id is spec.provenance.source_session_id, else session_id",
+        "Surrounding whitespace is trimmed once",
+        "empty-after-trim value means the publish names no session id (a manual publication)",
+        "is longer than 128 characters after the trim, or holds a whitespace or control character inside is MALFORMED",
+        "it is refused and never treated as a manual publication",
+        "400 head_capture_invalid on the protected path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed error_code)",
+        "Only the trimmed value is stored, so a padded genuine session id is that session",
+    )
+    flat_text = " ".join(text.split())
+    for clause in clauses:
+        assert clause in flat_text, clause
+        assert clause.replace("MALFORMED", "malformed") in docs, clause
+
+
+def test_a_malformed_session_id_is_stage_3_and_never_a_manual_publication():
+    stages = _stage_texts()
+    assert "a malformed provenance session id" in stages[3]
+    assert "head_capture_invalid" in stages[3]
+    for number, body in stages.items():
+        if number != 3:
+            assert "malformed provenance session id" not in body, number
+
+
+def test_the_userless_key_ownership_rule_is_a_stage_4_statement_in_both_places():
+    stage = _stage_texts()[4]
+    docs = _flat_docs()
+    clauses = (
+        "including a classic session positively read but owned by another caller, never 500",
+        "an API key that carries no user id in the default tenant the owner is the server-stamped key that created the session",
+        "the same key reads it and publishes on the legacy path and a different key is refused",
+    )
+    flat_stage = " ".join(stage.split())
+    for clause in clauses:
+        assert clause in flat_stage, clause
+        assert clause in docs, clause
+
+
+def test_the_twelve_stage_order_is_unchanged_by_the_session_id_and_ownership_statements():
+    assert sorted(_stage_texts()) == list(range(1, 13))
+    docs = _flat_docs()
+    order = docs[docs.index("Refusal precedence."):docs.index("Scope and commands")]
+    positions = [order.index(f"({n}) ") for n in range(1, 13)]
+    assert positions == sorted(positions)

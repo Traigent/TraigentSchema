@@ -280,3 +280,22 @@ def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
     assert '"x":[1.0]' in by_name["array_float_one_distinct_from_integer"]["canonical_json"]
     assert by_name["array_integer_one"]["spec_hash"] != by_name["array_float_one_distinct_from_integer"]["spec_hash"]
     assert "depth_boundary_accepted" in by_name
+
+
+def test_publish_request_refusal_wording_does_not_promise_more_than_the_backend_does() -> None:
+    """The ingress "no echo" promise covers exactly what is implemented (sol F1c P3).
+
+    The collision detector's own message is fixed; the protected path maps every refusal
+    to the closed ``head_body_invalid`` response; the legacy path keeps its legacy
+    validation envelope, whose text may carry field paths (e.g. a NaN under
+    ``spec.config.<key>``), because schema validation runs before collision detection.
+    A blanket "the refusal never echoes keys or values" is therefore not promised.
+    """
+    schema = json.loads(
+        (get_schemas_dir() / "execution" / "best_config_publish_request_schema.json").read_text()
+    )
+    description = " ".join(schema["description"].split())
+    assert "never echoes keys or values" not in description
+    assert "collision check's own message is fixed" in description
+    assert "protected path: every refusal is the closed head_body_invalid 400" in description
+    assert "legacy path: the legacy validation 400, whose text may include field paths" in description

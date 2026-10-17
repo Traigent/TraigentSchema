@@ -17,6 +17,7 @@ import json
 import traceback
 from collections.abc import Mapping
 from dataclasses import asdict, replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -2107,7 +2108,7 @@ def test_no_wire_integer_can_exceed_the_jcs_safe_ceiling() -> None:
     """Test 57. Walk every integer field in the schema, assert its declared
     maximum is <= 2**53 - 1."""
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     ceiling = 2**53 - 1
 
     def walk(node: object) -> None:
@@ -2126,7 +2127,7 @@ def test_no_wire_integer_can_exceed_the_jcs_safe_ceiling() -> None:
 def test_no_definition_admits_a_sum_of_squares_statistic() -> None:
     """Test 58. Denylist of accumulator-shaped field names."""
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     denylist = ("_sum_sq", "_sumsquares", "_total_squared")
 
     def walk(node: object) -> None:
@@ -2230,16 +2231,14 @@ def test_embedded_process_record_bundle_is_schema_rejected() -> None:
 def test_error_without_a_location_is_schema_rejected() -> None:
     """Test 65a."""
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
-    from pathlib import Path
-
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     from jsonschema import Draft7Validator
     from referencing import Registry, Resource
 
     schemas_dir = Path("traigent_schema/schemas")
     resources = []
     for path in schemas_dir.rglob("*.json"):
-        document = json.load(open(path, encoding="utf-8"))
+        document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
             resources.append((document["$id"], Resource.from_contents(document)))
     registry = Registry().with_resources(resources)
@@ -2264,7 +2263,7 @@ def test_location_segments_are_all_schema_owned_keys_or_indexes() -> None:
     import re as _re
 
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     known_keys: set[str] = set()
 
     def collect(node: object) -> None:
@@ -2280,7 +2279,7 @@ def test_location_segments_are_all_schema_owned_keys_or_indexes() -> None:
     collect(schema["definitions"])
 
     verifier_path = "traigent_schema/certification/dataset_record_verifier.py"
-    text = open(verifier_path, encoding="utf-8").read()
+    text = Path(verifier_path).read_text(encoding="utf-8")
     locations = set(_re.findall(r'"(/[a-zA-Z0-9_/{}]*)"', text))
     location_pattern = _re.compile(r"^(/([a-z][a-z0-9_]{0,47}|[0-9]{1,5})){0,12}$")
     for location in locations:
@@ -2489,7 +2488,7 @@ def test_no_caller_influenced_string_is_representable_in_the_signed_bundle() -> 
     Revision 4: no exceptions -- project_ref/build_session_ref are gone from
     the manifest and cross only inside the scope-binding digest preimage."""
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     offenders = []
 
     def walk(node: object, path: str) -> None:
@@ -2534,7 +2533,7 @@ def test_blind_is_not_representable_anywhere_in_the_contract() -> None:
     32-byte blind: walk definitions for any 43/44-char base64 pattern
     outside the three derived-ref types."""
     schema_path = "traigent_schema/schemas/certification/dataset_record_v1_schema.json"
-    schema = json.load(open(schema_path, encoding="utf-8"))
+    schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
     import re as _re
 
     base64_like = _re.compile(r"\[A-Za-z0-9_-\]\{4[34]\}")
@@ -2563,20 +2562,6 @@ def test_customer_category_label_is_unrepresentable() -> None:
     with pytest.raises(DatasetRecordVerificationError) as exc_info:
         _verify(built)
     assert exc_info.value.code == "SCHEMA"
-
-
-_DISCLOSED_INTEGER_ALLOWLIST = (
-    "identity.item_count",
-    "composition.populated_cell_count",
-    "composition.cells[].item_count",
-    "identity.identity_blind_epoch",
-    "leakage_report.findings[].overlap_count",
-    "leakage_report.leaf_list_digests[].leaf_count",
-    "leaf_generation_attestation.corpora[].leaf_count",
-    "limitations.limitations[].severity",
-    "efficiency_report.*",
-    "preregistration.*",
-)
 
 
 def test_disclosed_integer_surface_is_exactly_the_registered_allowlist() -> None:
@@ -2660,14 +2645,12 @@ def test_registry_document_failure_does_not_put_a_path_or_content_in_the_traceba
     """Test 79. Point the loader at a synthetic tree with undecodable bytes;
     assert only DATASET_RECORD_REGISTRY_DOCUMENT_INVALID:<definition_name>
     and no __context__."""
-    from importlib import resources
-
     root_dir = tmp_path / "pkgroot"
     (root_dir / "data" / "certification").mkdir(parents=True)
     (root_dir / "data" / "certification" / "dataset_taxonomy_document.json").write_bytes(
         b"\xff\xfe\x00bad"
     )
-    root = resources.files(str(root_dir)) if False else _DirTraversable(root_dir)
+    root = _DirTraversable(root_dir)
 
     with pytest.raises(dr_impl.DatasetRecordRegistryError) as exc_info:
         dr_impl._load_registry_constant(
@@ -2694,8 +2677,6 @@ class _DirTraversable:
     """Minimal Traversable over a real directory, for test 79."""
 
     def __init__(self, path):
-        from pathlib import Path
-
         self._path = Path(path)
 
     def joinpath(self, name):

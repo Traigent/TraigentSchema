@@ -104,8 +104,6 @@ _SHA256_PREFIX = "sha256:"
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
-_DATASET_REF_RE = re.compile(r"^dsr:[A-Za-z0-9_-]{43}$")
-_CORPUS_REF_RE = re.compile(r"^cpr:[A-Za-z0-9_-]{43}$")
 _LEAKAGE_SCOPE_REF_RE = re.compile(r"^lsr:[A-Za-z0-9_-]{43}$")
 _UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
@@ -142,7 +140,6 @@ _CLAIM_SUPPORT_ROWS_DOMAIN = b"traigent.dataset_record.claim_support_rows.v1"
 
 _MAX_LEAF_LIST = 65536
 _MAX_CELLS = 40
-_MAX_LEAKAGE_FINDINGS = 32
 
 _CLAIM_IDS = ("DS1", "DS2", "DS3", "DS4", "DS5")
 
@@ -931,7 +928,7 @@ def _check_identity(identity: dict[str, Any], context: DatasetRecordVerification
         return "issuer_verified"
     if root_matches != epoch_matches:
         _fail("IDENTITY_EPOCH_INCONSISTENT", "/unsigned_manifest/identity/identity_blind_epoch")
-    _fail("DATASET_IDENTITY_MISMATCH", "/unsigned_manifest/identity/dataset_identity_root")
+    return _fail("DATASET_IDENTITY_MISMATCH", "/unsigned_manifest/identity/dataset_identity_root")
 
 
 def _check_derived_dataset_ref(identity: dict[str, Any]) -> None:
@@ -992,9 +989,10 @@ def _leaf_list_projection_error(definition_name: str, projection: dict[str, Any]
     except (OSError, UnicodeError, json.JSONDecodeError, Unresolvable):
         _fail("SCHEMA_DEPENDENCY")
     try:
-        return any(True for _ in validator.iter_errors(projection))
+        violates = any(True for _ in validator.iter_errors(projection))
     except Unresolvable:
         _fail("SCHEMA_DEPENDENCY")
+    return violates
 
 
 def _check_leaf_list_input(

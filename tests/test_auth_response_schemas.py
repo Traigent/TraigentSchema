@@ -157,7 +157,6 @@ def test_auth_me_response_email_rejects_oversized():
 def test_auth_me_response_email_field_has_format_and_maxlength():
     """#223 — schema structural guard: format:email + maxLength:320 on data.email."""
     from traigent_schema.utils import get_schemas_dir
-    import json
 
     with open(get_schemas_dir() / "auth" / "auth_me_response_schema.json") as f:
         schema = json.load(f)

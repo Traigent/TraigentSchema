@@ -156,19 +156,29 @@ def test_publish_headers_and_applicability_decision_table():
         assert needle in rule, needle
 
 
+STAGES = [
+    "(1) not authenticated 401 unauthenticated",
+    "(2) permission or project role denied 403 forbidden",
+    "(3) malformed or incomplete capture 400 head_capture_invalid",
+    "(4) SESSION BINDING RESOLUTION",
+    "403 head_write_unauthorized",
+    "404 reference_not_found",
+    "500 internal_error",
+    "(5) the resolved binding against the request",
+    "(6) well-formed but unknown or foreign ref 404 reference_not_found",
+    "(7) agent WRITE denied 403 head_write_unauthorized",
+    "(8) ref's agent is not the session's 409 head_agent_mismatch",
+    "(9) publish environment differs from the session's 409 head_environment_mismatch",
+    "(10) body fails validation 400 head_body_invalid",
+    "(11) head moved 409 head_generation_stale",
+    "(12) ordinary publish conflict",
+]
+
+
 def test_refusal_precedence_is_written_down():
     rule = _publish()["description"]
-    order = [
-        "400 head_capture_invalid",
-        "404 reference_not_found",
-        "403 head_write_unauthorized",
-        "409 head_agent_mismatch",
-        "409 head_environment_mismatch",
-        "400 head_body_invalid",
-        "409 head_generation_stale",
-        "409 head_publish_conflict",
-    ]
-    positions = [rule.index(item, rule.index("ORDER OF REFUSALS")) for item in order]
+    start = rule.index("ORDER OF REFUSALS")
+    positions = [rule.index(item, start) for item in STAGES]
     assert positions == sorted(positions)
 
 
@@ -391,24 +401,91 @@ def test_known_content_less_session_without_header_gap_is_documented():
     assert "[6] No Agent-Ref, content-less session" in text and "-> 400 head_capture_invalid" in text
 
 
-ORDER = ["401 unauthenticated", "403 forbidden", "400 head_capture_invalid", "404 reference_not_found",
-         "403 head_write_unauthorized", "409 head_agent_mismatch", "409 head_environment_mismatch",
-         "400 head_body_invalid", "409 head_generation_stale", "409 head_publish_conflict"]
-
-
-def test_refusal_order_starts_with_auth_then_permission_then_capture():
+def test_refusal_order_has_one_binding_resolution_stage_between_capture_and_unknown_ref():
     text = _post_description()
     order = text[text.index("ORDER OF REFUSALS"):]
-    positions = [order.index(item) for item in ORDER]
+    positions = [order.index(item) for item in STAGES]
     assert positions == sorted(positions), positions
-    docs = (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text()
+    assert "one order; the first stage that applies answers" in order
+    docs = _docs()
     section = docs[docs.index("**Refusal precedence.**"):docs.index("## Scope and commands")]
-    flat = " ".join(section.split()).replace("`", "")
-    codes = ["401 unauthenticated", "403 forbidden", "400 head_capture_invalid", "404 reference_not_found",
-             "403 head_write_unauthorized", "409 head_agent_mismatch", "409 head_environment_mismatch",
-             "400 head_body_invalid", "409 head_generation_stale", "409 head_publish_conflict"]
+    flat = " ".join(section.split()).replace("`", "").replace("**", "")
+    codes = ["(1) not authenticated, 401 unauthenticated", "(2) permissions or project role denied, 403 forbidden",
+             "(3) malformed or incomplete capture, 400 head_capture_invalid", "(4) session binding resolution",
+             "403 head_write_unauthorized", "404 reference_not_found", "500 internal_error",
+             "(5) the resolved binding against the request", "(6) a well-formed but unknown or foreign ref, 404 reference_not_found",
+             "(7) agent WRITE denied, 403 head_write_unauthorized", "(8) session agreement, 409 head_agent_mismatch",
+             "(9) 409 head_environment_mismatch", "(10) the body, 400 head_body_invalid",
+             "(11) the head compare, 409 head_generation_stale", "(12) the ordinary conflict, 409 head_publish_conflict"]
     pos = [flat.index(c) for c in codes]
     assert pos == sorted(pos), pos
+
+
+def test_description_and_docs_state_the_binding_resolution_stage_identically():
+    text = _post_description()
+    stage = text[text.index("(4) SESSION BINDING RESOLUTION"):text.index("(5) the resolved binding")]
+    docs = " ".join(_docs().split()).replace("`", "").replace("**", "")
+    for clause in (
+        "the caller may not use the session 403 head_write_unauthorized",
+        "the session is deleted, not registered or outside the caller's scope 404 reference_not_found",
+        "the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed content_less block) 500 internal_error",
+    ):
+        assert clause in stage and clause in docs, clause
+
+
+def test_row_4_is_stage_5_and_never_answers_an_unreadable_session():
+    text = _post_description()
+    row4 = text[text.index("[4] Agent-Ref present"):text.index("[5] ")]
+    assert "stage (5) of the ORDER OF REFUSALS" in row4 and "-> 400 head_capture_invalid" in row4
+    assert "stage (4) answers it first" in row4
+    assert "no resolvable content-less session binding" not in text
+    docs = " ".join(_docs().split())
+    assert "never by row 4" in docs
+
+
+def test_legacy_allow_list_is_stated_in_both_places():
+    text = _post_description()
+    assert "ONLY through this ALLOW-LIST" in text
+    for clause in ("spec.provenance names no session id", "positively read", "positively absent",
+                   "every other outcome is refused at stage (4)"):
+        assert clause in text, clause
+    docs = " ".join(_docs().split()).replace("**", "")
+    assert "Legacy allow-list: the legacy path is taken only when (a) the publish names no session id" in docs
+    assert "every other outcome is refused at stage 4 and writes nothing" in docs
+
+
+# Each case lists the stages of the ORDER OF REFUSALS whose condition fails at once and the single
+# answer. The Backend asserts the same pairs against the real route in
+# tests/unit/routes/test_best_config_publish_allow_list.py (the combined-failure tests).
+COMBINED_FAILURES = [
+    ("malformed Agent-Ref + a session the caller may not use", {3, 4}, "400 head_capture_invalid"),
+    ("Agent-Ref without a generation + an unreadable session", {3, 4}, "400 head_capture_invalid"),
+    ("Agent-Id header with Agent-Ref + an unreadable session", {3, 4}, "400 head_capture_invalid"),
+    ("unknown Agent-Ref + a session the caller may not use", {4, 6}, "403 head_write_unauthorized"),
+    ("unknown Agent-Ref + a damaged stored binding", {4, 6}, "500 internal_error"),
+    ("unknown Agent-Ref + a deleted session", {4, 6}, "404 reference_not_found"),
+    ("unknown Agent-Ref + a readable content-less session", {6}, "404 reference_not_found"),
+    ("Agent-Ref + a readable legacy-shape session (row 4)", {5}, "400 head_capture_invalid"),
+    ("Agent-Ref + no session id (row 4)", {5}, "400 head_capture_invalid"),
+    ("no Agent-Ref + a readable content-less session (row 6) + wrong environment", {5, 9}, "400 head_capture_invalid"),
+]
+
+
+def _stage_texts():
+    import re
+
+    text = _post_description()
+    order = text[text.index("ORDER OF REFUSALS"):]
+    parts = re.split(r"\((\d+)\) ", order)
+    return {int(parts[i]): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+
+
+@pytest.mark.parametrize(("case", "failing", "answer"), COMBINED_FAILURES)
+def test_combined_failures_have_exactly_one_answer(case, failing, answer):
+    stages = _stage_texts()
+    assert sorted(stages) == list(range(1, 13))
+    first = min(failing)  # the first stage that applies answers
+    assert answer in stages[first], (case, first, stages[first])
 
 
 # --- the layer-disabled contract is stated once and every predicate statement is qualified (sol r6 P2) ---
@@ -443,14 +520,11 @@ def test_every_predicate_statement_names_the_layer_condition():
     assert "iff the layer is enabled and it carries `X-Traigent-Agent-Ref`" in docs
 
 
-def test_accepted_gap_refuses_a_typed_session_that_cannot_be_read_never_legacy():
+def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
     text = _post_description()
     stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
-    assert "typed (content-less registry) id" in stage
-    for fragment in ("403 head_write_unauthorized", "404 reference_not_found", "500 internal_error"):
-        assert fragment in stage
-    assert "never falls back to the legacy path" in stage
-    assert "reports as not a typed session is legacy" in stage
+    assert "is never legacy: it writes nothing and moves no head" in stage
+    assert "stage (4) of the ORDER OF REFUSALS" in stage
+    assert "reports as not a typed session is legacy" not in text
     docs = _docs()
-    assert "the publish is never legacy and writes nothing" in docs
-    assert "only an id the control plane reports as not a typed session is legacy" in docs
+    assert "every other outcome is refused at stage 4 and writes nothing" in " ".join(docs.split())

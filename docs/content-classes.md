@@ -175,17 +175,29 @@ unchanged legacy bodies (which must not carry a protected closed code). The 500 
 (`optimization/best_config_publish_500_schema.json`) is built the same way: the closed `internal_error` refusal, or the
 unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a request that carries `X-Traigent-Agent-Ref` while the layer is enabled: the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
 
-**Refusal precedence.** Authentication (401 `unauthenticated`); then permissions and project role (403 `forbidden`);
-then malformed or incomplete capture (400 `head_capture_invalid`); then a well-formed but unknown or foreign ref (404
-`reference_not_found`, nothing echoed); then agent WRITE (403 `head_write_unauthorized`); then session agreement (409
-`head_agent_mismatch`, then 409 `head_environment_mismatch`); then the body (400 `head_body_invalid`), the head compare
-(409 `head_generation_stale`) and the ordinary conflict (409 `head_publish_conflict`). The first two are the closed
-envelopes of the publish's authentication layers and are selected by a header predicate alone, evaluated before any
-session is resolved: the request is protected for that stage iff the layer is enabled and it carries `X-Traigent-Agent-Ref` (layer disabled: every response is legacy). Everything after
-authentication follows the session-based decision table of the publish operation. A content_less_v1-session publish
-without the header therefore gets the generic 401/403 on an authentication or permission failure (accepted: it is
-refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture; when the provenance session id is a typed (content-less registry) id whose binding cannot be positively read, the publish is never legacy and writes nothing: a caller not allowed to use the session gets 403 `head_write_unauthorized`, a deleted, unregistered or out-of-scope one 404 `reference_not_found`, an ambiguous, unreadable or damaged one 500 `internal_error`; a malformed capture is reported first, and only an id the control plane reports as not a typed session is legacy). On the read route a
-malformed path ref or `environment` is 400, an unknown or foreign ref 404.
+**Refusal precedence.** One order; the first stage that applies answers: (1) not authenticated, 401
+`unauthenticated`; (2) permissions or project role denied, 403 `forbidden`; (3) malformed or incomplete capture, 400
+`head_capture_invalid` (decision-table rows 1-3, judged from the request headers alone, before any session is read); (4)
+**session binding resolution**, only when `spec.provenance` names a session id: the caller may not use the session 403
+`head_write_unauthorized`, the session is deleted, not registered or outside the caller's scope 404 `reference_not_found`,
+the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed
+`content_less` block) 500 `internal_error`; (5) the resolved binding against the request (decision-table rows 4 and 6), 400
+`head_capture_invalid`; (6) a well-formed but unknown or foreign ref, 404 `reference_not_found` (nothing echoed); (7) agent
+WRITE denied, 403 `head_write_unauthorized`; (8) session agreement, 409 `head_agent_mismatch`; (9) 409
+`head_environment_mismatch`; (10) the body, 400 `head_body_invalid`; (11) the head compare, 409 `head_generation_stale`; (12)
+the ordinary conflict, 409 `head_publish_conflict`. Stages 1 and 2 are the closed envelopes of the publish's authentication
+layers and are selected by a header predicate alone, evaluated before any session is resolved: the request is protected for
+that stage iff the layer is enabled and it carries `X-Traigent-Agent-Ref` (layer disabled: every response is legacy).
+Everything after authentication follows the session-based decision table of the publish operation. Decision-table row 4
+(Agent-Ref without a resolvable content-less binding) is stage 5: it applies only when stage 4 resolved a binding that is not
+content-less, or the publish names no session; a session that cannot be positively read is answered by stage 4, never by
+row 4. **Legacy allow-list:** the legacy path is taken only when (a) the publish names no session id, or (b) the named
+session was positively read (a lookup that succeeded and returned a well-formed record) and is not content-less (a classic
+session, or a typed session whose stored shape is legacy), or the named id is outside the typed namespace and positively
+absent (every lookup succeeded and found nothing); every other outcome is refused at stage 4 and writes nothing. A
+content_less_v1-session publish without the header therefore gets the generic 401/403 on an authentication or permission
+failure (accepted: it is refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture).
+On the read route a malformed path ref or `environment` is 400, an unknown or foreign ref 404.
 
 ## Scope and commands
 

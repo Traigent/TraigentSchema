@@ -7187,6 +7187,23 @@
       "reason": "intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused. Correction: that is not the whole story. Python's regex '$' also matches just before a final newline, so the pattern previously admitted a 72-character digest ending in a newline ('sha256:' + 64 hex + a trailing newline). The 71-character bound additionally rejects those trailing-newline digests. This is an intentional tightening; no digest without a trailing newline is affected.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-traigent-spec-hash",
+          "role": "conservative",
+          "subject": "x-traigent-spec-hash",
+          "old": false,
+          "new": true,
+          "fingerprint": "84806e8990abb7e61b685733629ebe66e4f36956084ffc2afd7e94224b83dc81"
+        }
+      ],
+      "reason": "Registers the x-traigent-spec-hash annotation keyword in the closed extension meta-schema so best_config_schema.json can state the frozen legacy v1 spec_hash rule. It is a documentation-only schema annotation: no wire payload carries it and no validation changes, so no consumer can observe it; the gate flags it because the meta-schema is closed. The rule it records is the Backend's existing behaviour since #819. Pending contract review.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
     }
   ]
 }

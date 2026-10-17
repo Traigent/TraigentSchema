@@ -424,6 +424,10 @@
         "type": "object"
       }
     },
+    "x-traigent-spec-hash": {
+      "type": "object",
+      "description": "The frozen, complete spec_hash rule of a legacy spec envelope (traigent.best_config.v1): applies_to, covered and excluded keys, the recursive validation exclusions, the identifier/environment normalization applied before hashing, the serialization options, and the vector file that pins it. Placed at the top level of the schema that defines the envelope; the Backend and every SDK must produce exactly this digest."
+    },
     "x-user-requestable-scopes": {
       "type": "array",
       "items": { "type": "string" },

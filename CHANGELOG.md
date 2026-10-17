@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **The legacy `traigent.best_config.v1` `spec_hash` rule is frozen in one place
+  (`best_config_schema.json`, `x-traigent-spec-hash`), with language-neutral vectors
+  (`tests/data/best_config_v1_spec_hash_vectors.json`).** No behaviour change for the
+  Backend, which has applied this rule since #819: provenance and `forward_compat` are not
+  hashed; `validation` has its result/claim keys removed recursively and is omitted when
+  empty; `config_id` is trimmed; the effective environment is always hashed; NFC, then
+  Python JSON serialization. The SDK hashed provenance and unfiltered validation, so a real
+  publish raised an integrity error after the Backend had committed it. The rule is
+  explicitly not the v2 / fp2 contract.
 - **Observability trace/session list query parameters now match the backend (#550).
   Additive only.** `tags` stays a `string` parameter and its new description
   says what one occurrence means: each `tags=` value is ONE tag, taken literally (a comma is

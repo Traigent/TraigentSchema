@@ -89,7 +89,14 @@ entry `{location, from, to, reason, reference}` (reason in words, reference to t
 design section); the test fails for a declassified location without one. Locations whose note
 reads `INV-GAP: was <class>` were claimed content-free by the first annotation pass, but their
 contract has no enum or ref pattern to prove it. Notes reading `reclassified by review` mark the
-2026-10-16 honesty pass, the one pass allowed to add to the register.
+2026-10-16 honesty pass. The second sanctioned addition is the 2026-10-17 phase 0c pass: the
+best-config endpoints and their publish / rollback request bodies
+(`execution/best_config_endpoints.json`, `best_config_publish_request_schema.json`,
+`best_config_rollback_request_schema.json`) became lint roots, so values that were always on the wire
+became visible. Customer-chosen values there (`config_id`, `function_ref`, free-form `metadata`, and the
+already annotated legacy response branches) are `legacy_content` with an `INV` note; ETag preconditions
+(`If-Match`, `If-None-Match`) are `auth_header`; the rollback `version` is a `number`. Nothing was relabelled to a
+content-free class that its schema cannot prove.
 
 ### Anchored ratchet
 

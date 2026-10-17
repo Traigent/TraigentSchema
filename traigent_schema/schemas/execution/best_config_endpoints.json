@@ -44,6 +44,7 @@
             "required": false,
             "description": "Required when replacing an existing best config. Use the current ETag returned by GET or publish.",
             "schema": {
+              "x-content-class": "auth_header",
               "type": "string"
             }
           },
@@ -109,7 +110,7 @@
                       "type": "object",
                       "x-content-class": "legacy_content",
                       "x-content-key-class": "legacy_content",
-                      "x-content-note": "LEGACY-path 401 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
+                      "x-content-note": "INV B1 (LEAK): LEGACY-path 401 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
                       "not": {
                         "required": [
                           "error_code"
@@ -153,7 +154,7 @@
                       "type": "object",
                       "x-content-class": "legacy_content",
                       "x-content-key-class": "legacy_content",
-                      "x-content-note": "LEGACY-path 403 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
+                      "x-content-note": "INV B1 (LEAK): LEGACY-path 403 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
                       "not": {
                         "required": [
                           "error_code"
@@ -207,7 +208,7 @@
                       "type": "object",
                       "x-content-class": "legacy_content",
                       "x-content-key-class": "legacy_content",
-                      "x-content-note": "LEGACY-path 409 bodies, unchanged (BEST_CONFIG_CONFLICT, STALE_HEAD_GENERATION and other legacy codes); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
+                      "x-content-note": "INV B1 (LEAK): LEGACY-path 409 bodies, unchanged (BEST_CONFIG_CONFLICT, STALE_HEAD_GENERATION and other legacy codes); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
                       "not": {
                         "required": [
                           "error_code"
@@ -254,7 +255,7 @@
                     "type": "object",
                     "x-content-class": "legacy_content",
                     "x-content-key-class": "legacy_content",
-                    "x-content-note": "LEGACY-path 500 body, unchanged (generic server-error body, e.g. BEST_CONFIG_ERROR); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry the protected closed code.",
+                    "x-content-note": "INV B1 (LEAK): LEGACY-path 500 body, unchanged (generic server-error body, e.g. BEST_CONFIG_ERROR); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry the protected closed code.",
                     "not": {
                       "required": [
                         "error_code"
@@ -288,6 +289,8 @@
             "in": "path",
             "required": true,
             "schema": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV B2 (OPEN): config_id (customer-chosen configuration id; the spec.config_id of the publish)",
               "type": "string",
               "minLength": 1,
               "maxLength": 128
@@ -299,6 +302,7 @@
             "required": false,
             "description": "Return 304 when the current best config ETag matches this value.",
             "schema": {
+              "x-content-class": "auth_header",
               "type": "string"
             }
           },
@@ -315,6 +319,8 @@
             "in": "query",
             "required": false,
             "schema": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV B2 (OPEN): function_ref (a code identifier, but the schema carries no identifier pattern to prove it)",
               "type": "string"
             }
           }
@@ -372,6 +378,7 @@
             "required": true,
             "description": "Current best-config ETag required to publish a rollback version.",
             "schema": {
+              "x-content-class": "auth_header",
               "type": "string"
             }
           }

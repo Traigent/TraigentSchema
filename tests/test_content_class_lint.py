@@ -75,6 +75,38 @@ def test_lint_walks_the_optimization_documents() -> None:
     assert "evaluation/configuration_run_schema.json" in docs  # via $ref
 
 
+def test_lint_walks_the_best_config_publish_and_rollback_contracts() -> None:
+    """Phase 0c: the best-config endpoints and their publish / rollback request bodies were not
+    lint roots, so their free-form values (config_id, function_ref, metadata) were invisible.
+    They are roots now: every value is classified, and the customer-chosen ones are visible as
+    ``legacy_content`` (never relabelled as a content-free class)."""
+    result = lint.run_lint()
+    docs = set(result.documents)
+    for doc in (
+        "execution/best_config_endpoints.json",
+        "execution/best_config_publish_request_schema.json",
+        "execution/best_config_rollback_request_schema.json",
+    ):
+        assert doc in docs, doc
+    classes = {f.loc: f.cls for f in result.findings if f.cls}
+    ep = "execution/best_config_endpoints.json#/paths/"
+    get_one = ep + "~1api~1v1~1best-configs~1{config_id}/get/parameters/"
+    assert classes[get_one + "0/schema"] == "legacy_content"  # config_id: customer-chosen
+    assert classes[get_one + "3/schema"] == "legacy_content"  # function_ref: no code-id pattern
+    assert classes[get_one + "1/schema"] == "auth_header"  # If-None-Match
+    assert classes[ep + "~1api~1v1~1best-configs/post/parameters/0/schema"] == "auth_header"
+    assert (
+        classes[ep + "~1api~1v1~1best-configs~1{config_id}~1rollback/post/parameters/0/schema"]
+        == "auth_header"
+    )
+    for doc in ("publish", "rollback"):
+        meta = f"execution/best_config_{doc}_request_schema.json#/properties/metadata"
+        assert classes[meta] == "legacy_content", meta  # free-form object: stays legacy
+        assert classes[meta + "/propertyNames"] == "legacy_content"
+    rollback = "execution/best_config_rollback_request_schema.json#/properties/version"
+    assert classes[rollback] == "number"
+
+
 def test_class_vocabulary_matches_the_registered_extension() -> None:
     meta = json.loads(META.read_text(encoding="utf-8"))["properties"]
     for key in ("x-content-class", "x-content-key-class"):

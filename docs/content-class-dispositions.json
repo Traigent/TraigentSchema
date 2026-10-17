@@ -464,7 +464,23 @@
   "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectObjectiveDefinition/properties/metric",
   "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand",
   "optimization/session_create_request_definitions_schema.json#/definitions/LegacyObjectiveBand [keys]",
-  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items"
+  "optimization/session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/401/content/application~1json/schema/oneOf/1",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/401/content/application~1json/schema/oneOf/1 [keys]",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/403/content/application~1json/schema/oneOf/1",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/403/content/application~1json/schema/oneOf/1 [keys]",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/409/content/application~1json/schema/oneOf/1",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/409/content/application~1json/schema/oneOf/1 [keys]",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/500/content/application~1json/schema/oneOf/1",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/500/content/application~1json/schema/oneOf/1 [keys]",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs~1{config_id}/get/parameters/0/schema",
+  "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs~1{config_id}/get/parameters/3/schema",
+  "execution/best_config_publish_request_schema.json#/properties/metadata",
+  "execution/best_config_publish_request_schema.json#/properties/metadata [keys]",
+  "execution/best_config_publish_request_schema.json#/properties/metadata/propertyNames",
+  "execution/best_config_rollback_request_schema.json#/properties/metadata",
+  "execution/best_config_rollback_request_schema.json#/properties/metadata [keys]",
+  "execution/best_config_rollback_request_schema.json#/properties/metadata/propertyNames"
  ],
  "dispositions": [
   {

@@ -16,9 +16,14 @@
       "description": "Optional explicit deployment environment. If provided it must match spec.environment."
     },
     "metadata": {
+      "x-content-class": "legacy_content",
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV B1 (LEAK): metadata (free-form object, up to 64 keys)",
       "type": "object",
       "maxProperties": 64,
       "propertyNames": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV B1 (LEAK): metadata (free-form object, up to 64 keys): keys",
         "not": {
           "enum": [
             "tenant_id",

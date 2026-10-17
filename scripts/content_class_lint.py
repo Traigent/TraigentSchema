@@ -191,6 +191,11 @@ EXTRA_ROOT_FILES = (
     "guidance/guidance_plan_item_schema.json",
     "guidance/guidance_action_schema.json",
     "guidance/guidance_result_submission_schema.json",
+    # Phase 0c: the best-config endpoints and their publish / rollback request bodies carry
+    # customer-chosen values (config_id, function_ref, free-form metadata).
+    "execution/best_config_endpoints.json",
+    "execution/best_config_publish_request_schema.json",
+    "execution/best_config_rollback_request_schema.json",
 )
 # Closed by design (privacy bridge), not field-audited here.
 EXCLUDED_PREFIXES = ("legend/",)

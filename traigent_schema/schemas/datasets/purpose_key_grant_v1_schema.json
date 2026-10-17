@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/purpose_key_grant_v1_schema.json",
+  "title": "Purpose Key Grant V1",
+  "description": "The Backend's response to an authenticated SDK session asking for content-identity purpose keys (ruling D1; docs/identity/content-identity-v1.md sections 3, 12, 18). It carries ONLY the two derived purpose keys of one tenant key version, never the tenant master. SECRET: example_id_key and example_version_key are key material. They MUST never be logged, cached on disk, echoed in errors, exported or forwarded; SDKs hold them in memory only and redact them from every rendering. Every string pattern in this file ends with the portable end anchor (?![\\s\\S]) instead of $ (see content_identity_v1_schema.json).",
+  "version": "1.0.0",
+  "definitions": {
+    "PurposeKeyGrantV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tenant_id",
+        "kid",
+        "example_id_key",
+        "example_version_key",
+        "encoding"
+      ],
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
+          "description": "The Backend's exact tenant id (enterprise_tenants.id), byte for byte: it is bound into the HKDF info that derived these keys."
+        },
+        "kid": {
+          "$ref": "content_identity_v1_schema.json#/definitions/KeyIdV1",
+          "description": "Public key id of the tenant key version these keys belong to. Not secret."
+        },
+        "example_id_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "x-privacy-classification": "secret",
+          "x-privacy-note": "SECRET key material. Never log, cache on disk, echo in an error, export or retransmit this value; hold it in memory only.",
+          "description": "K_example_id: 32 bytes as 64 lowercase hex characters. SECRET key material. Never log, cache on disk, echo in an error, export or retransmit this value; hold it in memory only."
+        },
+        "example_version_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "x-privacy-classification": "secret",
+          "x-privacy-note": "SECRET key material. Never log, cache on disk, echo in an error, export or retransmit this value; hold it in memory only.",
+          "description": "K_example_ver: 32 bytes as 64 lowercase hex characters. SECRET key material. Never log, cache on disk, echo in an error, export or retransmit this value; hold it in memory only."
+        },
+        "encoding": {
+          "type": "string",
+          "const": "hex",
+          "description": "Encoding of the two key fields. Only 'hex' exists; a consumer MUST reject anything else rather than guess."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/PurposeKeyGrantV1"
+    }
+  ]
+}

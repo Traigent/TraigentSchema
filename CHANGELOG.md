@@ -8,6 +8,563 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cross-SDK identity vectors v1 (guard G1; local, held until the ledger filing).** New
+  `traigent_schema/data/identity/identity_vectors_v1.json` (+ `.schema.json`) with version-pinned vectors
+  for registration identity and provenance (Python `_build_default_experiment_name`, JS
+  `agentName ?? resolvedFunctionName`, the Backend registration key), trace attribution outcomes (native and
+  OTLP transports) and environment resolution (`team/eu` valid, 65 chars invalid). Data and tests only: no
+  schema, wire or validation change. Pinned by `tests/test_identity_vectors_v1.py` (sha256 pin). Each vector names the rule it exercises in a `rule` field, a dotted id from the closed set
+  `closed_sets.rule` (for example `provenance.user_named`, `attribution.otlp.strict`, `environment.order`).
+
+### Fixed
+- **Observability trace/session list query parameters now match the backend (#550).
+  Additive only.** `tags` stays a `string` parameter and its new description
+  says what one occurrence means: each `tags=` value is ONE tag, taken literally (a comma is
+  part of the tag, never a delimiter), and one key per tag, a single
+  tag included (`?tags=vip`; `?tags=vip&tags=beta` for two), and `?tags=vip,beta` filters for
+  the one tag `vip,beta`. Both lists gain `outcome_kind` (new
+  `session_schema.json#/definitions/ObservabilityOutcomeKind`:
+  `conversion|resolution|csat|custom`) and `has_outcome`. The trace list gains `q`, the
+  cost/token/latency `min_`/`max_` ranges, `sort_by` and `order`. The session list gains
+  `model`, `session_id` and `status`. The trace list's `metadata.<key>=<value>` filters are
+  not declared yet (a dynamic parameter name needs a new governed extension). Pinned by
+  `tests/test_observability_list_query_contract.py`.
+- Hyperband capability metadata now states `planned` and explicitly describes it
+  as not currently executable. The accepted algorithm vocabulary remains unchanged;
+  runtime dispatch continues to reject unsupported Hyperband execution (#277).
+
+### Added
+- **Optional pricing-coverage counts on the project-usage dashboard (additive).**
+  `project_scoped_project_usage_dashboard_schema.json` gains optional
+  `priced_configuration_runs` / `unpriced_configuration_runs` on each `top_experiments[]` item
+  (integer, >=0, not required). When priced is 0 and unpriced > 0 the total cost is unmeasured,
+  not zero. `total_cost_usd` is unchanged. The evaluator-quality dashboard is unchanged:
+  evaluator runs store cost as a non-null 0, so an unpriced count there would be fake.
+- **Connector summary schemas (`schemas/connectors/`).** Three new closed
+  (`additionalProperties: false`) draft-07 schemas for customer-side connector
+  runs: `connector_run_summary.json` (command, status, fixed integer counts,
+  per-operation guarantees, closed `error_code` enum),
+  `dataset_revision_summary.json` (counts, approval, sampling policy, score
+  semantics) and `correlation_summary.json` (trial link counts per tier plus
+  optional code identity: `agent_function_ref` and a repo-relative
+  `agent_file_path`). Identifiers are opaque fixed-format tokens
+  (`^tk_[0-9a-hjkmnp-tv-z]{26}$`, a random 128-bit value minted customer-side);
+  timestamps are RFC 3339 UTC with an explicit pattern; run status drives which
+  timestamps are required; code identity uses a strict module/qualname and
+  source-file path grammar; no free text, URLs or platform identifiers. Each
+  schema `$id` carries a `/connectors/v1/` version segment. Purely additive.
+- **`session_create_response_schema.json` (`SessionCreateResponseDTO`): POST `/api/v1/sessions`
+  response contract.** Required `session_id` and `status`; new optional non-empty `project_id`
+  and `tenant_id` (server-issued owning scope the SDKs use to build the portal link; omitted,
+  never null, when absent); `metadata` types `experiment_id`, `experiment_run_id` and
+  `agent_id` (string or null). Additive and permissive (`additionalProperties: true`) so legacy
+  `success`/`data`/`message` keys keep validating. The session-create 201 in
+  `optimization_endpoints.json` also gains the same optional `project_id`/`tenant_id`
+  (its inline object is otherwise unchanged). Closes the
+  producer/consumer gap where no create-session response schema existed.
+- **`agent_name` on `ExperimentGroupOverview` (optimization-history display name).**
+  New optional, nullable `agent_name` (`schemas/execution/experiment_group_schema.json`)
+  carries the human-readable display name of the group's agent (`Agent.name`) for the
+  group-list and group-detail overview; `null` when the group has no agent or no name is
+  visible. Purely additive and display-only, mirroring `dataset_label` — never part of
+  group identity, `identity_state`, sort vocabulary, or pagination/cursor keys, and old
+  readers that ignore it are unaffected. Fixes the portal's optimization-history Agent
+  column showing the opaque `agent_id` UUID.
+- **Observation cost contract review fixes**: `cost_status` now documents the completeness of the displayed cost (with `cost_source` as provenance; `priced` no longer implies server pricing, and `priced_cost_usd` need not equal `cost_usd` for declared costs); new optional boolean `cost_mismatch` on observations; declared-cost and mismatch conformance tests.
+- **Cost-accounting usage and read fields (additive, nullable).** New canonical
+  `ReasoningTokens` (nullable integer, absent is not zero) on the observation read
+  schema, all six `observation_ingest_schema.json` depth levels and the cost usage
+  item; `reasoning_tokens` joins the `unreported_usage_fields` vocabulary (that is
+  the existing name of the "which usage fields were withheld" list from #382; no
+  second `withheld_usage_fields` spelling is introduced). The observation read
+  schema gains optional server-computed `cost_status`
+  (`priced|unpriced|partial|not_applicable`), `cost_source`
+  (`declared|computed|none`), `cost_usd_declared`, `cost_usd_computed`,
+  `priced_cost_usd`, `priced_model`, `price_catalogue_version`.
+- **Trace, session and analytics-summary cost fields (MT3-06; nullable `total_cost_usd`
+  now made).** `trace_schema.json` and `session_schema.json` declare `total_cost_usd`
+  (number|null, >=0; null when cost is unknown, never 0), `cost_status`
+  (`priced|unpriced|partial|not_applicable`, new `CostRollupStatus` in
+  `common_types_schema.json`; absent means a legacy row whose total is caller-declared),
+  `priced_cost_usd` (lower bound when not priced) and `unpriced_observation_count`.
+  The observability summary dashboard (`summary_cards`, `top_traces[]`) documents
+  `total_cost_usd`, `cost_status`, `priced_cost_usd`, `unpriced_trace_count` and
+  `top_traces[].unpriced_observation_count`; `total_cost_usd_in_range` is retained as a
+  DEPRECATED alias of `total_cost_usd` and is now nullable. The earlier note that
+  trace-level nullable `total_cost_usd` was a deferred owner decision is superseded: the
+  Backend already serializes null, so the Schema now describes shipped behaviour.
+  No `cost_source` is defined for trace/session/summary because the Backend does not emit
+  one there. Backend/FE/SDK consumers must treat null as unknown, never zero.
+- **Project-scoped dashboard cost fields are nullable.** In
+  `project_scoped_evaluator_quality_dashboard_schema.json`,
+  `project_scoped_optimization_overview_dashboard_schema.json`,
+  `project_scoped_project_usage_dashboard_schema.json` and the `usage_summary` of
+  `project_scoped_analytics_summary_schema.json`, every USD cost field (`total_cost_usd_in_range`,
+  `total_cost_usd`, `cost_usd`, `avg_cost_usd`) is now number|null, >=0 on the number branch: null
+  means cost unknown (no priced usage) and is never 0. Keys stay required. Acknowledged in
+  `scripts/breaking_schema_allowlist.json`. Backend/FE/SDK consumers must treat null as unknown,
+  never zero.
+- **Evaluator run cost is nullable.** `evaluator_run_schema.json` (and therefore
+  `evaluator_run_list_response_schema.json`, which references it) now declares `cost_usd` as
+  number|null, >=0 on the number branch: null means the evaluator run's cost is unknown and is
+  never 0. The key stays optional. Acknowledged in `scripts/breaking_schema_allowlist.json`.
+  Backend/FE/SDK consumers must treat null as unknown, never zero.
+- **Workflow-trace trial response cost (nullable `total_cost_usd`).**
+  `workflow_trace_trial_response_schema.json` (GET `/api/v1/experiment-runs/runs/{run_id}/traces`)
+  now declares `total_cost_usd` as number|null, >=0: null means the trial cost is unknown and is
+  never 0. The key stays required (always present, value may be null). Two optional members are
+  added, following the MT3-06 trace/session precedent: `cost_status`
+  (`priced|unpriced|partial|not_applicable`, `CostRollupStatus` in `common_types_schema.json`) and
+  `unpriced_span_count` (integer >=0). Acknowledged in `scripts/breaking_schema_allowlist.json`.
+  Backend/FE/SDK consumers must treat null as unknown, never zero.
+- **Observability summary `activity_trend[]` cost and status (additive, nullable).**
+  Each `activity_trend` bucket in `project_scoped_observability_summary_dashboard_schema.json`
+  now declares a nullable `total_cost_usd` (number|null, >=0; null when the bucket's cost is
+  unknown, never 0) and an optional `cost_status`
+  (`priced|unpriced|partial|not_applicable`, `CostRollupStatus`). Consumers must treat
+  null as unknown, never zero. The breaking-schema allowlist entries for this change were
+  added by the owner.
+- **OTel attribute contract v1** (`traigent_schema/data/observability/otel_attribute_contract_v1.json`):
+  shared by the Backend OTLP receiver and SDK exporters. Content-mode declaration
+  (`traigent.content_mode.v1`), content-key list, typed metadata allowlist, usage classes,
+  observation-type mapping and the OpenInference-vs-GenAI precedence table with vectors.
+  Additive data file; no existing schema changed.
+- **OTel contract: `traigent.observation_type`** — typed metadata allowlist entry plus first-precedence
+  explicit observation-type mapping (valid enum members only; invalid values fall back to the existing
+  mapping) with executable vectors. Consumers must re-vendor the file and update their sha256 pin.
+- **OTel contract revision (review fixes)** — usage wire semantics are inclusive (input includes cache reads;
+  `traigent.usage.semantics` marks legacy disjoint sources) with normalisation vectors; invalid content-mode
+  declarations resolve to `metadata`, absent inherit (shared vectors); one typed metadata-egress set now includes all
+  usage keys and aliases; fallback attributes count only as non-empty strings. Consumers must re-vendor and re-pin.
+
+### Changed
+- **Observation `input_tokens` / `output_tokens` are nullable (MT3-07).** null means the
+  usage was not reported (see `unreported_usage_fields`), which is the normal case for
+  OTLP tool/agent/chain/span observations; it is never zero.
+- **`GET /api/v1beta/experiments/{experiment_id}/context` (deep-link tenant/project
+  resolution).** SDK/Claude Code links of the form `.../experiments/view/{id}` can open
+  under the wrong tenant; this route lets the frontend resolve the experiment's actual
+  `tenant_id`/`project_id` once and switch, instead of showing a dead-end 404.
+  Authenticated but CONTEXT-INDEPENDENT: it does not require or consume
+  `X-Tenant-Id`/`X-Project-Id`. Human (JWT/cookie) sessions only -- an API-key principal
+  is rejected uniformly before any lookup (`403 CONTEXT_RESOLUTION_HUMAN_ONLY`), never
+  enumerated against its owner's memberships. The lookup is scoped to the caller's own
+  ACTIVE tenant memberships and reuses the experiment detail route's real visibility
+  policy per tenant (project read role + ownership visibility); there is no cross-tenant
+  admin bypass. An experiment that does not exist and one the caller cannot read in any
+  active tenant return the exact same closed `404`. The membership probe is bounded
+  (tenant count and wall time); exceeding it is a retryable `503`
+  (`CONTEXT_RESOLUTION_BUDGET_EXCEEDED`), never a false `404` from a silently truncated
+  search. The `200` body is bare (`x-wrap-status: bare`) and closed:
+  `{experiment_id, project_id, tenant_id, tenant_name?, project_name?}` -- the two names
+  are optional display strings for a "Opened in workspace X / project Y" toast only.
+  Every response carries `Cache-Control: private, no-store`. New
+  `evaluation/experiment_context_schema.json`; the operation is added to the existing
+  `execution/execution_endpoints.json` module (no new endpoints file, already wired into
+  `mep_endpoints.json`). Backend and Frontend implementation is separate, later work;
+  this contract lands first per workspace convention for a public repo.
+- **`GET /agent-readiness/fleet-posture` server-side filters + opt-in project-wide
+  verdict totals (additive).** Five new optional query parameters on
+  `agent_readiness/fleet_posture_endpoints.json`: `verdict`, `stage`, `deployment_stage`
+  (each repeatable -- `style: form`, `explode: true`; OR within the parameter, AND across
+  parameters and with the existing `agent_id`; a comma-separated value is REJECTED, not
+  parsed as a list), `search` (case-folded literal substring on `agent_name`, trimmed,
+  1-200 chars after trim, `%`/`_`/`\` matched literally, never as SQL/LIKE
+  wildcards/escapes), and `include_project_summary` (boolean, default `false`). Every
+  filter's enum is a `$ref` to the existing source-of-truth definition, never re-forked:
+  `verdict` to `fleet_posture_response_schema.json#/definitions/Verdict`, `stage` to
+  `agent_readiness_common_schema.json#/definitions/ProcessStage`, `deployment_stage` to
+  `agent_posture_schema.json#/definitions/DeploymentStage` (itself
+  `agents/agent_deployment_schema.json#/definitions/Environment`). All five apply BEFORE
+  pagination: `pagination.total`/`pagination.total_pages` become the filtered count, never
+  the project's unfiltered total. An unknown/invalid value for any of them yields the
+  existing `400` envelope with the offending value never echoed; the `agent_id`
+  no-existence-oracle privacy invariant is unchanged. New optional response property
+  `agent_readiness/fleet_posture_response_schema.json` `project_summary` (present only
+  when `include_project_summary=true`; reuses the existing closed `FleetSummary` shape --
+  `total` + `counts_by_verdict` over exactly the four `Verdict` members, all
+  `minimum: 0`): its scope is every caller-visible, non-archived agent in the project,
+  independent of every filter on the request including `agent_id` -- identical whether
+  `agent_id` is omitted, matches a known agent, or matches none. The required, page-scoped
+  `summary` is unaffected. New `503` response documents the enhanced-path bound: computing
+  filtered rows and/or `project_summary` requires evaluating every caller-visible agent, so
+  a project over 500 caller-visible agents fails closed instead of ever returning a
+  truncated/partial `pagination.total` or `project_summary`; the pre-existing unfiltered,
+  no-`include_project_summary` page-only path is unaffected. Two
+  `scripts/breaking_schema_allowlist.json` entries (`property_added` on
+  `fleet_posture_endpoints.json`'s `200` response and on
+  `fleet_posture_response_schema.json`'s root, both for `project_summary`) acknowledge the
+  resulting BREAKING findings on this already-closed response -- the same
+  closed-response-gains-an-optional-member shape as the prior `criticality_source` /
+  `verdict_reason` / `pagination` acknowledgements on this file; old strict response
+  validators must upgrade to accept one more optional top-level property. Tests: 20 new
+  tests in `test_fleet_posture_response_contract.py` (filter param declarations incl.
+  `style`/`explode` and enum provenance, the `503` documentation, `project_summary`'s
+  optionality/shape/independent-scope description, and fixture cases covering a valid
+  response with `project_summary`, a missing verdict key, an extra verdict key, and a
+  negative count) plus 4 new fixture cases in `fleet_posture_verdict_cases.json`; all
+  pre-existing paging/`agent_id`/verdict-reason tests unchanged and passing. Full repo
+  suite: 5207 passed, 2 skipped (was 5187 passed, 2 skipped before this change). Parity
+  manifest re-stamped.
+- **Fleet-posture filters/project_summary review fixes (same feature, follow-up commit).**
+  `project_summary` and `summary` now `$ref` two distinct named definitions --
+  `ProjectSummary` and `FleetSummary` -- both `allOf`-wrapping a new scope-neutral
+  `VerdictTotals` definition, instead of a bare `$ref` carrying a sibling `description`
+  that OpenAPI 3.0's Reference Object rule (and non-compliant generators) may silently
+  drop; `FleetSummary`'s own description no longer claims "there is no" project-wide
+  equivalent (now false) and points to `project_summary` instead. `search`'s machine
+  schema now states exactly one rule matching the prose: `maxLength: 200` on the RAW
+  value, no `minLength` (a raw empty/blank string is schema-valid and semantically
+  ABSENT, never a 400; only a raw value over 200 chars is invalid). The `sum(counts_by_
+  verdict) == total` invariant (documented on `VerdictTotals`, not JSON-Schema-expressible)
+  now has a dedicated Python-level test over every valid fixture, plus one deliberately
+  schema-valid-but-invariant-violating fixture the test must catch. The `503` documents a
+  second trigger beyond the 500-agent bound -- ANY per-agent computation failure in the
+  enhanced-path universe fails the whole request closed, never partial, unlike the
+  page-only path's `failed_agent_ids` tolerance -- and now carries a real body: one new
+  additive `ServiceUnavailable` variant on the shared, closed
+  `agent_readiness_error_schema.json` envelope (`message`/`error`/`error_code` all
+  `"service_unavailable"`/`"Service unavailable"`), reused by the `503` response the same
+  way `400`/`401`/`403` already reuse that file. The operation description now pins:
+  Backend row ordering + tiebreaker (mirrors `AgentReadinessService.list_portfolio`'s
+  `stage_rank asc, last_activity asc nullsfirst, agent_id asc`, TraigentBackend
+  `src/services/analytics/agent_readiness_service.py:1143-1145`/`:1222-1224`, called from
+  `fleet_posture_service.get_fleet_posture`); repeated identical filter values are accepted
+  and de-duplicated; and a precise ENHANCED PATH definition (verdict/stage/deployment_stage
+  present, OR a non-blank search, OR `include_project_summary=true` -- a blank search and an
+  explicit `include_project_summary=false` do NOT trigger it or its 500-agent bound). New
+  fixture: an `agent_id` no-match response with `project_summary` still independently
+  populated. Allowlist reason wording corrected: existing callers that never send
+  `include_project_summary` never receive the member; only adopters of the flag need
+  validators that accept it. 11 new `scripts/breaking_schema_allowlist.json` entries cover
+  the resulting findings (the `summary`/`project_summary` restructuring reads as
+  type/required/additionalProperties loosened to this repo's own differ, which cannot see
+  through `$ref -> allOf -> $ref` -- the identical false-positive shape already
+  acknowledged here for the 2026-07-18 `ConfidenceLabel` split; the new `ServiceUnavailable`
+  variant is a standard additive enum/oneOf widening, same shape as the `wilson_score_binary`
+  precedent). Full repo suite: 5215 passed, 2 skipped. `bash scripts/local_gate.sh`
+  (ruff, mypy, pytest, parity, breaking-schema gate) passed.
+- **Fleet-posture review round 2: narrowed blast radius (supersedes two mechanics from
+  the bullet above, same feature, follow-up commit).** Two changes from the prior
+  follow-up widened scope more than the additive change needed, per a second review
+  pass: (a) `agent_readiness_error_schema.json` -- shared across
+  `agent_readiness`/`agent_posture`/`evaluation_system_validation` routes -- is back to
+  byte-identical with `origin/develop` (verified by a dedicated `git diff --quiet` test);
+  the `503` body is now a fleet-posture-LOCAL closed envelope,
+  `fleet_posture_response_schema.json#/definitions/FleetPostureUnavailable`
+  (`error_code: "FLEET_POSTURE_UNAVAILABLE"`, UPPER_SNAKE, matching the shared envelope's
+  own route-specific-code convention), so no other route's 400/401/403 is widened for
+  this one route's 503. (b) `FleetSummary` is back to its ORIGINAL concrete closed
+  `{total, counts_by_verdict}` structure (byte-identical `properties`/`required`/
+  `additionalProperties`) -- only its description became scope-neutral, stating the
+  `sum(counts_by_verdict) == total` invariant once and deferring which scope applies to
+  the referencing property (`summary` vs `project_summary`, each restating its own scope
+  in its own sibling description). The `VerdictTotals`/`ProjectSummary` split and its
+  `allOf` indirection are removed entirely, eliminating the 9 allowlist entries that
+  existed only to acknowledge this repo's own differ losing track of `$ref -> allOf ->
+  $ref`. Net allowlist count for this whole feature: 2 entries (`property_added` for
+  `project_summary` on both the endpoint's `200` response and the response schema root)
+  -- down from 13. The invariant test, the sum-mismatch fixture, the no-match+
+  project_summary fixture, the ordering/tiebreaker documentation, the enhanced-path
+  definition and the dedup wording from the bullet above are all unchanged and still
+  apply. Full repo suite: 5215 passed, 2 skipped (net unchanged: five renamed/refocused
+  tests). `bash scripts/local_gate.sh` re-verified green.
+- **`GET /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history`
+  (fleet agent page: recorded history).** The single-record READ route for an
+  agent-lifecycle-record already exists (`GET .../agent-lifecycle/agent-revisions/
+  {agent_revision_ref}/record`), but lifecycle records are grouped by an independent
+  `agent_ref` with no foreign key to a fleet `Agent.id`. This new route is the bridge:
+  a closed, paginated (`page` 1..2147483647, `per_page` 1..50, default 25) list of
+  `(agent_revision_ref, record_ref)` pairs; the backend includes a pair when the record's own
+  `experiment_run_id`, or one of that revision's run plans' `experiment_run_id`,
+  resolves to an `ExperimentRun` whose `Experiment.agent_id` matches the requested
+  fleet agent. `association_basis` is a single closed value, `EXPERIMENT_RUN_LINK`: it
+  classifies how the pair is linked to the agent and makes no claim about outcomes or
+  origin. The response carries no attribution, actor/user identity, or record content -- only
+  opaque `agent_revision_ref`/`record_ref` handles, the record's own `created_at`, and
+  the closed association vocabulary. New
+  `agent_readiness/agent_lifecycle_history_response_schema.json`; the operation is
+  added to the existing `agent_readiness_endpoints.json` module (no new endpoints
+  file). An unknown or foreign `agent_id` returns the same generic readiness `404` as
+  the existing detail route. `x-asserted-against-backend: false` (no SDK calls the
+  underlying agent-lifecycle routes yet, so production volume through this bridge is
+  expected to be near zero at launch).
+- **`POST /api/v1/sessions` response gains an optional, additive `agent_id`.**
+  The server already resolves the owning Agent row (`agents.id`) at session
+  create to persist the experiment record; this exposes that SAME resolution
+  in the create response instead of making the SDK re-derive or guess it, so
+  the SDK can promote a best config against the agent head via
+  compare-and-set (`POST /best-configs` with `X-Traigent-Agent-Id` +
+  `X-Traigent-Expected-Head-Generation`, `GET
+  /best-configs/agent-heads/<agent_id>`). Deliberately distinct from the
+  request's existing `agent_id` (a caller-declared free-text cohort-grouping
+  string, see `test_session_create_identity_schema.py`) and from
+  `agent_key` (the resolution key): the response field is the resolved row's
+  own primary key, `x-reference`'d to `agents/agent_schema.json#/properties/id`.
+  No new route, no second resolution path, no `required` entry added (the
+  201 response declares none today), so an old server that omits it stays
+  schema-valid.
+
+- **`GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture` (fleet
+  verdict server-side).** The Backend computes
+  each Agent's debt items and fleet verdict; the frontend only displays. Behaviour-preserving
+  port of TraigentFrontend `src/utils/fleetPosture.ts` (`deriveAgentDebtItems`,
+  `computeVerdict`, `wilsonInterval`, `rankValidateFirst`, `summarizeFleet`) against
+  `origin/develop` at `12ff129b`. New `agent_readiness/fleet_posture_response_schema.json`:
+  `policy` (the fixed constants actually used -- `min_sample_size: 30`,
+  `saturation_ceiling: 0.95`, `stale_days: 30`, `min_reproductions: 2`, `journey_window: 25`,
+  `interval_method: wilson`, `interval_z: 1.96`), `agents[]` (`verdict`, ordered `debt_items`
+  with a fixed id-to-pillar mapping, `effective_validity_level`/`served_validity_level`
+  (`V0`/`V1`/`V2` -- intentionally wider than the common schema's `EvaluationSystemValidity.level`,
+  which is `V0`/`V1` only pending its own future widening), `validity_decayed`,
+  `criticality_used` (reuses `agent_posture_schema.json` `Criticality`; the Backend always
+  passes `medium` today, per the FE parity source, until a later owner decision serves the
+  declared criticality), `accuracy`/`sample_size`/`interval` (a Wilson band, minimum `0` and
+  no upper bound -- the TS passes accuracy through unclamped and clamps only for display, so
+  the schema does not cap it either), `reproductions_in_window` (nullable: null when the
+  anchor is missing a dataset or evaluator ref, distinct from a known zero), `dataset_ref_id`,
+  `evaluator_ref_id`, `has_anchor_run` (served, so the frontend stops inferring it from the
+  `AG-1` debt item), `score_credible` (the old frontend `isScoreCredible`, computed
+  server-side from the same detail validity block that produced `debt_items`, so the two can
+  never disagree), `pillar_review_status` (`{evaluator, evaluation_dataset}`, the served
+  pillar `status` values from that same detail validity block, null when there is no served
+  validity), `criticality_source` (closed enum `fixed_default` / `declared` /
+  `undeclared_fail_closed` -- where `criticality_used` came from; today always
+  `fixed_default`), `verdict_reason` (closed enum, the single rule that decided the row's
+  verdict; `NOT_YET_SCORED` rows always carry `NO_ANCHOR_RUN` and every `CANT_TELL` row
+  carries `DECLARED_POLICY_OFF` today (see the follow-up bullet below), both enforced
+  structurally -- the remaining members are kept in the vocabulary the same way `Verdict`'s
+  `STAY`/`INTERVENE_QUALITY` are, for a later owner decision to make them reachable without
+  a contract change)), `summary`
+  (per-verdict counts, now scoped to the returned page only -- see paging below),
+  `validate_first` (snake_case mirror of FE `ValidateFirstEntry`: `kind`, `ref_id`,
+  `affected_agent_ids`), top-level `failed_agent_ids` (agents whose detail read raised;
+  omitted from `agents`/`summary`, always present, possibly empty, for the frontend's
+  partial-failure banner) and top-level `pagination` (required; mirrors the portfolio list
+  response's `pagination` block byte-for-byte, including its shared `per_page` maximum of
+  100). New `agent_readiness/fleet_posture_endpoints.json` (registered in
+  `mep_endpoints.json`; a separate module because `agent_readiness_endpoints.json`'s path
+  set is pinned by test), auth identical to the portfolio route
+  (`require_resource_read_access(ResourceType.AGENT, collection=True)` +
+  `project_role_required("viewer")`), no request body. Query parameters: optional `page`
+  (default `1`) / `per_page` (default `24`, same bounds and shared maximum of `100` as the
+  portfolio list route's paging params) and an optional `agent_id` filter (restricts the
+  response to that one Agent's row; an unknown or inaccessible id returns `200` with an
+  empty `agents` array rather than `404` -- this is a collection filter, not a per-agent
+  lookup, so it carries no existence oracle). `400` now documents invalid pagination.
+  Errors reuse `agent_readiness_error_schema.json`. `x-asserted-against-backend: false`.
+  Reachability report and parity manifest regenerated.
+- **Fleet-posture review fixes (same feature, follow-up commit).** The `(verdict,
+  verdict_reason)` pairing on `AgentPostureEntry` is now closed and enforced
+  bidirectionally end to end, not just for `NOT_YET_SCORED`: `STAY <-> MEETS_TARGET`,
+  `INTERVENE_QUALITY <-> BELOW_TARGET`, and `CANT_TELL <-> ` any one of the seven
+  CANT_TELL-family reasons (`VALIDITY_BELOW_BAR`, `TARGET_NOT_DECLARED`,
+  `TARGET_CANNOT_DETERMINE`, `INTERVAL_STRADDLES_TARGET`, `CRITICALITY_UNDECLARED`,
+  `VALIDITY_BELOW_STAY_BAR`, `OPEN_EVALUATION_SYSTEM_DEBT`) -- together with
+  `NOT_YET_SCORED <-> NO_ANCHOR_RUN` this exhausts every `VerdictReason` member, so no
+  (verdict, reason) combination is left unchecked. `criticality_source` now constrains
+  `criticality_used` one-directionally: `fixed_default` requires exactly `medium`,
+  `undeclared_fail_closed` requires exactly `high`; `declared` still carries no
+  constraint. Negative fixture cases added for every verdict and both constrained
+  `criticality_source` values. The `agent_id` filter's privacy behaviour is now stated
+  normatively in both the parameter description and the response schema's own
+  description: an unknown id and an inaccessible one are INDISTINGUISHABLE -- the
+  response is exactly the empty-fleet shape (`agents: []`, `failed_agent_ids: []`,
+  `validate_first: []`, `summary.total: 0` with every `counts_by_verdict` member `0`,
+  `pagination.total`/`pagination.total_pages` both `0`) and the requested id is never
+  echoed anywhere in the response, so the endpoint can never be used as an existence
+  oracle. A dedicated fixture (`fleet_posture_response_valid_agent_id_no_match`) pins
+  this exact shape. Paging with `agent_id`: `page`/`per_page` from the request are
+  IGNORED for paging purposes when `agent_id` is present (`pagination.page` is always
+  `1`; `pagination.per_page` still echoes back the requested-or-default value;
+  `total`/`total_pages` are `1`/`1` on a match or `0`/`0` on no match). `page` and
+  `per_page` parameter descriptions each gained: "Unpaged calls return the first page
+  (24 agents), the same as the endpoint's previous behaviour."
+- **`DECLARED_POLICY_OFF` verdict reason (same feature, review follow-up).** New
+  `CANT_TELL`-family `VerdictReason` member: it means this row's verdict did not evaluate
+  the declared accuracy target because the declared-accuracy policy is not enabled -- it
+  says nothing about whether a target actually exists. Before this, every legacy/flag-off
+  `CANT_TELL` row was forced to `TARGET_NOT_DECLARED`, which the frontend read literally
+  ("no accuracy target has been set") even when a target was in fact declared, since the
+  Backend simply never read it while the policy was off. `TARGET_NOT_DECLARED` stays a
+  valid `CANT_TELL`-family member for the policy-on case, once the Backend actually reads
+  the declared target and finds none. `DECLARED_POLICY_OFF` is constrained
+  one-directionally to pair only with `criticality_source: fixed_default` (enforced by
+  `AgentPostureEntry`'s `allOf`) -- both represent the same today's-legacy-behaviour
+  flag-off world. Fixture cases updated: the two existing legacy `fixed_default` +
+  `TARGET_NOT_DECLARED` accept cases now use `DECLARED_POLICY_OFF`; new accept cases cover
+  `DECLARED_POLICY_OFF` at `AgentPostureEntry` and root-response scope, and new reject
+  cases cover `DECLARED_POLICY_OFF` with a non-`CANT_TELL` verdict and with
+  `criticality_source: declared`. `scripts/breaking_schema_allowlist.json` and
+  `parity/python-js-sdk.json` regenerated for the new enum member.
+- **`AccuracyEvaluation.ci_method` admits `wilson_score_binary` (agent readiness, review
+  follow-up).** The Backend's accuracy-target evaluation uses a 95% Wilson score interval on
+  k/n when every per-example score is exactly 0 or 1 (binary) — the CLT mean ± z·SE interval
+  collapses to zero width for identical observations. Fractional per-example scores keep
+  `clt_mean_standard_error` (zero-variance fractional samples still fail closed to
+  `CANNOT_DETERMINE`). `ci_method` was previously a `const` pinned to
+  `clt_mean_standard_error`, which would have forced the Backend to publish a false method
+  label for binary samples; it is now a closed two-member enum. Fixture cases added:
+  a valid `DeclaredAccuracyTarget` evaluation using `wilson_score_binary`, and a rejected
+  unknown `ci_method` string.
+- **`GET /api/v1/auth/me/tenants` (tenant switcher, TraigentFrontend#2250).** New
+  `auth/auth_me_tenants_response_schema.json` (`{success, message, data: {items, switchable}}`,
+  items = `TenantMembershipItem` {tenant_id, tenant_name, tenant_slug, role, is_default}, strict
+  `additionalProperties: false`) and the route in `auth/auth_endpoints.json` (200 / 401 / 500).
+  Items are only the caller's own active memberships; `switchable` is true only for an unpinned
+  interactive session. Backend: Traigent/TraigentBackend#3501.
+- **Fleet-posture inputs E1, E4, E5 (agent readiness).** Contract-first, all operations
+  `x-asserted-against-backend: false`; from `business/product-personas/fleet-posture-census.md`
+  ("Smallest extensions") and the 2026-09-24 owner rulings.
+  - **E1 — anchor refs on the portfolio item.** `agent_readiness_portfolio_response_schema.json`
+    items gain five optional, nullable members, emitted together or not at all:
+    `anchor_evaluation_dataset_ref` / `anchor_evaluator_version_ref` (the detail response's
+    `EvaluationDatasetRef` / `EvaluatorVersionRef` by `$ref`), `anchor_accuracy` (the common
+    `AccuracyMetric`, always `client_reported`), `anchor_accuracy_sample_count` (positive; non-null
+    only for an `accuracy.mean` anchor accuracy) and `anchor_reported_example_evaluations`. All are
+    null when `anchor_run_id` is null. Optional so the Backend can ship `list_portfolio` support
+    without a lockstep deploy; the fleet view then needs no per-agent detail fetch.
+  - **E4 — manager-set agent posture.** New `agent_readiness/agent_posture_schema.json`
+    (`PostureDeclarationRequest`, `PostureRevision`, `DeclaredPosture`, `NoPosture`,
+    `AgentPosture`): `deployment_stage` reuses `agents/agent_deployment_schema.json`
+    `definitions/Environment` by `$ref` (not forked), `criticality` is `low`/`medium`/`high`.
+    New `POST /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions`
+    (`agent_readiness/agent_posture_endpoints.json`, registered in `mep_endpoints.json`) follows the
+    target-revisions convention: immutable revisions, `expected_current_revision_id`, a
+    const-bodied 409 `revision_conflict`, human session with project owner/admin role only.
+    `declared_by` (USER only) and `declared_at` are server-derived. The `agent_posture` member
+    (`NONE_DECLARED` until set) is added to the portfolio item and the detail response, optional
+    until TraigentBackend emits it (then required) so unrelated Backend schema-pin bumps keep
+    passing. Fail closed: consumers treat an undeclared Agent as criticality `high`.
+    The portfolio list operation gains optional single-value `deployment_stage` and `criticality`
+    query filters (same convention as `stage`/`attention`; Agents without a declared posture are
+    excluded when a filter is set).
+  - **E5 — accuracy team target.** `agent_readiness_target_schema.json` gains
+    `AccuracyRequirement` (`metric_id: SDK_MEAN_ACCURACY`, literal `source_key: accuracy.mean`,
+    `unit: PROPORTION`, `comparison: at_least`, a `[0, 1]` decimal-string `threshold`,
+    `confidence_level: "0.95"`, `clearing_ci_bound: lower` — the lower bound of the 95% interval
+    must reach the threshold; a closed enum so another bound is a later, acknowledged widening; an
+    observed mean outside `[0, 1]` is never rescaled but CANNOT_DETERMINE), its declaration,
+    `AccuracyEvaluation` (MET/NOT_MET carry the observed mean, both interval bounds and the count;
+    CANNOT_DETERMINE needs a reason, incl. the new `CONFIDENCE_INTERVAL_NOT_RECORDED`; closed
+    `ci_method` enum (`clt_mean_standard_error` / `wilson_score_binary`) — Wilson score interval
+    on k/n when every per-example score is binary, CLT mean ± z·SE over per-example scores
+    (Miller 2024) otherwise, computed by the Backend from per-example evaluations, never
+    client-supplied),
+    `AccuracyTargetRevision` (also listed in the schema's root `oneOf`) and `DeclaredAccuracyTarget`. `TargetDeclarationRequest.requirement`
+    and the POST 201 `DeclaredTarget` become unions of the unchanged latency shape (now also named
+    `DeclaredLatencyTarget`) and the accuracy shape. Each metric keeps its own revision chain; the
+    detail response gains an optional (required once the Backend emits it) `team_accuracy_requirement` next to the unchanged
+    latency `team_requirement`.
+  - Response-side additions on closed objects and the two new unions are acknowledged in
+    `scripts/breaking_schema_allowlist.json` (9 entries, each with its reason). Reachability report
+    and parity manifest regenerated; `agents/agent_deployment_schema.json` is now reached through
+    the endpoint graph.
+- **Session identity-binding read + reachable session-create/results content_identity (M3
+  PR-5-lite).** New `GET /api/v1/sessions/{session_id}/identity-binding`, registered in
+  `optimization/optimization_endpoints.json` (the sessions catalog, under the `sdk_tuning`
+  contract root — session-scoped, alongside `next-trial`/`results`/`finalize`, not the
+  dataset-scoped `content_identity_endpoints.json`), `x-asserted-against-backend: false` ahead
+  of TraigentBackend `feat/content-identity-run-binding` landing on develop. New
+  `optimization/session_identity_binding_response_schema.json`: the standard success envelope
+  wrapping the run binding (`RunIdentityBindingRowV1`: `experiment_run_id`, `scheme`, `key_id`,
+  `record_state`, `rejection_reason`, `agent_id`/`agent_key`, `base_build_digest`,
+  `base_head_generation`, `dataset_members_ref`/`dataset_root`/`dataset_version_id`, `facts`,
+  `declared`, `created_at`/`completed_at`, `dataset_members`) and its trial bindings
+  (`TrialIdentityBindingRowV1`), or `identity_binding_not_found` (404) in the standard error
+  envelope. Deliberately named `*Row*` — this is the raw stored `run_identity_bindings` /
+  `trial_identity_bindings` row as the Backend serializes it today, NOT the same shape as the
+  pre-existing, still-unreachable `execution/run_identity_binding_v1_schema.json`
+  `RunIdentityBindingV1` (the future normalized, certificate-oriented record); the two must
+  never be confused. `dataset_members`/`evaluated_members` reuse `MultisetMemberV1` and
+  `MemberListRefV1` by `$ref`; a documented but Backend-untested `MemberListLoadErrorV1` branch
+  covers the rare case where a stored member list fails to reload. `declared` is typed as a
+  bare nullable object, not a `SessionContentIdentityWireV1`/`TrialContentIdentityWireV1` `$ref`,
+  because the Backend stores the client's raw block verbatim even when it FAILS that wire
+  schema (`rejection_reason: wire_schema_invalid`) — refing the wire schema there would reject
+  values the Backend itself accepts and stores. Also adds the optional, additive
+  `content_identity` property (`anyOf` the real wire schema or an unconstrained catch-all, so a
+  value the Backend tolerates but does not validate — non-object, schema-invalid, oversized —
+  never turns an already-accepted request into a 400) to POST `/api/v1/sessions`'s top-level
+  body and to `optimization/session_submit_results_request_schema.json`'s
+  `metadata.content_identity`, making M3 PR-S1's `SessionContentIdentityWireV1` /
+  `TrialContentIdentityWireV1` reachable from the catalog graph for the first time.
+  `breaking_schema_check.py` confirms both request changes are additive-only. Reachability
+  report and parity manifest regenerated.
+- **Evaluation system validation (E3): expert sign-off record + reviewer capability grant.**
+  New family `evaluation_system_validation/` (`evaluation_system_validation_schema.json`:
+  `ValidationCreateRequest`/`ValidationRecord`/`ValidationListResponse`, closed and append-only;
+  `evaluation_system_reviewer_grant_schema.json`: `ReviewerGrantCreateRequest`/`ReviewerGrantRecord`/
+  `ReviewerGrantListResponse`/`ReviewerCanSignResponse`), registered in `mep_endpoints.json`.
+  `evaluation_system_validation_endpoints.json` declares
+  `POST/GET /api/v1beta/projects/{project_id}/evaluation-system-validations`,
+  `GET .../evaluation-system-validations/{validation_id}`, and
+  `POST/GET .../evaluation-system-reviewer-grants` + `GET .../evaluation-system-reviewer-grants/me`
+  (`x-asserted-against-backend: false`). A separate family from Agent Readiness so
+  `agent_readiness_endpoints.json`'s pinned path set never moves. A revocation is a new record
+  naming the one it revokes (`record_kind: revocation`); the reviewer, signing time, and subject
+  identity are always server-derived. Owner ruling: a project admin may grant the reviewer
+  capability to themselves — `ReviewerGrantRecord.self_granted` and
+  `ValidationRecord.signed_under_grant_id`/`signed_under_self_grant` disclose it on the wire.
+  The derived, content-free `EvaluationSystemValidity` block (`level: V0|V1`, per-pillar
+  `PillarValidity` status/reason/evidence, `decayed_reason`, `evidence_ids`) is added to
+  `agent_readiness_common_schema.json` and referenced as the new required
+  `evaluation_system_validity` member of the readiness portfolio item and detail response
+  (allowlisted `property_added` — additive only). Owner ruling: a `ValidationCreateRequest` /
+  `ValidationRecord` with `outcome: valid` must carry non-null `agreement` evidence
+  (`compared_items >= 1`); `outcome: not_valid` may omit it; a revocation keeps it null regardless
+  — a **contract tightening on the request side** (a validation submission that previously omitted
+  `agreement` on a `valid` outcome is now rejected 400; `not_valid` submissions are unaffected). See
+  `business/product-personas/e3-validation-record-design.md` (v0.2).
+- **Content identity endpoint contracts (M3).** New catalog
+  `datasets/content_identity_endpoints.json`, registered in `mep_endpoints.json`, declaring four
+  Backend routes ahead of their merge (`x-asserted-against-backend: false`):
+  `POST /api/v1/content-identity/purpose-keys` (bare `PurposeKeyGrantV1`, `Cache-Control:
+  no-store`; 503 `content_identity_keys_unavailable` and 403 `tenant_context_required` in the
+  standard error envelope, custody reasons never on the wire), `GET
+  /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity` (new
+  `HostedDatasetVersionContentIdentityV1`: available root + per-example map, or unavailable with a
+  closed reason, incl. the creation-recorded `content_not_identifiable` / `keys_unavailable`), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)
+  and `PUT /api/v1/datasets/{dataset_id}/public-benchmark` (ruling D3 opt-in). Request/response
+  schemas in `datasets/`; `purpose_key_grant_v1_schema.json` and `content_identity_v1_schema.json`
+  are now reachable from the catalog graph. Additive; nothing existing changes.
+- **Content identity wire envelopes (M3 PR-S1).** `execution/content_identity_wire_v1_schema.json`
+  types what both SDKs already send: `SessionContentIdentityWireV1` (session-create
+  `content_identity`) and `TrialContentIdentityWireV1` (trial `metadata.content_identity`), the
+  closed reason vocabulary `ContentIdentityUnavailableReasonV1` with per-slot subsets, and the
+  null-slot rules (a null slot names its reason; a withheld agent/evaluator claims no id source;
+  above 2,000 members the whole slot is null with `members_exceed_inline_cap`). New
+  `datasets/purpose_key_grant_v1_schema.json` (`PurposeKeyGrantV1`, the Backend -> SDK key grant;
+  key fields marked secret) and `MemberListRefV1` (`ml1:<id>`) in
+  `datasets/content_identity_v1_schema.json`. Spec section 18. Tests validate real payloads
+  captured from both SDKs' builders (`scripts/content_identity_wire/`) and recompute every stated
+  digest and root. Additive; nothing existing changes.
+- **Content identity v1 (`traigent.content_identity.v1`): tenant-keyed example ids and
+  order-free multiset dataset roots (owner rulings 2026-09-23).** New normative spec
+  `docs/identity/content-identity-v1.md`; reference implementation
+  `traigent_schema/example_identity.py`; cross-SDK conformance vectors
+  `traigent_schema/data/content_identity_v1_vectors.json` (generator + freshness check:
+  `scripts/generate_content_identity_v1_vectors.py --check`). `example_id` = HMAC-SHA-256 over
+  jcs_v1 of the INPUT (+ context) under a per-tenant HKDF-derived key (tenant_id bound into every HKDF info;
+  key custody, rotation and the public-digest opt-in follow owner rulings D1-D3 = A,
+  2026-09-23); `example_version` = HMAC
+  over example_id + expected output + version-relevant metadata; `dataset_root` /
+  `evaluated_root` = RFC 9162 Merkle tree hash over sorted `[example_id, example_version, count]`
+  leaves (order-free, duplicates counted, conflicting versions reported); RFC 9162 inclusion
+  proofs that verify without any key; opt-in unkeyed `exu1` digest for public-benchmark
+  contamination checks; unkeyed agent `build_digest` over a manifest that must cover code,
+  prompts, helper modules, tool definitions and the candidate configuration, with a `coverage`
+  declaration (only `complete` is certifiable; a dirty `code_revision` requires `source_digest`);
+  unkeyed `evaluator_version_digest` over efp2 code + bound config + local helpers + judge +
+  objective set + dependencies;
+  `record_state` draft/complete on run bindings and dataset identities (only complete is
+  certifiable); normative issuer rules binding only server-recorded linkage (ID1): issuance rules
+  I1-I4 block a certificate, claim rules C1-C6 refuse only the affected claim. Canonicalization is jcs_v1 plus one rule stricter than fp2: any number,
+  float included, with |v| > 2^53-1 is rejected so JS and Python cannot diverge. New additive schemas (no consumer yet):
+  `datasets/content_identity_v1_schema.json`, `agents/agent_version_manifest_v1_schema.json`,
+  `evaluation/evaluator_version_manifest_v1_schema.json`,
+  `execution/run_identity_binding_v1_schema.json`. Nothing existing changes:
+  `DatasetVersionV1.content_digest`, fp2 and every certification contract are untouched.
 - **`POST /api/v1/model-parameters` and the two `/api/v1/example-sets` reads are now
   declared (unblocks TraigentBackend #3347, #3352, #3353).** All three endpoints were
   absent from this repo, which is why a Backend PR could reshape their request/response
@@ -106,6 +663,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the ranking was correct. Description-only; no shape change.
 
 ### Fixed
+- **Endpoint catalogs declare the canonical `429` (#271).** 173 operations across the 16
+  catalogs that declared no `429` (`audit`, `billing/{paddle,spend_controls,subscription_lifecycle,wallet}`,
+  `costs`, `datasets`, `execution/{best_config,execution}`, `measures`, `observability`,
+  `planned_projects`, `planner`, `prompts`, `results`, `security`) now declare
+  `429` -> `rate_limit_info_schema.json`. The backend's global default limiter covers
+  every one of these routes (only `/health`, `/status` and `/metrics` probe paths are
+  exempt). Additive, response-side only. New `tests/test_rate_limit_429_catalog_coverage.py`
+  pins the fixed catalogs and records the remaining uncovered operations per catalog as a
+  shrink-only budget. Three observability operations that declare no `responses` at all are
+  left untouched, and six operations whose own contract tests pin their error set (the
+  four experiment-group routes, which must use the strict group error envelope, and the
+  two pre-release v1beta ingest routes, pinned to exactly `202`/`410`) are named
+  exceptions in the new test. Seven more operations are named exceptions because they can
+  answer `429` with a body that does not match `rate_limit_info_schema.json`: a per-route
+  limiter adds `details.remaining` and an integer `details.limit` (`POST /api/v1/experiments`,
+  `POST /api/v1/experiment-runs/{experiment_id}/runs`, `POST /api/v1/traces/ingest`,
+  `POST /api/v1beta/annotation-queues/{queue_id}/items`), and a subscription quota breach
+  answers with `billing/quota_exceeded_error_schema.json` (`POST /api/v1/datasets`,
+  `POST /api/v1/datasets/{dataset_id}/generate-examples`,
+  `POST /api/v1beta/evaluators/{evaluator_id}/execute`). Which `429` envelope they declare is
+  left open.
+- **`funnel.v1` `meta` bounds key length (#363, item 1).** `meta` bounded the key count
+  and each value's length but not each key's length, so a one-million-character property
+  name validated. `propertyNames` now requires 1-128 characters. The `event`
+  closed-vs-free question in #363 is unchanged.
 - **Submit-results optionals accept explicit `null` (completes part 1 of #454).**
   `summary_stats`, `execution_mode`, and `execution_environment` on
   `session_submit_results_request_schema.json` were declared as plain `object`/`string`,
@@ -1587,6 +2169,13 @@ loosening, not breaking.
 ## [Unreleased]
 
 ### Added
+- **`trial_number` on `GroupedConfigurationRun` (and so `GroupedConfigurationRunBrowseRow`).**
+  New optional, nullable integer `trial_number` (minimum 1) in
+  `schemas/execution/experiment_group_schema.json`: the 1-based order in which the
+  configuration run was issued within its optimization run; `null` when not recorded.
+  Purely additive and not in `required`, so existing producers and readers are unaffected;
+  the browse row inherits it through its `allOf`. Pinned by
+  `tests/test_experiment_group_contract.py`.
 - **Agent tuning-history browse surface (experiment groups, Wave A).** Additive
   read-only enrichment of `execution/experiment_group_schema.json` and the
   `execution/execution_endpoints.json` experiment-group routes: complete browse

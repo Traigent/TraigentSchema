@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/experiment_context_schema.json",
+  "title": "Experiment Context Resolution",
+  "description": "GET /api/v1beta/experiments/{experiment_id}/context (SPEC: ~/.claude/plans/deeplink-context/SPEC.md, astra APPROVE WITH CHANGES 2026-09-28). Deep-link recovery for SDK/Claude Code links of the form .../experiments/view/{id}: when a link opens under the wrong tenant, the frontend calls this route once to learn which tenant/project the experiment actually lives in, then atomically switches and retries. The route is authenticated but CONTEXT-INDEPENDENT -- it does not require or consume X-Tenant-Id/X-Project-Id and is exempt from stale tenant/project context middleware rejection; only authentication is retained. Human sessions (JWT/cookie) only: an API-key principal is rejected uniformly before any lookup (403, error_code CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against the key owner's memberships. The lookup enumerates only the authenticated human's own ACTIVE tenant memberships (existing self-membership discovery) and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it -- so an experiment that exists but is not visible to the caller in any of their active tenants is indistinguishable from one that does not exist at all: both return the exact same closed 404 (ExperimentContextNotFoundError). Active tenant membership is required even for platform admins; there is no cross-tenant admin bypass on this route. The membership probe is bounded (a fixed cap on tenants probed and on wall time); exceeding the bound is a 503 (ExperimentContextBudgetExceededError, error_code CONTEXT_RESOLUTION_BUDGET_EXCEEDED) so a caller never receives a false 404 from a silently truncated search. The 200 body is bare (x-wrap-status: bare, not the {success,message,data} envelope) and closed: experiment_id/project_id/tenant_id are always present; tenant_name/project_name are optional display strings for the frontend's \"Opened in workspace X / project Y\" toast and carry no authorization meaning of their own. Every response (success or error) is sent with Cache-Control: private, no-store.",
+  "definitions": {
+    "ExperimentContextResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "200 body, bare (no success/message/data envelope). experiment_id is the requested path parameter, echoed back only after the lookup has authorized it; project_id/tenant_id are the resolved owning scope the frontend must pin before retrying the experiment fetch. tenant_name/project_name are optional convenience labels for the toast only.",
+      "required": ["experiment_id", "project_id", "tenant_id"],
+      "properties": {
+        "experiment_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The requested experiment id, echoed back. Present only once the lookup has confirmed the caller may read this experiment in tenant_id/project_id."
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The project the experiment belongs to, within tenant_id, restricted to a project the caller can read."
+        },
+        "tenant_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The tenant the experiment belongs to, drawn only from the caller's own ACTIVE memberships -- never a tenant the caller does not actively belong to."
+        },
+        "tenant_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional display name of tenant_id, for the \"Opened in workspace X / project Y\" toast. Absent does not imply the tenant lacks a name; the client falls back to tenant_id."
+        },
+        "project_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional display name of project_id, for the same toast. Absent does not imply the project lacks a name; the client falls back to project_id."
+        }
+      }
+    },
+    "ExperimentContextNotFoundError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The single closed 404 shape, returned identically whether experiment_id names no experiment anywhere, or names one the caller cannot read in any of their active tenants. Deliberately indistinguishable: no field here can reveal existence.",
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Experiment not found"},
+        "error": {"const": "Not found"},
+        "error_code": {"const": "NOT_FOUND"}
+      }
+    },
+    "ExperimentContextAuthenticationRequiredError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "401: no authenticated session (human or API key) on the request. Distinct from the 403 API-key rejection below, which requires a recognized API-key principal.",
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Authentication required"},
+        "error": {"const": "Unauthorized"},
+        "error_code": {"const": "UNAUTHORIZED"}
+      }
+    },
+    "ExperimentContextApiKeyRejectedError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "403: the caller authenticated with an API key rather than a human (JWT/cookie) session. Rejected uniformly before any membership lookup -- the response never varies with the key or its owner's memberships, so it cannot be used to enumerate them.",
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "This endpoint requires a human session."},
+        "error": {"const": "Forbidden"},
+        "error_code": {"const": "CONTEXT_RESOLUTION_HUMAN_ONLY"}
+      }
+    },
+    "ExperimentContextBudgetExceededError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "503: the bounded membership probe (tenant count and/or wall-time cap) was exhausted before the lookup could complete. Retryable -- the caller has not been told the experiment is absent, only that the search did not finish in budget; a client SHOULD retry rather than treat this as a 404.",
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Context resolution is temporarily unavailable. Try again shortly."},
+        "error": {"const": "Service unavailable"},
+        "error_code": {"const": "CONTEXT_RESOLUTION_BUDGET_EXCEEDED"}
+      }
+    }
+  }
+}

@@ -90,13 +90,18 @@
     "meta": {
       "type": "object",
       "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
       "additionalProperties": {
         "type": "string",
         "maxLength": 8192
       },
       "x-content": true,
       "x-privacy-classification": "user_content",
-      "description": "Optional opaque, user-authored annotations for this event: a bounded map of string keys to string values. Each value is capped at 8192 characters and the map at 64 keys, so no single meta value or key count is unbounded. JSON Schema cannot count the canonicalized byte size of the whole event, so the 65536-byte event ceiling (x-max-event-bytes) is NOT enforced by this schema \u2014 it is a backend obligation (see x-backend-obligations); the per-value and per-key bounds here only cap the obvious inflation vectors. meta is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
+      "description": "Optional opaque, user-authored annotations for this event: a bounded map of string keys to string values. Each key is 1-128 characters, each value is capped at 8192 characters and the map at 64 keys, so no single meta key, value or key count is unbounded (#363). JSON Schema cannot count the canonicalized byte size of the whole event, so the 65536-byte event ceiling (x-max-event-bytes) is NOT enforced by this schema \u2014 it is a backend obligation (see x-backend-obligations); the per-value and per-key bounds here only cap the obvious inflation vectors. meta is treated as user content: do NOT place structured platform data here, and redact it from logs and exports. The contract guarantees the container is bounded, never that any value inside it is free of sensitive content."
     }
   },
   "allOf": [

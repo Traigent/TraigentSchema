@@ -20,6 +20,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Failure path from the standard error envelope used by the backend handler.",
             "content": {
@@ -43,6 +53,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./health_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -90,6 +110,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -156,6 +186,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Failure path from the standard error envelope used by the backend handler.",
             "content": {
@@ -213,6 +253,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Failure path from the standard error envelope used by the backend handler.",
             "content": {
@@ -239,6 +289,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -253,6 +313,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./security_incidents_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -284,6 +354,16 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Failure path from the standard error envelope used by the backend handler.",
             "content": {
@@ -310,6 +390,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -324,6 +414,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./statistics_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }

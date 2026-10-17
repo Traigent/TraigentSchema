@@ -1,0 +1,1083 @@
+{
+ "find_allow_entry/all_rejected": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     2
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason 'n/a' is a placeholder, not an explanation"
+        ]
+       },
+       {
+        "__list__": [
+         1,
+         "version is missing \u2014 which contract version does this ship in?"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/entry_without_file": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/first_good_entry_wins_after_rejections": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     4
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         1,
+         "reason 'TODO' is a placeholder, not an explanation"
+        ]
+       },
+       {
+        "__list__": [
+         2,
+         "version is missing \u2014 which contract version does this ship in?"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_empty_rule_wildcard": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_no_rule_no_prefix": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_prefix_differs": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_prefix_matches": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_rule_differs": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/legacy_rule_matches": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/no_entries": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/other_file": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/pointer_only_entry": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/pointers_entry": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/reason_and_version_bad": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason is empty; version is missing \u2014 which contract version does this ship in?"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/reason_missing": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason is missing or not a string"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/reason_placeholder": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason 'TODO' is a placeholder, not an explanation"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/reason_short": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason is only 15 chars (< 20) \u2014 say why, not just that"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/reason_single_token": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason is a single token, not a sentence explaining the decision"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_bool_int_alias": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_current_fingerprint_differs": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_empty_findings": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_empty_rule_on_both_sides": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_exact": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_extra_identity_key": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_finding_unserializable": {
+  "raises": [
+   "ValueError",
+   "Out of range float values are not JSON compliant: inf"
+  ],
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_findings_dict": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_findings_non_dict_item": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_findings_none": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_fingerprint_not_str": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_fingerprint_short": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_fingerprint_uppercase": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_fingerprint_wrong": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_identity_bytes_differ": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_identity_bytes_raise": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_identity_nan": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_identity_tampered": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_identity_unhashable_mixed_keys": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_missing_fingerprint": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_only_other_identity": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_reason_bad": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "reason 'see PR #3' is a placeholder, not an explanation"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_rule_empty": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_rule_missing": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_rule_not_str": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_rule_other": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_second_identity_matches": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_set_values_canonical": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     0
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/structured_stored_for_other_finding": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": []
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/version_empty": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "version is missing \u2014 which contract version does this ship in?"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "find_allow_entry/version_missing": {
+  "return": {
+   "__dict__": [
+    [
+     "entry",
+     null
+    ],
+    [
+     "rejected",
+     {
+      "__list__": [
+       {
+        "__list__": [
+         0,
+         "version is missing \u2014 which contract version does this ship in?"
+        ]
+       }
+      ]
+     }
+    ]
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "print_report/acked_and_unacked": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n  [info    ] #/a  (description, role=request)\n            doc changed\n\nc/new.json\n  [info    ] #  (new_file, role=request)\n            color became required\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n  [info    ] #/z  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   1\nBREAKING (allowed):   1\n  - widgets/widget_request_schema.json#/properties/b (required) \u2014 allowed by #1: This deliberate v0 contract tightening was reviewed.\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 1 entry to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"b/second.json\",\n      \"rule\": \"type\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/t\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"521b9abe250e1c64e1d954db8b998d2643960e2b584fedca6fc88b2b92f39618\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n",
+  "warnings": []
+ },
+ "print_report/all_acked": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n  [info    ] #/a  (description, role=request)\n            doc changed\n\nc/new.json\n  [info    ] #  (new_file, role=request)\n            color became required\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n  [info    ] #/z  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   0\nBREAKING (allowed):   3\n  - widgets/widget_request_schema.json#/properties/b (required) \u2014 allowed by #12: This deliberate v0 contract tightening was reviewed.\n  - widgets/widget_request_schema.json#/properties/a (required) \u2014 allowed by ?: no pr key on this entry, reason only\n  - b/second.json#/properties/t (type) \u2014 allowed by #13: \n\nPASSED: no un-acknowledged BREAKING contract changes.\n",
+  "warnings": []
+ },
+ "print_report/changed_without_findings": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             0\nBREAKING (unacked):   0\nBREAKING (allowed):   0\n\nPASSED: no un-acknowledged BREAKING contract changes.\n",
+  "warnings": []
+ },
+ "print_report/group_of_two_same_pointer": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nwidgets/widget_request_schema.json\n  [BREAKING] #  (required, role=request)\n            b became required\n  [BREAKING] #  (required, role=request)\n            a became required\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             2\nBREAKING (unacked):   2\nBREAKING (allowed):   0\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 1 entry to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"widgets/widget_request_schema.json\",\n      \"rule\": \"required\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#\",\n                  \"role\": \"request\",\n                  \"subject\": \"b\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"f09a63579a07029e23f6c2463e486e523dfe3288e3776afdb4345cc514063e3a\"\n            },\n            {\n                  \"pointer\": \"#\",\n                  \"role\": \"request\",\n                  \"subject\": \"a\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"ad726fdb744bb6c6513d153f10e148a5a53b2c877e2728830f98e71a3d43891c\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n    # covers 2 findings in this file:\n      # \u2014 a became required\n      # \u2014 b became required\n\n",
+  "warnings": []
+ },
+ "print_report/info_only": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nwidgets/widget_request_schema.json\n  [info    ] #/a  (description, role=request)\n            doc changed\n  [info    ] #/properties/color  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             2\nBREAKING (unacked):   0\nBREAKING (allowed):   0\n\nPASSED: no un-acknowledged BREAKING contract changes.\n",
+  "warnings": []
+ },
+ "print_report/info_only_quiet": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nwidgets/widget_request_schema.json\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             1\nBREAKING (unacked):   0\nBREAKING (allowed):   0\n\nPASSED: no un-acknowledged BREAKING contract changes.\n",
+  "warnings": []
+ },
+ "print_report/mixed_unacked": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n  [info    ] #/a  (description, role=request)\n            doc changed\n\nc/new.json\n  [info    ] #  (new_file, role=request)\n            color became required\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n  [info    ] #/z  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   3\nBREAKING (allowed):   0\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 2 entries to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"b/second.json\",\n      \"rule\": \"type\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/t\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"521b9abe250e1c64e1d954db8b998d2643960e2b584fedca6fc88b2b92f39618\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n{\n      \"file\": \"widgets/widget_request_schema.json\",\n      \"rule\": \"required\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/b\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"497055352acb9a8b0387bf64305205b43c4e2bb2389ece57d2dc0c1ec8d8d284\"\n            },\n            {\n                  \"pointer\": \"#/properties/a\",\n                  \"role\": \"request\",\n                  \"subject\": \"a\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"afc08e3325284f0ea4dcfe36f4adc3829c4fdac76027f6a84228010275a7dda7\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n    # covers 2 findings in this file:\n      #/properties/a \u2014 color became required\n      #/properties/b \u2014 color became required\n\n",
+  "warnings": []
+ },
+ "print_report/mixed_unacked_quiet": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n\nc/new.json\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   3\nBREAKING (allowed):   0\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 2 entries to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"b/second.json\",\n      \"rule\": \"type\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/t\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"521b9abe250e1c64e1d954db8b998d2643960e2b584fedca6fc88b2b92f39618\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n{\n      \"file\": \"widgets/widget_request_schema.json\",\n      \"rule\": \"required\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/b\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"497055352acb9a8b0387bf64305205b43c4e2bb2389ece57d2dc0c1ec8d8d284\"\n            },\n            {\n                  \"pointer\": \"#/properties/a\",\n                  \"role\": \"request\",\n                  \"subject\": \"a\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"afc08e3325284f0ea4dcfe36f4adc3829c4fdac76027f6a84228010275a7dda7\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n    # covers 2 findings in this file:\n      #/properties/a \u2014 color became required\n      #/properties/b \u2014 color became required\n\n",
+  "warnings": []
+ },
+ "print_report/near_miss_for_some": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n  [info    ] #/a  (description, role=request)\n            doc changed\n\nc/new.json\n  [info    ] #  (new_file, role=request)\n            color became required\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n  [info    ] #/z  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   3\nBREAKING (allowed):   0\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nYou already have scripts/breaking_schema_allowlist.json entries for some of these, but they don't count yet:\n  - widgets/widget_request_schema.json#/properties/a (required): existing entry rejected \u2014 reason is empty\n  - widgets/widget_request_schema.json#/properties/a (required): existing entry rejected \u2014 version is missing\n  - b/second.json#/properties/t (type): existing entry rejected \u2014 reason is only 4 chars\n\nAdd 2 entries to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"b/second.json\",\n      \"rule\": \"type\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/t\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"521b9abe250e1c64e1d954db8b998d2643960e2b584fedca6fc88b2b92f39618\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n{\n      \"file\": \"widgets/widget_request_schema.json\",\n      \"rule\": \"required\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/b\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"497055352acb9a8b0387bf64305205b43c4e2bb2389ece57d2dc0c1ec8d8d284\"\n            },\n            {\n                  \"pointer\": \"#/properties/a\",\n                  \"role\": \"request\",\n                  \"subject\": \"a\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"afc08e3325284f0ea4dcfe36f4adc3829c4fdac76027f6a84228010275a7dda7\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n    # covers 2 findings in this file:\n      #/properties/a \u2014 color became required\n      #/properties/b \u2014 color became required\n\n",
+  "warnings": []
+ },
+ "print_report/near_miss_only_for_acked_finding": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nb/second.json\n  [BREAKING] #/properties/t  (type, role=request)\n            color became required\n  [info    ] #/a  (description, role=request)\n            doc changed\n\nc/new.json\n  [info    ] #  (new_file, role=request)\n            color became required\n\nwidgets/widget_request_schema.json\n  role=request \u2014 reached only from request bodies\n  [BREAKING] #/properties/a  (required, role=request)\n            color became required\n  [BREAKING] #/properties/b  (required, role=request)\n            color became required\n  [info    ] #/z  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        3\nfindings:             6\nBREAKING (unacked):   1\nBREAKING (allowed):   1\n  - widgets/widget_request_schema.json#/properties/b (required) \u2014 allowed by #1: This deliberate v0 contract tightening was reviewed.\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 1 entry to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"b/second.json\",\n      \"rule\": \"type\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/properties/t\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"521b9abe250e1c64e1d954db8b998d2643960e2b584fedca6fc88b2b92f39618\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n",
+  "warnings": []
+ },
+ "print_report/nothing_changed": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n  no traigent_schema/schemas/**/*.json changes between base and head.\n",
+  "warnings": []
+ },
+ "print_report/role_note_for_file_without_findings": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nwidgets/widget_request_schema.json\n  [info    ] #/properties/color  (description, role=request)\n            doc changed\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             1\nBREAKING (unacked):   0\nBREAKING (allowed):   0\n\nPASSED: no un-acknowledged BREAKING contract changes.\n",
+  "warnings": []
+ },
+ "print_report/single_group": {
+  "return": null,
+  "stderr": "",
+  "stdout": "breaking_schema_check: base-label  ->  head-label\n\nwidgets/widget_request_schema.json\n  [BREAKING] #/x  (required, role=request)\n            color became required\n\n------------------------------------------------------------------------\nfiles changed:        1\nfindings:             1\nBREAKING (unacked):   1\nBREAKING (allowed):   0\n\nFAILED: un-acknowledged BREAKING contract changes found (see above).\nThis is not \"you may not break the contract\" \u2014 it is \"you may not break it silently\". The change stays allowed; write the acknowledgement.\n\nAdd 1 entry to scripts/breaking_schema_allowlist.json's \"entries\" array \u2014 fill in reason/version/pr, then re-run:\n\n{\n      \"file\": \"widgets/widget_request_schema.json\",\n      \"rule\": \"required\",\n      \"findings\": [\n            {\n                  \"pointer\": \"#/x\",\n                  \"role\": \"request\",\n                  \"subject\": \"color\",\n                  \"old\": false,\n                  \"new\": true,\n                  \"fingerprint\": \"e5083800f465cf2f5d691ae5d052286003679d02d48f9c145b8e086928a415e9\"\n            }\n      ],\n      \"reason\": \"<explain WHY this is intentional and reviewed, not just that it happened>\",\n      \"version\": \"<the contract version this change ships in, e.g. 5.6.0>\",\n      \"pr\": \"<#NNN>\"\n}\n\n",
+  "warnings": []
+ }
+}

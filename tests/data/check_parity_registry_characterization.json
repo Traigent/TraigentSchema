@@ -1,0 +1,247 @@
+{
+ "allowlist_keys_missing": {
+  "return": {
+   "__list__": [
+    "capability id not in Phase A allowlist: optimizer.grid-enumeration",
+    "capability id not in Phase A allowlist: multi-objective.normalization-selection",
+    "capability id not in Phase A allowlist: optimize.stop-rules",
+    "fixture multi-objective.normalization-selection.v1 not in Phase A allowlist",
+    "fixture optimize.stop-limits.v1 not in Phase A allowlist",
+    "fixture optimize.stop-rules.v1 not in Phase A allowlist",
+    "fixture optimizer.grid-enumeration.v1 not in Phase A allowlist"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "capability_not_allowlisted": {
+  "return": {
+   "__list__": [
+    "capability id not in Phase A allowlist: optimizer.grid-enumeration"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "consistent_tree": {
+  "return": {
+   "__list__": []
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "duplicate_capability_id": {
+  "return": {
+   "__list__": [
+    "duplicate capability id: optimizer.grid-enumeration"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "file_missing": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: file missing: optimizer/grid-enumeration.v1.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "file_missing_then_later_entries": {
+  "return": {
+   "__list__": [
+    "fixture multi-objective.normalization-selection.v1: file missing: multi-objective/normalization-selection.v1.json",
+    "fixture optimize.stop-rules.v1: sha256 mismatch (index eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, file b9ea0559dae523fc95c66e3cab422b1712234d7dd296caccc4df777b3ec39362)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_capability_mismatch": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: capability does not reference this fixture"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_capability_missing": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: capability does not reference this fixture"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_id_mismatch": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: fixtureId does not match index key"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_id_missing": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: fixtureId does not match index key"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_json_list": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: fixtureId does not match index key"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_not_allowlisted": {
+  "return": {
+   "__list__": [
+    "fixture optimize.stop-rules.v1 not in Phase A allowlist"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_not_in_index": {
+  "return": {
+   "__list__": [
+    "optimizer.grid-enumeration: fixture optimizer.grid-enumeration.v1 not in index",
+    "fixture file not in index: optimizer/grid-enumeration.v1.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "fixture_not_json": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: not valid JSON"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "index_entry_unreferenced": {
+  "return": {
+   "__list__": [
+    "index entry extra.v1 is not referenced by the registry",
+    "fixture extra.v1 not in Phase A allowlist",
+    "fixture extra.v1: capability does not reference this fixture"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "nested_index_json_not_exempt": {
+  "return": {
+   "__list__": [
+    "fixture file not in index: optimizer/index.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "path_escapes": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: path escapes fixtures dir",
+    "fixture file not in index: optimizer/grid-enumeration.v1.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "schema_invalid_nested": {
+  "return": {
+   "__list__": [
+    "schema: capabilities/0/id: 5 is not of type 'string'"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "schema_invalid_registry": {
+  "return": {
+   "__list__": [
+    "schema: <root>: 'capabilities' is a required property"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "several_problems_ordering": {
+  "return": {
+   "__list__": [
+    "duplicate capability id: multi-objective.normalization-selection",
+    "fixture multi-objective.normalization-selection.v1 not in Phase A allowlist",
+    "fixture optimize.stop-limits.v1 not in Phase A allowlist",
+    "fixture optimize.stop-rules.v1 not in Phase A allowlist",
+    "fixture optimizer.grid-enumeration.v1 not in Phase A allowlist",
+    "fixture optimize.stop-rules.v1: sha256 mismatch (index ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, file b9ea0559dae523fc95c66e3cab422b1712234d7dd296caccc4df777b3ec39362)",
+    "fixture optimizer.grid-enumeration.v1: file missing: optimizer/grid-enumeration.v1.json",
+    "fixture file not in index: aa/early.json",
+    "fixture file not in index: zz/late.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "sha_mismatch": {
+  "return": {
+   "__list__": [
+    "fixture optimizer.grid-enumeration.v1: sha256 mismatch (index 0000000000000000000000000000000000000000000000000000000000000000, file 4115b74aa471d02c9b0eed74aabe7f30b5bcf9b2d10412cea2d0236a9ced57b5)"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "unindexed_fixture_file": {
+  "return": {
+   "__list__": [
+    "fixture file not in index: optimizer/extra.json"
+   ]
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ },
+ "unindexed_non_json_ignored": {
+  "return": {
+   "__list__": []
+  },
+  "stderr": "",
+  "stdout": "",
+  "warnings": []
+ }
+}

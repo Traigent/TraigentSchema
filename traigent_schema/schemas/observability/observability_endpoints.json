@@ -93,6 +93,16 @@
           "404": {
             "description": "No manifest for this ingest_id under the authenticated scope.",
             "content": { "application/json": { "schema": { "$ref": "./observability_v2_error_schema.json" } } }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -233,6 +243,7 @@
           {
             "name": "tags",
             "in": "query",
+            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. Each tags= occurrence is ONE whole tag, taken literally: a comma is part of the tag and is never a delimiter, so ?tags=vip,beta (or ?tags=vip%2Cbeta) filters for the single tag \"vip,beta\". Send one tags= key per tag, including for a single tag: ?tags=vip for one tag, ?tags=vip&tags=beta for two. Surrounding whitespace is trimmed and a blank value is ignored.",
             "schema": {
               "type": "string",
               "maxLength": 4096
@@ -253,6 +264,112 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "outcome_kind",
+            "in": "query",
+            "description": "Only items whose session has an attached outcome of this kind. A trace matches through the session it belongs to; a trace with no session has no outcome.",
+            "schema": {
+              "$ref": "./session_schema.json#/definitions/ObservabilityOutcomeKind"
+            }
+          },
+          {
+            "name": "has_outcome",
+            "in": "query",
+            "description": "true: only items whose session has an attached outcome. false: only items whose session has none (a trace with no session counts as none). Omit for no filter.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "min_cost_usd",
+            "in": "query",
+            "description": "Lower bound on the trace's total_cost_usd. A trace whose cost is unknown has no number and is excluded by any cost filter.",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "max_cost_usd",
+            "in": "query",
+            "description": "Upper bound on the trace's total_cost_usd. Must not be below min_cost_usd.",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "min_tokens",
+            "in": "query",
+            "description": "Lower bound on the trace's total token count.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "max_tokens",
+            "in": "query",
+            "description": "Upper bound on the trace's total token count. Must not be below min_tokens.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "min_latency_ms",
+            "in": "query",
+            "description": "Lower bound on the stored latency rollup: the sum of observation latencies, not wall-clock time.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "max_latency_ms",
+            "in": "query",
+            "description": "Upper bound on the stored latency rollup. Must not be below min_latency_ms.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "description": "Sort field. A trace with unknown cost sorts last under cost in both directions.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "started_at",
+                "cost",
+                "tokens",
+                "latency"
+              ],
+              "default": "started_at"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Content search over the words of trace and observation names, tags, user metadata and the stored (already redacted) input and output text, inside the caller's project. A blank value is no search.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
           }
         ],
         "responses": {
@@ -262,6 +379,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -283,6 +410,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -301,6 +438,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -316,6 +463,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_score_summary_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -372,6 +529,22 @@
             }
           },
           {
+            "name": "session_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only sessions with at least one trace in this status.",
+            "schema": {
+              "$ref": "../status_schema.json#/definitions/ObservabilityTraceStatus"
+            }
+          },
+          {
             "name": "release",
             "in": "query",
             "schema": {
@@ -380,8 +553,18 @@
             }
           },
           {
+            "name": "model",
+            "in": "query",
+            "description": "Only sessions with at least one observation that used this model.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
             "name": "tags",
             "in": "query",
+            "description": "Exact tag filter, AND-combined: an item matches only when it carries every listed tag. Each tags= occurrence is ONE whole tag, taken literally: a comma is part of the tag and is never a delimiter, so ?tags=vip,beta (or ?tags=vip%2Cbeta) filters for the single tag \"vip,beta\". Send one tags= key per tag, including for a single tag: ?tags=vip for one tag, ?tags=vip&tags=beta for two. Surrounding whitespace is trimmed and a blank value is ignored.",
             "schema": {
               "type": "string",
               "maxLength": 4096
@@ -402,6 +585,22 @@
               "type": "string",
               "format": "date-time"
             }
+          },
+          {
+            "name": "outcome_kind",
+            "in": "query",
+            "description": "Only sessions with an attached outcome of this kind.",
+            "schema": {
+              "$ref": "./session_schema.json#/definitions/ObservabilityOutcomeKind"
+            }
+          },
+          {
+            "name": "has_outcome",
+            "in": "query",
+            "description": "true: only sessions with an attached outcome. false: only sessions with none. Omit for no filter.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -411,6 +610,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./session_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -432,6 +641,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -450,6 +669,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -465,6 +694,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_analysis_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -507,6 +746,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -522,6 +771,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./observability_lineage_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -620,6 +879,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -659,6 +928,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -682,6 +961,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./issue_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -749,6 +1038,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -785,6 +1084,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_variant_detail_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -836,6 +1145,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -884,6 +1203,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -909,6 +1238,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./cohort_comparison_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -939,6 +1278,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -954,6 +1303,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_comments_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -994,6 +1353,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_feedback_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1039,6 +1408,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1071,6 +1450,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1085,6 +1474,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./trace_score_summary_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1244,6 +1643,16 @@
                     "lineage",
                     "recommended_evaluator_plan"
                   ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1409,6 +1818,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1423,6 +1842,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./review_score_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1482,6 +1911,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1499,6 +1938,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1513,6 +1962,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./evaluator_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1541,6 +2000,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1555,6 +2024,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./evaluator_definition_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1580,6 +2059,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./evaluator_definition_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1649,6 +2138,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1666,6 +2165,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1680,6 +2189,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./evaluator_run_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1710,6 +2229,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1724,6 +2253,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./annotation_queue_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1752,6 +2291,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1766,6 +2315,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./annotation_queue_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1794,6 +2353,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1808,6 +2377,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./annotation_queue_item_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1857,6 +2436,16 @@
                       "type": "null"
                     }
                   ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -1923,6 +2512,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -1963,6 +2562,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./annotation_queue_item_complete_result_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }

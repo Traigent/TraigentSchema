@@ -51,6 +51,9 @@
     "_CacheCreationTokensByTtl": {
       "$ref": "../common_types_schema.json#/definitions/CacheCreationTokensByTtl"
     },
+    "_ReasoningTokens": {
+      "$ref": "../common_types_schema.json#/definitions/ReasoningTokens"
+    },
     "_UnreportedUsageFields": {
       "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields"
     },
@@ -126,6 +129,9 @@
         },
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
@@ -272,6 +278,9 @@
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -416,6 +425,9 @@
         },
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
@@ -562,6 +574,9 @@
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -707,6 +722,9 @@
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
         },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
+        },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"
         },
@@ -851,6 +869,9 @@
         },
         "cache_creation_tokens_by_ttl": {
           "$ref": "#/definitions/_CacheCreationTokensByTtl"
+        },
+        "reasoning_tokens": {
+          "$ref": "#/definitions/_ReasoningTokens"
         },
         "unreported_usage_fields": {
           "$ref": "#/definitions/_UnreportedUsageFields"

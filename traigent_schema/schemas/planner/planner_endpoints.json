@@ -33,6 +33,16 @@
                 "schema": { "$ref": "../error_envelope_schema.json" }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }

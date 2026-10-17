@@ -820,7 +820,7 @@ class TestProjectContracts:
             "/api/v1beta/projects/proj_123/prompts",
             "POST",
             {
-                "name": "langfuse.prompt.support",
+                "name": "acme.prompt.support",
                 "prompt_type": "text",
                 "prompt_text": "Hello {{name}}",
                 "labels": ["production"],
@@ -831,7 +831,7 @@ class TestProjectContracts:
 
     def test_playground_run_request_validates_against_planned_contract(self, validator):
         errors = validator.validate_request(
-            "/api/v1beta/projects/proj_123/prompts/langfuse.prompt.support/playground/run",
+            "/api/v1beta/projects/proj_123/prompts/acme.prompt.support/playground/run",
             "POST",
             {
                 "version": 1,

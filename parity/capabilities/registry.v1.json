@@ -1,0 +1,92 @@
+{
+  "registryVersion": "1",
+  "capabilities": [
+    {
+      "id": "optimizer.grid-enumeration",
+      "title": "Grid search enumerates the full cartesian product of a discrete configuration space",
+      "area": "optimizer",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(algorithm=\"grid\")",
+          "traigent.optimizers.GridSearchOptimizer"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ algorithm: \"grid\" })"
+        ]
+      },
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through their public optimize entry point with algorithm \"grid\": Python SDK tests/unit/parity/test_conformance_grid.py (Traigent develop bf57c2b5) and the JS SDK parity conformance test (develop cb4fa5de). Both assert raw invocation count, no duplicates, set equality, and max-trials truncation. Parameter ordering is not part of the contract.",
+      "owner": "sdk-maintainers",
+      "fixtures": [
+        "optimizer.grid-enumeration.v1"
+      ]
+    },
+    {
+      "id": "multi-objective.normalization-selection",
+      "title": "Multi-objective min-max normalization, sum-to-one weighting, zero-span fallback and dominance guard",
+      "area": "multi-objective",
+      "python": {
+        "entryPoints": [
+          "traigent.core.objectives.ObjectiveSchema.from_objectives",
+          "traigent.api.types.OptimizationResult.score_trials"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk scoreTrials(trials, objectives)",
+          "@traigent/sdk optimize({ objectives }) result best config"
+        ]
+      },
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through public APIs: Python SDK tests/unit/parity/test_conformance_multi_objective.py (Traigent develop f7f0f47d) via ObjectiveSchema.from_objectives, OptimizationResult.score_trials and traigent.optimize; JS SDK parity conformance test (develop 25e4a855) via the public scoreTrials export and optimize. Both assert normalized weights, per-trial normalized and weighted scores within 1e-9, the unique-max best trial, and the 0.99 dominance guard.",
+      "owner": "sdk-maintainers",
+      "fixtures": [
+        "multi-objective.normalization-selection.v1"
+      ]
+    },
+    {
+      "id": "optimize.stop-limits",
+      "title": "Stop limits: maximum trials, cumulative cost cap and maximum total examples",
+      "area": "budget-stop",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(max_trials=..., cost_limit=..., max_total_examples=...)"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ budget: { maxCostUsd }, execution: { maxTotalExamples } }) with maxTrials"
+        ]
+      },
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through public APIs: Python SDK tests/unit/parity/test_conformance_stop_limits.py (Traigent develop 75d8b33f) via traigent.optimize(max_trials, cost_limit, max_total_examples); JS SDK tests/parity/conformance-stop-limits.test.ts (traigent-js develop 9e30c534) via optimize with maxTrials, budget.maxCostUsd and execution.maxTotalExamples. Both assert trial counts, stop reasons, rows per trial and best accuracy within 1e-9, and reject invalid limits and negative trial costs. Plateau stopping, cost estimation, a default cost cap, failed-trial handling, a grid exhausted exactly at a limit and precedence between simultaneous limits remain out of scope until the owner-ruled target rules are implemented.",
+      "owner": "sdk-maintainers",
+      "fixtures": [
+        "optimize.stop-limits.v1"
+      ]
+    },
+    {
+      "id": "optimize.stop-rules",
+      "title": "Stop rules: failed trials, default cost cap, plateau, stop precedence and pre-trial cost estimate",
+      "area": "budget-stop",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(max_trials=..., cost_limit=..., plateau_window=..., plateau_epsilon=...)"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ budget: { maxCostUsd } }) with maxTrials and .optimize({ plateau: { window, minImprovement } })"
+        ]
+      },
+      "disposition": "parity",
+      "rationale": "Both SDKs pass this fixture through public APIs: Python SDK tests/unit/parity/test_conformance_stop_rules.py (Traigent develop 1e7e30bf) via traigent.optimize(max_trials, cost_limit, max_total_examples, plateau_window, plateau_epsilon); JS SDK tests/parity/conformance-stop-rules.test.ts (traigent-js develop 94c2710e) via optimize with maxTrials, budget.maxCostUsd, execution.maxTotalExamples and plateau. Both assert trial counts, stop reasons, trial statuses, rows per trial and best accuracy within 1e-9, and reject a capped run with no reported cost. Not asserted: the label of a stop when the grid is exhausted exactly at a limit, wallclock limits, Python-only stop conditions, and sub-tolerance running-best improvements, where Python gates its best by the tolerance and JS keeps a plain running best.",
+      "owner": "sdk-maintainers",
+      "fixtures": [
+        "optimize.stop-rules.v1"
+      ]
+    }
+  ]
+}

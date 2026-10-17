@@ -63,7 +63,7 @@ import sys
 import tarfile
 import tempfile
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 from urllib.parse import quote, urldefrag, urljoin, urlparse
@@ -476,6 +476,48 @@ _CLOSEDNESS_LABEL = {
 }
 
 
+@dataclass(frozen=True)
+class _NodeScope:
+    """Everything compare_node threads through its recursion, bundled so the per-keyword
+    helpers below take one argument instead of ten. The bases and visited sets are the
+    ones in effect AFTER the current node's $ref chain was resolved, and ``depth`` is the
+    current node's depth — ``recurse`` descends one level from here."""
+
+    old_base: str
+    new_base: str
+    old_reg: Registry
+    new_reg: Registry
+    old_visited: frozenset[str]
+    new_visited: frozenset[str]
+    role: Role
+    file: str
+    findings: list[Finding]
+    depth: int
+
+    def emit(self, pointer: str, rule: str, severity: Severity, message: str, **identity) -> None:
+        emit(self.findings, self.file, pointer, rule, severity, self.role, message, **identity)
+
+    def keyword(self, pointer: str, keyword: str, **kwargs) -> None:
+        _keyword_finding(self.findings, self.file, pointer, self.role, keyword, **kwargs)
+
+    def recurse(self, old_raw: Any, new_raw: Any, pointer: str) -> None:
+        compare_node(
+            old_raw,
+            new_raw,
+            old_base=self.old_base,
+            new_base=self.new_base,
+            old_reg=self.old_reg,
+            new_reg=self.new_reg,
+            old_visited=self.old_visited,
+            new_visited=self.new_visited,
+            pointer=pointer,
+            role=self.role,
+            file=self.file,
+            findings=self.findings,
+            depth=self.depth + 1,
+        )
+
+
 def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
     old_raw: Any,
     new_raw: Any,
@@ -492,154 +534,214 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
     findings: list[Finding],
     depth: int = 0,
 ) -> None:
-    if depth > 60:
-        emit(
-            findings,
-            file,
+    scope = _NodeScope(
+        old_base=old_base,
+        new_base=new_base,
+        old_reg=old_reg,
+        new_reg=new_reg,
+        old_visited=old_visited,
+        new_visited=new_visited,
+        role=role,
+        file=file,
+        findings=findings,
+        depth=depth,
+    )
+    resolved = _resolve_node_pair(scope, old_raw, new_raw, pointer)
+    if resolved is None:
+        return
+    old, new, scope = resolved
+
+    # The order of these calls is the order findings are emitted in; keep it stable.
+    _compare_type(scope, pointer, old, new)
+    _compare_enum(scope, pointer, old, new)
+    old_rank, new_rank = _compare_additional_properties(scope, pointer, old, new)
+    _compare_pattern(scope, pointer, old, new)
+    _compare_max_bounds(scope, pointer, old, new)
+    _compare_min_bounds(scope, pointer, old, new)
+    _compare_required(scope, pointer, old, new)
+    _compare_properties(scope, pointer, old, new, old_rank, new_rank)
+    _compare_pattern_properties(scope, pointer, old, new, old_rank, new_rank)
+    _compare_items(scope, pointer, old, new)
+    for combinator in ("oneOf", "anyOf", "allOf"):
+        _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
+
+
+def _resolve_node_pair(
+    scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
+) -> tuple[dict, dict, _NodeScope] | None:
+    """Apply the depth limit, resolve both sides' $ref chains, and stop on a non-object or
+    cyclic pair. Returns the two resolved object schemas plus the scope updated to their
+    resolved bases/visited sets, or None (after emitting the reason) when comparison of this
+    node ends here."""
+    if scope.depth > 60:
+        scope.emit(
             pointer,
             "depth_limit",
             "INFO",
-            role,
             "comparison stopped: nesting exceeded the safety depth limit",
         )
-        return
+        return None
 
     try:
-        old, old_base, old_visited, old_cyclic = deref(old_raw, old_base, old_reg, old_visited)
+        old, old_base, old_visited, old_cyclic = deref(
+            old_raw, scope.old_base, scope.old_reg, scope.old_visited
+        )
     except UnresolvedRef as exc:
-        emit(
-            findings,
-            file,
+        scope.emit(
             pointer,
             "unresolved_ref",
             "BREAKING",
-            role,
             f"$ref on the BASE side could not be resolved: {exc}",
         )
-        return
+        return None
     try:
-        new, new_base, new_visited, new_cyclic = deref(new_raw, new_base, new_reg, new_visited)
+        new, new_base, new_visited, new_cyclic = deref(
+            new_raw, scope.new_base, scope.new_reg, scope.new_visited
+        )
     except UnresolvedRef as exc:
-        emit(
-            findings,
-            file,
+        scope.emit(
             pointer,
             "unresolved_ref",
             "BREAKING",
-            role,
             f"$ref on the HEAD side could not be resolved: {exc}",
         )
-        return
+        return None
 
     if not isinstance(old, dict) or not isinstance(new, dict):
         if old != new:
-            emit(
-                findings,
-                file,
+            scope.emit(
                 pointer,
                 "leaf_changed",
                 "INFO",
-                role,
                 f"non-object schema fragment changed: {old!r} -> {new!r} (manual review)",
             )
-        return
+        return None
 
     if old_cyclic or new_cyclic:
-        emit(
-            findings,
-            file,
+        scope.emit(
             pointer,
             "cyclic_ref",
             "INFO",
-            role,
             "recursive $ref chain detected at or below this point; not compared further",
         )
-        return
+        return None
 
-    # ---- type ----
+    resolved_scope = replace(
+        scope,
+        old_base=old_base,
+        new_base=new_base,
+        old_visited=old_visited,
+        new_visited=new_visited,
+    )
+    return old, new, resolved_scope
+
+
+def _set_delta(
+    old_set: frozenset[str] | None,
+    new_set: frozenset[str] | None,
+    *,
+    was_unset: str,
+    now_unset: str,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Members removed and added between two optional sets. A side that had no constraint at
+    all is reported as the given placeholder instead of an empty difference."""
+    removed = (old_set or frozenset()) - (new_set or frozenset())
+    added = (new_set or frozenset()) - (old_set or frozenset())
+    if old_set is None and new_set is not None:
+        removed = frozenset({was_unset})
+    if new_set is None and old_set is not None:
+        added = frozenset({now_unset})
+    return removed, added
+
+
+def _compare_type(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
     old_types, new_types = _type_set(old), _type_set(new)
-    if old_types != new_types:
-        removed = (old_types or frozenset()) - (new_types or frozenset())
-        added = (new_types or frozenset()) - (old_types or frozenset())
-        if old_types is None and new_types is not None:
-            removed = frozenset({"<was unconstrained>"})
-        if new_types is None and old_types is not None:
-            added = frozenset({"<now unconstrained>"})
-        old_repr = sorted(old_types) if old_types else None
-        new_repr = sorted(new_types) if new_types else None
-        if removed:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "type",
-                narrowed=True,
-                detail=f"type no longer allows {sorted(removed)} (was {old_repr}, now {new_repr})",
-                subject={"direction": "removed", "values": sorted(removed)},
-                old=old_repr,
-                new=new_repr,
-            )
-        if added:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "type",
-                narrowed=False,
-                detail=(
-                    f"type now additionally allows {sorted(added)} (was {old_repr}, now {new_repr})"
-                ),
-                subject={"direction": "added", "values": sorted(added)},
-                old=old_repr,
-                new=new_repr,
-            )
+    if old_types == new_types:
+        return
+    removed, added = _set_delta(
+        old_types,
+        new_types,
+        was_unset="<was unconstrained>",
+        now_unset="<now unconstrained>",
+    )
+    old_repr = sorted(old_types) if old_types else None
+    new_repr = sorted(new_types) if new_types else None
+    if removed:
+        scope.keyword(
+            pointer,
+            "type",
+            narrowed=True,
+            detail=f"type no longer allows {sorted(removed)} (was {old_repr}, now {new_repr})",
+            subject={"direction": "removed", "values": sorted(removed)},
+            old=old_repr,
+            new=new_repr,
+        )
+    if added:
+        scope.keyword(
+            pointer,
+            "type",
+            narrowed=False,
+            detail=(
+                f"type now additionally allows {sorted(added)} (was {old_repr}, now {new_repr})"
+            ),
+            subject={"direction": "added", "values": sorted(added)},
+            old=old_repr,
+            new=new_repr,
+        )
 
-    # ---- enum ----
+
+def _enum_delta(
+    old_enum: frozenset[str] | None, new_enum: frozenset[str] | None
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Enum members removed and added. Dropping or introducing the whole enum constraint is
+    reported as a placeholder member on the side that changed."""
+    removed_e = (old_enum or frozenset()) - (new_enum or frozenset())
+    added_e = (new_enum or frozenset()) - (old_enum or frozenset())
+    if old_enum is not None and new_enum is None:
+        removed_e = frozenset({"<enum constraint removed entirely>"})
+    if new_enum is not None and old_enum is None:
+        added_e = frozenset({"<enum constraint added>"})
+    return removed_e, added_e
+
+
+def _compare_enum(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
     old_enum, new_enum = _enum_set(old), _enum_set(new)
-    if old_enum != new_enum and (old_enum is not None or new_enum is not None):
-        removed_e = (old_enum or frozenset()) - (new_enum or frozenset())
-        added_e = (new_enum or frozenset()) - (old_enum or frozenset())
-        if old_enum is not None and new_enum is None:
-            removed_e = frozenset({"<enum constraint removed entirely>"})
-        if new_enum is not None and old_enum is None:
-            added_e = frozenset({"<enum constraint added>"})
-        if removed_e:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "enum",
-                narrowed=True,
-                detail=f"enum member(s) removed: {sorted(removed_e)}",
-                subject={"direction": "removed", "values": sorted(removed_e)},
-                old=sorted(old_enum) if old_enum is not None else None,
-                new=sorted(new_enum) if new_enum is not None else None,
-            )
-        if added_e:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "enum",
-                narrowed=False,
-                detail=f"enum member(s) added: {sorted(added_e)}",
-                subject={"direction": "added", "values": sorted(added_e)},
-                old=sorted(old_enum) if old_enum is not None else None,
-                new=sorted(new_enum) if new_enum is not None else None,
-            )
+    if old_enum == new_enum or (old_enum is None and new_enum is None):
+        return
+    removed_e, added_e = _enum_delta(old_enum, new_enum)
+    old_sorted = sorted(old_enum) if old_enum is not None else None
+    new_sorted = sorted(new_enum) if new_enum is not None else None
+    if removed_e:
+        scope.keyword(
+            pointer,
+            "enum",
+            narrowed=True,
+            detail=f"enum member(s) removed: {sorted(removed_e)}",
+            subject={"direction": "removed", "values": sorted(removed_e)},
+            old=old_sorted,
+            new=new_sorted,
+        )
+    if added_e:
+        scope.keyword(
+            pointer,
+            "enum",
+            narrowed=False,
+            detail=f"enum member(s) added: {sorted(added_e)}",
+            subject={"direction": "added", "values": sorted(added_e)},
+            old=old_sorted,
+            new=new_sorted,
+        )
 
-    # ---- additionalProperties: open/constrained/closed, and a map's value schema ----
+
+def _compare_additional_properties(
+    scope: _NodeScope, pointer: str, old: dict, new: dict
+) -> tuple[int, int]:
+    """additionalProperties: open/constrained/closed, and a map's value schema. Returns the
+    old and new closedness ranks, which the properties/patternProperties checks reuse."""
     old_rank, new_rank = _closedness_rank(old), _closedness_rank(new)
     if old_rank != new_rank:
-        _keyword_finding(
-            findings,
-            file,
+        scope.keyword(
             pointer,
-            role,
             "additionalProperties",
             narrowed=new_rank > old_rank,
             detail=(
@@ -651,339 +753,228 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
         )
     old_ap, new_ap = old.get("additionalProperties"), new.get("additionalProperties")
     if isinstance(old_ap, dict) and isinstance(new_ap, dict):
-        compare_node(
-            old_ap,
-            new_ap,
-            old_base=old_base,
-            new_base=new_base,
-            old_reg=old_reg,
-            new_reg=new_reg,
-            old_visited=old_visited,
-            new_visited=new_visited,
-            pointer=f"{pointer}/additionalProperties",
-            role=role,
-            file=file,
-            findings=findings,
-            depth=depth + 1,
-        )
+        scope.recurse(old_ap, new_ap, f"{pointer}/additionalProperties")
+    return old_rank, new_rank
 
-    # ---- pattern ----
+
+def _compare_pattern(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
     old_pat, new_pat = old.get("pattern"), new.get("pattern")
-    if old_pat != new_pat:
-        if old_pat is None and new_pat is not None:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "pattern",
-                narrowed=True,
-                detail=f"pattern constraint added: {new_pat!r} (previously unconstrained)",
-                old=old_pat,
-                new=new_pat,
-            )
-        elif old_pat is not None and new_pat is None:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "pattern",
-                narrowed=False,
-                detail=f"pattern constraint removed (was {old_pat!r})",
-                old=old_pat,
-                new=new_pat,
-            )
-        else:
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "pattern",
-                narrowed=True,
-                detail=(
-                    f"pattern changed: {old_pat!r} -> {new_pat!r} (regex containment isn't "
-                    "decidable in general; treated conservatively as a narrowing — verify by hand)"
-                ),
-                old=old_pat,
-                new=new_pat,
-            )
+    if old_pat == new_pat:
+        return
+    if old_pat is None and new_pat is not None:
+        narrowed = True
+        detail = f"pattern constraint added: {new_pat!r} (previously unconstrained)"
+    elif old_pat is not None and new_pat is None:
+        narrowed = False
+        detail = f"pattern constraint removed (was {old_pat!r})"
+    else:
+        narrowed = True
+        detail = (
+            f"pattern changed: {old_pat!r} -> {new_pat!r} (regex containment isn't "
+            "decidable in general; treated conservatively as a narrowing — verify by hand)"
+        )
+    scope.keyword(pointer, "pattern", narrowed=narrowed, detail=detail, old=old_pat, new=new_pat)
 
-    # ---- bounds ----
+
+def _bound_finding(
+    scope: _NodeScope, pointer: str, kw: str, *, narrowed: bool, verb: str, ov: Any, nv: Any
+) -> None:
+    scope.keyword(
+        pointer, kw, narrowed=narrowed, detail=f"{kw} {verb}: {ov} -> {nv}", old=ov, new=nv
+    )
+
+
+def _compare_max_bounds(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
+    """An upper bound that is absent is +infinity; lowering it narrows."""
     for kw in _MAX_KEYS:
         ov, nv = old.get(kw), new.get(kw)
         if ov != nv:
             ov_eff = ov if ov is not None else float("inf")
             nv_eff = nv if nv is not None else float("inf")
             if nv_eff < ov_eff:
-                _keyword_finding(
-                    findings,
-                    file,
-                    pointer,
-                    role,
-                    kw,
-                    narrowed=True,
-                    detail=f"{kw} lowered: {ov} -> {nv}",
-                    old=ov,
-                    new=nv,
-                )
+                _bound_finding(scope, pointer, kw, narrowed=True, verb="lowered", ov=ov, nv=nv)
             elif nv_eff > ov_eff:
-                _keyword_finding(
-                    findings,
-                    file,
-                    pointer,
-                    role,
-                    kw,
-                    narrowed=False,
-                    detail=f"{kw} raised: {ov} -> {nv}",
-                    old=ov,
-                    new=nv,
-                )
+                _bound_finding(scope, pointer, kw, narrowed=False, verb="raised", ov=ov, nv=nv)
+
+
+def _compare_min_bounds(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
+    """A lower bound that is absent is -infinity; raising it narrows."""
     for kw in _MIN_KEYS:
         ov, nv = old.get(kw), new.get(kw)
         if ov != nv:
             ov_eff = ov if ov is not None else float("-inf")
             nv_eff = nv if nv is not None else float("-inf")
             if nv_eff > ov_eff:
-                _keyword_finding(
-                    findings,
-                    file,
-                    pointer,
-                    role,
-                    kw,
-                    narrowed=True,
-                    detail=f"{kw} raised: {ov} -> {nv}",
-                    old=ov,
-                    new=nv,
-                )
+                _bound_finding(scope, pointer, kw, narrowed=True, verb="raised", ov=ov, nv=nv)
             elif nv_eff < ov_eff:
-                _keyword_finding(
-                    findings,
-                    file,
-                    pointer,
-                    role,
-                    kw,
-                    narrowed=False,
-                    detail=f"{kw} lowered: {ov} -> {nv}",
-                    old=ov,
-                    new=nv,
-                )
+                _bound_finding(scope, pointer, kw, narrowed=False, verb="lowered", ov=ov, nv=nv)
 
-    # ---- required ----
+
+def _compare_required(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
     old_req, new_req = set(old.get("required") or []), set(new.get("required") or [])
-    if old_req != new_req:
-        for name in sorted(new_req - old_req):
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "required",
-                narrowed=True,
-                subject=name,
-                detail=f"'{name}' added to required",
-                old=False,
-                new=True,
-            )
-        for name in sorted(old_req - new_req):
-            _keyword_finding(
-                findings,
-                file,
-                pointer,
-                role,
-                "required",
-                narrowed=False,
-                subject=name,
-                detail=f"'{name}' removed from required",
-                old=True,
-                new=False,
-            )
+    if old_req == new_req:
+        return
+    for name in sorted(new_req - old_req):
+        scope.keyword(
+            pointer,
+            "required",
+            narrowed=True,
+            subject=name,
+            detail=f"'{name}' added to required",
+            old=False,
+            new=True,
+        )
+    for name in sorted(old_req - new_req):
+        scope.keyword(
+            pointer,
+            "required",
+            narrowed=False,
+            subject=name,
+            detail=f"'{name}' removed from required",
+            old=True,
+            new=False,
+        )
 
-    # ---- properties (recurse) ----
+
+def _compare_properties(
+    scope: _NodeScope, pointer: str, old: dict, new: dict, old_rank: int, new_rank: int
+) -> None:
+    """properties: report removed/added members, recurse into members present on both sides."""
     old_props = _as_dict(old.get("properties"))
     new_props = _as_dict(new.get("properties"))
     for name in sorted(set(old_props) | set(new_props)):
         child_pointer = f"{pointer}/properties/{name}"
         if name in old_props and name not in new_props:
-            if new_rank >= 1:
-                _keyword_finding(
-                    findings,
-                    file,
-                    child_pointer,
-                    role,
-                    "property_removed",
-                    narrowed=True,
-                    detail=f"property '{name}' removed",
-                    subject=name,
-                    old=True,
-                    new=False,
-                )
-            else:
-                emit(
-                    findings,
-                    file,
-                    child_pointer,
-                    "property_removed",
-                    "INFO",
-                    role,
-                    (
-                        f"property '{name}' removed from the schema, but additionalProperties "
-                        "stays open on the new side — a payload/response that still carries "
-                        f"'{name}' remains schema-valid, it just loses type-checking on that field"
-                    ),
-                )
+            _property_removed(scope, child_pointer, name, new_rank)
         elif name not in old_props and name in new_props:
-            # A request can safely grow an object shape: submissions valid against the
-            # old schema remain valid.  A response is the mirror image only when old
-            # consumers could already accept the new member.  An old closed object
-            # rejects every newly-emitted member; an old constrained map may reject
-            # it depending on its value schema.  Both are a compatibility risk for a
-            # response consumer, so route it through the normal role matrix instead
-            # of unconditionally calling it informational.
-            #
-            # This intentionally applies whether the new property is optional or
-            # required.  ``required`` answers whether the producer promises to emit
-            # it, not whether an old strict consumer can parse it when it does.
-            if old_rank >= 1:
-                _keyword_finding(
-                    findings,
-                    file,
-                    child_pointer,
-                    role,
-                    "property_added",
-                    narrowed=False,
-                    detail=(
-                        f"property '{name}' added while the old schema's "
-                        f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; "
-                        "an old response consumer may reject that newly-emitted member"
-                    ),
-                    subject=name,
-                    old=False,
-                    new=True,
-                )
-            else:
-                emit(
-                    findings,
-                    file,
-                    child_pointer,
-                    "property_added",
-                    "INFO",
-                    role,
-                    (
-                        f"property '{name}' added while the old schema was open; "
-                        "old consumers already accepted unknown members (optional unless "
-                        "also newly required — see 'required' findings above)"
-                    ),
-                )
+            _property_added(scope, child_pointer, name, old_rank)
         else:
-            compare_node(
-                old_props[name],
-                new_props[name],
-                old_base=old_base,
-                new_base=new_base,
-                old_reg=old_reg,
-                new_reg=new_reg,
-                old_visited=old_visited,
-                new_visited=new_visited,
-                pointer=child_pointer,
-                role=role,
-                file=file,
-                findings=findings,
-                depth=depth + 1,
-            )
+            scope.recurse(old_props[name], new_props[name], child_pointer)
 
-    # ---- patternProperties (recurse, keyed by exact regex string) ----
+
+def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank: int) -> None:
+    if new_rank >= 1:
+        scope.keyword(
+            child_pointer,
+            "property_removed",
+            narrowed=True,
+            detail=f"property '{name}' removed",
+            subject=name,
+            old=True,
+            new=False,
+        )
+    else:
+        scope.emit(
+            child_pointer,
+            "property_removed",
+            "INFO",
+            (
+                f"property '{name}' removed from the schema, but additionalProperties "
+                "stays open on the new side — a payload/response that still carries "
+                f"'{name}' remains schema-valid, it just loses type-checking on that field"
+            ),
+        )
+
+
+def _property_added(scope: _NodeScope, child_pointer: str, name: str, old_rank: int) -> None:
+    # A request can safely grow an object shape: submissions valid against the
+    # old schema remain valid.  A response is the mirror image only when old
+    # consumers could already accept the new member.  An old closed object
+    # rejects every newly-emitted member; an old constrained map may reject
+    # it depending on its value schema.  Both are a compatibility risk for a
+    # response consumer, so route it through the normal role matrix instead
+    # of unconditionally calling it informational.
+    #
+    # This intentionally applies whether the new property is optional or
+    # required.  ``required`` answers whether the producer promises to emit
+    # it, not whether an old strict consumer can parse it when it does.
+    if old_rank >= 1:
+        scope.keyword(
+            child_pointer,
+            "property_added",
+            narrowed=False,
+            detail=(
+                f"property '{name}' added while the old schema's "
+                f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; "
+                "an old response consumer may reject that newly-emitted member"
+            ),
+            subject=name,
+            old=False,
+            new=True,
+        )
+    else:
+        scope.emit(
+            child_pointer,
+            "property_added",
+            "INFO",
+            (
+                f"property '{name}' added while the old schema was open; "
+                "old consumers already accepted unknown members (optional unless "
+                "also newly required — see 'required' findings above)"
+            ),
+        )
+
+
+def _compare_pattern_properties(
+    scope: _NodeScope, pointer: str, old: dict, new: dict, old_rank: int, new_rank: int
+) -> None:
+    """patternProperties: recurse, keyed by exact regex string."""
     old_pp = _as_dict(old.get("patternProperties"))
     new_pp = _as_dict(new.get("patternProperties"))
     for pat in sorted(set(old_pp) | set(new_pp)):
         child_pointer = f"{pointer}/patternProperties/{pat}"
         if pat in old_pp and pat not in new_pp:
-            severity_narrowed = new_rank >= 1
-            _keyword_finding(
-                findings,
-                file,
+            scope.keyword(
                 child_pointer,
-                role,
                 "patternProperties_removed",
-                narrowed=severity_narrowed,
+                narrowed=new_rank >= 1,
                 detail=f"patternProperties key {pat!r} removed",
                 subject=pat,
                 old=True,
                 new=False,
             )
         elif pat not in old_pp and pat in new_pp:
-            if old_rank >= 1:
-                _keyword_finding(
-                    findings,
-                    file,
-                    child_pointer,
-                    role,
-                    "patternProperties_added",
-                    narrowed=False,
-                    detail=(
-                        f"patternProperties key {pat!r} added while the old schema's "
-                        f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; matching "
-                        "members accepted by the new response may be rejected by an old consumer"
-                    ),
-                    subject=pat,
-                    old=False,
-                    new=True,
-                )
-            else:
-                emit(
-                    findings,
-                    file,
-                    child_pointer,
-                    "patternProperties_added",
-                    "INFO",
-                    role,
-                    (
-                        f"patternProperties key {pat!r} added while the old schema was open; "
-                        "old consumers already accepted matching unknown members"
-                    ),
-                )
+            _pattern_property_added(scope, child_pointer, pat, old_rank)
         else:
-            compare_node(
-                old_pp[pat],
-                new_pp[pat],
-                old_base=old_base,
-                new_base=new_base,
-                old_reg=old_reg,
-                new_reg=new_reg,
-                old_visited=old_visited,
-                new_visited=new_visited,
-                pointer=child_pointer,
-                role=role,
-                file=file,
-                findings=findings,
-                depth=depth + 1,
-            )
+            scope.recurse(old_pp[pat], new_pp[pat], child_pointer)
 
-    # ---- items (array element schema) ----
-    old_items, new_items = old.get("items"), new.get("items")
-    if isinstance(old_items, dict) and isinstance(new_items, dict):
-        compare_node(
-            old_items,
-            new_items,
-            old_base=old_base,
-            new_base=new_base,
-            old_reg=old_reg,
-            new_reg=new_reg,
-            old_visited=old_visited,
-            new_visited=new_visited,
-            pointer=f"{pointer}/items",
-            role=role,
-            file=file,
-            findings=findings,
-            depth=depth + 1,
+
+def _pattern_property_added(scope: _NodeScope, child_pointer: str, pat: str, old_rank: int) -> None:
+    if old_rank >= 1:
+        scope.keyword(
+            child_pointer,
+            "patternProperties_added",
+            narrowed=False,
+            detail=(
+                f"patternProperties key {pat!r} added while the old schema's "
+                f"additionalProperties was {_CLOSEDNESS_LABEL[old_rank]}; matching "
+                "members accepted by the new response may be rejected by an old consumer"
+            ),
+            subject=pat,
+            old=False,
+            new=True,
         )
+    else:
+        scope.emit(
+            child_pointer,
+            "patternProperties_added",
+            "INFO",
+            (
+                f"patternProperties key {pat!r} added while the old schema was open; "
+                "old consumers already accepted matching unknown members"
+            ),
+        )
+
+
+def _compare_items(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
+    """items (array element schema)."""
+    old_items, new_items = old.get("items"), new.get("items")
+    items_pointer = f"{pointer}/items"
+    if isinstance(old_items, dict) and isinstance(new_items, dict):
+        scope.recurse(old_items, new_items, items_pointer)
     elif old_items is None and isinstance(new_items, dict):
-        _keyword_finding(
-            findings,
-            file,
-            f"{pointer}/items",
-            role,
+        scope.keyword(
+            items_pointer,
             "items",
             narrowed=True,
             detail="array items constraint added (elements were previously unconstrained)",
@@ -991,11 +982,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
             new=new_items,
         )
     elif isinstance(old_items, dict) and new_items is None:
-        _keyword_finding(
-            findings,
-            file,
-            f"{pointer}/items",
-            role,
+        scope.keyword(
+            items_pointer,
             "items",
             narrowed=False,
             detail="array items constraint removed (elements are now unconstrained)",
@@ -1003,128 +991,110 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
             new=new_items,
         )
     elif old_items != new_items and (old_items is not None or new_items is not None):
-        emit(
-            findings,
-            file,
-            f"{pointer}/items",
+        scope.emit(
+            items_pointer,
             "items_structure_changed",
             "INFO",
-            role,
             (
                 "items uses tuple-validation (a list) or another shape this differ doesn't "
                 "model precisely — manual review"
             ),
         )
 
-    # ---- oneOf / anyOf / allOf (positional, best-effort) ----
-    for combinator in ("oneOf", "anyOf", "allOf"):
-        old_list, new_list = old.get(combinator), new.get(combinator)
-        if old_list is None and new_list is None:
-            continue
-        if old_list is None and isinstance(new_list, list):
-            if combinator == "allOf" and not new_list:
-                emit(
-                    findings,
-                    file,
-                    f"{pointer}/{combinator}",
-                    f"{combinator}_added",
-                    "INFO",
-                    role,
-                    (
-                        "empty allOf appeared; it accepts every instance and does not "
-                        "change the contract"
-                    ),
-                )
-            else:
-                _keyword_finding(
-                    findings,
-                    file,
-                    f"{pointer}/{combinator}",
-                    role,
-                    f"{combinator}_added",
-                    narrowed=True,
-                    detail=f"{combinator} constraint appeared ({len(new_list)} branch(es))",
-                    subject=combinator,
-                    old=0,
-                    new=len(new_list),
-                )
-            continue
-        if isinstance(old_list, list) and new_list is None:
-            if combinator == "allOf" and not old_list:
-                emit(
-                    findings,
-                    file,
-                    f"{pointer}/{combinator}",
-                    f"{combinator}_removed",
-                    "INFO",
-                    role,
-                    (
-                        "empty allOf disappeared; it accepted every instance and did not "
-                        "constrain the contract"
-                    ),
-                )
-            else:
-                _keyword_finding(
-                    findings,
-                    file,
-                    f"{pointer}/{combinator}",
-                    role,
-                    f"{combinator}_removed",
-                    narrowed=False,
-                    detail=f"{combinator} constraint disappeared ({len(old_list)} branch(es))",
-                    subject=combinator,
-                    old=len(old_list),
-                    new=0,
-                )
-            continue
-        if not isinstance(old_list, list) or not isinstance(new_list, list):
-            emit(
-                findings,
-                file,
-                f"{pointer}/{combinator}",
-                f"{combinator}_shape_changed",
-                "BREAKING",
-                role,
-                (
-                    f"{combinator} is not a list on one or both sides; direction cannot be "
-                    "established, so the malformed/unsupported change is flagged conservatively"
-                ),
-            )
-            continue
-        if len(old_list) != len(new_list):
-            emit(
-                findings,
-                file,
-                f"{pointer}/{combinator}",
-                f"{combinator}_branch_count_changed",
-                "BREAKING",
-                role,
-                (
-                    f"{combinator} branch count changed ({len(old_list)} -> {len(new_list)}); "
-                    "branches can't be confidently aligned positionally to classify direction, "
-                    "flagged conservatively — review by hand"
-                ),
-                subject=combinator,
-                old=len(old_list),
-                new=len(new_list),
-            )
-            continue
-        for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
-            compare_node(
-                ob,
-                nb,
-                old_base=old_base,
-                new_base=new_base,
-                old_reg=old_reg,
-                new_reg=new_reg,
-                old_visited=old_visited,
-                new_visited=new_visited,
-                pointer=f"{pointer}/{combinator}/{i}",
-                role=role,
-                file=file,
-                findings=findings,
-                depth=depth + 1,
-            )
+
+def _compare_combinator(
+    scope: _NodeScope, pointer: str, combinator: str, old_list: Any, new_list: Any
+) -> None:
+    """oneOf / anyOf / allOf: positional, best-effort."""
+    combinator_pointer = f"{pointer}/{combinator}"
+    if old_list is None and new_list is None:
+        return
+    if old_list is None and isinstance(new_list, list):
+        _combinator_appeared(scope, combinator_pointer, combinator, new_list)
+        return
+    if isinstance(old_list, list) and new_list is None:
+        _combinator_disappeared(scope, combinator_pointer, combinator, old_list)
+        return
+    if not isinstance(old_list, list) or not isinstance(new_list, list):
+        scope.emit(
+            combinator_pointer,
+            f"{combinator}_shape_changed",
+            "BREAKING",
+            (
+                f"{combinator} is not a list on one or both sides; direction cannot be "
+                "established, so the malformed/unsupported change is flagged conservatively"
+            ),
+        )
+        return
+    _compare_combinator_branches(scope, combinator_pointer, combinator, old_list, new_list)
+
+
+def _compare_combinator_branches(
+    scope: _NodeScope, combinator_pointer: str, combinator: str, old_list: list, new_list: list
+) -> None:
+    """Both sides are lists: recurse branch-by-branch, or flag a branch-count change."""
+    if len(old_list) != len(new_list):
+        scope.emit(
+            combinator_pointer,
+            f"{combinator}_branch_count_changed",
+            "BREAKING",
+            (
+                f"{combinator} branch count changed ({len(old_list)} -> {len(new_list)}); "
+                "branches can't be confidently aligned positionally to classify direction, "
+                "flagged conservatively — review by hand"
+            ),
+            subject=combinator,
+            old=len(old_list),
+            new=len(new_list),
+        )
+        return
+    for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
+        scope.recurse(ob, nb, f"{combinator_pointer}/{i}")
+
+
+def _combinator_appeared(
+    scope: _NodeScope, combinator_pointer: str, combinator: str, new_list: list
+) -> None:
+    if combinator == "allOf" and not new_list:
+        scope.emit(
+            combinator_pointer,
+            f"{combinator}_added",
+            "INFO",
+            "empty allOf appeared; it accepts every instance and does not change the contract",
+        )
+    else:
+        scope.keyword(
+            combinator_pointer,
+            f"{combinator}_added",
+            narrowed=True,
+            detail=f"{combinator} constraint appeared ({len(new_list)} branch(es))",
+            subject=combinator,
+            old=0,
+            new=len(new_list),
+        )
+
+
+def _combinator_disappeared(
+    scope: _NodeScope, combinator_pointer: str, combinator: str, old_list: list
+) -> None:
+    if combinator == "allOf" and not old_list:
+        scope.emit(
+            combinator_pointer,
+            f"{combinator}_removed",
+            "INFO",
+            "empty allOf disappeared; it accepted every instance and did not constrain the "
+            "contract",
+        )
+    else:
+        scope.keyword(
+            combinator_pointer,
+            f"{combinator}_removed",
+            narrowed=False,
+            detail=f"{combinator} constraint disappeared ({len(old_list)} branch(es))",
+            subject=combinator,
+            old=len(old_list),
+            new=0,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1204,63 +1174,77 @@ def _compare_media_schemas(
             )
 
 
+@dataclass(frozen=True)
+class _OperationScope:
+    """The per-document state every part of an OpenAPI operation comparison shares."""
+
+    file: str
+    old_base: str
+    new_base: str
+    old_reg: Registry
+    new_reg: Registry
+    findings: list[Finding]
+
+    def emit(self, pointer: str, rule: str, severity: Severity, role: str, message: str) -> None:
+        emit(self.findings, self.file, pointer, rule, severity, role, message)
+
+    def media(self, old_content: Any, new_content: Any, *, role: Role, pointer: str) -> None:
+        _compare_media_schemas(
+            old_content,
+            new_content,
+            role=role,
+            file=self.file,
+            pointer=pointer,
+            old_base=self.old_base,
+            new_base=self.new_base,
+            old_reg=self.old_reg,
+            new_reg=self.new_reg,
+            findings=self.findings,
+        )
+
+
 def _compare_operation(
     old_op, new_op, *, file, pointer, old_base, new_base, old_reg, new_reg, findings
 ):
-    old_rb, new_rb = old_op.get("requestBody"), new_op.get("requestBody")
+    scope = _OperationScope(
+        file=file,
+        old_base=old_base,
+        new_base=new_base,
+        old_reg=old_reg,
+        new_reg=new_reg,
+        findings=findings,
+    )
+    _compare_request_body(scope, pointer, old_op.get("requestBody"), new_op.get("requestBody"))
+    _compare_parameters(scope, pointer, old_op, new_op)
+    _compare_responses(scope, pointer, old_op, new_op)
+
+
+def _compare_request_body(scope: _OperationScope, pointer: str, old_rb: Any, new_rb: Any) -> None:
+    rb_pointer = f"{pointer}/requestBody"
     if isinstance(old_rb, dict) and isinstance(new_rb, dict):
-        old_flag, new_flag = (
-            bool(old_rb.get("required", False)),
-            bool(new_rb.get("required", False)),
+        _compare_required_flag(
+            scope,
+            rb_pointer,
+            old_rb,
+            new_rb,
+            became_required=("request_body_required", "requestBody became required"),
+            became_optional=("request_body_optional", "requestBody became optional"),
         )
-        if not old_flag and new_flag:
-            emit(
-                findings,
-                file,
-                f"{pointer}/requestBody",
-                "request_body_required",
-                "BREAKING",
-                "request",
-                "requestBody became required",
-            )
-        elif old_flag and not new_flag:
-            emit(
-                findings,
-                file,
-                f"{pointer}/requestBody",
-                "request_body_optional",
-                "INFO",
-                "request",
-                "requestBody became optional",
-            )
-        _compare_media_schemas(
-            old_rb.get("content"),
-            new_rb.get("content"),
-            role="request",
-            file=file,
-            pointer=f"{pointer}/requestBody",
-            old_base=old_base,
-            new_base=new_base,
-            old_reg=old_reg,
-            new_reg=new_reg,
-            findings=findings,
+        scope.media(
+            old_rb.get("content"), new_rb.get("content"), role="request", pointer=rb_pointer
         )
     elif old_rb is None and isinstance(new_rb, dict):
         sev: Severity = "BREAKING" if new_rb.get("required") else "INFO"
-        emit(
-            findings,
-            file,
-            f"{pointer}/requestBody",
+        scope.emit(
+            rb_pointer,
             "request_body_added",
             sev,
             "request",
             "requestBody added" + (" and marked required" if new_rb.get("required") else ""),
         )
     elif isinstance(old_rb, dict) and new_rb is None:
-        emit(
-            findings,
-            file,
-            f"{pointer}/requestBody",
+        scope.emit(
+            rb_pointer,
             "request_body_removed",
             "INFO",
             "request",
@@ -1270,126 +1254,110 @@ def _compare_operation(
             ),
         )
 
-    old_params = {
+
+def _compare_required_flag(
+    scope: _OperationScope,
+    pointer: str,
+    old_obj: dict,
+    new_obj: dict,
+    *,
+    became_required: tuple[str, str],
+    became_optional: tuple[str, str],
+) -> None:
+    """A request-side ``required: true|false`` flip: becoming required breaks a client that
+    omits it, becoming optional does not. Each tuple is (rule, message)."""
+    old_flag = bool(old_obj.get("required", False))
+    new_flag = bool(new_obj.get("required", False))
+    if not old_flag and new_flag:
+        rule, message = became_required
+        scope.emit(pointer, rule, "BREAKING", "request", message)
+    elif old_flag and not new_flag:
+        rule, message = became_optional
+        scope.emit(pointer, rule, "INFO", "request", message)
+
+
+def _named_parameters(op: dict) -> dict[Any, dict]:
+    return {
         p.get("name"): p
-        for p in (old_op.get("parameters") or [])
+        for p in (op.get("parameters") or [])
         if isinstance(p, dict) and "name" in p
     }
-    new_params = {
-        p.get("name"): p
-        for p in (new_op.get("parameters") or [])
-        if isinstance(p, dict) and "name" in p
-    }
+
+
+def _compare_parameters(scope: _OperationScope, pointer: str, old_op: dict, new_op: dict) -> None:
+    old_params = _named_parameters(old_op)
+    new_params = _named_parameters(new_op)
     for name in sorted(set(old_params) | set(new_params)):
         ptr = f"{pointer}/parameters/{name}"
         if name in old_params and name not in new_params:
-            sev = "BREAKING" if old_params[name].get("required") else "INFO"
-            emit(
-                findings,
-                file,
-                ptr,
-                "parameter_removed",
-                sev,
-                "request",
-                f"parameter '{name}' removed",
-            )
+            sev: Severity = "BREAKING" if old_params[name].get("required") else "INFO"
+            scope.emit(ptr, "parameter_removed", sev, "request", f"parameter '{name}' removed")
         elif name not in old_params and name in new_params:
-            sev = "BREAKING" if new_params[name].get("required") else "INFO"
-            emit(
-                findings,
-                file,
+            required = new_params[name].get("required")
+            scope.emit(
                 ptr,
                 "parameter_added",
-                sev,
+                "BREAKING" if required else "INFO",
                 "request",
-                f"parameter '{name}' added"
-                + (" as required" if new_params[name].get("required") else ""),
+                f"parameter '{name}' added" + (" as required" if required else ""),
             )
         else:
-            old_flag2, new_flag2 = (
-                bool(old_params[name].get("required", False)),
-                bool(new_params[name].get("required", False)),
-            )
-            if not old_flag2 and new_flag2:
-                emit(
-                    findings,
-                    file,
-                    ptr,
-                    "parameter_required",
-                    "BREAKING",
-                    "request",
-                    f"parameter '{name}' became required",
-                )
-            elif old_flag2 and not new_flag2:
-                emit(
-                    findings,
-                    file,
-                    ptr,
-                    "parameter_optional",
-                    "INFO",
-                    "request",
-                    f"parameter '{name}' became optional",
-                )
-            old_pschema, new_pschema = (
-                old_params[name].get("schema"),
-                new_params[name].get("schema"),
-            )
-            if isinstance(old_pschema, dict) and isinstance(new_pschema, dict):
-                compare_node(
-                    old_pschema,
-                    new_pschema,
-                    old_base=old_base,
-                    new_base=new_base,
-                    old_reg=old_reg,
-                    new_reg=new_reg,
-                    old_visited=frozenset(),
-                    new_visited=frozenset(),
-                    pointer=f"{ptr}/schema",
-                    role="request",
-                    file=file,
-                    findings=findings,
-                )
+            _compare_shared_parameter(scope, ptr, name, old_params[name], new_params[name])
 
+
+def _compare_shared_parameter(
+    scope: _OperationScope, ptr: str, name: Any, old_param: dict, new_param: dict
+) -> None:
+    _compare_required_flag(
+        scope,
+        ptr,
+        old_param,
+        new_param,
+        became_required=("parameter_required", f"parameter '{name}' became required"),
+        became_optional=("parameter_optional", f"parameter '{name}' became optional"),
+    )
+    old_pschema, new_pschema = old_param.get("schema"), new_param.get("schema")
+    if isinstance(old_pschema, dict) and isinstance(new_pschema, dict):
+        compare_node(
+            old_pschema,
+            new_pschema,
+            old_base=scope.old_base,
+            new_base=scope.new_base,
+            old_reg=scope.old_reg,
+            new_reg=scope.new_reg,
+            old_visited=frozenset(),
+            new_visited=frozenset(),
+            pointer=f"{ptr}/schema",
+            role="request",
+            file=scope.file,
+            findings=scope.findings,
+        )
+
+
+def _compare_responses(scope: _OperationScope, pointer: str, old_op: dict, new_op: dict) -> None:
     old_resp = _as_dict(old_op.get("responses"))
     new_resp = _as_dict(new_op.get("responses"))
     for status in sorted(set(old_resp) | set(new_resp)):
         ptr = f"{pointer}/responses/{status}"
         if status in old_resp and status not in new_resp:
-            emit(
-                findings,
-                file,
+            scope.emit(
                 ptr,
                 "response_status_removed",
                 "BREAKING",
                 "response",
                 f"documented response status {status} removed",
             )
-            continue
-        if status not in old_resp and status in new_resp:
-            emit(
-                findings,
-                file,
-                ptr,
-                "response_status_added",
-                "INFO",
-                "response",
-                f"response status {status} added",
+        elif status not in old_resp and status in new_resp:
+            scope.emit(
+                ptr, "response_status_added", "INFO", "response", f"response status {status} added"
             )
-            continue
-        old_status_obj = _as_dict(old_resp[status])
-        new_status_obj = _as_dict(new_resp[status])
-        _compare_media_schemas(
-            old_status_obj.get("content"),
-            new_status_obj.get("content"),
-            role="response",
-            file=file,
-            pointer=ptr,
-            old_base=old_base,
-            new_base=new_base,
-            old_reg=old_reg,
-            new_reg=new_reg,
-            findings=findings,
-        )
+        else:
+            scope.media(
+                _as_dict(old_resp[status]).get("content"),
+                _as_dict(new_resp[status]).get("content"),
+                role="response",
+                pointer=ptr,
+            )
 
 
 def compare_endpoints_file(
@@ -1747,76 +1715,91 @@ class AllowMatch:
     rejected: list[tuple[dict[str, Any], str]]
 
 
+def _stored_identity_matches(
+    entry: dict[str, Any],
+    stored_identity: dict[str, Any],
+    current_identity: dict[str, Any],
+    current_fingerprint: str,
+) -> bool:
+    """True when one stored structured identity verifies and names exactly this finding."""
+    # A structured acknowledgement is valid only when it contains exactly the
+    # canonical identity fields plus a verified SHA-256 digest.  In particular,
+    # a digest cannot be used to bless a later semantic edit to the identity.
+    if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
+        return False
+    stored_fingerprint = stored_identity.get("fingerprint")
+    if not (
+        isinstance(stored_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
+    ):
+        return False
+    identity = {key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS}
+    try:
+        expected_fingerprint = _fingerprint_for_identity(entry["file"], entry["rule"], identity)
+    except (TypeError, ValueError):
+        return False
+    if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
+        return False
+    if not hmac.compare_digest(stored_fingerprint, current_fingerprint):
+        return False
+    try:
+        return _canonical_json_bytes(current_identity) == _canonical_json_bytes(identity)
+    except (TypeError, ValueError):
+        return False
+
+
+def _structured_entry_matches(entry: dict[str, Any], finding: Finding) -> bool:
+    # Structured acknowledgements are exact by construction: a missing, empty,
+    # or non-string rule must never become a wildcard.
+    if not isinstance(entry.get("rule"), str) or not entry["rule"] or entry["rule"] != finding.rule:
+        return False
+    exact_findings = entry["findings"]
+    # New acknowledgements must name every accepted finding identity explicitly.
+    # Invalid values fail closed and cannot accidentally become a wildcard.
+    if not (
+        isinstance(exact_findings, list)
+        and all(isinstance(identity, dict) for identity in exact_findings)
+    ):
+        return False
+    current_identity = finding.identity()
+    current_fingerprint = finding.fingerprint()
+    return any(
+        _stored_identity_matches(entry, stored_identity, current_identity, current_fingerprint)
+        for stored_identity in exact_findings
+    )
+
+
+def _entry_matches_finding(entry: dict[str, Any], finding: Finding) -> bool:
+    """True when ``entry`` names ``finding`` (before its reason/version are judged)."""
+    if entry.get("file") != finding.file:
+        return False
+    if "findings" in entry:
+        return _structured_entry_matches(entry, finding)
+    if "pointers" in entry or "pointer" in entry:
+        # Pointer-only acknowledgements are intentionally no longer accepted: they
+        # cannot distinguish same-pointer semantic changes.
+        return False
+    # Preserve the legacy optional-rule/prefix arm for historical entries.
+    if entry.get("rule") and entry["rule"] != finding.rule:
+        return False
+    return finding.pointer.startswith(entry.get("pointer_prefix", ""))
+
+
+def _entry_problems(entry: dict[str, Any]) -> list[str]:
+    """Why a matching entry does not count as an acknowledgement (empty when it does)."""
+    problems = []
+    if bad_reason := reason_rejection(entry.get("reason")):
+        problems.append(bad_reason)
+    if not entry.get("version"):
+        problems.append("version is missing — which contract version does this ship in?")
+    return problems
+
+
 def find_allow_entry(finding: Finding, entries: list[dict[str, Any]]) -> AllowMatch:
     rejected: list[tuple[dict[str, Any], str]] = []
     for e in entries:
-        if e.get("file") != finding.file:
+        if not _entry_matches_finding(e, finding):
             continue
-        if "findings" in e:
-            # Structured acknowledgements are exact by construction: a missing, empty,
-            # or non-string rule must never become a wildcard.
-            if not isinstance(e.get("rule"), str) or not e["rule"] or e["rule"] != finding.rule:
-                continue
-            exact_findings = e["findings"]
-            # New acknowledgements must name every accepted finding identity explicitly.
-            # Invalid values fail closed and cannot accidentally become a wildcard.
-            if not (
-                isinstance(exact_findings, list)
-                and all(isinstance(identity, dict) for identity in exact_findings)
-            ):
-                continue
-            current_identity = finding.identity()
-            current_fingerprint = finding.fingerprint()
-            matched = False
-            for stored_identity in exact_findings:
-                # A structured acknowledgement is valid only when it contains exactly the
-                # canonical identity fields plus a verified SHA-256 digest.  In particular,
-                # a digest cannot be used to bless a later semantic edit to the identity.
-                if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
-                    continue
-                stored_fingerprint = stored_identity.get("fingerprint")
-                if not (
-                    isinstance(stored_fingerprint, str)
-                    and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
-                ):
-                    continue
-                identity = {
-                    key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS
-                }
-                try:
-                    expected_fingerprint = _fingerprint_for_identity(
-                        e["file"], e["rule"], identity
-                    )
-                except (TypeError, ValueError):
-                    continue
-                if not hmac.compare_digest(stored_fingerprint, expected_fingerprint):
-                    continue
-                if not hmac.compare_digest(stored_fingerprint, current_fingerprint):
-                    continue
-                try:
-                    if _canonical_json_bytes(current_identity) != _canonical_json_bytes(identity):
-                        continue
-                except (TypeError, ValueError):
-                    continue
-                matched = True
-                break
-            if not matched:
-                continue
-        elif "pointers" in e or "pointer" in e:
-            # Pointer-only acknowledgements are intentionally no longer accepted: they
-            # cannot distinguish same-pointer semantic changes.
-            continue
-        else:
-            # Preserve the legacy optional-rule/prefix arm for historical entries.
-            if e.get("rule") and e["rule"] != finding.rule:
-                continue
-            if not finding.pointer.startswith(e.get("pointer_prefix", "")):
-                continue
-        problems = []
-        if bad_reason := reason_rejection(e.get("reason")):
-            problems.append(bad_reason)
-        if not e.get("version"):
-            problems.append("version is missing — which contract version does this ship in?")
+        problems = _entry_problems(e)
         if problems:
             rejected.append((e, "; ".join(problems)))
             continue
@@ -1978,29 +1961,23 @@ def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding])
     return "\n".join(lines)
 
 
-def print_report(report: Report, *, quiet_info: bool) -> None:
-    print(f"breaking_schema_check: {report.base_label}  ->  {report.head_label}")
-    if not report.changed:
-        print("  no traigent_schema/schemas/**/*.json changes between base and head.")
-        return
-
+def _print_findings_by_file(report: Report, *, quiet_info: bool) -> None:
     by_file: dict[str, list[Finding]] = defaultdict(list)
     for f in report.findings:
         by_file[f.file].append(f)
 
     for relpath in sorted(by_file):
-        role_line = ""
+        print(f"\n{relpath}")
         if relpath in report.role_notes:
             role, why = report.role_notes[relpath]
-            role_line = f"  role={role} — {why}\n"
-        print(f"\n{relpath}")
-        if role_line:
-            print(role_line, end="")
+            print(f"  role={role} — {why}")
         for f in sorted(by_file[relpath], key=lambda x: (x.severity != "BREAKING", x.pointer)):
             if quiet_info and f.severity != "BREAKING":
                 continue
             print(f.line())
 
+
+def _print_summary(report: Report) -> None:
     print("\n" + "-" * 72)
     print(f"files changed:        {len(report.changed)}")
     print(f"findings:             {len(report.findings)}")
@@ -2011,37 +1988,52 @@ def print_report(report: Report, *, quiet_info: bool) -> None:
         reason = entry.get("reason", "")
         print(f"  - {f.file}{f.pointer} ({f.rule}) — allowed by {pr}: {reason}")
 
+
+def _print_near_misses(report: Report) -> None:
+    near_miss_ids = {id(f) for f in report.breaking_unacked} & set(report.near_miss_allow_entries)
+    if not near_miss_ids:
+        return
+    print(
+        "\nYou already have scripts/breaking_schema_allowlist.json entries for some of "
+        "these, but they don't count yet:"
+    )
+    for f in report.breaking_unacked:
+        for _entry, why in report.near_miss_allow_entries.get(id(f), []):
+            print(f"  - {f.file}{f.pointer} ({f.rule}): existing entry rejected — {why}")
+
+
+def _print_allowlist_suggestions(report: Report) -> None:
+    groups: dict[tuple[str, str], list[Finding]] = defaultdict(list)
+    for f in report.breaking_unacked:
+        groups[(f.file, f.rule)].append(f)
+
+    print(
+        f"\nAdd {len(groups)} entr{'y' if len(groups) == 1 else 'ies'} to "
+        'scripts/breaking_schema_allowlist.json\'s "entries" array — fill in reason/'
+        "version/pr, then re-run:\n"
+    )
+    for (file, rule), group_findings in sorted(groups.items()):
+        print(_suggest_allowlist_json(file, rule, group_findings))
+        print()
+
+
+def print_report(report: Report, *, quiet_info: bool) -> None:
+    print(f"breaking_schema_check: {report.base_label}  ->  {report.head_label}")
+    if not report.changed:
+        print("  no traigent_schema/schemas/**/*.json changes between base and head.")
+        return
+
+    _print_findings_by_file(report, quiet_info=quiet_info)
+    _print_summary(report)
+
     if report.breaking_unacked:
         print("\nFAILED: un-acknowledged BREAKING contract changes found (see above).")
         print(
             'This is not "you may not break the contract" — it is "you may not break it '
             'silently". The change stays allowed; write the acknowledgement.'
         )
-
-        near_miss_ids = {id(f) for f in report.breaking_unacked} & set(
-            report.near_miss_allow_entries
-        )
-        if near_miss_ids:
-            print(
-                "\nYou already have scripts/breaking_schema_allowlist.json entries for some of "
-                "these, but they don't count yet:"
-            )
-            for f in report.breaking_unacked:
-                for _entry, why in report.near_miss_allow_entries.get(id(f), []):
-                    print(f"  - {f.file}{f.pointer} ({f.rule}): existing entry rejected — {why}")
-
-        groups: dict[tuple[str, str], list[Finding]] = defaultdict(list)
-        for f in report.breaking_unacked:
-            groups[(f.file, f.rule)].append(f)
-
-        print(
-            f"\nAdd {len(groups)} entr{'y' if len(groups) == 1 else 'ies'} to "
-            'scripts/breaking_schema_allowlist.json\'s "entries" array — fill in reason/'
-            "version/pr, then re-run:\n"
-        )
-        for (file, rule), group_findings in sorted(groups.items()):
-            print(_suggest_allowlist_json(file, rule, group_findings))
-            print()
+        _print_near_misses(report)
+        _print_allowlist_suggestions(report)
     else:
         print("\nPASSED: no un-acknowledged BREAKING contract changes.")
 

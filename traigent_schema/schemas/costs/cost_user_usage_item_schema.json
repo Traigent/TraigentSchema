@@ -19,6 +19,7 @@
     "cache_read_tokens": { "$ref": "../common_types_schema.json#/definitions/CacheReadTokens" },
     "cache_creation_tokens": { "$ref": "../common_types_schema.json#/definitions/CacheCreationTokens" },
     "cache_creation_tokens_by_ttl": { "$ref": "../common_types_schema.json#/definitions/CacheCreationTokensByTtl" },
+    "reasoning_tokens": { "$ref": "../common_types_schema.json#/definitions/ReasoningTokens" },
     "unreported_usage_fields": { "$ref": "../common_types_schema.json#/definitions/UnreportedUsageFields" },
     "request_count": { "type": "integer", "minimum": 0 },
     "last_activity": { "type": ["string", "null"], "format": "date-time" }

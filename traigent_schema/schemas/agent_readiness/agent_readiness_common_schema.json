@@ -425,6 +425,244 @@
     "CertificateMatch": {
       "type": "string",
       "enum": ["NOT_ASSESSED"]
+    },
+    "ValidityLevel": {
+      "type": "string",
+      "enum": ["V0", "V1"],
+      "description": "V2 is added, as a response widening, only once V2 evidence exists."
+    },
+    "PillarValidityStatus": {
+      "type": "string",
+      "enum": [
+        "VALIDATED",
+        "NOT_VALIDATED",
+        "DECAYED",
+        "REVIEWER_REJECTED",
+        "NO_SUBJECT",
+        "SUBJECT_NOT_FINGERPRINTED"
+      ]
+    },
+    "PillarReasonCode": {
+      "type": "string",
+      "enum": [
+        "REVOKED",
+        "SUBJECT_CHANGED_AFTER_SIGNING",
+        "SUBJECT_UPDATED_AFTER_SIGNING",
+        "BACKSTOP_ELAPSED"
+      ]
+    },
+    "DecayReasonCode": {
+      "type": "string",
+      "enum": [
+        "SUBJECT_CHANGED_AFTER_SIGNING",
+        "SUBJECT_UPDATED_AFTER_SIGNING",
+        "BACKSTOP_ELAPSED"
+      ]
+    },
+    "PillarValidity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {"$ref": "#/definitions/PillarValidityStatus"},
+        "status_reason": {
+          "oneOf": [{"$ref": "#/definitions/PillarReasonCode"}, {"type": "null"}]
+        },
+        "validation_id": {
+          "oneOf": [{"$ref": "#/definitions/OpaqueId"}, {"type": "null"}]
+        },
+        "signed_at": {"$ref": "#/definitions/NullableDateTime"},
+        "expires_at": {"$ref": "#/definitions/NullableDateTime"}
+      },
+      "required": ["status", "status_reason", "validation_id", "signed_at", "expires_at"],
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["NO_SUBJECT", "SUBJECT_NOT_FINGERPRINTED"]}}},
+          "then": {
+            "properties": {
+              "status_reason": {"type": "null"},
+              "validation_id": {"type": "null"},
+              "signed_at": {"type": "null"},
+              "expires_at": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "NOT_VALIDATED"}}},
+          "then": {
+            "properties": {
+              "status_reason": {"oneOf": [{"const": "REVOKED"}, {"type": "null"}]},
+              "validation_id": {"type": "null"},
+              "signed_at": {"type": "null"},
+              "expires_at": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "REVIEWER_REJECTED"}}},
+          "then": {
+            "properties": {
+              "status_reason": {"type": "null"},
+              "validation_id": {"$ref": "#/definitions/OpaqueId"},
+              "signed_at": {"type": "string", "format": "date-time"},
+              "expires_at": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "VALIDATED"}}},
+          "then": {
+            "properties": {
+              "status_reason": {"type": "null"},
+              "validation_id": {"$ref": "#/definitions/OpaqueId"},
+              "signed_at": {"type": "string", "format": "date-time"},
+              "expires_at": {
+                "oneOf": [{"type": "string", "format": "date-time"}, {"type": "null"}],
+                "description": "Non-null exactly for a VALIDATED evaluation_dataset pillar that has not yet hit the 30-day backstop (signed_at + 30d, per §2.6's eval-set backstop); always null for the evaluator pillar, which has no time backstop -- enforced at the EvaluationSystemValidity level, since a single pillar's own shape cannot tell which slot it fills."
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "DECAYED"}}},
+          "then": {
+            "properties": {
+              "status_reason": {"$ref": "#/definitions/DecayReasonCode"},
+              "validation_id": {"$ref": "#/definitions/OpaqueId"},
+              "signed_at": {"type": "string", "format": "date-time"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {"const": "DECAYED"},
+              "status_reason": {"const": "BACKSTOP_ELAPSED"}
+            }
+          },
+          "then": {"properties": {"expires_at": {"type": "string", "format": "date-time"}}},
+          "else": {
+            "if": {"properties": {"status": {"const": "DECAYED"}}},
+            "then": {"properties": {"expires_at": {"type": "null"}}}
+          }
+        }
+      ]
+    },
+    "EvaluationSystemValidity": {
+      "description": "Derived, on-read validity of one agent's evaluation system, for the current anchor run. Content-free: no notes and no free text, consistent with the readiness projection's content-free description.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {"$ref": "#/definitions/ValidityLevel"},
+        "pillars": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "evaluator": {"$ref": "#/definitions/PillarValidity"},
+            "evaluation_dataset": {"$ref": "#/definitions/PillarValidity"}
+          },
+          "required": ["evaluator", "evaluation_dataset"]
+        },
+        "decayed_reason": {
+          "oneOf": [{"$ref": "#/definitions/DecayReasonCode"}, {"type": "null"}]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {"$ref": "#/definitions/OpaqueId"}
+        },
+        "observation_basis": {
+          "type": "string",
+          "enum": ["server_recorded_client_declaration", "not_assessed"]
+        },
+        "evaluated_at": {"type": "string", "format": "date-time"}
+      },
+      "required": [
+        "level",
+        "pillars",
+        "decayed_reason",
+        "evidence_ids",
+        "observation_basis",
+        "evaluated_at"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pillars": {
+                "properties": {
+                  "evaluator": {"properties": {"status": {"const": "VALIDATED"}}},
+                  "evaluation_dataset": {"properties": {"status": {"const": "VALIDATED"}}}
+                }
+              }
+            }
+          },
+          "then": {"properties": {"level": {"const": "V1"}}}
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "pillars": {
+                  "properties": {
+                    "evaluator": {"properties": {"status": {"const": "VALIDATED"}}},
+                    "evaluation_dataset": {"properties": {"status": {"const": "VALIDATED"}}}
+                  }
+                }
+              }
+            }
+          },
+          "then": {"properties": {"level": {"const": "V0"}}}
+        },
+        {
+          "description": "V1 iff evidence_ids has exactly 2 entries: one matched validation per pillar, per §2.6.",
+          "if": {"properties": {"level": {"const": "V1"}}},
+          "then": {"properties": {"evidence_ids": {"minItems": 2}}}
+        },
+        {
+          "description": "evidence_ids must be non-empty whenever EITHER pillar references a matched validation record (a non-null validation_id) -- catches a VALIDATED/DECAYED/REVIEWER_REJECTED pillar reported alongside an empty evidence_ids / not_assessed basis, which is dishonest: a record WAS matched.",
+          "if": {
+            "anyOf": [
+              {
+                "not": {
+                  "properties": {
+                    "pillars": {"properties": {"evaluator": {"properties": {"validation_id": {"type": "null"}}}}}
+                  }
+                }
+              },
+              {
+                "not": {
+                  "properties": {
+                    "pillars": {"properties": {"evaluation_dataset": {"properties": {"validation_id": {"type": "null"}}}}}
+                  }
+                }
+              }
+            ]
+          },
+          "then": {"properties": {"evidence_ids": {"minItems": 1}}}
+        },
+        {
+          "description": "observation_basis reflects whether ANY validation record is referenced, not the pillar statuses directly -- a pillar can be NOT_VALIDATED/DECAYED/REVIEWER_REJECTED (a matched record exists) while the OTHER pillar is NO_SUBJECT, and the basis must still be server_recorded_client_declaration in that case.",
+          "if": {"properties": {"evidence_ids": {"minItems": 1}}},
+          "then": {"properties": {"observation_basis": {"const": "server_recorded_client_declaration"}}},
+          "else": {"properties": {"observation_basis": {"const": "not_assessed"}}}
+        },
+        {
+          "description": "decayed_reason non-null iff at least one pillar is DECAYED.",
+          "if": {
+            "anyOf": [
+              {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"status": {"const": "DECAYED"}}}}}}},
+              {"properties": {"pillars": {"properties": {"evaluation_dataset": {"properties": {"status": {"const": "DECAYED"}}}}}}}
+            ]
+          },
+          "then": {"properties": {"decayed_reason": {"$ref": "#/definitions/DecayReasonCode"}}},
+          "else": {"properties": {"decayed_reason": {"type": "null"}}}
+        },
+        {
+          "description": "The evaluator pillar has no time backstop (§2.6); its expires_at is null even when VALIDATED. A single PillarValidity instance cannot tell which slot it fills, so this is enforced here, one level up.",
+          "if": {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"status": {"const": "VALIDATED"}}}}}}},
+          "then": {"properties": {"pillars": {"properties": {"evaluator": {"properties": {"expires_at": {"type": "null"}}}}}}}
+        }
+      ]
     }
   }
 }

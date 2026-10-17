@@ -297,3 +297,67 @@ def test_auth_endpoints_wire_oidc_sso_contracts():
         assert callback["responses"][code]["content"]["application/json"]["schema"][
             "$ref"
         ].endswith("error_envelope_schema.json")
+
+
+# --- AuthMeTenantsResponseDTO (GET /api/v1/auth/me/tenants, FE#2250) -------
+
+
+def _me_tenants(items=None, switchable=True):
+    if items is None:
+        items = [
+            {
+                "tenant_id": "tenant_a",
+                "tenant_name": "Acme",
+                "tenant_slug": "acme",
+                "role": "owner",
+                "is_default": True,
+            },
+            {
+                "tenant_id": "tenant_b",
+                "tenant_name": None,
+                "tenant_slug": None,
+                "role": "member",
+                "is_default": False,
+            },
+        ]
+    return {"success": True, "message": "Success", "data": {"items": items, "switchable": switchable}}
+
+
+def test_me_tenants_accepts_switchable_list_and_pinned_single():
+    v = SchemaValidator()
+    assert v.validate_json(_me_tenants(), "auth_me_tenants_response_schema") == []
+    pinned = _me_tenants(items=_me_tenants()["data"]["items"][:1], switchable=False)
+    assert v.validate_json(pinned, "auth_me_tenants_response_schema") == []
+    assert v.validate_json(_me_tenants(items=[], switchable=False), "auth_me_tenants_response_schema") == []
+
+
+def test_me_tenants_requires_switchable_and_item_fields():
+    v = SchemaValidator()
+    body = _me_tenants()
+    del body["data"]["switchable"]
+    assert v.validate_json(body, "auth_me_tenants_response_schema") != []
+    body = _me_tenants()
+    del body["data"]["items"][0]["tenant_id"]
+    assert v.validate_json(body, "auth_me_tenants_response_schema") != []
+
+
+def test_me_tenants_rejects_unknown_item_fields():
+    """Items are the caller's own memberships only -- no extra identity fields
+    (e.g. another user's id or email) may ride along."""
+    v = SchemaValidator()
+    body = _me_tenants()
+    body["data"]["items"][0]["user_email"] = "other@example.com"
+    assert v.validate_json(body, "auth_me_tenants_response_schema") != []
+
+
+def test_me_tenants_route_is_registered():
+    with open(get_schemas_dir() / "auth" / "auth_endpoints.json", encoding="utf-8") as fh:
+        spec = json.load(fh)
+    op = spec["paths"]["/api/v1/auth/me/tenants"]["get"]
+    assert op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "auth_me_tenants_response_schema.json"
+    )
+    for code in ("401", "500"):
+        assert op["responses"][code]["content"]["application/json"]["schema"]["$ref"].endswith(
+            "error_envelope_schema.json"
+        )

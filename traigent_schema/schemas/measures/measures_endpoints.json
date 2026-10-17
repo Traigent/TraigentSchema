@@ -23,6 +23,16 @@
         "responses": {
           "201": {
             "description": "Default measure created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -33,6 +43,16 @@
         "responses": {
           "200": {
             "description": "Measures retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -51,6 +71,16 @@
         "responses": {
           "201": {
             "description": "Measure created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -65,6 +95,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./measure_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
                 }
               }
             }
@@ -86,6 +126,16 @@
         "responses": {
           "200": {
             "description": "Measure updated successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       },
@@ -94,6 +144,16 @@
         "responses": {
           "204": {
             "description": "Measure deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }

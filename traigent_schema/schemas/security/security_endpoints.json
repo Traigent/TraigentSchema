@@ -10,6 +10,16 @@
       "get": {
         "summary": "List recent security events (filtered audit log subset)",
         "responses": {
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Response shape pending \u2014 see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
           }

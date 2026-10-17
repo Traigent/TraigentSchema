@@ -345,6 +345,17 @@ def test_meta_is_optional_bounded_and_classified_as_user_content() -> None:
     assert meta["additionalProperties"]["maxLength"] == 8192
 
 
+def test_meta_key_length_is_bounded() -> None:
+    """#363: maxProperties bounds the key COUNT; propertyNames bounds each key's LENGTH,
+    so a one-million-character property name no longer validates."""
+    assert _ok(_event(meta={"k" * 128: "v"})), "128 chars is the per-key ceiling"
+    assert _rejected(_event(meta={"k" * 129: "v"})), "an oversized meta key is rejected"
+    assert _rejected(_event(meta={"k" * 1_000_000: "v"})), "a ~1 MB meta key is rejected"
+    assert _rejected(_event(meta={"": "v"})), "an empty meta key is rejected"
+    names = _load_schema()["properties"]["meta"]["propertyNames"]
+    assert names == {"type": "string", "minLength": 1, "maxLength": 128}
+
+
 def test_meta_byte_ceiling_is_declared_as_a_backend_obligation() -> None:
     """JSON Schema cannot count the canonicalized byte size of the event, so the
     65536-byte x-max-event-bytes ceiling is NOT enforced here. That gap must be

@@ -833,7 +833,7 @@ def _d2_claim(tier: int = 1) -> dict:
                 "declared_mode": "offline",
                 "witness_kind": "strace_network_trace",
                 "sdk_ref": _SDK_SHA,
-                "workload_class": ("mock_grid_no_integrations_no_analytics_no_langfuse"),
+                "workload_class": ("mock_grid_no_integrations_no_analytics_no_external_tracing"),
                 "witness_bundle_digest": _SHA,
             },
         },
@@ -1941,7 +1941,7 @@ class TestClaimIdAllowlist:
                     "declared_mode": "offline",
                     "witness_kind": "strace_network_trace",
                     "sdk_ref": _SDK_SHA,
-                    "workload_class": ("mock_grid_no_integrations_no_analytics_no_langfuse"),
+                    "workload_class": ("mock_grid_no_integrations_no_analytics_no_external_tracing"),
                     "witness_bundle_digest": _SHA,
                 },
             },
@@ -1995,7 +1995,7 @@ class TestClaimIdAllowlist:
                 "declared_mode": "offline",
                 "witness_kind": "strace_network_trace",
                 "sdk_ref": "e97b030f",  # short SHA: witness must be full-ref pinned
-                "workload_class": ("mock_grid_no_integrations_no_analytics_no_langfuse"),
+                "workload_class": ("mock_grid_no_integrations_no_analytics_no_external_tracing"),
                 "witness_bundle_digest": _SHA,
             },
         }

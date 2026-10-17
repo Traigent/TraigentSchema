@@ -133,7 +133,16 @@ RULE_VOCABULARY = frozenset(
 )
 
 # The nine exact property-bearing roots named at
-# PART1_CONTRACT_FREEZE_DRAFT.md:406-408, relative to traigent_schema/schemas/.
+# PART1_CONTRACT_FREEZE_DRAFT.md:406-408, relative to traigent_schema/schemas/,
+# plus a tenth root added by Lane 3 (2026-09-27):
+# agent_readiness/agent_lifecycle_history_response_schema.json (GET
+# .../agent-readiness/{agent_id}/lifecycle-history). That route is the
+# fleet-agent bridge onto agent-lifecycle-record revisions -- a different
+# directory and a different owning story than the original nine, but the
+# same closed-vocabulary disclosure register (agent_lifecycle_disclosure_
+# register.v1) and the same $ref-reachable definitions
+# (TypedOpaqueRef/AgentLifecycleRecordRef) in agent_lifecycle_common_schema.json,
+# so it is walked by this guard rather than inventing a parallel one.
 _IN_SCOPE_ROOTS = [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
@@ -144,6 +153,7 @@ _IN_SCOPE_ROOTS = [
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_receipt_submit_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+    "agent_readiness/agent_lifecycle_history_response_schema.json",
 ]
 
 # Not a traversal root (PART1_CONTRACT_FREEZE_DRAFT.md:406: "the resolved

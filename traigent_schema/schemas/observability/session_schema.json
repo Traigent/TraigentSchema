@@ -4,6 +4,13 @@
   "title": "Observability Session Schema",
   "type": "object",
   "additionalProperties": true,
+  "definitions": {
+    "ObservabilityOutcomeKind": {
+      "type": "string",
+      "enum": ["conversion", "resolution", "csat", "custom"],
+      "description": "Closed vocabulary for the kind of outcome attached to an observability session. Used by the outcome_kind filter on the project trace and session lists."
+    }
+  },
   "properties": {
     "id": { "type": "string", "minLength": 1, "maxLength": 128 },
     "user_id": { "type": ["string", "null"], "maxLength": 255 },
@@ -15,7 +22,10 @@
     "ended_at": { "type": ["string", "null"], "format": "date-time" },
     "trace_count": { "type": ["integer", "null"], "minimum": 0 },
     "average_latency_ms": { "type": ["integer", "null"], "minimum": 0 },
-    "total_cost_usd": { "type": ["number", "null"], "minimum": 0 }
+    "total_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Total cost in USD; null when the cost is unknown (cost_status unpriced or partial). Never 0 for unknown." },
+    "cost_status": { "$ref": "../common_types_schema.json#/definitions/CostRollupStatus" },
+    "priced_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Priced portion of the cost only; a lower bound (\"at least\") when cost_status is partial or unpriced." },
+    "unpriced_observation_count": { "type": ["integer", "null"], "minimum": 0, "description": "Number of observations without a price; emitted only when the server recorded a cost marker." }
   },
   "required": ["id"]
 }

@@ -1,0 +1,2406 @@
+{
+  "$comment": "Fixture corpus for fleet_posture_response_schema.json (the server-computed fleet debt/verdict view). Each case validates against schema_ref with jsonschema Draft7Validator and asserts errors == [] (valid) or errors != [] (invalid). See tests/test_fleet_posture_response_contract.py.",
+  "cases": [
+    {
+      "name": "agent_entry_not_yet_scored",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "no anchor run: accuracy/sample_size/interval/refs/reproductions all null, single AG-1 debt item",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_cant_tell_anchored_low_sample",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "anchored, both pillars unreviewed, low sample size and not reproduced; interval computable from a small n; legacy flag-off world (criticality_source: fixed_default) so verdict_reason is DECLARED_POLICY_OFF, not a genuine TARGET_NOT_DECLARED determination",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.62,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "agent_entry_reproductions_null_missing_evaluator_ref",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "anchor has a dataset ref but no evaluator-version ref: reproduction is undeterminable (null), distinct from a known zero",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": null,
+        "dataset_ref_id": "dataset-v2",
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_null_agent_name",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "agent_name is required and non-null, same as AgentSummary.name and fleetPosture.ts AgentRefs.agentName",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": null,
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_stay",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "STAY is reachable in the schema even though it is unreachable in the product today (criticality_used is always 'medium' server-side); covers the full Verdict enum",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_intervene_quality",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "validity clears V1 but the score does not clear its threshold",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "INTERVENE_QUALITY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_bad_verdict_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict is not a member of the closed Verdict enum",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "DONE",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_required_field",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_used is missing",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_valid_accuracy_unclamped_above_one",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "accuracy has no schema maximum (revision 2 drops it): the TS passes accuracy through unclamped and clamps only for display; parity over tidiness; legacy flag-off world so verdict_reason is DECLARED_POLICY_OFF",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 85,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_accuracy_negative",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "accuracy below 0 is out of range",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": -0.1,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_not_yet_scored_with_accuracy",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "NOT_YET_SCORED requires accuracy null (no anchor run)",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_interval_without_accuracy",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "an interval cannot exist without an accuracy to compute it over",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_interval_without_positive_sample_size",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "wilsonInterval requires sample_size > 0; a null sample_size cannot carry an interval",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": null,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_reproductions_nonnull_missing_dataset_ref",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "reproductions_in_window must be null when dataset_ref_id is null (reproduction is undeterminable, not zero)",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_unknown_property",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "closed object: an undeclared property is rejected",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "score_label": "unverified",
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "debt_item_valid_agent_pillar",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/DebtItem",
+      "valid": true,
+      "why": "AG-1 is always pillar agent",
+      "instance": {
+        "id": "AG-1",
+        "pillar": "agent"
+      }
+    },
+    {
+      "name": "debt_item_valid_evaluation_dataset_pillar",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/DebtItem",
+      "valid": true,
+      "why": "ES-3 is always pillar evaluation_dataset",
+      "instance": {
+        "id": "ES-3",
+        "pillar": "evaluation_dataset"
+      }
+    },
+    {
+      "name": "debt_item_invalid_wrong_pillar_for_id",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/DebtItem",
+      "valid": false,
+      "why": "AG-1 is never pillar evaluator -- the id/pillar mapping is fixed",
+      "instance": {
+        "id": "AG-1",
+        "pillar": "evaluator"
+      }
+    },
+    {
+      "name": "debt_item_invalid_bad_id_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/DebtItem",
+      "valid": false,
+      "why": "ES-9 is not a member of the closed DebtItemId enum",
+      "instance": {
+        "id": "ES-9",
+        "pillar": "agent"
+      }
+    },
+    {
+      "name": "debt_item_invalid_missing_pillar",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/DebtItem",
+      "valid": false,
+      "why": "pillar is required",
+      "instance": {
+        "id": "AG-1"
+      }
+    },
+    {
+      "name": "policy_valid",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/Policy",
+      "valid": true,
+      "why": "every member matches its fixed fleetPosture.ts constant",
+      "instance": {
+        "min_sample_size": 30,
+        "saturation_ceiling": 0.95,
+        "stale_days": 30,
+        "min_reproductions": 2,
+        "journey_window": 25,
+        "interval_method": "wilson",
+        "interval_z": 1.96
+      }
+    },
+    {
+      "name": "policy_invalid_wrong_constant",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/Policy",
+      "valid": false,
+      "why": "min_sample_size must be exactly 30 (AG2_MIN_SAMPLE_SIZE); another value is a silent behaviour drift, not a valid policy block",
+      "instance": {
+        "min_sample_size": 25,
+        "saturation_ceiling": 0.95,
+        "stale_days": 30,
+        "min_reproductions": 2,
+        "journey_window": 25,
+        "interval_method": "wilson",
+        "interval_z": 1.96
+      }
+    },
+    {
+      "name": "policy_invalid_missing_member",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/Policy",
+      "valid": false,
+      "why": "interval_z is missing",
+      "instance": {
+        "min_sample_size": 30,
+        "saturation_ceiling": 0.95,
+        "stale_days": 30,
+        "min_reproductions": 2,
+        "journey_window": 25,
+        "interval_method": "wilson"
+      }
+    },
+    {
+      "name": "fleet_summary_valid",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/FleetSummary",
+      "valid": true,
+      "why": "total and every verdict count are present, non-negative integers",
+      "instance": {
+        "total": 3,
+        "counts_by_verdict": {
+          "NOT_YET_SCORED": 1,
+          "CANT_TELL": 1,
+          "STAY": 0,
+          "INTERVENE_QUALITY": 1
+        }
+      }
+    },
+    {
+      "name": "fleet_summary_invalid_missing_verdict_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/FleetSummary",
+      "valid": false,
+      "why": "counts_by_verdict is missing the STAY key",
+      "instance": {
+        "total": 2,
+        "counts_by_verdict": {
+          "NOT_YET_SCORED": 1,
+          "CANT_TELL": 1,
+          "INTERVENE_QUALITY": 0
+        }
+      }
+    },
+    {
+      "name": "fleet_summary_invalid_negative_total",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/FleetSummary",
+      "valid": false,
+      "why": "total cannot be negative",
+      "instance": {
+        "total": -1,
+        "counts_by_verdict": {
+          "NOT_YET_SCORED": 0,
+          "CANT_TELL": 0,
+          "STAY": 0,
+          "INTERVENE_QUALITY": 0
+        }
+      }
+    },
+    {
+      "name": "validate_first_entry_valid_dataset",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/ValidateFirstEntry",
+      "valid": true,
+      "why": "a shared evaluation dataset affecting two agents",
+      "instance": {
+        "kind": "evaluation_dataset",
+        "ref_id": "dataset-v1",
+        "affected_agent_ids": [
+          "agent-1",
+          "agent-2"
+        ]
+      }
+    },
+    {
+      "name": "validate_first_entry_valid_evaluator",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/ValidateFirstEntry",
+      "valid": true,
+      "why": "a shared evaluator affecting one agent",
+      "instance": {
+        "kind": "evaluator",
+        "ref_id": "eval-v1",
+        "affected_agent_ids": [
+          "agent-3"
+        ]
+      }
+    },
+    {
+      "name": "validate_first_entry_invalid_bad_kind_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/ValidateFirstEntry",
+      "valid": false,
+      "why": "kind must be evaluation_dataset or evaluator, never the free-form 'dataset'",
+      "instance": {
+        "kind": "dataset",
+        "ref_id": "dataset-v1",
+        "affected_agent_ids": [
+          "agent-1"
+        ]
+      }
+    },
+    {
+      "name": "validate_first_entry_invalid_empty_affected_agents",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/ValidateFirstEntry",
+      "valid": false,
+      "why": "groupByRef never emits a group with zero agents",
+      "instance": {
+        "kind": "evaluation_dataset",
+        "ref_id": "dataset-v1",
+        "affected_agent_ids": []
+      }
+    },
+    {
+      "name": "validate_first_entry_invalid_duplicate_affected_agents",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/ValidateFirstEntry",
+      "valid": false,
+      "why": "each agent ID is counted once per shared ref",
+      "instance": {
+        "kind": "evaluation_dataset",
+        "ref_id": "dataset-v1",
+        "affected_agent_ids": [
+          "agent-1",
+          "agent-1"
+        ]
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_empty_fleet",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "a project with no Agents yet",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_populated_fleet",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "two agents sharing an evaluation dataset, one unscored",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [
+          {
+            "agent_id": "agent-1",
+            "agent_name": "Support Bot",
+            "verdict": "NOT_YET_SCORED",
+            "debt_items": [
+              {
+                "id": "AG-1",
+                "pillar": "agent"
+              }
+            ],
+            "effective_validity_level": "V0",
+            "served_validity_level": null,
+            "validity_decayed": false,
+            "criticality_used": "medium",
+            "accuracy": null,
+            "sample_size": null,
+            "interval": null,
+            "reproductions_in_window": null,
+            "dataset_ref_id": null,
+            "evaluator_ref_id": null,
+            "has_anchor_run": false,
+            "score_credible": false,
+            "pillar_review_status": {
+              "evaluator": null,
+              "evaluation_dataset": null
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "NO_ANCHOR_RUN"
+          },
+          {
+            "agent_id": "agent-2",
+            "agent_name": "Reconciliation Agent",
+            "verdict": "CANT_TELL",
+            "debt_items": [
+              {
+                "id": "ES-1",
+                "pillar": "evaluator"
+              },
+              {
+                "id": "ES-3",
+                "pillar": "evaluation_dataset"
+              },
+              {
+                "id": "AG-2",
+                "pillar": "agent"
+              },
+              {
+                "id": "AG-3",
+                "pillar": "agent"
+              }
+            ],
+            "effective_validity_level": "V0",
+            "served_validity_level": "V0",
+            "validity_decayed": false,
+            "criticality_used": "medium",
+            "accuracy": 0.62,
+            "sample_size": 12,
+            "interval": {
+              "lower": 0.32,
+              "upper": 0.86
+            },
+            "reproductions_in_window": 0,
+            "dataset_ref_id": "dataset-v1",
+            "evaluator_ref_id": "eval-v1",
+            "has_anchor_run": true,
+            "score_credible": false,
+            "pillar_review_status": {
+              "evaluator": "unreviewed",
+              "evaluation_dataset": "unreviewed"
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "DECLARED_POLICY_OFF"
+          }
+        ],
+        "summary": {
+          "total": 2,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 1,
+            "CANT_TELL": 1,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [
+          {
+            "kind": "evaluation_dataset",
+            "ref_id": "dataset-v1",
+            "affected_agent_ids": [
+              "agent-2"
+            ]
+          },
+          {
+            "kind": "evaluator",
+            "ref_id": "eval-v1",
+            "affected_agent_ids": [
+              "agent-2"
+            ]
+          }
+        ],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 2,
+          "total_pages": 1,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_missing_computed_at",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "computed_at is required",
+      "instance": {
+        "project_id": "project-1",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_unknown_top_level_property",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "closed object: an undeclared top-level property is rejected",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "schema_version": "1.0.0",
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "agent_entry_invalid_has_anchor_run_true_but_not_yet_scored",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "NOT_YET_SCORED means no anchor run; has_anchor_run must be false",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_has_anchor_run_false_but_scored",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "a CANT_TELL verdict implies a scored anchor run; has_anchor_run must be true",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.62,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_pillar_review_status_nonnull_without_served_validity",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "served_validity_level is null (no served validity block); pillar_review_status members must both be null",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_pillar_review_status",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "pillar_review_status is required",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "pillar_review_status_valid_both_reviewed",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/PillarReviewStatus",
+      "valid": true,
+      "why": "both pillars carry a served status string",
+      "instance": {
+        "evaluator": "reviewed",
+        "evaluation_dataset": "reviewed"
+      }
+    },
+    {
+      "name": "pillar_review_status_valid_both_null",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/PillarReviewStatus",
+      "valid": true,
+      "why": "no served validity block: both members null",
+      "instance": {
+        "evaluator": null,
+        "evaluation_dataset": null
+      }
+    },
+    {
+      "name": "pillar_review_status_invalid_missing_member",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/PillarReviewStatus",
+      "valid": false,
+      "why": "evaluation_dataset is required",
+      "instance": {
+        "evaluator": "reviewed"
+      }
+    },
+    {
+      "name": "pillar_review_status_invalid_unknown_property",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/PillarReviewStatus",
+      "valid": false,
+      "why": "closed object: an undeclared property is rejected",
+      "instance": {
+        "evaluator": "reviewed",
+        "evaluation_dataset": "reviewed",
+        "agent": "reviewed"
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_with_failed_agents",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "one agent's detail read raised; it is reported in failed_agent_ids and omitted from agents/summary",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [
+          "agent-9"
+        ],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_missing_failed_agent_ids",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "failed_agent_ids is required (always present, possibly empty)",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "agent_entry_invalid_bad_criticality_source_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source must be one of fixed_default/declared/undeclared_fail_closed",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "manual_override",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_bad_verdict_reason_enum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason is not a member of the closed VerdictReason enum",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "SOMETHING_ELSE"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source is required",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_missing_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason is required",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_not_yet_scored_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "NOT_YET_SCORED must pair with verdict_reason NO_ANCHOR_RUN (the two are definitionally the same fact)",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_no_anchor_run_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason NO_ANCHOR_RUN must pair with verdict NOT_YET_SCORED",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.2,
+          "upper": 0.8
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "agent_entry_valid_undeclared_fail_closed_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "undeclared_fail_closed: no posture declared, criticality_used fails closed to high",
+      "instance": {
+        "agent_id": "agent-1",
+        "agent_name": "Support Bot",
+        "verdict": "NOT_YET_SCORED",
+        "debt_items": [
+          {
+            "id": "AG-1",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": null,
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": null,
+        "sample_size": null,
+        "interval": null,
+        "reproductions_in_window": null,
+        "dataset_ref_id": null,
+        "evaluator_ref_id": null,
+        "has_anchor_run": false,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": null,
+          "evaluation_dataset": null
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "NO_ANCHOR_RUN"
+      }
+    },
+    {
+      "name": "pagination_valid_first_page",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": true,
+      "why": "mirrors the portfolio pagination block: page/per_page within the shared per_page maximum of 100",
+      "instance": {
+        "page": 1,
+        "per_page": 24,
+        "total": 48,
+        "total_pages": 2,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "pagination_invalid_per_page_over_the_shared_maximum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": false,
+      "why": "per_page shares the portfolio route's maximum of 100",
+      "instance": {
+        "page": 1,
+        "per_page": 101,
+        "total": 200,
+        "total_pages": 2,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "pagination_invalid_missing_member",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/properties/pagination",
+      "valid": false,
+      "why": "pagination_schema.json requires total_pages",
+      "instance": {
+        "page": 1,
+        "per_page": 24,
+        "total": 48,
+        "has_next": true,
+        "has_prev": false
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_missing_pagination",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "pagination is required now that the endpoint paginates",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-25T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": []
+      }
+    },
+    {
+      "name": "agent_entry_invalid_stay_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "STAY must pair with verdict_reason MEETS_TARGET (both directions); TARGET_NOT_DECLARED is a CANT_TELL-family reason",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_intervene_quality_with_wrong_verdict_reason",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "INTERVENE_QUALITY must pair with verdict_reason BELOW_TARGET (both directions); MEETS_TARGET belongs to STAY",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "INTERVENE_QUALITY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_meets_target_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason MEETS_TARGET must pair with verdict STAY, not CANT_TELL",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "MEETS_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_below_target_reason_with_wrong_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "verdict_reason BELOW_TARGET must pair with verdict INTERVENE_QUALITY, not STAY",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_cant_tell_family_reason_with_stay_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "a CANT_TELL-family reason (VALIDITY_BELOW_BAR) must pair with verdict CANT_TELL, not STAY",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "VALIDITY_BELOW_BAR"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_fixed_default_criticality_source_with_wrong_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source fixed_default must pair with criticality_used medium",
+      "instance": {
+        "agent_id": "agent-2",
+        "agent_name": "Reconciliation Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "high",
+        "accuracy": 0.62,
+        "sample_size": 12,
+        "interval": {
+          "lower": 0.32,
+          "upper": 0.86
+        },
+        "reproductions_in_window": 0,
+        "dataset_ref_id": "dataset-v1",
+        "evaluator_ref_id": "eval-v1",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_undeclared_fail_closed_criticality_source_with_wrong_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "criticality_source undeclared_fail_closed must pair with criticality_used high",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": null,
+        "dataset_ref_id": "dataset-v2",
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "undeclared_fail_closed",
+        "verdict_reason": "TARGET_NOT_DECLARED"
+      }
+    },
+    {
+      "name": "agent_entry_valid_declared_criticality_source_allows_any_criticality_used",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "criticality_source declared carries no constraint on criticality_used -- low is a legitimate declaration",
+      "instance": {
+        "agent_id": "agent-5",
+        "agent_name": "Fraud Agent",
+        "verdict": "INTERVENE_QUALITY",
+        "debt_items": [],
+        "effective_validity_level": "V1",
+        "served_validity_level": "V1",
+        "validity_decayed": false,
+        "criticality_used": "low",
+        "accuracy": 0.4,
+        "sample_size": 200,
+        "interval": {
+          "lower": 0.33,
+          "upper": 0.47
+        },
+        "reproductions_in_window": 5,
+        "dataset_ref_id": "dataset-v4",
+        "evaluator_ref_id": "eval-v4",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "BELOW_TARGET"
+      }
+    },
+    {
+      "name": "agent_entry_valid_declared_policy_off",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": true,
+      "why": "legacy flag-off world: the declared-accuracy policy is not enabled, so this CANT_TELL row's verdict_reason is DECLARED_POLICY_OFF (not a genuine TARGET_NOT_DECLARED determination) and pairs with criticality_source fixed_default",
+      "instance": {
+        "agent_id": "agent-6",
+        "agent_name": "Refund Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.71,
+        "sample_size": 40,
+        "interval": {
+          "lower": 0.56,
+          "upper": 0.83
+        },
+        "reproductions_in_window": 2,
+        "dataset_ref_id": "dataset-v5",
+        "evaluator_ref_id": "eval-v5",
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_declared_policy_off",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "root-response scope accept case for DECLARED_POLICY_OFF: a single CANT_TELL agent in the legacy flag-off world",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [
+          {
+            "agent_id": "agent-6",
+            "agent_name": "Refund Agent",
+            "verdict": "CANT_TELL",
+            "debt_items": [
+              {
+                "id": "ES-1",
+                "pillar": "evaluator"
+              },
+              {
+                "id": "AG-2",
+                "pillar": "agent"
+              }
+            ],
+            "effective_validity_level": "V0",
+            "served_validity_level": "V0",
+            "validity_decayed": false,
+            "criticality_used": "medium",
+            "accuracy": 0.71,
+            "sample_size": 40,
+            "interval": {
+              "lower": 0.56,
+              "upper": 0.83
+            },
+            "reproductions_in_window": 2,
+            "dataset_ref_id": "dataset-v5",
+            "evaluator_ref_id": "eval-v5",
+            "has_anchor_run": true,
+            "score_credible": false,
+            "pillar_review_status": {
+              "evaluator": "unreviewed",
+              "evaluation_dataset": "reviewed"
+            },
+            "criticality_source": "fixed_default",
+            "verdict_reason": "DECLARED_POLICY_OFF"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 1,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [
+          {
+            "kind": "evaluation_dataset",
+            "ref_id": "dataset-v5",
+            "affected_agent_ids": [
+              "agent-6"
+            ]
+          }
+        ],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 1,
+          "total_pages": 1,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "agent_entry_invalid_declared_policy_off_reason_with_non_cant_tell_verdict",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "DECLARED_POLICY_OFF is a CANT_TELL-family reason; it must reject a non-CANT_TELL verdict such as STAY (STAY also requires verdict_reason MEETS_TARGET)",
+      "instance": {
+        "agent_id": "agent-4",
+        "agent_name": "Billing Agent",
+        "verdict": "STAY",
+        "debt_items": [],
+        "effective_validity_level": "V2",
+        "served_validity_level": "V2",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.97,
+        "sample_size": 500,
+        "interval": {
+          "lower": 0.95,
+          "upper": 0.99
+        },
+        "reproductions_in_window": 3,
+        "dataset_ref_id": "dataset-v3",
+        "evaluator_ref_id": "eval-v3",
+        "has_anchor_run": true,
+        "score_credible": true,
+        "pillar_review_status": {
+          "evaluator": "reviewed",
+          "evaluation_dataset": "reviewed"
+        },
+        "criticality_source": "fixed_default",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "agent_entry_invalid_declared_policy_off_reason_with_declared_criticality_source",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#/definitions/AgentPostureEntry",
+      "valid": false,
+      "why": "DECLARED_POLICY_OFF only pairs with criticality_source fixed_default -- declared (the newer, criticality-flag-on path) is rejected even though the verdict is CANT_TELL",
+      "instance": {
+        "agent_id": "agent-3",
+        "agent_name": "Onboarding Agent",
+        "verdict": "CANT_TELL",
+        "debt_items": [
+          {
+            "id": "ES-1",
+            "pillar": "evaluator"
+          },
+          {
+            "id": "ES-3",
+            "pillar": "evaluation_dataset"
+          },
+          {
+            "id": "AG-2",
+            "pillar": "agent"
+          },
+          {
+            "id": "AG-3",
+            "pillar": "agent"
+          }
+        ],
+        "effective_validity_level": "V0",
+        "served_validity_level": "V0",
+        "validity_decayed": false,
+        "criticality_used": "medium",
+        "accuracy": 0.5,
+        "sample_size": 5,
+        "interval": {
+          "lower": 0.1,
+          "upper": 0.9
+        },
+        "reproductions_in_window": null,
+        "dataset_ref_id": "dataset-v2",
+        "evaluator_ref_id": null,
+        "has_anchor_run": true,
+        "score_credible": false,
+        "pillar_review_status": {
+          "evaluator": "unreviewed",
+          "evaluation_dataset": "unreviewed"
+        },
+        "criticality_source": "declared",
+        "verdict_reason": "DECLARED_POLICY_OFF"
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_agent_id_no_match",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "agent_id filter matched no Agent visible to the caller (unknown or inaccessible, indistinguishable): empty agents/failed_agent_ids/validate_first, summary all-zero, pagination total/total_pages 0 with per_page echoing the requested value (10 here) and page forced to 1",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 10,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_with_project_summary",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "include_project_summary=true: project_summary is a project-wide, filter-independent FleetSummary shape alongside the page-scoped summary",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_missing_verdict_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "project_summary.counts_by_verdict must carry all four Verdict members; INTERVENE_QUALITY is missing",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 4,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_extra_verdict_key",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "project_summary.counts_by_verdict is closed (additionalProperties: false); an undeclared verdict key is rejected",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 2,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1,
+            "UNKNOWN_VERDICT": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_invalid_project_summary_negative_count",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": false,
+      "why": "every project_summary.counts_by_verdict member has minimum: 0",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 5,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": -1,
+            "CANT_TELL": 1,
+            "STAY": 1,
+            "INTERVENE_QUALITY": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_schema_valid_but_summary_total_mismatches_sum",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "sol review finding: JSON Schema cannot express sum(counts_by_verdict) == total, so a mismatched total (999) against four zero counts is SCHEMA-valid (a Draft7Validator probe confirmed zero errors); this fixture pins that gap and is a deliberate KNOWN VIOLATION for the dedicated Python-level sum-invariant test (test_summary_and_project_summary_counts_sum_to_total_for_every_valid_fixture), not a claim that the response is semantically correct",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 999,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 24,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        }
+      }
+    },
+    {
+      "name": "fleet_posture_response_valid_agent_id_no_match_with_project_summary",
+      "schema_ref": "https://schemas.traigent.ai/agent_readiness/fleet_posture_response_schema.json#",
+      "valid": true,
+      "why": "sol review item 5: agent_id matched no Agent visible to the caller AND include_project_summary=true was requested -- the legacy fields keep the exact documented empty-fleet/no-match shape (agents: [], failed_agent_ids: [], validate_first: [], summary all-zero, pagination page 1 / total 0 / total_pages 0), while project_summary is independently populated with the project's real, filter-independent totals -- proving project_summary's scope does not depend on whether agent_id matched",
+      "instance": {
+        "project_id": "project-1",
+        "computed_at": "2026-09-27T12:00:00Z",
+        "policy": {
+          "min_sample_size": 30,
+          "saturation_ceiling": 0.95,
+          "stale_days": 30,
+          "min_reproductions": 2,
+          "journey_window": 25,
+          "interval_method": "wilson",
+          "interval_z": 1.96
+        },
+        "agents": [],
+        "summary": {
+          "total": 0,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 0,
+            "CANT_TELL": 0,
+            "STAY": 0,
+            "INTERVENE_QUALITY": 0
+          }
+        },
+        "validate_first": [],
+        "failed_agent_ids": [],
+        "pagination": {
+          "page": 1,
+          "per_page": 10,
+          "total": 0,
+          "total_pages": 0,
+          "has_next": false,
+          "has_prev": false
+        },
+        "project_summary": {
+          "total": 12,
+          "counts_by_verdict": {
+            "NOT_YET_SCORED": 4,
+            "CANT_TELL": 3,
+            "STAY": 3,
+            "INTERVENE_QUALITY": 2
+          }
+        }
+      }
+    }
+  ]
+}

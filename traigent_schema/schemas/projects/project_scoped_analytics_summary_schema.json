@@ -120,14 +120,14 @@
           "description": "Configuration runs where cost is still unknown or unavailable."
         },
         "total_cost_usd": {
-          "type": "number",
+          "type": ["number", "null"],
           "minimum": 0,
-          "description": "Total project-attributed cost in USD, rounded to 6 decimal places."
+          "description": "Total project-attributed cost in USD, rounded to 6 decimal places. Null means cost unknown (no priced usage), never zero."
         },
         "avg_cost_usd": {
-          "type": "number",
+          "type": ["number", "null"],
           "minimum": 0,
-          "description": "Average project-attributed cost in USD, rounded to 6 decimal places."
+          "description": "Average project-attributed cost in USD, rounded to 6 decimal places. Null means cost unknown (no priced usage), never zero."
         },
         "cost_source_breakdown": {
           "type": "object",

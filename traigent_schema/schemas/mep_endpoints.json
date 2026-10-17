@@ -28,6 +28,11 @@
       "paths_file": "./datasets/datasets_endpoints.json"
     },
     {
+      "name": "Content Identity",
+      "description": "Content identity v1 routes: tenant purpose-key grant, hosted dataset-version identity, root resolution, public-benchmark opt-in.",
+      "paths_file": "./datasets/content_identity_endpoints.json"
+    },
+    {
       "name": "Measures",
       "description": "Current backend measure management routes.",
       "paths_file": "./measures/measures_endpoints.json"
@@ -141,6 +146,21 @@
       "name": "API Keys",
       "description": "Current backend API key lifecycle routes (POST /api/v1/keys).",
       "paths_file": "./auth/keys_endpoints.json"
+    },
+    {
+      "name": "Evaluation System Validation",
+      "description": "Project-scoped expert sign-off records for an evaluator version or eval-set fingerprint, and the reviewer capability grants that authorize signing.",
+      "paths_file": "./evaluation_system_validation/evaluation_system_validation_endpoints.json"
+    },
+    {
+      "name": "Agent Posture",
+      "description": "Manager-set Agent posture (deployment stage and criticality) as immutable, project-scoped revisions under agent-readiness.",
+      "paths_file": "./agent_readiness/agent_posture_endpoints.json"
+    },
+    {
+      "name": "Agent Readiness Fleet Posture",
+      "description": "The server-computed fleet debt/verdict view (per-agent debt items, verdict, validate-first ranking, fleet summary) for a project.",
+      "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
     }
   ]
 }

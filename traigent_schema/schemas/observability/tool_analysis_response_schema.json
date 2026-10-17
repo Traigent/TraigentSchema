@@ -29,7 +29,10 @@
           "fallback_rate": { "type": "number", "minimum": 0, "maximum": 1 },
           "p50_latency_ms": { "type": "number", "minimum": 0 },
           "p95_latency_ms": { "type": "number", "minimum": 0 },
-          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "total_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Total tool cost in USD; null when any attempt is unpriced (cost_status unpriced or partial). Never 0 for unknown." },
+          "cost_status": { "$ref": "../common_types_schema.json#/definitions/CostRollupStatus" },
+          "priced_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Priced portion of the cost only; a lower bound (\"at least\") when cost_status is partial or unpriced." },
+          "unpriced_attempt_count": { "type": "integer", "minimum": 0, "description": "Number of tool attempts whose cost is unknown." },
           "issue_ids": {
             "type": "array",
             "maxItems": 100,

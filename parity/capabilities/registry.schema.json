@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.traigent.ai/parity/capabilities/registry.schema.json",
+  "title": "SDK parity capability registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registryVersion", "capabilities"],
+  "properties": {
+    "registryVersion": { "const": "1" },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/capability" }
+    }
+  },
+  "$defs": {
+    "entryPoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entryPoints"],
+      "properties": {
+        "entryPoints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "area", "python", "js", "disposition", "rationale", "owner", "fixtures"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "area": {
+          "enum": ["core-api", "optimizer", "budget-stop", "multi-objective", "dataset", "tvl", "observability-otel", "cli"]
+        },
+        "python": { "$ref": "#/$defs/entryPoints" },
+        "js": { "$ref": "#/$defs/entryPoints" },
+        "disposition": { "enum": ["parity", "idiomatic-equivalent", "planned", "wont-do"] },
+        "rationale": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string" },
+        "targetMilestone": { "type": "string", "minLength": 1 },
+        "fixtures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "disposition": { "enum": ["parity", "idiomatic-equivalent"] } }, "required": ["disposition"] },
+          "then": { "properties": { "fixtures": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "disposition": { "const": "planned" } }, "required": ["disposition"] },
+          "then": {
+            "required": ["owner", "targetMilestone"],
+            "properties": { "owner": { "minLength": 1 } }
+          }
+        },
+        {
+          "if": { "properties": { "disposition": { "const": "wont-do" } }, "required": ["disposition"] },
+          "then": { "properties": { "rationale": { "minLength": 1 } } }
+        }
+      ]
+    }
+  }
+}

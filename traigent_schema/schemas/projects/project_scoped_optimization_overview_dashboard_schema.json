@@ -58,8 +58,9 @@
           "minimum": 0
         },
         "total_cost_usd_in_range": {
-          "type": "number",
-          "minimum": 0
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Cost in USD; null means cost unknown (no priced usage), never zero."
         },
         "avg_latency_ms_in_range": {
           "type": "number",
@@ -113,7 +114,7 @@
           "configuration_run_count": { "type": "integer", "minimum": 0 },
           "priced_configuration_runs": { "type": "integer", "minimum": 0 },
           "unpriced_configuration_runs": { "type": "integer", "minimum": 0 },
-          "total_cost_usd": { "type": "number", "minimum": 0 },
+          "total_cost_usd": { "type": ["number", "null"], "minimum": 0, "description": "Cost in USD; null means cost unknown (no priced usage), never zero." },
           "avg_latency_ms": { "type": ["number", "null"], "minimum": 0 },
           "avg_primary_score": { "type": ["number", "null"] },
           "total_tokens": { "type": "integer", "minimum": 0 },

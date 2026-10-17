@@ -30,7 +30,17 @@
       "type": "number"
     },
     "total_cost_usd": {
-      "type": "number"
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Total cost in USD; null when the cost is unknown (cost_status unpriced or partial). Never 0 for unknown."
+    },
+    "cost_status": {
+      "$ref": "../common_types_schema.json#/definitions/CostRollupStatus"
+    },
+    "unpriced_span_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of spans in this trial that have no known price."
     },
     "start_time": {
       "type": ["string", "null"],

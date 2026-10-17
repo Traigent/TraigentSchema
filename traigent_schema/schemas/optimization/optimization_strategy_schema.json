@@ -42,9 +42,9 @@
     },
     "hyperband": {
       "canonical_algorithm": "hyperband",
-      "implementation_status": "supported",
+      "implementation_status": "planned",
       "execution_mode": "cloud",
-      "description": "Smart early-pruning search (cloud mode)."
+      "description": "Planned early-pruning search; not currently executable in cloud mode."
     },
     "frontier_scout": {
       "canonical_algorithm": "frontier_scout",

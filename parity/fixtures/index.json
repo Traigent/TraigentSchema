@@ -1,0 +1,18 @@
+{
+  "optimizer.grid-enumeration.v1": {
+    "path": "optimizer/grid-enumeration.v1.json",
+    "sha256": "209b8ed6df3cf7c075f8374ad0e570ba64db804ddc1010913934c6369b31c4e0"
+  },
+  "multi-objective.normalization-selection.v1": {
+    "path": "multi-objective/normalization-selection.v1.json",
+    "sha256": "6c19bed3a40791eb24ac057d2dd8cff525dab4b7dbb3386efa93c8d99763afc9"
+  },
+  "optimize.stop-limits.v1": {
+    "path": "optimize/stop-limits.v1.json",
+    "sha256": "eaa8eb9f181fc0942fb1a01d571cc4bcdd83e7cb2f5489d05ce7323b619d141f"
+  },
+  "optimize.stop-rules.v1": {
+    "path": "optimize/stop-rules.v1.json",
+    "sha256": "04750221ebe23e3208e7f8b0c82eae80f4f828420479fe84164aa16f3e1b7c97"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/datasets/dataset_public_benchmark_response_schema.json",
+  "title": "Dataset Public Benchmark Response",
+  "description": "PUT /api/v1/datasets/{dataset_id}/public-benchmark 200 response. Success envelope (response_handler.success_response): {success, message, data: {dataset_id, public_benchmark}} (TraigentBackend src/routes/dataset_version_routes.py set_dataset_public_benchmark). The change is audited (DATASET_PUBLIC_BENCHMARK_CHANGED) in the same transaction; a change that cannot be audited is not applied.",
+  "version": "1.0.0",
+  "definitions": {
+    "DatasetPublicBenchmarkStateV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dataset_id", "public_benchmark"],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1,
+          "x-reference": "dataset_schema.json#/properties/id",
+          "description": "The dataset whose flag was set (the dataset_id path parameter)."
+        },
+        "public_benchmark": {
+          "type": "boolean",
+          "description": "The flag's value after the change."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/definitions/DatasetPublicBenchmarkStateV1"
+    }
+  }
+}

@@ -46,7 +46,7 @@ REFS = VECTORS["refs"]
 K = VECTORS["keys"]
 #: closed ObjectRef kinds, underscores removed (the Backend prefix rule: kind + "ref_")
 OBJECT_REF_KINDS = (
-    "agent agentbuild choice configurationversion dataset datasetslice datasetversion "
+    "agent agentbuild choice configurationversion dataset datasetversion "
     "evaluationset evaluator evaluatorversion head knob metric run searchspec snapshot "
     "template trial"
 ).split()
@@ -349,6 +349,8 @@ def test_ref_formats_follow_the_backend() -> None:
     )
     assert errors(common, "/definitions/ObjectRef", longest + "0")  # 57 chars refused
     assert errors(common, "/definitions/ObjectRef", "cursorref_" + "0f" * 16)
+    assert errors(common, "/definitions/ObjectRef", "datasetsliceref_" + "0f" * 16)  # reuses evaluationsetref_
+    assert len(OBJECT_REF_KINDS) == 17
     assert errors(common, "/definitions/ObjectRef", "agent_build_ref_" + "0f" * 16)
     for entry in VECTORS["label_envelopes"]:
         assert errors(common, "/definitions/ObjectRef", entry["object_ref"]) == []

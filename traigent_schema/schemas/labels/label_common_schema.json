@@ -39,9 +39,9 @@
     "ObjectRef": {
       "x-content-class": "opaque_ref",
       "type": "string",
-      "pattern": "^(agent|agentbuild|choice|configurationversion|dataset|datasetslice|datasetversion|evaluationset|evaluator|evaluatorversion|head|knob|metric|run|searchspec|snapshot|template|trial)ref_[0-9a-f]{32}$",
+      "pattern": "^(agent|agentbuild|choice|configurationversion|dataset|datasetversion|evaluationset|evaluator|evaluatorversion|head|knob|metric|run|searchspec|snapshot|template|trial)ref_[0-9a-f]{32}$",
       "maxLength": 56,
-      "description": "Server-issued opaque reference to the object a label is attached to (a knob, choice, metric, template, dataset, dataset version, dataset slice, agent, agent build, evaluation set, evaluator, evaluator version, search spec, run, trial, configuration version, head or snapshot). The label service never learns what the object is called. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it. The kind is one of the closed set in the pattern."
+      "description": "Server-issued opaque reference to the object a label is attached to (a knob, choice, metric, template, dataset, dataset version, agent, agent build, evaluation set, evaluator, evaluator version, search spec, run, trial, configuration version, head or snapshot). The label service never learns what the object is called. Format `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference, resolved only within the caller's tenant and project; it is distinct from, and stable per, the Backend primary key it maps to, and the Backend primary key is never sent in its place); the client may not rely on anything else about it. The kind is one of the closed set in the pattern. A dataset slice is addressed by its evaluationsetref_; a prompt by its templateref_."
     },
     "KnobRef": {
       "x-content-class": "opaque_ref",

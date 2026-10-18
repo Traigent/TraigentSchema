@@ -43,10 +43,6 @@
           "type": "number",
           "minimum": 0
         },
-        "objective_ref": {
-          "$ref": "../labels/label_common_schema.json#/definitions/MetricRef",
-          "description": "Content-less opaque reference of the objective metric, sent instead of objective_name (phase 2, additive)."
-        },
         "objective_name": {
           "x-content-class": "legacy_content",
           "x-content-note": "INV S4-5 (LEAK): objective_name",

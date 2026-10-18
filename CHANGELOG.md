@@ -55,8 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   signed key bindings (root -> admin -> project epoch -> member), member key registration/approval,
   member and recovery wraps, local-protection metadata, label write/read bodies, epoch and rotation
   records. Optional `opaque_ref` fields (`agent_ref`, `dataset_ref`, `evaluation_set_ref`, `evaluator_ref`,
-  `knob_refs`, `choice_refs`, `metric_refs`, `*_config_refs`, `metric_values`, `best_metric_values`,
-  `objective_ref`) sit beside the legacy fields on the optimization schemas; nothing is removed or
+  `knob_refs`, `choice_refs`, `metric_refs`, `*_config_refs`, `metric_values`) sit beside the legacy fields on the optimization schemas; nothing is removed or
   changed. Conformance vectors in `traigent_schema/data/label_vectors_v0.json`, a test-only reference
   (`scripts/labels_reference.py`, proven on RFC 9180 A.1/A.2) and `docs/labels-v0.md`. The content-class
   lint now also walks `labels/`; the `legacy_content` count is unchanged.

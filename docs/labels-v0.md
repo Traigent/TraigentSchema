@@ -84,8 +84,7 @@ SHA-256, base64url). Public keys, signatures, salts, nonces and credential ids a
 Optional, `opaque_ref`-classed fields were added next to the legacy ones, which keep their
 `legacy_content` class: session create `agent_ref`, `dataset_ref`, `evaluation_set_ref`,
 `evaluator_ref`, `knob_refs`, `choice_refs`, `metric_refs`, `default_config_refs`; next-trial
-`trial.config_refs`; submit-results `config_refs`, `metric_values`; finalize `best_config_refs`,
-`best_metric_values`; intermediate report `objective_ref`; best config v2 `config_refs`. Existing
+`trial.config_refs`; submit-results `config_refs`, `metric_values`; best config v2 `config_refs`. Reference-only finalize winners and `objective_ref` arrive with content_less_v2 (phase 2). Existing
 `required` entries are untouched, so a content-less client still has to satisfy them (retired in P3, when
 the legacy fields are removed).
 

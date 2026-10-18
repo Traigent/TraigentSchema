@@ -22,14 +22,6 @@
       "type": "object",
       "description": "The selected configuration; EMPTY ({}) when reason_code is set."
     },
-    "best_config_refs": {
-      "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
-      "description": "Content-less selected configuration as knob_ref -> choice_ref|number (phase 2, additive). Present instead of the name-keyed best_config for content-less clients; best_config is then EMPTY ({})."
-    },
-    "best_metric_values": {
-      "$ref": "../labels/label_common_schema.json#/definitions/MetricValueMap",
-      "description": "Content-less best metrics keyed by metric_ref. Present instead of the name-keyed best_metrics."
-    },
     "best_metrics": {
       "x-content-key-class": "legacy_content",
       "x-content-class": "legacy_content",

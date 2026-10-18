@@ -44,6 +44,12 @@ REGISTRY = build_registry()
 BASE = "https://schemas.traigent.ai/labels/"
 REFS = VECTORS["refs"]
 K = VECTORS["keys"]
+#: closed ObjectRef kinds, underscores removed (the Backend prefix rule: kind + "ref_")
+OBJECT_REF_KINDS = (
+    "agent agentbuild choice configurationversion dataset datasetslice datasetversion "
+    "evaluationset evaluator evaluatorversion head knob metric run searchspec snapshot "
+    "template trial"
+).split()
 
 
 def _x(hex_: str) -> X25519PrivateKey:
@@ -331,6 +337,19 @@ def test_ref_formats_follow_the_backend() -> None:
     assert errors(common, "/definitions/KnobRef", "metricref_" + "0f" * 16)  # kind is checked
     assert errors(common, "/definitions/ObjectRef", "templateref_" + "0f" * 16) == []
     assert errors(common, "/definitions/ObjectRef", "obj_TestVector0001")
+    for kind in OBJECT_REF_KINDS:
+        assert errors(common, "/definitions/ObjectRef", f"{kind}ref_" + "0f" * 16) == []
+        assert errors(common, "/definitions/ObjectRef", f"{kind}ref_" + "0F" * 16)
+    longest = "configurationversionref_" + "0f" * 16
+    assert len(longest) == 56 == max(len(f"{k}ref_") + 32 for k in OBJECT_REF_KINDS)
+    object_ref = load_json(get_schemas_dir() / "labels" / common)["definitions"]["ObjectRef"]
+    assert object_ref["maxLength"] == 56
+    assert set(object_ref["pattern"].split("(")[1].split(")")[0].split("|")) == set(
+        OBJECT_REF_KINDS
+    )
+    assert errors(common, "/definitions/ObjectRef", longest + "0")  # 57 chars refused
+    assert errors(common, "/definitions/ObjectRef", "cursorref_" + "0f" * 16)
+    assert errors(common, "/definitions/ObjectRef", "agent_build_ref_" + "0f" * 16)
     for entry in VECTORS["label_envelopes"]:
         assert errors(common, "/definitions/ObjectRef", entry["object_ref"]) == []
 

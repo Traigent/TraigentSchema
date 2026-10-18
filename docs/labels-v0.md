@@ -71,7 +71,10 @@ project ids, `tenant_<32 lowercase hex>` and `project_<32 lowercase hex>` (the d
 convention of `_new_id(prefix)` in `pillar_legend_service.py` and `opaque_ref()` in
 `src/services/director/opaque_ref.py`: `knobref_`, `choiceref_`, `metricref_`, `agentref_`,
 `datasetref_`, `evaluationsetref_`, `evaluatorref_`, `cursorref_`; an `ObjectRef` is any of the
-object kinds (also `templateref_`). The Backend does not mint knob, choice or metric refs yet; this
+object kinds (also `templateref_`), and since the phase-1 widening also `agentbuildref_`, `datasetversionref_`,
+`datasetsliceref_`, `evaluatorversionref_`, `searchspecref_`, `runref_`, `trialref_`,
+`configurationversionref_` (the longest, 24 + 32 = 56 characters, the `maxLength`), `headref_` and
+`snapshotref_`: the kind with its underscores removed, then `ref_`. The Backend does not mint knob, choice or metric refs yet; this
 contract fixes the format they must use. `KeyId` is derived from the key (first 16 bytes of
 SHA-256, base64url). Public keys, signatures, salts, nonces and credential ids are class
 `key_material` (base64url, bounded), not `digest`.

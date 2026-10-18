@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/token_refs_schema.json",
+  "title": "TokenRefs",
+  "description": "Content-less token issuance (plan v2.1 phase 1b-2a): POST /api/v1/optimization/token-refs. The Backend issues the opaque knobref_, choiceref_, metricref_ and templateref_ values that later registrations and labels attach to; names never travel here (they are labels, sealed client-side). Document root is the request; TokenRefsRequest, TokenRefsResponse and TokenRefsRefusal in definitions are the three bodies of the route. Idempotent by operation_key (one receipt per tenant, project and key).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_ref",
+    "operation_key",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {
+      "x-content-class": "closed_enum",
+      "type": "integer",
+      "const": 1,
+      "description": "Token-refs contract version."
+    },
+    "agent_ref": {
+      "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+      "description": "The agent that owns every issued token; resolved inside the caller's tenant and project."
+    },
+    "operation_key": {
+      "x-content-class": "key_material",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 32,
+      "maxLength": 32,
+      "allOf": [
+        {
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      ],
+      "description": "128-bit random idempotency key, client-generated, 32 lowercase hex characters (a nonce). The same key with the same agent and the same items (kind and parent_ref in order) returns the same refs; the same key with anything different is refused operation_key_conflict. Never derive it from a name."
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "x-content-class": "closed_enum",
+            "type": "string",
+            "enum": [
+              "knob",
+              "choice",
+              "metric",
+              "template"
+            ],
+            "description": "Which token to issue. Every kind but `choice` is owned directly by the agent; a `choice` belongs to exactly one knob."
+          },
+          "parent_ref": {
+            "x-content-class": "opaque_ref",
+            "type": "string",
+            "pattern": "^knobref_[0-9a-f]{32}$",
+            "maxLength": 56,
+            "description": "Required for kind `choice` and forbidden for every other kind: the knobref_ of the knob the choice belongs to. It must be a knob token of the SAME agent, issued by an earlier request (a client cannot name a ref that is only issued by this one, so a knob and its choices are issued in two requests)."
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "x-content-class": "closed_enum",
+                "const": "choice"
+              }
+            },
+            "required": [
+              "kind",
+              "parent_ref"
+            ]
+          },
+          {
+            "properties": {
+              "kind": {
+                "x-content-class": "closed_enum",
+                "enum": [
+                  "knob",
+                  "metric",
+                  "template"
+                ]
+              }
+            },
+            "not": {
+              "required": [
+                "parent_ref"
+              ]
+            }
+          }
+        ]
+      },
+      "description": "Tokens to issue, 1 to 200. Refs come back in this order. Names never travel here: a token has no name on the server side."
+    }
+  },
+  "definitions": {
+    "TokenRefsRequest": {
+      "$ref": "#"
+    },
+    "TokenRefsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "refs"
+      ],
+      "properties": {
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "x-content-class": "opaque_ref",
+            "type": "string",
+            "pattern": "^(knob|choice|metric|template)ref_[0-9a-f]{32}$",
+            "maxLength": 56,
+            "description": "One ref per request item, `<kind>ref_<32 hex>` of the item's kind."
+          },
+          "description": "Issued refs, in request item order (refs[i] answers items[i])."
+        }
+      }
+    },
+    "TokenRefsRefusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "error",
+        "error_code",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": false
+        },
+        "error": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "flag_disabled",
+            "reference_not_found",
+            "operation_key_conflict",
+            "quota_exceeded",
+            "internal_error"
+          ]
+        },
+        "error_code": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "flag_disabled",
+            "reference_not_found",
+            "operation_key_conflict",
+            "quota_exceeded",
+            "internal_error"
+          ],
+          "description": "invalid_request (400): body, schema_version, operation_key, kind, parent_ref, item count or any field fails validation, or carries an unknown field (fixed text, nothing echoed). flag_disabled: reserved; while CONTENT_LESS_TOKEN_REFS_ENABLED is off the route answers the framework's uniform unknown-route 404, never this envelope. reference_not_found (404): agent_ref or a choice parent_ref is well-formed but unknown, foreign, not visible to the caller, belongs to another agent, or is not a knob token. operation_key_conflict (409): the operation_key was used before with a different agent, item count or item list (kind and parent_ref per ordinal); the stored batch is never extended, truncated or repaired. quota_exceeded (429): reserved for a per-project token quota. internal_error (500): any server failure, including a stored receipt whose token rows are incomplete (no repair is attempted)."
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Request is invalid.",
+            "Feature is not enabled.",
+            "Reference not found.",
+            "Operation key conflicts with an earlier request.",
+            "Quota exceeded.",
+            "Internal error."
+          ],
+          "description": "Fixed text per code, in the order of error_code."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Request is invalid."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "flag_disabled"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "flag_disabled"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Feature is not enabled."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_found"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_found"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Reference not found."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "operation_key_conflict"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "operation_key_conflict"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Operation key conflicts with an earlier request."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "quota_exceeded"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "quota_exceeded"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Quota exceeded."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Internal error."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

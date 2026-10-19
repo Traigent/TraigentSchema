@@ -50,7 +50,7 @@
       "canonical_algorithm": "frontier_scout",
       "implementation_status": "planned",
       "execution_mode": "cloud",
-      "description": "Planned Pareto-frontier exploration; not currently selectable as an algorithm on the classic session path (the engine runs only via the smartopt scheduler lane)."
+      "description": "Planned Pareto-frontier exploration; not currently available as a selectable algorithm."
     }
   },
   "definitions": {
@@ -82,8 +82,10 @@
     },
     "OptimizationImplementationStatus": {
       "type": "string",
+      "description": "'supported' = currently executable; 'planned' = advertised in the vocabulary but not yet available.",
       "enum": [
-        "supported"
+        "supported",
+        "planned"
       ]
     },
     "OptimizationCapabilityExecutionMode": {

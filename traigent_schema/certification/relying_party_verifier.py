@@ -25,11 +25,9 @@ import hashlib
 import json
 import re
 import struct
-from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any, NoReturn, cast
 
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -112,7 +110,6 @@ _STREAM_FAMILIES = {
     "receipt_event_stream": "receipt_event",
     "transition_stream": "transition",
 }
-_SEALED_STATES = frozenset({"sealed", "empty_sealed"})
 _COVERAGE = (
     "subject",
     "seal",
@@ -176,125 +173,16 @@ _CLIENT_CO_ATTESTATION_PIN_BINDINGS = (
 CLIENT_CO_ATTESTATION_CONTEXT_FIELDS = tuple(
     field_name for field_name, _ in _CLIENT_CO_ATTESTATION_PIN_BINDINGS
 )
-# Public trust material is intentionally not represented as a projection path.
-# It authenticates the issuer signature over the unsigned manifest, while the
-# fields above remain the complete client-owned projection pin manifest.
-_CLIENT_CO_ATTESTATION_TRUST_FIELDS = ("issuer_public_key",)
+# Public trust material (issuer_public_key) is intentionally not represented as
+# a projection path.  It authenticates the issuer signature over the unsigned
+# manifest, while the fields above remain the complete client-owned projection
+# pin manifest.
 
 # Public preparation exposes only this closed, content-free failure vocabulary.
 CLIENT_CO_ATTESTATION_ERROR_CODES = frozenset(
     {"CO_CONTEXT", "CO_G1_REQUIRED", "CO_PROJECTION", "CO_SCHEMA_DEPENDENCY"}
 )
 
-# Structural ownership partitions.  Tests compare these sets with the packaged
-# schemas so a newly added unsigned-manifest, subject, or G1 parameter cannot
-# silently escape client pinning or explicit issuer/compiler classification.
-_UNSIGNED_MANIFEST_CLIENT_PINNED_SECTIONS = frozenset(
-    {
-        "subject",
-        "disclosure_profile",
-        "privacy_mode",
-        "sdk_identity",
-        "compiler_register_versions",
-        "key_ring_identifiers",
-        "freshness",
-    }
-)
-_UNSIGNED_MANIFEST_ISSUER_EVIDENCE_SECTIONS = frozenset(
-    {"seal", "claims", "tiers", "evidence_digests", "non_claims"}
-)
-_UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP: Mapping[
-    str, Mapping[str, frozenset[str]]
-] = MappingProxyType(
-    {
-        "subject": MappingProxyType(
-            {
-                "client_pinned": frozenset(
-                    {"project_ref", "build_session_ref", "session_commitment_digest"}
-                ),
-                "schema_owned_constant": frozenset({"subject_kind", "hash_algorithm"}),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "disclosure_profile": MappingProxyType(
-            {
-                "client_pinned": frozenset({"profile_id"}),
-                "schema_owned_constant": frozenset({"selective_disclosure_line"}),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "privacy_mode": MappingProxyType(
-            {
-                "client_pinned": frozenset({"declared_mode"}),
-                "schema_owned_constant": frozenset(),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "sdk_identity": MappingProxyType(
-            {
-                "client_pinned": frozenset({"sdk_ref", "sdk_version"}),
-                "schema_owned_constant": frozenset(),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "compiler_register_versions": MappingProxyType(
-            {
-                "client_pinned": frozenset(_COMPILER_REGISTER_KEYS),
-                "schema_owned_constant": frozenset(),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "key_ring_identifiers": MappingProxyType(
-            {
-                "client_pinned": frozenset(
-                    {
-                        "issuer_key_ref",
-                        "trust_ring_ref",
-                        "issuer_signature_algorithm",
-                        "client_key_ref",
-                        "client_signature_algorithm",
-                    }
-                ),
-                "schema_owned_constant": frozenset(),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-        "freshness": MappingProxyType(
-            {
-                "client_pinned": frozenset({"nonce"}),
-                "schema_owned_constant": frozenset(),
-                "issuer_compiler_evidence": frozenset(),
-            }
-        ),
-    }
-)
-_UNSIGNED_MANIFEST_CLIENT_PINNED_LEAF_PATHS = frozenset(
-    f"{section}.{field}"
-    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
-    for field in ownership["client_pinned"]
-)
-_UNSIGNED_MANIFEST_SCHEMA_CONSTANT_LEAF_PATHS = frozenset(
-    f"{section}.{field}"
-    for section, ownership in _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP.items()
-    for field in ownership["schema_owned_constant"]
-)
-_SUBJECT_CLIENT_PINNED_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
-    "client_pinned"
-]
-_SUBJECT_SCHEMA_CONSTANT_FIELDS = _UNSIGNED_MANIFEST_NESTED_LEAF_OWNERSHIP["subject"][
-    "schema_owned_constant"
-]
-_G1_CLIENT_PINNED_PARAM_FIELDS = frozenset(
-    {
-        "manifest_root_digest",
-        "commitment_scheme",
-        "client_attestor_version",
-        "build_session_ref",
-        "client_key_ref",
-    }
-)
-_G1_CLIENT_PINNED_VERIFIER_FIELDS = frozenset({"verifier_id", "verifier_version"})
-_G1_SCHEMA_CONSTANT_VERIFIER_FIELDS = frozenset({"result"})
 _G1_CROSS_BOUND_PARAM_PATHS = {
     "build_session_ref": "subject.build_session_ref",
     "client_key_ref": "unsigned.key_ring_identifiers.client_key_ref",
@@ -480,9 +368,7 @@ class ClientCoAttestationContext:
         ):
             raise RelyingPartyVerificationError("CO_CONTEXT")
         if self.expected_issuer_algorithm == "ed25519":
-            issuer_key_is_public = isinstance(
-                self.issuer_public_key, ed25519.Ed25519PublicKey
-            )
+            issuer_key_is_public = isinstance(self.issuer_public_key, ed25519.Ed25519PublicKey)
         else:
             issuer_key_is_public = isinstance(
                 self.issuer_public_key, ec.EllipticCurvePublicKey
@@ -568,7 +454,7 @@ def _g1_template_text() -> str:
             catalog["definitions"]["TemplateG1V2"]["properties"]["template_text"]["const"],
         )
     except Exception:
-        _fail("CLAIM_RENDERING")
+        return _fail("CLAIM_RENDERING")
 
 
 def _render_g1_text(params: dict[str, Any]) -> str:
@@ -579,7 +465,7 @@ def _render_g1_text(params: dict[str, Any]) -> str:
             client_attestor_version=params["client_attestor_version"],
         )
     except (KeyError, ValueError):
-        _fail("CLAIM_RENDERING")
+        return _fail("CLAIM_RENDERING")
 
 
 @lru_cache(maxsize=1)
@@ -671,9 +557,9 @@ _MAX_CLIENT_CERTIFICATE_PROJECTION_BYTES = (
 _MAX_CLIENT_CERTIFICATE_NODES = 100_000
 # The packaged PrepareResponseV0 graph has a maximum JSON-value depth of 9;
 # contract tests traverse every property/item/combinator/ref path and prove a
-# schema-valid fixture reaches that depth.  Keep generous compatibility
-# headroom while bounding recursion in downstream jsonschema error rendering.
-_MAX_SCHEMA_PREPARE_VALUE_DEPTH = 9
+# schema-valid fixture reaches that depth.  The cap below keeps generous
+# compatibility headroom while bounding recursion in downstream jsonschema
+# error rendering.
 _MAX_CLIENT_CERTIFICATE_VALUE_DEPTH = 64
 
 
@@ -796,9 +682,7 @@ def _validate_client_preparation_context(
     params = g1_claims[0]["payload"]["params"]
     ring = unsigned["key_ring_identifiers"]
     issuer = signatures["issuer_signature"]
-    if any(
-        field not in ring for field in ("client_key_ref", "client_signature_algorithm")
-    ):
+    if any(field not in ring for field in ("client_key_ref", "client_signature_algorithm")):
         _fail("CO_PROJECTION")
     try:
         derived_key_ref = derive_client_key_ref(
@@ -1000,7 +884,7 @@ def _manifest_bytes(manifest: dict[str, Any]) -> bytes:
     try:
         return cast(str, fp2.canonicalize(manifest)).encode("utf-8")
     except Exception:
-        _fail("MANIFEST_NOT_FP2")
+        return _fail("MANIFEST_NOT_FP2")
 
 
 @lru_cache(maxsize=1)
@@ -1064,7 +948,7 @@ def _public_key_der(public_key: object) -> bytes:
             ),
         )
     except Exception:
-        _fail("MATERIALS_BINDING")
+        return _fail("MATERIALS_BINDING")
 
 
 def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
@@ -1082,7 +966,7 @@ def _materials_policy(document: dict[str, Any]) -> RelyingPartyPolicy:
         )
         return RelyingPartyPolicy(registers, bindings)
     except (KeyError, TypeError, ValueError):
-        _fail("MATERIALS_POLICY")
+        return _fail("MATERIALS_POLICY")
 
 
 def _check_materials_digest(document: dict[str, Any], expected_materials_digest: str) -> None:
@@ -1144,12 +1028,8 @@ def _check_materials_bindings(
                 != client["key_ref"]
             ):
                 _fail("MATERIALS_BINDING")
-            if (
-                context.client_public_key is not None
-                and (
-                    context.expected_project_ref is None
-                    or context.expected_client_algorithm is None
-                )
+            if context.client_public_key is not None and (
+                context.expected_project_ref is None or context.expected_client_algorithm is None
             ):
                 _fail("MATERIALS_BINDING")
             if context.client_public_key is not None:
@@ -1163,11 +1043,9 @@ def _check_materials_bindings(
                     _fail("MATERIALS_BINDING")
                 if caller_key_ref != client["key_ref"]:
                     _fail("MATERIALS_BINDING")
-            if (
-                context.client_public_key is not None
-                and _public_key_der(context.client_public_key)
-                != _public_key_der(bundle_client_public_key)
-            ):
+            if context.client_public_key is not None and _public_key_der(
+                context.client_public_key
+            ) != _public_key_der(bundle_client_public_key):
                 _fail("MATERIALS_BINDING")
             co = signatures["co_attestation"]
             client_bindings_match = (
@@ -1590,10 +1468,7 @@ def _check_audit_rows(audit: dict[str, Any], by_id: dict[str, dict[str, Any]]) -
                 _fail("AUDIT_STATUS")
         claim = by_id.get(row["claim_id"])
         if claim is None:
-            if (
-                basis != "abstained"
-                or row["abstention_code"] != _ABSTENTION_CODES[row["claim_id"]]
-            ):
+            if basis != "abstained" or row["abstention_code"] != _ABSTENTION_CODES[row["claim_id"]]:
                 _fail("AUDIT_STATUS")
         else:
             expected_basis = "issuer_verified" if row["claim_id"] == "B1" else "client_declared"

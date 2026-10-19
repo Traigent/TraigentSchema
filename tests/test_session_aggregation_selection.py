@@ -23,14 +23,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
 from jsonschema import Draft7Validator
 
-import traigent_schema
 from traigent_schema import SchemaValidator
+from traigent_schema.utils import get_schemas_dir
 
 _VALIDATOR = SchemaValidator()
 _SDK_VALIDATOR = SchemaValidator(contract="sdk_tuning")
@@ -40,12 +39,9 @@ FINALIZE = "session_finalize_response_schema"
 FINALIZE_PATH = "/api/v1/sessions/sess-123/finalize"
 
 _SCHEMA = json.loads(
-    (
-        Path(traigent_schema.__file__).parent
-        / "schemas"
-        / "optimization"
-        / "session_aggregation_schema.json"
-    ).read_text(encoding="utf-8")
+    (get_schemas_dir() / "optimization" / "session_aggregation_schema.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 # Known answer: sha256 over the UTF-8 bytes of '["trial_a","trial_b","trial_c"]'.

@@ -143,6 +143,26 @@ jobs:
                 event_path=${rc_val#*:}
                 out=proceed
                 need_checkout=true
+                # Harden: the receipt is PR-author-controlled, so accept only a
+                # 40-char lowercase hex commit SHA (never a branch name or other
+                # ref) and a safe relative event path (no "..", not absolute)
+                # before either reaches the checkout or the filesystem.
+                case "$event_path" in
+                  /*|..|../*|*/..|*/../*) path_ok=false ;;
+                  *) path_ok=true ;;
+                esac
+                if ! printf '%s' "$spine_commit" | grep -Eq '^[0-9a-f]{40}$'; then
+                  out=skipped_invalid_receipt
+                  detail="receipt_commit_not_40_lowercase_hex;session=${session}"
+                elif [ "$path_ok" != "true" ]; then
+                  out=skipped_invalid_receipt
+                  detail="receipt_event_path_unsafe;session=${session}"
+                fi
+                if [ "$out" != "proceed" ]; then
+                  spine_commit=""
+                  event_path=""
+                  need_checkout=false
+                fi
               fi
             fi
           fi
@@ -218,6 +238,9 @@ jobs:
           fi
           if [ "$STAGE_OUTCOME" = "receipt_missing" ]; then
             emit receipt_missing "$STAGE_DETAIL"; exit 0
+          fi
+          if [ "$STAGE_OUTCOME" = "skipped_invalid_receipt" ]; then
+            emit skipped_invalid_receipt "$STAGE_DETAIL"; exit 0
           fi
 
           # proceed → a spine checkout was required.

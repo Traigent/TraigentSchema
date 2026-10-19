@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Cross-SDK identity vectors v1 (guard G1; local, held until the ledger filing).** New
+  `traigent_schema/data/identity/identity_vectors_v1.json` (+ `.schema.json`) with version-pinned vectors
+  for registration identity and provenance (Python `_build_default_experiment_name`, JS
+  `agentName ?? resolvedFunctionName`, the Backend registration key), trace attribution outcomes (native and
+  OTLP transports) and environment resolution (`team/eu` valid, 65 chars invalid). Data and tests only: no
+  schema, wire or validation change. Pinned by `tests/test_identity_vectors_v1.py` (sha256 pin). Each vector names the rule it exercises in a `rule` field, a dotted id from the closed set
+  `closed_sets.rule` (for example `provenance.user_named`, `attribution.otlp.strict`, `environment.order`).
+
 ### Fixed
 - **The legacy `traigent.best_config.v1` `spec_hash` rule is frozen in one place
   (`best_config_schema.json`, `x-traigent-spec-hash`), with language-neutral vectors

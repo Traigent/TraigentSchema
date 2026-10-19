@@ -101,6 +101,9 @@ def test_subclass_lookup_and_exception_differential(mode: str) -> None:
 
 @pytest.mark.parametrize("raise_on", [None, 1, 2, 3, 4, 5, 6])
 def test_observable_dict_access_differential(raise_on: int | None) -> None:
+    class ObservedAccessFailure(LookupError):
+        pass
+
     class Observed(dict):
         def __init__(self, *args: Any) -> None:
             super().__init__(*args)
@@ -113,7 +116,7 @@ def test_observable_dict_access_differential(raise_on: int | None) -> None:
         def __getitem__(self, key: Any) -> Any:
             self.calls.append(("getitem", key))
             if sum(call[0] == "getitem" for call in self.calls) == raise_on:
-                raise RuntimeError("observed access failure")
+                raise ObservedAccessFailure("observed access failure")
             return super().__getitem__(key)
 
     inputs = [

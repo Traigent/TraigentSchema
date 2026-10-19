@@ -323,9 +323,10 @@ def _evaluator_quality_validator() -> Draft7Validator:
             if isinstance(document, dict) and isinstance(document.get("$id"), str):
                 registry = registry.with_resource(document["$id"], Resource.from_contents(document))
         schema = json.loads(_SCHEMA_RESOURCE.read_text(encoding="utf-8"))
-        return Draft7Validator(schema, registry=registry)
+        validator = Draft7Validator(schema, registry=registry)
     except Exception:
         _fail("EVALUATOR_SCHEMA_DEPENDENCY", "bundle")
+    return validator
 
 
 def _check_bundle_shape(bundle: object) -> dict[str, Any]:

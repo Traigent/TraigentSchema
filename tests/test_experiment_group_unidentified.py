@@ -242,7 +242,8 @@ def test_null_dataset_means_two_different_things_and_the_state_says_which() -> N
         agent_id=None, dataset_id=None, identity_state="unidentified", run_id="run_789"
     )
 
-    assert explicit_none["dataset_id"] == unknown["dataset_id"] is None
+    assert explicit_none["dataset_id"] is None
+    assert unknown["dataset_id"] is None
     assert list(_validator().iter_errors(explicit_none)) == []
     assert list(_validator().iter_errors(unknown)) == []
     assert explicit_none["identity_state"] != unknown["identity_state"]

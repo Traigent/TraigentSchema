@@ -20,7 +20,7 @@ def test_package_metadata_supports_python_311_and_newer() -> None:
     assert '"Programming Language :: Python :: 3.11"' in pyproject
     assert '"pytest>=9.0.3"' in pyproject
     assert "python_version < '3.10'" not in pyproject
-    assert 'target-version = "py310"' in pyproject  # ruff target held at py310: py311 adds UP017 in frozen verifiers
+    assert 'target-version = "py310"' in pyproject  # held: py311 adds UP017
     assert 'python_version = "3.11"' in pyproject
 
 

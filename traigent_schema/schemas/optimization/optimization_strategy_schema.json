@@ -48,9 +48,9 @@
     },
     "frontier_scout": {
       "canonical_algorithm": "frontier_scout",
-      "implementation_status": "supported",
+      "implementation_status": "planned",
       "execution_mode": "cloud",
-      "description": "Smart Pareto-frontier exploration (cloud mode)."
+      "description": "Planned Pareto-frontier exploration; not currently available as a selectable algorithm."
     }
   },
   "definitions": {
@@ -85,8 +85,10 @@
     "OptimizationImplementationStatus": {
       "x-content-class": "closed_enum",
       "type": "string",
+      "description": "'supported' = currently executable; 'planned' = advertised in the vocabulary but not yet available.",
       "enum": [
-        "supported"
+        "supported",
+        "planned"
       ]
     },
     "OptimizationCapabilityExecutionMode": {

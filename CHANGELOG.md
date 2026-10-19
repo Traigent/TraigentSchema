@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Python 3.10 support dropped; `requires-python = ">=3.11"`.** The certification verifiers import
+  `importlib.resources.abc.Traversable`, which exists only on 3.11+. The nightly CI matrix, the Sonar
+  Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
+
 ### Added
 - **Cross-SDK identity vectors v1 (guard G1; local, held until the ledger filing).** New
   `traigent_schema/data/identity/identity_vectors_v1.json` (+ `.schema.json`) with version-pinned vectors

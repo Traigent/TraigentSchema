@@ -105,6 +105,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "service_unavailable. Closed envelope with fixed text; a Retry-After header is preserved when present. Retry semantics are unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
           }
         }
       }

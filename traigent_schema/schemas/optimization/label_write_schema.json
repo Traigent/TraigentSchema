@@ -69,7 +69,8 @@
             "stale_revision",
             "stale_epoch",
             "conflict",
-            "internal_error"
+            "internal_error",
+            "service_unavailable"
           ]
         },
         "error_code": {
@@ -81,9 +82,10 @@
             "stale_revision",
             "stale_epoch",
             "conflict",
-            "internal_error"
+            "internal_error",
+            "service_unavailable"
           ],
-          "description": "invalid_request (400): body, schema_version, object_ref, purpose, revision, epoch or envelope fails validation, carries an unknown or duplicate field, or the envelope key_epoch differs from epoch (fixed text, nothing echoed). reference_not_issued (422): object_ref is well formed but is not an issued reference of its kind in the caller's tenant and project (unknown, foreign, not visible, a token of another kind, an identity kind that is not enabled, or a kind with no authority yet); one answer for all of them, the ref is never echoed. stale_revision (409): base_revision is not the object's current revision. stale_epoch (409): epoch is not the project's current epoch. conflict (409): the object already exists under another purpose, or the insert conflicts with stored state. internal_error (500): any server failure, including an unrecognised LABEL_VALIDATE_ISSUED_REFS value (the route refuses rather than guessing a mode). While the route is dark it answers the framework's uniform unknown-route 404, never this envelope."
+          "description": "invalid_request (400): body, schema_version, object_ref, purpose, revision, epoch or envelope fails validation, carries an unknown or duplicate field, or the envelope key_epoch differs from epoch (fixed text, nothing echoed). reference_not_issued (422): object_ref is well formed but is not an issued reference of its kind in the caller's tenant and project (unknown, foreign, not visible, a token of another kind, an identity kind that is not enabled, or a kind with no authority yet); one answer for all of them, the ref is never echoed. stale_revision (409): base_revision is not the object's current revision. stale_epoch (409): epoch is not the project's current epoch. conflict (409): the object already exists under another purpose, or the insert conflicts with stored state. internal_error (500): any server failure, including an unrecognised LABEL_VALIDATE_ISSUED_REFS value (the route refuses rather than guessing a mode). While the route is dark it answers the framework's uniform unknown-route 404, never this envelope. service_unavailable (503): a dependency of the request (for example authentication) is temporarily unavailable; the response may carry a Retry-After header and the request may be retried (fixed text, no details)."
         },
         "message": {
           "x-content-class": "closed_enum",
@@ -94,7 +96,8 @@
             "Object revision is not current.",
             "Key epoch is not current.",
             "Request conflicts with stored state.",
-            "Internal error."
+            "Internal error.",
+            "Service is temporarily unavailable."
           ],
           "description": "Fixed text per code, in the order of error_code."
         }
@@ -193,6 +196,22 @@
             "message": {
               "x-content-class": "closed_enum",
               "const": "Internal error."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Service is temporarily unavailable."
             }
           }
         }

@@ -83,7 +83,7 @@ def test_refusal_envelope_one_fixed_branch_per_code():
     assert schema["additionalProperties"] is False
     codes = schema["properties"]["error_code"]["enum"]
     assert codes == ["invalid_request", "flag_disabled", "reference_not_found",
-                     "operation_key_conflict", "quota_exceeded", "internal_error"]
+                     "operation_key_conflict", "quota_exceeded", "internal_error", "service_unavailable"]
     branches = [b["properties"] for b in schema["oneOf"]]
     assert [b["error_code"]["const"] for b in branches] == codes
     messages = schema["properties"]["message"]["enum"]
@@ -96,7 +96,7 @@ def test_route_is_declared_and_registered():
     post = doc["paths"]["/api/v1/optimization/token-refs"]["post"]
     assert post["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "token_refs_schema.json#/definitions/TokenRefsRequest")
-    assert set(post["responses"]) == {"200", "400", "401", "403", "404", "409", "429", "500"}
+    assert set(post["responses"]) == {"200", "400", "401", "403", "404", "409", "429", "500", "503"}
     mep = json.loads((Path(get_schemas_dir()) / "mep_endpoints.json").read_text())
     assert any(re.search(r"token_refs_endpoints\.json$", e.get("paths_file", "")) for e in _entries(mep))
 
@@ -110,3 +110,13 @@ def _entries(node):
     elif isinstance(node, list):
         for v in node:
             yield from _entries(v)
+
+
+def test_service_unavailable_refusal_is_closed():
+    v = _validator("TokenRefsRefusal")
+    ok = {"success": False, "error": "service_unavailable", "error_code": "service_unavailable",
+          "message": "Service is temporarily unavailable."}
+    assert not list(v.iter_errors(ok))
+    assert list(v.iter_errors({**ok, "message": "Internal error."}))
+    assert list(v.iter_errors({**ok, "details": {"x": 1}}))
+    assert list(v.iter_errors({**ok, "error": "internal_error"}))

@@ -150,7 +150,8 @@
             "reference_not_found",
             "operation_key_conflict",
             "quota_exceeded",
-            "internal_error"
+            "internal_error",
+            "service_unavailable"
           ]
         },
         "error_code": {
@@ -162,9 +163,10 @@
             "reference_not_found",
             "operation_key_conflict",
             "quota_exceeded",
-            "internal_error"
+            "internal_error",
+            "service_unavailable"
           ],
-          "description": "invalid_request (400): body, schema_version, operation_key, kind, parent_ref, item count or any field fails validation, or carries an unknown field (fixed text, nothing echoed). flag_disabled: reserved; while CONTENT_LESS_TOKEN_REFS_ENABLED is off the route answers the framework's uniform unknown-route 404, never this envelope. reference_not_found (404): agent_ref or a choice parent_ref is well-formed but unknown, foreign, not visible to the caller, belongs to another agent, or is not a knob token. operation_key_conflict (409): the operation_key was used before with a different agent, item count or item list (kind and parent_ref per ordinal); the stored batch is never extended, truncated or repaired. quota_exceeded (429): reserved for a per-project token quota. internal_error (500): any server failure, including a stored receipt whose token rows are incomplete (no repair is attempted)."
+          "description": "invalid_request (400): body, schema_version, operation_key, kind, parent_ref, item count or any field fails validation, or carries an unknown field (fixed text, nothing echoed). flag_disabled: reserved; while CONTENT_LESS_TOKEN_REFS_ENABLED is off the route answers the framework's uniform unknown-route 404, never this envelope. reference_not_found (404): agent_ref or a choice parent_ref is well-formed but unknown, foreign, not visible to the caller, belongs to another agent, or is not a knob token. operation_key_conflict (409): the operation_key was used before with a different agent, item count or item list (kind and parent_ref per ordinal); the stored batch is never extended, truncated or repaired. quota_exceeded (429): reserved for a per-project token quota. internal_error (500): any server failure, including a stored receipt whose token rows are incomplete (no repair is attempted). service_unavailable (503): a dependency of the request (for example authentication) is temporarily unavailable; the response may carry a Retry-After header and the request may be retried (fixed text, no details)."
         },
         "message": {
           "x-content-class": "closed_enum",
@@ -175,7 +177,8 @@
             "Reference not found.",
             "Operation key conflicts with an earlier request.",
             "Quota exceeded.",
-            "Internal error."
+            "Internal error.",
+            "Service is temporarily unavailable."
           ],
           "description": "Fixed text per code, in the order of error_code."
         }
@@ -274,6 +277,22 @@
             "message": {
               "x-content-class": "closed_enum",
               "const": "Internal error."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Service is temporarily unavailable."
             }
           }
         }

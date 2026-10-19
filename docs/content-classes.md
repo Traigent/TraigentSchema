@@ -228,7 +228,7 @@ On the read route a malformed path ref or `environment` is 400, an unknown or fo
 | `POST /api/v1/optimization/token-refs` | `optimization/token_refs_endpoints.json`; bodies in `optimization/token_refs_schema.json`: request `{schema_version (1), agent_ref, operation_key, items:[{kind: knob/choice/metric/template, parent_ref?}] (1..200)}`, response `{refs:[<kind>ref_<32 hex>]}` in item order |
 | `operation_key` | `key_material`, a client-generated 128-bit random nonce, 32 lowercase hex characters; idempotency key per tenant and project |
 | `parent_ref` | `opaque_ref`, `knobref_<32 hex>`; required for `choice`, forbidden for the other kinds |
-| Closed envelope | `invalid_request` (400), `flag_disabled` (reserved; flag off answers the uniform unknown-route 404), `reference_not_found` (404), `operation_key_conflict` (409), `quota_exceeded` (429, reserved), `internal_error` (500); fixed text, nothing echoed |
+| Closed envelope | `invalid_request` (400), `flag_disabled` (reserved; flag off answers the uniform unknown-route 404), `reference_not_found` (404), `operation_key_conflict` (409), `quota_exceeded` (429, reserved), `internal_error` (500), `service_unavailable` (503, Retry-After preserved); fixed text, nothing echoed |
 
 Replay: the same key with the same agent, item count and items returns the stored refs; any difference is
 `operation_key_conflict`, and a replay never adds or removes tokens. No field carries customer content: refs,
@@ -241,7 +241,7 @@ closed enums and a random nonce.
 | `POST /api/v1/optimization/labels` | `optimization/label_write_endpoints.json`; bodies in `optimization/label_write_schema.json`: request = the label write (`labels/label_io_schema.json#/definitions/LabelWriteRequest`: `object_ref`, `purpose`, `base_revision`, `epoch`, `envelope`) plus `schema_version` (1); response = `LabelWriteResponse` (no envelope) |
 | `object_ref` | `opaque_ref`; on this route it must be an ISSUED reference of its kind in the caller's tenant and project (mode switch `LABEL_VALIDATE_ISSUED_REFS` = `off` / `negotiated` / `global`, shipped `off`) |
 | `envelope` | `encrypted_blob`, the only content-bearing field, classed exactly as in the label contract |
-| Closed envelope | `invalid_request` (400), `reference_not_issued` (422), `stale_revision` / `stale_epoch` / `conflict` (409), `internal_error` (500); fixed text, nothing echoed. While dark the route answers the uniform unknown-route 404 |
+| Closed envelope | `invalid_request` (400), `reference_not_issued` (422), `stale_revision` / `stale_epoch` / `conflict` (409), `internal_error` (500), `service_unavailable` (503, Retry-After preserved); fixed text, nothing echoed. While dark the route answers the uniform unknown-route 404 |
 
 The legacy `PUT /api/v1/labels/objects` is unchanged. The discriminator is the route, not a header or body flag.
 

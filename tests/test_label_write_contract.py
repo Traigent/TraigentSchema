@@ -81,7 +81,7 @@ def test_refusal_envelope_one_fixed_branch_per_code_and_adds_reference_not_issue
     assert schema["additionalProperties"] is False
     codes = schema["properties"]["error_code"]["enum"]
     assert codes == ["invalid_request", "reference_not_issued", "stale_revision", "stale_epoch",
-                     "conflict", "internal_error"]
+                     "conflict", "internal_error", "service_unavailable"]
     branches = [b["properties"] for b in schema["oneOf"]]
     assert [b["error_code"]["const"] for b in branches] == codes
     assert [b["error"]["const"] for b in branches] == codes
@@ -98,7 +98,7 @@ def test_route_is_declared_and_registered():
     post = doc["paths"]["/api/v1/optimization/labels"]["post"]
     assert post["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "label_write_schema.json#/definitions/LabelWriteRequest")
-    assert set(post["responses"]) == {"200", "400", "401", "403", "404", "409", "422", "429", "500"}
+    assert set(post["responses"]) == {"200", "400", "401", "403", "404", "409", "422", "429", "500", "503"}
     mep = json.loads((SCHEMAS / "mep_endpoints.json").read_text())
     assert any(re.search(r"label_write_endpoints\.json$", e.get("paths_file", "")) for e in _entries(mep))
 
@@ -112,3 +112,13 @@ def _entries(node):
     elif isinstance(node, list):
         for v in node:
             yield from _entries(v)
+
+
+def test_service_unavailable_refusal_is_closed():
+    v = _validator("LabelWriteRefusal")
+    ok = {"success": False, "error": "service_unavailable", "error_code": "service_unavailable",
+          "message": "Service is temporarily unavailable."}
+    assert not list(v.iter_errors(ok))
+    assert list(v.iter_errors({**ok, "message": "Internal error."}))
+    assert list(v.iter_errors({**ok, "details": {"x": 1}}))
+    assert list(v.iter_errors({**ok, "error": "internal_error"}))

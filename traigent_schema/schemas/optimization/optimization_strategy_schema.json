@@ -48,9 +48,9 @@
     },
     "frontier_scout": {
       "canonical_algorithm": "frontier_scout",
-      "implementation_status": "supported",
+      "implementation_status": "planned",
       "execution_mode": "cloud",
-      "description": "Smart Pareto-frontier exploration (cloud mode)."
+      "description": "Planned Pareto-frontier exploration; not currently selectable as an algorithm on the classic session path (the engine runs only via the smartopt scheduler lane)."
     }
   },
   "definitions": {

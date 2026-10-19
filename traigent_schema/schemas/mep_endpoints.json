@@ -58,6 +58,11 @@
       "paths_file": "./optimization/token_refs_endpoints.json"
     },
     {
+      "name": "Optimization Negotiated Label Write",
+      "description": "Content-less negotiated label write (/api/v1/optimization/labels; flag-gated).",
+      "paths_file": "./optimization/label_write_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

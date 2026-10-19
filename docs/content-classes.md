@@ -234,6 +234,17 @@ Replay: the same key with the same agent, item count and items returns the store
 `operation_key_conflict`, and a replay never adds or removes tokens. No field carries customer content: refs,
 closed enums and a random nonce.
 
+## Negotiated label write (plan v2.1, phase 1b-2b, additive, flag-gated)
+
+| Item | Contract |
+|---|---|
+| `POST /api/v1/optimization/labels` | `optimization/label_write_endpoints.json`; bodies in `optimization/label_write_schema.json`: request = the label write (`labels/label_io_schema.json#/definitions/LabelWriteRequest`: `object_ref`, `purpose`, `base_revision`, `epoch`, `envelope`) plus `schema_version` (1); response = `LabelWriteResponse` (no envelope) |
+| `object_ref` | `opaque_ref`; on this route it must be an ISSUED reference of its kind in the caller's tenant and project (mode switch `LABEL_VALIDATE_ISSUED_REFS` = `off` / `negotiated` / `global`, shipped `off`) |
+| `envelope` | `encrypted_blob`, the only content-bearing field, classed exactly as in the label contract |
+| Closed envelope | `invalid_request` (400), `reference_not_issued` (422), `stale_revision` / `stale_epoch` / `conflict` (409), `internal_error` (500); fixed text, nothing echoed. While dark the route answers the uniform unknown-route 404 |
+
+The legacy `PUT /api/v1/labels/objects` is unchanged. The discriminator is the route, not a header or body flag.
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

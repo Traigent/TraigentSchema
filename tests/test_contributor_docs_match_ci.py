@@ -46,8 +46,12 @@ _EXPECTED_GATE_ROWS = 3
 # exempt the command in front of it - `ruff check .   # or: make lint` is the
 # exact defect #571 is about, and a looser form let it through.
 _MAKE_COMMAND = re.compile(r"^make\s+([A-Za-z0-9_-]+)$")
-# A `make <target>` named inside a trailing comment; it must still exist.
-_MAKE_MENTION = re.compile(r"\bmake\s+([A-Za-z0-9_-]+)")
+# A `make <target>` named inside a trailing comment, as an INVOCATION: after
+# "or: " or inside backticks. Matching every "make <word>" instead false-reds on
+# ordinary English - "# make sure the venv is active" is about as common as a
+# comment gets, and reporting it as a missing Makefile target is worse than not
+# checking comments at all.
+_MAKE_MENTION = re.compile(r"(?:or:\s*|`)make\s+([A-Za-z0-9_-]+)")
 # A command line in the README block that is not a `make` call.
 _BARE_COMMAND = re.compile(r"^(?P<tool>[A-Za-z0-9_.-]+)\b")
 # "lint: ## ruff check ..." -> "lint"
@@ -197,21 +201,25 @@ def test_local_ci_gate_doc_does_not_claim_a_sonarqube_pr_check() -> None:
 
     # Negative half, over the WHITESPACE-COLLAPSED document: this doc wraps at
     # ~75 columns, so a regression is as likely to straddle two lines as to sit
-    # on one, and a line-by-line scan cannot see it. The negation window is the
-    # text immediately BEFORE the phrase, not the whole sentence - a "not"
-    # anywhere else ("...and does not need a token") does not make a claim a
-    # denial. Both shapes passed a line-based version of this check.
+    # on one, and a line-by-line scan cannot see it.
+    #
+    # The negation window is the rest of the SENTENCE before the phrase. Testing
+    # the whole line treats "...and does not need a token" as a denial; testing
+    # only the adjacent characters rejects "No workflow produces a `SonarQube
+    # Quality Gate` check." Both of those were wrong in earlier rounds. What
+    # makes a mention a denial is a negation leading up to it.
     collapsed = " ".join(doc.split())
     phrase = "SonarQube Quality Gate"
-    negated = re.compile(r"\b(no|not|never|cannot|without)\b\W*$", re.IGNORECASE)
+    negated = re.compile(r"\b(no|not|never|cannot|without)\b", re.IGNORECASE)
 
     offending: list[str] = []
     at = collapsed.find(phrase)
     while at != -1:
-        before = collapsed[max(0, at - 40) : at]
+        sentence_start = collapsed.rfind(".", 0, at) + 1
+        before = collapsed[sentence_start:at]
         after = collapsed[at : at + len(phrase) + 80]
         if not negated.search(before) and re.search(r"\bcheck\b", after):
-            offending.append((before[-40:] + after).strip())
+            offending.append((before[-60:] + after).strip())
         at = collapsed.find(phrase, at + len(phrase))
 
     assert not offending, (
@@ -246,7 +254,13 @@ def test_readme_development_block_only_runs_mirrored_commands() -> None:
             continue
 
         tool = _BARE_COMMAND.match(command)
-        assert tool is not None and tool.group("tool") in _ALLOWED_BARE_TOOLS, (
+        assert tool is not None, f"README Development block has an unparseable command: {command!r}"
+        assert tool.group("tool") != "make", (
+            f"README Development block runs {command!r}. The block shows plain "
+            "`make <target>` invocations; flags belong in the Makefile, not in the "
+            "copy a contributor pastes."
+        )
+        assert tool.group("tool") in _ALLOWED_BARE_TOOLS, (
             f"README Development block runs {command!r}, which is not a `make` target. "
             "Raw tool invocations drift from what CI runs - add a Makefile target instead."
         )

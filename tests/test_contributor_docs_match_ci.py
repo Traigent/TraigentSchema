@@ -199,32 +199,25 @@ def test_local_ci_gate_doc_does_not_claim_a_sonarqube_pr_check() -> None:
         "docs/LOCAL_CI_GATE.md no longer names the check that IS required"
     )
 
-    # Negative half, over the WHITESPACE-COLLAPSED document: this doc wraps at
-    # ~75 columns, so a regression is as likely to straddle two lines as to sit
-    # on one, and a line-by-line scan cannot see it.
-    #
-    # The negation window is the rest of the SENTENCE before the phrase. Testing
-    # the whole line treats "...and does not need a token" as a denial; testing
-    # only the adjacent characters rejects "No workflow produces a `SonarQube
-    # Quality Gate` check." Both of those were wrong in earlier rounds. What
-    # makes a mention a denial is a negation leading up to it.
+    # Negative half. Three rounds of review tuned an English-prose heuristic
+    # here - match the line, then the adjacent characters, then the sentence -
+    # and each tightening traded a false red for a false green or back. The
+    # phrase occurs exactly ONCE in this document, in the denial above, so the
+    # deterministic check is to pin that: one mention, and the positive half
+    # above proves which one it is. Nothing is left to tune, and unlike the
+    # heuristic it cannot be silenced by an unrelated "no" earlier in the
+    # sentence (which it could: "Although there is no SonarCloud gate on
+    # develop, the `SonarQube Quality Gate` check still runs on every PR"
+    # passed). A second mention is not necessarily wrong - it needs a human to
+    # look, which is what failing here asks for.
     collapsed = " ".join(doc.split())
     phrase = "SonarQube Quality Gate"
-    negated = re.compile(r"\b(no|not|never|cannot|without)\b", re.IGNORECASE)
-
-    offending: list[str] = []
-    at = collapsed.find(phrase)
-    while at != -1:
-        sentence_start = collapsed.rfind(".", 0, at) + 1
-        before = collapsed[sentence_start:at]
-        after = collapsed[at : at + len(phrase) + 80]
-        if not negated.search(before) and re.search(r"\bcheck\b", after):
-            offending.append((before[-60:] + after).strip())
-        at = collapsed.find(phrase, at + len(phrase))
-
-    assert not offending, (
-        "docs/LOCAL_CI_GATE.md describes a `SonarQube Quality Gate` check as if it exists; "
-        "no workflow produces one. Offending text:\n  " + "\n  ".join(offending)
+    occurrences = collapsed.count(phrase)
+    assert occurrences == 1, (
+        f"`{phrase}` appears {occurrences} times in docs/LOCAL_CI_GATE.md. It should appear "
+        "once, in the sentence denying that such a check exists on a pull request - no "
+        "workflow produces one. A second mention needs review; if it is another denial, "
+        "update this test deliberately."
     )
 
 

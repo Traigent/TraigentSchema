@@ -92,7 +92,6 @@ _FIXED_REF_PATTERNS = frozenset(
         "^[0-9a-f]{12}$",  # key-version tag (hex)
     }
 )
-_B64URL_CHARS = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _types(node: dict) -> set[str]:

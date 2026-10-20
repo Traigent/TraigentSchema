@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import unicodedata
 from pathlib import Path
 from typing import Any
@@ -84,9 +85,9 @@ def _materialize(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _check_finite(value: Any) -> None:
-    """Finiteness is checked over the ORIGINAL spec, before NFC and before the validation exclusions."""
+    """Finiteness is checked over the ORIGINAL spec, before NFC and before validation exclusions."""
     if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
+        if not math.isfinite(value):
             raise ValueError("NaN and Infinity are refused")
     elif isinstance(value, dict):
         for item in value.values():
@@ -97,7 +98,10 @@ def _check_finite(value: Any) -> None:
 
 
 def reference_publish_ingress_check(spec: Any) -> None:
-    """The extra refusal applied only to a NEW publish: object keys equal after NFC (hash keeps last-wins)."""
+    """The extra refusal applies only to a NEW publish: object keys equal after NFC.
+
+    The hash keeps last-wins.
+    """
     if isinstance(spec, dict):
         seen: set[str] = set()
         for key, item in spec.items():
@@ -111,7 +115,9 @@ def reference_publish_ingress_check(spec: Any) -> None:
             reference_publish_ingress_check(item)
 
 
-def reference_hashed_payload(spec: dict[str, Any], request_environment: str | None) -> dict[str, Any]:
+def reference_hashed_payload(
+    spec: dict[str, Any], request_environment: str | None
+) -> dict[str, Any]:
     """The payload that is serialized and digested, built only from the schema's rule text."""
     rule = _rule()
     excluded = frozenset(rule["validation_excluded_keys"])
@@ -169,12 +175,22 @@ def test_schema_states_the_frozen_rule_and_scopes_it_to_the_legacy_envelope() ->
     rule = _rule()
     assert rule["applies_to"] == "traigent.best_config.v1"
     assert rule["covered_keys"] == [
-        "schema_version", "config_id", "function_ref", "environment", "config", "validation",
+        "schema_version",
+        "config_id",
+        "function_ref",
+        "environment",
+        "config",
+        "validation",
     ]
     assert set(rule["excluded_keys"]) == {"provenance", "forward_compat"}
     assert set(rule["validation_excluded_keys"]) == {
-        "guaranteed_selection", "certified_selection", "status", "deployable",
-        "selected_config", "fallback_config", "certificate",
+        "guaranteed_selection",
+        "certified_selection",
+        "status",
+        "deployable",
+        "selected_config",
+        "fallback_config",
+        "certificate",
     }
     assert rule["digest_format"] == "sha256:<64 lowercase hex>"
     assert "traigent.best_config.v2" in rule["not_applicable_to"]
@@ -247,7 +263,9 @@ def test_refusal_cases_cover_non_finite_numbers_and_the_depth_boundary() -> None
 
 
 @pytest.mark.parametrize("case", _ingress_refusal_cases(), ids=lambda c: c["name"])
-def test_publish_ingress_refuses_nfc_colliding_keys_but_the_hash_keeps_last_wins(case: dict[str, Any]) -> None:
+def test_publish_ingress_refuses_nfc_colliding_keys_but_the_hash_keeps_last_wins(
+    case: dict[str, Any],
+) -> None:
     spec = case["request"]["spec"]
     with pytest.raises(ValueError):
         reference_publish_ingress_check(spec)
@@ -255,7 +273,9 @@ def test_publish_ingress_refuses_nfc_colliding_keys_but_the_hash_keeps_last_wins
     assert reference_spec_hash(spec, case["request"].get("environment")).startswith("sha256:")
 
 
-def test_every_historical_and_ordinary_case_passes_the_publish_ingress_check_or_is_historical() -> None:
+def test_every_historical_and_ordinary_case_passes_the_publish_ingress_check_or_is_historical() -> (
+    None
+):
     for case in _cases():
         reference_publish_ingress_check(case["request"]["spec"])
     for case in _historical_cases():
@@ -275,10 +295,16 @@ def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
     )
     # -0.0 and 0.0, and 1 and 1.0 at the same position, are different digests.
     assert '"x":-0.0' in by_name["negative_zero"]["canonical_json"]
-    assert by_name["negative_zero"]["spec_hash"] != by_name["positive_zero_distinct_from_negative_zero"]["spec_hash"]
+    assert (
+        by_name["negative_zero"]["spec_hash"]
+        != by_name["positive_zero_distinct_from_negative_zero"]["spec_hash"]
+    )
     assert '"x":[1]' in by_name["array_integer_one"]["canonical_json"]
     assert '"x":[1.0]' in by_name["array_float_one_distinct_from_integer"]["canonical_json"]
-    assert by_name["array_integer_one"]["spec_hash"] != by_name["array_float_one_distinct_from_integer"]["spec_hash"]
+    assert (
+        by_name["array_integer_one"]["spec_hash"]
+        != by_name["array_float_one_distinct_from_integer"]["spec_hash"]
+    )
     assert "depth_boundary_accepted" in by_name
 
 
@@ -298,4 +324,6 @@ def test_publish_request_refusal_wording_does_not_promise_more_than_the_backend_
     assert "never echoes keys or values" not in description
     assert "collision check's own message is fixed" in description
     assert "protected path: every refusal is the closed head_body_invalid 400" in description
-    assert "legacy path: the legacy validation 400, whose text may include field paths" in description
+    assert (
+        "legacy path: the legacy validation 400, whose text may include field paths" in description
+    )

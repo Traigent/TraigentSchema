@@ -35,7 +35,8 @@ ANCHOR_REF = "origin/develop"
 _spec = importlib.util.spec_from_file_location(
     "content_class_lint", Path(__file__).resolve().parent / "content_class_lint.py"
 )
-assert _spec and _spec.loader
+if _spec is None or _spec.loader is None:
+    raise ImportError("cannot load content_class_lint.py")
 lint = importlib.util.module_from_spec(_spec)
 sys.modules.setdefault("content_class_lint", lint)
 _spec.loader.exec_module(lint)

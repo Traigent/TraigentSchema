@@ -177,30 +177,29 @@ def build() -> dict:
                 "padded_hex": padded.hex(),
             }
         )
-    b = lambda n: bytes(n)  # noqa: E731
     padding_bad = [
         {"name": "too_long_256_bytes", "operation": "pad", "plaintext": "x" * 256},
-        {"name": "all_zero_no_marker", "operation": "unpad", "padded_hex": b(32).hex()},
-        {"name": "no_0x80_marker", "operation": "unpad", "padded_hex": (b"abc" + b(29)).hex()},
+        {"name": "all_zero_no_marker", "operation": "unpad", "padded_hex": bytes(32).hex()},
+        {"name": "no_0x80_marker", "operation": "unpad", "padded_hex": (b"abc" + bytes(29)).hex()},
         {
             "name": "nonzero_after_marker",
             "operation": "unpad",
-            "padded_hex": (b"abc\x80\x01" + b(27)).hex(),
+            "padded_hex": (b"abc\x80\x01" + bytes(27)).hex(),
         },
         {
             "name": "not_a_bucket_length",
             "operation": "unpad",
-            "padded_hex": (b"abc\x80" + b(29)).hex(),
+            "padded_hex": (b"abc\x80" + bytes(29)).hex(),
         },
         {
             "name": "non_minimal_bucket",
             "operation": "unpad",
-            "padded_hex": (b"abc\x80" + b(60)).hex(),
+            "padded_hex": (b"abc\x80" + bytes(60)).hex(),
         },
         {
             "name": "invalid_utf8",
             "operation": "unpad",
-            "padded_hex": (b"\xff\xfe\x80" + b(29)).hex(),
+            "padded_hex": (b"\xff\xfe\x80" + bytes(29)).hex(),
         },
     ]
 

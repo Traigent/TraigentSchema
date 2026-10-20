@@ -22,7 +22,7 @@ would reject. Fix what it reports, then push.
 |------|---------------------|-------|
 | `ruff check traigent_schema/` | `CI / lint-type` → *Run linting* (`ci.yml`) | The #1 source of avoidable reds. Fix with `ruff check --fix traigent_schema/`. |
 | `mypy traigent_schema/ --ignore-missing-imports` | `CI / lint-type` → *Run type checking* (`ci.yml`) | Same flags as CI. |
-| `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, but not quick: 5-7 min for the full suite (7.2k tests; measured 302 s and 417 s on two laptops). It is not hung at this step. |
+| `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, but not quick: minutes, not seconds. Four measured runs of the 7.2k-test suite: 302 s, 417 s, 421 s, 533 s — machine- and load-dependent, so budget 5-10 min. It is not hung at this step. |
 | `python3 scripts/refresh_parity.py --check` | `Parity manifest freshness` (`parity-check.yml`) | Fails if schema files changed without re-stamping `parity/python-js-sdk.json`. Fix with `make format` (re-stamp), then commit. |
 | auth-taxonomy parity detector | `auth-taxonomy-parity.yml` | **Non-blocking** (Schema#219 DETECT phase). |
 | `python3 scripts/breaking_schema_check.py --check` | `breaking-schema-check` job (`ci.yml`, fanned into `ci-required`) | Diffs changed `traigent_schema/schemas/**/*.json` against `$base_ref` and fails on un-acknowledged BREAKING contract changes, using request/response mirror-image rules — see the script's module docstring. The failure output names each finding and prints a ready-to-paste `scripts/breaking_schema_allowlist.json` entry for an intentional, reviewed break (placeholder reasons like "TODO"/"see PR" are rejected). Runs only on PRs that touch schema-relevant paths (a `changes` classifier job decides that; `scripts/check_required_gate.py` verifies its skip is legitimate before `ci-required` accepts it — TraigentSchema#392). |
@@ -68,11 +68,21 @@ wire it into `scripts/local_gate.sh` in place of this reminder.
 
 There is **no `SonarQube Quality Gate` check on a pull request.**
 `sonarqube-local.yml` runs only on `push` to `main` and on
-`workflow_dispatch`, and its own header states that this privileged
-self-hosted workflow "must never execute pull-request code" — so it is a
-post-merge scan of trusted `main` commits, not a PR gate. Static analysis on a
-PR is enforced by the **`SonarCloud Code Analysis`** required check (required
-on `main`; see `gh api repos/Traigent/TraigentSchema/rules/branches/main`).
+`workflow_dispatch` (which carries no ref restriction), and its own header
+states that this privileged self-hosted workflow "must never execute
+pull-request code" — so it is a scan of trusted `main` commits, not a PR gate.
+
+Static analysis on a PR into `main` is enforced by the
+**`SonarCloud Code Analysis`** required check. **A PR into `develop` has no
+SonarCloud check at all** — and `develop` is the target for ordinary work here,
+so for the common case there is no automated static-analysis gate. Both
+rulesets, read with `gh api repos/Traigent/TraigentSchema/rules/branches/main`
+and `.../branches/develop`:
+
+| Branch | Required checks |
+|---|---|
+| `main` | `test (3.11)`, `test (3.12)`, `package`, `Analyze (actions)`, `Analyze (python)`, `Aikido Security: check code`, `SonarCloud Code Analysis`, `ci-required`, `spine-trail present` |
+| `develop` | `Aikido Security: check code`, `ci-required`, `Analyze (python)`, `Analyze (actions)`, `spine-trail present` |
 
 The optional local scan **approximates that check** before you push. For
 `release/*` / `hotfix/*` branches the gate runs it and **blocks the push if it

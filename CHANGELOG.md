@@ -24,14 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The README's privacy-classification table now lists all twelve enum values (it listed six, omitting
   `secret`, which five shipped fields use) and a test keeps it equal to the enum.
 - **Contributor docs match what CI runs (#571).** The README's Development block pointed at
-  `ruff check .` and `mypy traigent_schema`, which report 172 and 10 errors on a clean tree and which CI
+  `ruff check .` and `mypy traigent_schema`, which report 171 and 10 errors on a clean tree at this base and which CI
   does not gate; it now points at the `make` targets that mirror CI. `docs/LOCAL_CI_GATE.md` attributed
   linting and type-checking to the `test` job (they run in `lint-type`), put the pytest gate at "~5s"
-  (measured 302 s and 417 s), and described a `SonarQube Quality Gate` required check on pull requests
-  that no workflow produces - `sonarqube-local.yml` runs only on push to `main`, and
-  `SonarCloud Code Analysis` is the required check.
+  (four measured runs: 302 s, 417 s, 421 s, 533 s), and described a `SonarQube Quality Gate` required check on pull requests
+  that no workflow produces — `sonarqube-local.yml` runs only on push to `main` and
+  `workflow_dispatch`. `SonarCloud Code Analysis` is the required static-analysis check on a PR
+  into `main`; a PR into `develop`, which is where ordinary work lands, has none. Both rulesets
+  are now quoted in the doc. `scripts/local_gate.sh`, which is what `make local-gate` runs,
+  repeated the same retracted claim in three places and is corrected with it.
 - **Stale corpus paths and a missing third-party notice (#578).** The fp2 corpora moved into the package
-  in #439; six comments, notes and one Sonar exclusion still cited `tests/data/...`. `NOTICE` now lists
+  in #439; six comments, notes and one `sonar-project.properties` comment still cited `tests/data/...`
+  (the `sonar.cpd.exclusions=tests/data/**` setting itself is unchanged — its own comment records it
+  as retained and unused). `NOTICE` now lists
   `cryptography`, a base runtime dependency it omitted.
 - **Python 3.10 support dropped; `requires-python = ">=3.11"`.** The certification verifiers import
   `importlib.resources.abc.Traversable`, which exists only on 3.11+. The nightly CI matrix, the Sonar

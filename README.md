@@ -324,9 +324,10 @@ instead of hard-coding field names.
 
 The vocabulary is closed: the twelve allowed values below are exactly the `enum` in
 [`x_extensions_meta_schema.json`](traigent_schema/schemas/x_extensions_meta_schema.json),
-which is the source of truth. A consumer that builds redaction rules must handle
-all twelve — a partial table once left half of them undocumented, including
-`secret` (#573).
+which is the source of truth, and a test keeps this table equal to it. A consumer
+that builds redaction rules should handle all twelve, since any of them may appear;
+`pii` and `restricted` are declared but currently carry no shipped field. This table
+listed six until #573, omitting `secret`, which five shipped fields use.
 
 | Value | Meaning |
 |-------|---------|
@@ -339,7 +340,7 @@ all twelve — a partial table once left half of them undocumented, including
 | `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
 | `manifest_safe` | Safe to include in exported manifests. |
 | `tenant_admin_safe` | Visible to tenant admins only. |
-| `sdk_runtime_metadata` | SDK execution metadata (run provenance such as artifact versions, code revision, and how an id reached the session). |
+| `sdk_runtime_metadata` | SDK execution metadata. Carried both by whole run-context schemas and, on the session-create request, by run-provenance fields such as artifact versions and code revision. |
 | `internal_confidential` | Service-only policy, certificate, or short-lived execution metadata. |
 | `system` | Internal system data. |
 
@@ -406,7 +407,8 @@ make typecheck   # mypy traigent_schema/ --ignore-missing-imports
 make local-gate  # everything CI enforces — run this before you push
 ```
 
-`make test` runs the full suite (5-7 minutes, 7.2k tests); `make lint` and
+`make test` runs the full suite (7.2k tests; 5-10 minutes depending on the
+machine); `make lint` and
 `make typecheck` take seconds. `make help` lists every target.
 
 ## Version
@@ -418,7 +420,8 @@ Current release line: **7.0.0** (from `traigent_schema/version.py`; release note
 > 6.0.0, 6.1.0 and 7.0.0 are dated in `CHANGELOG.md` and live on `main`, but none of them was
 > ever tagged or published, so a package consumer is missing two breaking changes: the 6.0.0
 > legacy execution-selector removals and the 7.0.0 `ExperimentStatus` rebind. Check what is
-> actually published with `pip index versions traigent_schema`; publishing is a manual dispatch
+> actually published with `pip index versions traigent-schema` (the distribution name in
+> `pyproject.toml`; `traigent_schema` normalizes to it); publishing is a manual dispatch
 > of [`.github/workflows/publish.yml`](.github/workflows/publish.yml) from an exact `main`
 > commit. Tracked in TraigentSchema#576.
 

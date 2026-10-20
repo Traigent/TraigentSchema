@@ -1,0 +1,90 @@
+# Boolean `x-reference` sites, frozen baseline (TraigentSchema#573).
+#
+# `x-reference: true` means "references a canonical identifier, target not yet
+# pinned". It is a tolerated legacy form; the pointer form (a relative path or
+# JSON Pointer to the canonical definition) is the target. This list may only
+# SHRINK: a new reference must use the pointer form, and converting a site here
+# to a pointer means deleting its line. Adding a line is not a fix.
+#
+# One `<schema file name><JSON pointer>` per line, sorted. Regenerate with
+# tests/test_x_extensions_governance.py::boolean_x_reference_sites.
+comparison_example_detail_response_schema.json/properties/data/properties/example_id/x-reference
+comparison_example_detail_response_schema.json/properties/data/properties/run_summaries/items/properties/run_id/x-reference
+comparison_examples_list_response_schema.json/properties/data/properties/runs/items/properties/run_id/x-reference
+comparison_response_schema.json/properties/data/properties/benchmark_id/x-reference
+comparison_response_schema.json/properties/data/properties/runs/items/properties/run_id/x-reference
+comparison_response_schema.json/properties/data/properties/tunable_id/x-reference
+comparison_schema.json/properties/configurations/items/properties/configuration_id/x-reference
+comparison_schema.json/properties/configurations/items/properties/run_id/x-reference
+comparison_schema.json/properties/experiment_id/x-reference
+configuration_run_schema.json/definitions/ExperimentParameters/properties/evaluator_config_id/x-reference
+configuration_run_schema.json/definitions/ExperimentParameters/properties/generator_config_id/x-reference
+configuration_run_schema.json/definitions/ExperimentParameters/properties/model_parameters_id/x-reference
+configuration_run_schema.json/properties/experiment_run_id/x-reference
+dataset_version_schema.json/definitions/DatasetVersionV1/properties/dataset_id/x-reference
+evaluation_request_schema.json/properties/configuration_id/x-reference
+evaluation_request_schema.json/properties/experiment_id/x-reference
+evaluation_request_schema.json/properties/experiment_run_id/x-reference
+evaluation_request_schema.json/properties/metrics/items/x-reference
+evaluation_results_schema.json/properties/comparative_analysis/properties/baseline_id/x-reference
+evaluation_results_schema.json/properties/configuration_id/x-reference
+evaluation_results_schema.json/properties/evaluation_id/x-reference
+evaluation_results_schema.json/properties/experiment_id/x-reference
+evaluation_results_schema.json/properties/run_id/x-reference
+evaluator_config_schema.json/properties/benchmark_id/x-reference
+evaluator_config_schema.json/properties/dataset_id/x-reference
+evaluator_config_schema.json/properties/eval_dataset_id/x-reference
+evaluator_config_schema.json/properties/evaluation_set_id/x-reference
+evaluator_config_schema.json/properties/model_parameters_id/x-reference
+evaluator_version_schema.json/definitions/EvaluatorVersionV1/properties/evaluator_id/x-reference
+example_set_examples_list_response_schema.json/definitions/SerializedExample/properties/example_set_id/x-reference
+example_set_list_response_schema.json/definitions/SerializedExampleSet/properties/agent_id/x-reference
+experiment_create_request_schema.json/properties/agent_id/x-reference
+experiment_create_request_schema.json/properties/benchmark_id/x-reference
+experiment_create_request_schema.json/properties/dataset_id/x-reference
+experiment_create_request_schema.json/properties/eval_dataset_id/x-reference
+experiment_create_request_schema.json/properties/evaluation_set_id/x-reference
+experiment_create_request_schema.json/properties/model_parameters_id/x-reference
+experiment_run_schema.json/properties/evaluator_config_id/x-reference
+experiment_run_schema.json/properties/experiment_id/x-reference
+experiment_run_schema.json/properties/generator_config_id/x-reference
+experiment_schema.json/properties/agent_id/x-reference
+experiment_schema.json/properties/benchmark_id/x-reference
+experiment_schema.json/properties/dataset_id/x-reference
+experiment_schema.json/properties/eval_dataset_id/x-reference
+experiment_schema.json/properties/evaluation_set_id/x-reference
+experiment_schema.json/properties/model_parameters_id/x-reference
+generator_config_schema.json/properties/benchmark_id/x-reference
+generator_config_schema.json/properties/dataset_id/x-reference
+generator_config_schema.json/properties/eval_dataset_id/x-reference
+generator_config_schema.json/properties/evaluation_set_id/x-reference
+generator_config_schema.json/properties/model_parameters_id/x-reference
+report_payload_response_schema.json/properties/provenance/properties/run_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/0/properties/experiment_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/1/properties/experiment_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/1/properties/run_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/2/properties/comparison_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/3/properties/evaluation_id/x-reference
+report_request_schema.json/properties/data_sources/items/oneOf/4/properties/visualization_id/x-reference
+report_schema.json/properties/request_id/x-reference
+report_schema.json/properties/sections/items/properties/visualizations/items/properties/id/x-reference
+run_results_response_schema.json/properties/experiment_id/x-reference
+run_results_response_schema.json/properties/run_id/x-reference
+score_schema.json/definitions/AggregatedScore/properties/score_type/x-reference
+score_schema.json/definitions/AggregatedStatistics/properties/score_type/x-reference
+score_schema.json/definitions/IScore/properties/calculator_id/x-reference
+score_schema.json/definitions/IScore/properties/result_id/x-reference
+score_schema.json/definitions/IScore/properties/score_type/x-reference
+score_schema.json/definitions/IScoreCalculator/properties/score_type/x-reference
+score_schema.json/definitions/WeightedComponent/properties/score_reference/oneOf/0/x-reference
+standalone_model_parameters_create_request_schema.json/properties/agentId/x-reference
+standalone_model_parameters_create_response_schema.json/properties/modelParameters/items/properties/model_id/x-reference
+visualization_request_schema.json/properties/data_source/oneOf/0/properties/experiment_id/x-reference
+visualization_request_schema.json/properties/data_source/oneOf/0/properties/run_id/x-reference
+visualization_request_schema.json/properties/data_source/oneOf/1/properties/comparison_id/x-reference
+visualization_request_schema.json/properties/data_source/oneOf/2/properties/evaluation_id/x-reference
+visualization_schema.json/properties/data_source/oneOf/0/properties/experiment_id/x-reference
+visualization_schema.json/properties/data_source/oneOf/0/properties/run_id/x-reference
+visualization_schema.json/properties/data_source/oneOf/1/properties/comparison_id/x-reference
+visualization_schema.json/properties/data_source/oneOf/2/properties/evaluation_id/x-reference
+visualization_schema.json/properties/request_id/x-reference

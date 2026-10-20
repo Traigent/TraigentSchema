@@ -30,7 +30,10 @@
 # CI). If a require-spine-session gate is ever added, port BE's
 # scripts/ci/spine_preflight.py and wire it in here.
 #
-# SonarQube: REQUIRED on main, optional on develop (see sonarqube-local.yml).
+# SonarQube: `sonarqube-local.yml` runs only on push-to-main and workflow_dispatch,
+# so it produces NO pull-request check. The required static-analysis check on a PR
+# into main is `SonarCloud Code Analysis`; PRs into develop have no SonarCloud check
+# at all. This local scan approximates SonarCloud's verdict (see docs/LOCAL_CI_GATE.md).
 #   The gate runs it only for main-bound branches (release/*, hotfix/*, or a PR
 #   whose base is main) or when LOCAL_GATE_SONAR=1. Set SONAR_HOST_URL +
 #   SONAR_TOKEN (the in-cluster/self-hosted SonarQube, or SonarCloud), or keep a
@@ -275,14 +278,16 @@ if ! skip spine; then
 fi
 
 # ── 6. SonarQube quality gate (main-bound only) ───────────────────────────
-# sonarqube-local.yml is REQUIRED on main, optional on develop. Run it locally
-# only for main-bound work so develop pushes stay fast.
+# `SonarCloud Code Analysis` is a required check on main-targeting PRs and is not
+# required on develop, so this approximation runs for main-bound work only and
+# develop pushes stay fast. (`sonarqube-local.yml` itself is a post-merge main scan.)
 if [[ "$MAIN_BOUND" == "1" ]] && ! skip sonar; then
   section "SonarQube quality gate (main-bound: $BRANCH)"
   have_creds=0
   { [[ -n "${SONAR_TOKEN:-}" ]] || [[ -f .env.sonar ]]; } && have_creds=1
   if [[ "$have_creds" == "0" ]]; then
-    echo "  ❌ main-bound push requires the SonarQube gate, but no SONAR_TOKEN/.env.sonar found."
+    echo "  ❌ main-bound push: the SonarCloud Code Analysis check is required on this PR,"
+    echo "     and no SONAR_TOKEN/.env.sonar was found to approximate it locally."
     echo "     Set SONAR_HOST_URL + SONAR_TOKEN (self-hosted SonarQube or SonarCloud) and re-run,"
     echo "     or run the scan another way, then push. (bypass: git push --no-verify)"
     FAIL=1

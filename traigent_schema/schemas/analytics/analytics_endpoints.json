@@ -188,7 +188,7 @@
     "/api/v1/analytics/dashboards/optimization-overview": {
       "get": {
         "summary": "Get the optimization overview dashboard for the caller's project",
-        "description": "Retrieve a prebuilt privacy-safe optimization overview dashboard for the caller's active project. Served by the same backend handler as the project-scoped /api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview route, so the response is the same definition; both SDKs call this unscoped v1 form.",
+        "description": "Retrieve a prebuilt privacy-safe optimization overview dashboard. Served by the same backend handler as the project-scoped /api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview route (one analytics blueprint, registered under both mounts), so both declare the same response definition; both SDKs call this unscoped v1 form. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
         "operationId": "getOptimizationOverviewDashboard",
         "parameters": [
           {
@@ -216,7 +216,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Optimization overview dashboard retrieved successfully",
+            "description": "Optimization overview dashboard retrieved successfully. The declared shape is the UNWRAPPED dashboard payload, i.e. the value of the success envelope's data key, which is what the SDK clients return to their callers (the Python client's _get_json unwraps with envelope=True). This matches the v1beta twin and the dataset-quality / next-steps / curation-advice / scoring-job operations in this module; the runs/{run_id}/* family instead declares the full {success, message, data} envelope. That split predates this entry and is tracked separately.",
             "content": {
               "application/json": {
                 "schema": {
@@ -247,6 +247,16 @@
           },
           "403": {
             "description": "Forbidden — caller lacks viewer access to the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found — no project matched the resolved id (PROJECT_NOT_FOUND).",
             "content": {
               "application/json": {
                 "schema": {

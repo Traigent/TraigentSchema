@@ -603,7 +603,11 @@ def test_schema_role_is_an_exact_enum():
 def test_verifier_checks_role_tokens_by_exact_membership(monkeypatch):
     # Even if the schema stage were bypassed, the verifier refuses a role token
     # that is not in the closed vocabulary.
-    monkeypatch.setattr(cl, "_validator", lambda: type("V", (), {"iter_errors": lambda *_: []})())
+    class _NoSchemaErrors:
+        def iter_errors(self, *_):
+            return []
+
+    monkeypatch.setattr(cl, "_validator", _NoSchemaErrors)
     assert _code(_role_envelope("evaluator:r0\n")) == "ROLE_SHAPE"
 
 

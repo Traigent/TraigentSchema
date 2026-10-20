@@ -8098,6 +8098,62 @@
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A, as recorded on the TraigentSchema#554 entries for the standalone project-scoped dashboard schemas): these planned-projects endpoint catalog dashboard cost fields become number|null (minimum 0 on the number branch) so an unknown cost is reported as null instead of a false 0. Response-side widening; a priced aggregate still returns a number. The earlier hold-back was that the Python SDK crashed on null dashboard costs; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#554"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-reference/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "a43d438d856639326f72aeed4fd33259f84e1246f080375d78fcd98286b21443"
+        }
+      ],
+      "reason": "TraigentSchema#573. x_extensions_meta_schema.json is the annotation vocabulary for x-* keywords, not a wire body: nothing serialises it and no request or response is validated against it, so the conservative bare-resource-name rule applies both request- and response-breaking rule sets to a document neither side ever sends. The widening also removes no accepted value. x-reference was declared \"type\": \"string\" (a $ref-style pointer) while 80 of its 109 shipped sites carry the boolean true, meaning \"references a canonical identifier, target not yet pinned\"; 29 carry the pointer. The declaration, not the usage, was wrong, and #573 made that visible by adding the first test that validates x-* VALUES against this meta-schema. Widening to oneOf [string, const true] makes the declaration describe what ships; tightening it the other way would mean rewriting 80 sites with pointers nobody has chosen yet. The boolean branch is a ratchet, not a second blessed form: tests/test_x_extensions_governance.py::test_boolean_x_reference_sites_do_not_increase pins the count at 80 and fails both when it rises and when it falls without the baseline being lowered, so every new reference must use the pointer form and the boolean form can only shrink. Scoped to this one pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#573"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/x-reference",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "string"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "9fabbec9498b7a356b1354d9953168d120d78ee07825aae070a58dec87af4fb4"
+        },
+        {
+          "pointer": "#/properties/x-reference",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "2c852b5c5172e4a448785604ffcdca709e298de670fb19d6f1d923248c850cff"
+        }
+      ],
+      "reason": "TraigentSchema#573. x_extensions_meta_schema.json is the annotation vocabulary for x-* keywords, not a wire body: nothing serialises it and no request or response is validated against it, so the conservative bare-resource-name rule applies both request- and response-breaking rule sets to a document neither side ever sends. The widening also removes no accepted value. x-reference was declared \"type\": \"string\" (a $ref-style pointer) while 80 of its 109 shipped sites carry the boolean true, meaning \"references a canonical identifier, target not yet pinned\"; 29 carry the pointer. The declaration, not the usage, was wrong, and #573 made that visible by adding the first test that validates x-* VALUES against this meta-schema. Widening to oneOf [string, const true] makes the declaration describe what ships; tightening it the other way would mean rewriting 80 sites with pointers nobody has chosen yet. The boolean branch is a ratchet, not a second blessed form: tests/test_x_extensions_governance.py::test_boolean_x_reference_sites_do_not_increase pins the count at 80 and fails both when it rises and when it falls without the baseline being lowered, so every new reference must use the pointer form and the boolean form can only shrink. Scoped to this one pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#573"
     }
   ]
 }

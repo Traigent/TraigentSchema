@@ -320,16 +320,28 @@ The shared MeasuresDict contract is enforced across projects:
 
 Schemas may tag fields (or object groupings) with a machine-readable privacy
 class so redaction, retention, and export tooling can reason **by contract**
-instead of hard-coding field names. Allowed values:
+instead of hard-coding field names.
+
+The vocabulary is closed: the twelve allowed values below are exactly the `enum` in
+[`x_extensions_meta_schema.json`](traigent_schema/schemas/x_extensions_meta_schema.json),
+which is the source of truth. A consumer that builds redaction rules must handle
+all twelve — a partial table once left half of them undocumented, including
+`secret` (#573).
 
 | Value | Meaning |
 |-------|---------|
 | `user_content` | Raw user-supplied content / model output (prompts, inputs, outputs). The hybrid-path content fields use this — paired with `x-content: true` so a consumer can enumerate content-bearing leaves directly from the contract. |
-| `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
+| `pii` | Personally identifiable information. |
 | `auth_sensitive` | Authentication and authorization payloads such as device-flow tokens, API keys, and SSO auth responses. |
 | `billing_sensitive` | Billing / pricing data (e.g. wallet, checkout). |
-| `tenant_admin_safe` | Visible to tenant admins only. |
+| `secret` | One-time secrets, never re-readable after issue. |
+| `restricted` | Tightly access-controlled values. |
+| `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
 | `manifest_safe` | Safe to include in exported manifests. |
+| `tenant_admin_safe` | Visible to tenant admins only. |
+| `sdk_runtime_metadata` | SDK execution metadata (run provenance such as artifact versions, code revision, and how an id reached the session). |
+| `internal_confidential` | Service-only policy, certificate, or short-lived execution metadata. |
+| `system` | Internal system data. |
 
 Content-bearing fields on the hybrid DTOs carry `x-content: true` +
 `x-privacy-classification: user_content`: `trace`/`observation`
@@ -400,6 +412,15 @@ make local-gate  # everything CI enforces — run this before you push
 ## Version
 
 Current release line: **7.0.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+
+> **That is the repository version, not the published one.** PyPI's newest `traigent_schema`
+> release is **5.8.0** (uploaded 2026-09-05), so `pip install traigent_schema` installs 5.8.0.
+> 6.0.0, 6.1.0 and 7.0.0 are dated in `CHANGELOG.md` and live on `main`, but none of them was
+> ever tagged or published, so a package consumer is missing two breaking changes: the 6.0.0
+> legacy execution-selector removals and the 7.0.0 `ExperimentStatus` rebind. Check what is
+> actually published with `pip index versions traigent_schema`; publishing is a manual dispatch
+> of [`.github/workflows/publish.yml`](.github/workflows/publish.yml) from an exact `main`
+> commit. Tracked in TraigentSchema#576.
 
 The 5.4 register additions are documentation-only annotations: `invite_token` and the portal's
 unified `registration_code` wire field remain unconstrained by validating keywords so every

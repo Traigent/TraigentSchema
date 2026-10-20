@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`
+  was the declared source of truth for the `x-*` vocabulary, but only key names were checked, so 88 values
+  across the tree did not conform to their own declaration. `tests/test_x_extensions_governance.py` now
+  validates every `x-*` value against its meta-schema entry. Three consequences in the contracts:
+  the seven `POST /api/v1/sessions` fields that carried the off-vocabulary
+  `x-privacy-classification: "metadata"` (`agent_id_source`, `dataset_id_source`, `evaluator_id_source`,
+  `artifact_versions`, `code_revision`, `identity_version`, `hosted_dataset_ref`) now carry the existing
+  enum member `sdk_runtime_metadata`, so redaction and export tooling has a defined rule for them;
+  `x-reference` is declared as `oneOf [string, const true]`, documenting the boolean "canonical identifier,
+  target not yet pinned" form that 80 of its 109 sites already used, under a shrink-only baseline so new
+  sites must use the pointer form (acknowledged in `scripts/breaking_schema_allowlist.json`); and the
+  free-text note inside `timing_metric_vocabulary_schema.json`'s `x-non-canonical-pending-migration` map
+  moved to a sibling `$comment`, since the meta-schema declares every entry in that map an object.
+  The README's privacy-classification table now lists all twelve enum values (it listed six, omitting
+  `secret`, which five shipped fields use) and a test keeps it equal to the enum.
+- **Contributor docs match what CI runs (#571).** The README's Development block pointed at
+  `ruff check .` and `mypy traigent_schema`, which report 172 and 10 errors on a clean tree and which CI
+  does not gate; it now points at the `make` targets that mirror CI. `docs/LOCAL_CI_GATE.md` attributed
+  linting and type-checking to the `test` job (they run in `lint-type`), put the pytest gate at "~5s"
+  (measured 302 s and 417 s), and described a `SonarQube Quality Gate` required check on pull requests
+  that no workflow produces - `sonarqube-local.yml` runs only on push to `main`, and
+  `SonarCloud Code Analysis` is the required check.
+- **Stale corpus paths and a missing third-party notice (#578).** The fp2 corpora moved into the package
+  in #439; six comments, notes and one Sonar exclusion still cited `tests/data/...`. `NOTICE` now lists
+  `cryptography`, a base runtime dependency it omitted.
 - **Python 3.10 support dropped; `requires-python = ">=3.11"`.** The certification verifiers import
   `importlib.resources.abc.Traversable`, which exists only on 3.11+. The nightly CI matrix, the Sonar
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
@@ -23,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   literal, including `safety_constraint_insufficient_evidence`). `POST /api/v1/sessions/{id}/finalize`
   accepts an optional `stop_reason`. The response `stop_reason` stays string or null until the backend
   maps its own reasons (it still emits e.g. `finalized`, `search_complete`, `smart_prune`). Pinned by `tests/test_stop_reason_schema.py`.
+- **`GET /api/v1/analytics/dashboards/optimization-overview` is contracted (#581).** Both SDKs call this
+  route and the backend's `analytics_bp` serves it under `/api/v1`, but only the project-scoped
+  `/api/v1beta/projects/{project_id}/...` twin was declared, so `SchemaValidator` answered
+  `UNVALIDATED_ENDPOINT` for the path the SDKs actually use. The `backend` catalog's analytics module now
+  declares it, reusing the same response definition as the v1beta entry (one backend handler serves both
+  mounts) and the `days` / `limit` bounds the backend enforces. Additive; the v1beta entry is unchanged.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

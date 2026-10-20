@@ -104,7 +104,15 @@ _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
 # Evaluator roles are a CLOSED, service-assigned vocabulary. Customer labels are
 # content and stay customer-side; they never appear in a role token.
-_ROLE_RE = re.compile(r"^(agent|dataset|config_space|evaluator:(primary|r[0-7]))$")
+_ROLES = frozenset(
+    {
+        "agent",
+        "dataset",
+        "config_space",
+        "evaluator:primary",
+        *(f"evaluator:r{i}" for i in range(8)),
+    }
+)
 _BASES = frozenset(
     {
         "source_text",
@@ -126,7 +134,19 @@ class CommitmentLinkageError(ValueError):
 
 
 def _fail(code: str) -> NoReturn:
-    raise CommitmentLinkageError(code) from None
+    """Raise a closed error that references no other exception.
+
+    ``from None`` clears ``__cause__`` and hides ``__context__`` from display,
+    but at raise time the interpreter still links whatever exception the caller
+    is handling. Catch our own error once, clear that link, re-raise the same
+    object (same discipline as ``process_record_verifier``).
+    """
+    failure = CommitmentLinkageError(code)
+    try:
+        raise failure from None
+    except CommitmentLinkageError:
+        failure.__context__ = None
+        raise
 
 
 def _lp(value: bytes) -> bytes:
@@ -148,7 +168,7 @@ def compute_commitment(*, role: str, basis: str, fp_digest: str, opening: bytes)
     or ``OPENING_SHAPE``) on malformed input; ``basis`` must be a committed
     basis (``unavailable`` carries no commitment).
     """
-    if type(role) is not str or not _ROLE_RE.fullmatch(role):
+    if type(role) is not str or role not in _ROLES:
         _fail("ROLE_SHAPE")
     if type(basis) is not str or basis not in _BASES or basis == "unavailable":
         _fail("ROLE_SHAPE")
@@ -278,7 +298,7 @@ def verify_commitment_linkage(
         code = err.code
     except Exception:
         code = "VERIFICATION_FAILED"
-    raise CommitmentLinkageError(code) from None
+    _fail(code)
 
 
 def _verify(
@@ -295,6 +315,8 @@ def _verify(
     signature = envelope["signature"]
 
     roles = [entry["role"] for entry in unsigned["entries"]]
+    if any(type(role) is not str or role not in _ROLES for role in roles):
+        _fail("ROLE_SHAPE")
     if len(set(roles)) != len(roles):
         _fail("DUPLICATE_ROLE")
 
@@ -371,7 +393,7 @@ def _open_commitment(
     """
     if not isinstance(linkage, VerifiedCommitmentLinkage):
         _fail("CONTEXT")
-    if type(role) is not str or not _ROLE_RE.fullmatch(role):
+    if type(role) is not str or role not in _ROLES:
         _fail("ROLE_SHAPE")
     if type(fp_digest) is not str or not _SHA256_RE.fullmatch(fp_digest):
         _fail("FINGERPRINT_SHAPE")
@@ -412,7 +434,7 @@ def verify_and_open_commitment(
         return _open_commitment(linkage, role=role, fp_digest=fp_digest, opening=opening)
     except CommitmentLinkageError as err:
         code = err.code
-    raise CommitmentLinkageError(code) from None
+    _fail(code)
 
 
 __all__ = [

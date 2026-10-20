@@ -31,9 +31,19 @@
     "CommitmentRoleV1": {
       "description": "Artifact role. Evaluators are role-indexed: one entry per evaluator role, written 'evaluator:primary' or 'evaluator:r0' through 'evaluator:r7'. This is a closed, service-assigned vocabulary; customer evaluator labels are content, stay customer-side, and never appear in a role token. There is deliberately no build-definition role.",
       "type": "string",
-      "anyOf": [
-        {"enum": ["agent", "dataset", "config_space"]},
-        {"pattern": "^evaluator:(primary|r[0-7])$"}
+      "enum": [
+        "agent",
+        "dataset",
+        "config_space",
+        "evaluator:primary",
+        "evaluator:r0",
+        "evaluator:r1",
+        "evaluator:r2",
+        "evaluator:r3",
+        "evaluator:r4",
+        "evaluator:r5",
+        "evaluator:r6",
+        "evaluator:r7"
       ]
     },
     "CommitmentBasisV1": {

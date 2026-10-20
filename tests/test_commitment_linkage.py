@@ -290,7 +290,7 @@ def test_schema_refuses(mutate):
 
 def test_schema_has_no_build_definition_role():
     role_def = SCHEMA["definitions"]["CommitmentRoleV1"]
-    assert role_def["anyOf"][0]["enum"] == ["agent", "dataset", "config_space"]
+    assert not any("build" in token for token in role_def["enum"])
     entry = _unsigned(
         entries=[
             {"role": "build_definition", "basis": "unavailable", "attestation": "client_declared"}
@@ -558,3 +558,135 @@ def test_internal_failures_have_no_chained_context():
         cl.verify_commitment_linkage(_sign(_unsigned(entries=entries)), context=_ctx())
     assert exc.value.__context__ is None and exc.value.__suppress_context__
     assert "Alice" not in _formatted(exc.value)
+
+
+# ------------------------------------------------------------------ r3 fixes
+_ALL_EVALUATOR_TOKENS = ["evaluator:primary", *[f"evaluator:r{i}" for i in range(8)]]
+
+
+def _role_envelope(role: str) -> dict:
+    entries = _entries()
+    entries[0]["role"] = role
+    return _sign(_unsigned(entries=entries))
+
+
+def _role_schema_errors(role: str) -> list:
+    return list(VALIDATOR.iter_errors(_role_envelope(role)))
+
+
+@pytest.mark.parametrize("role", _ALL_EVALUATOR_TOKENS)
+def test_schema_accepts_all_nine_evaluator_tokens(role):
+    assert not _role_schema_errors(role)
+
+
+@pytest.mark.parametrize(
+    "role",
+    [t + suffix for t in ("evaluator:r0", "evaluator:primary") for suffix in ("\n", " ", "\r\n")]
+    + ["agent\n", "dataset\n", "config_space\n", "evaluator:r8", "evaluator:"],
+)
+def test_schema_and_verifier_reject_noncanonical_role_tokens(role):
+    assert _role_schema_errors(role)
+    assert _code(_role_envelope(role)) == "SCHEMA"
+    with pytest.raises(cl.CommitmentLinkageError):
+        cl.verify_and_open_commitment(
+            _role_envelope(role), context=_ctx(), role="agent", fp_digest=FP, opening=bytes(32)
+        )
+
+
+def test_schema_role_is_an_exact_enum():
+    role_def = SCHEMA["definitions"]["CommitmentRoleV1"]
+    assert "pattern" not in role_def and "anyOf" not in role_def
+    assert set(role_def["enum"]) == set(cl._ROLES)
+    assert len(role_def["enum"]) == len(cl._ROLES) == 12
+
+
+def test_verifier_checks_role_tokens_by_exact_membership(monkeypatch):
+    # Even if the schema stage were bypassed, the verifier refuses a role token
+    # that is not in the closed vocabulary.
+    monkeypatch.setattr(cl, "_validator", lambda: type("V", (), {"iter_errors": lambda *_: []})())
+    assert _code(_role_envelope("evaluator:r0\n")) == "ROLE_SHAPE"
+
+
+def _bad_key_material() -> cl.LinkageIssuerKeyV1:
+    return cl.LinkageIssuerKeyV1(
+        key_ref=KEY_REF,
+        trust_ring_ref=RING_REF,
+        algorithm="ed25519",
+        public_key_der_b64="SECRETKEYCHAR!!not-base64",
+        public_key_digest=ISSUER_KEY.public_key_digest,
+    )
+
+
+def _bad_signature_envelope() -> dict:
+    env = _sign(_unsigned())
+    raw = bytearray(base64.b64decode(env["signature"]["signature"]))
+    raw[0] ^= 0xFF
+    env["signature"]["signature"] = base64.b64encode(bytes(raw)).decode("ascii")
+    return env
+
+
+def _call_inside_handler(api: str, envelope: dict, ctx) -> cl.CommitmentLinkageError:
+    caught = None
+    try:
+        raise ValueError("CALLERSENTINEL")
+    except ValueError:
+        try:
+            if api == "verify":
+                cl.verify_commitment_linkage(envelope, context=ctx)
+            else:
+                cl.verify_and_open_commitment(
+                    envelope, context=ctx, role="agent", fp_digest=FP, opening=bytes(32)
+                )
+        except cl.CommitmentLinkageError as err:
+            caught = err
+    assert caught is not None
+    return caught
+
+
+@pytest.mark.parametrize("api", ["verify", "open"])
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("bad_key", "KEY_MATERIAL"),
+        ("bad_signature", "SIGNATURE_INVALID"),
+        ("context", "CONTEXT"),
+        ("shape", "ENVELOPE_SHAPE"),
+        ("schema", "SCHEMA"),
+    ],
+)
+def test_errors_inside_callers_handler_carry_no_cause_or_context(api, case, expected):
+    envelope: object = _sign(_unsigned())
+    ctx: object = _ctx()
+    if case == "bad_key":
+        ctx = _ctx(issuer_key=_bad_key_material())
+    elif case == "bad_signature":
+        envelope = _bad_signature_envelope()
+    elif case == "context":
+        ctx = object()
+    elif case == "shape":
+        envelope = ["not", "a", "dict"]
+    else:
+        envelope = {}
+    err = _call_inside_handler(api, envelope, ctx)  # type: ignore[arg-type]
+    assert err.code == expected
+    assert err.__cause__ is None
+    assert err.__context__ is None
+    rendered = _formatted(err)
+    assert "CALLERSENTINEL" not in rendered
+    assert "SECRETKEYCHAR" not in rendered and "SECRETKEYCHAR" not in repr(err)
+
+
+def test_open_wrapper_role_failure_inside_callers_handler_carries_no_context():
+    caught = None
+    try:
+        raise ValueError("CALLERSENTINEL")
+    except ValueError:
+        try:
+            cl.verify_and_open_commitment(
+                _sign(_unsigned()), context=_ctx(), role="nope", fp_digest=FP, opening=bytes(32)
+            )
+        except cl.CommitmentLinkageError as err:
+            caught = err
+    assert caught is not None and caught.code == "ROLE_SHAPE"
+    assert caught.__cause__ is None and caught.__context__ is None
+    assert "CALLERSENTINEL" not in _formatted(caught)

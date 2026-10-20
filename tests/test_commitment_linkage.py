@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import struct
+import traceback
 from pathlib import Path
 
 import pytest
@@ -262,6 +263,9 @@ def _mutated(path_fn):
         lambda e: e["unsigned_linkage"]["entries"][0].update(basis="source"),
         lambda e: e["unsigned_linkage"]["entries"][0].update(role="build_definition"),
         lambda e: e["unsigned_linkage"]["entries"][0].update(role="evaluator:Bad Role"),
+        lambda e: e["unsigned_linkage"]["entries"][0].update(role="evaluator:alice_has_diabetes"),
+        lambda e: e["unsigned_linkage"]["entries"][0].update(role="evaluator:r8"),
+        lambda e: e["unsigned_linkage"]["entries"][0].update(role="evaluator:"),
         lambda e: e["unsigned_linkage"]["entries"][0].update(commitment="sha256:xyz"),
         lambda e: e["unsigned_linkage"]["entries"][0].pop("commitment"),
         lambda e: e["unsigned_linkage"]["entries"][3].update(
@@ -301,32 +305,32 @@ def test_verify_ok_and_open_results():
     assert linkage.process_record_digest == RECORD_A
     for role, _basis, opening, _ in VECTORS[:3]:
         assert (
-            cl.open_commitment(linkage, role=role, fp_digest=FP, opening=opening)
+            cl._open_commitment(linkage, role=role, fp_digest=FP, opening=opening)
             == cl.COMMITMENT_OPENED_MATCH
         )
     # wrong opening / wrong fingerprint -> MISMATCH
     assert (
-        cl.open_commitment(linkage, role="agent", fp_digest=FP, opening=bytes(32))
+        cl._open_commitment(linkage, role="agent", fp_digest=FP, opening=bytes(32))
         == cl.COMMITMENT_OPENED_MISMATCH
     )
     assert (
-        cl.open_commitment(
+        cl._open_commitment(
             linkage, role="agent", fp_digest="sha256:" + "00" * 32, opening=VECTORS[0][2]
         )
         == cl.COMMITMENT_OPENED_MISMATCH
     )
     # opening of the dataset entry used for the agent role -> MISMATCH
     assert (
-        cl.open_commitment(linkage, role="agent", fp_digest=FP, opening=VECTORS[1][2])
+        cl._open_commitment(linkage, role="agent", fp_digest=FP, opening=VECTORS[1][2])
         == cl.COMMITMENT_OPENED_MISMATCH
     )
     # unavailable basis, and an absent role -> UNAVAILABLE
     assert (
-        cl.open_commitment(linkage, role="config_space", fp_digest=FP, opening=bytes(32))
+        cl._open_commitment(linkage, role="config_space", fp_digest=FP, opening=bytes(32))
         == cl.COMMITMENT_UNAVAILABLE
     )
     assert (
-        cl.open_commitment(linkage, role="evaluator:other", fp_digest=FP, opening=bytes(32))
+        cl._open_commitment(linkage, role="evaluator:r5", fp_digest=FP, opening=bytes(32))
         == cl.COMMITMENT_UNAVAILABLE
     )
 
@@ -339,10 +343,10 @@ def test_open_refuses_malformed_inputs_and_unverified_linkage():
         (dict(role="agent", fp_digest=FP, opening=b"short"), "OPENING_SHAPE"),
     ]:
         with pytest.raises(cl.CommitmentLinkageError) as exc:
-            cl.open_commitment(linkage, **kw)
+            cl._open_commitment(linkage, **kw)
         assert exc.value.code == code
     with pytest.raises(cl.CommitmentLinkageError) as exc:
-        cl.open_commitment(_sign(_unsigned()), role="agent", fp_digest=FP, opening=bytes(32))  # type: ignore[arg-type]
+        cl._open_commitment(_sign(_unsigned()), role="agent", fp_digest=FP, opening=bytes(32))  # type: ignore[arg-type]
     assert exc.value.code == "CONTEXT"
 
 
@@ -451,3 +455,106 @@ def test_process_record_schema_still_rejects_a_linkage_field():
     assert "commitment_linkage" not in bundle_def["properties"]
     unsigned_def = schema["definitions"]["ProcessRecordUnsignedManifestV1"]
     assert "commitment_linkage" not in unsigned_def["properties"]
+
+
+# ------------------------------------------------------------------ r2 fixes
+@pytest.mark.parametrize("role", ["evaluator:primary", *[f"evaluator:r{i}" for i in range(8)]])
+def test_evaluator_role_vocabulary_is_closed_but_accepts_fixed_tokens(role):
+    assert cl.compute_commitment(role=role, basis="source_text", fp_digest=FP, opening=bytes(32))
+
+
+@pytest.mark.parametrize(
+    "role", ["evaluator:alice_has_diabetes", "evaluator:r8", "evaluator:Primary", "evaluator:"]
+)
+def test_python_refuses_open_evaluator_roles(role):
+    with pytest.raises(cl.CommitmentLinkageError) as exc:
+        cl.compute_commitment(role=role, basis="source_text", fp_digest=FP, opening=bytes(32))
+    assert exc.value.code == "ROLE_SHAPE"
+
+
+def test_open_commitment_is_not_public_and_caller_constructed_result_cannot_match():
+    assert not hasattr(cl, "open_commitment")
+    assert "open_commitment" not in cl.__all__
+    commitment = cl.compute_commitment(
+        role="agent", basis="source_text", fp_digest=FP, opening=bytes(32)
+    )
+    forged = cl.VerifiedCommitmentLinkage(
+        RECORD_A, RECORD_A, (("agent", "source_text", commitment),)
+    )
+    # The only public openers take an envelope + trusted context; a forged
+    # result is not accepted by them.
+    for public in (cl.verify_and_open_commitment, cl.verify_commitment_linkage):
+        with pytest.raises(cl.CommitmentLinkageError) as exc:
+            public(forged, context=_ctx(), **(
+                dict(role="agent", fp_digest=FP, opening=bytes(32))
+                if public is cl.verify_and_open_commitment
+                else {}
+            ))
+        assert exc.value.code == "ENVELOPE_SHAPE"
+
+
+def test_verify_and_open_commitment_public_path():
+    env = _sign(_unsigned())
+    role, _basis, opening, _ = VECTORS[0]
+    assert (
+        cl.verify_and_open_commitment(
+            env, context=_ctx(), role=role, fp_digest=FP, opening=opening
+        )
+        == cl.COMMITMENT_OPENED_MATCH
+    )
+    assert (
+        cl.verify_and_open_commitment(
+            env, context=_ctx(), role=role, fp_digest=FP, opening=bytes(32)
+        )
+        == cl.COMMITMENT_OPENED_MISMATCH
+    )
+    with pytest.raises(cl.CommitmentLinkageError) as exc:
+        cl.verify_and_open_commitment(
+            env, context=_ctx(RECORD_B), role=role, fp_digest=FP, opening=opening
+        )
+    assert exc.value.code == "RECORD_BINDING_MISMATCH"
+    with pytest.raises(cl.CommitmentLinkageError) as exc:
+        cl.verify_and_open_commitment(
+            env, context=_ctx(), role="nope", fp_digest=FP, opening=opening
+        )
+    assert exc.value.code == "ROLE_SHAPE"
+
+
+def _formatted(exc: BaseException) -> str:
+    return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+
+
+def test_non_ascii_key_material_closed_code_and_no_traceback_leak():
+    secret = "\u00e9SECRETKEYCHAR"
+    bad = cl.LinkageIssuerKeyV1(
+        key_ref=KEY_REF,
+        trust_ring_ref=RING_REF,
+        algorithm="ed25519",
+        public_key_der_b64=secret,
+        public_key_digest=ISSUER_KEY.public_key_digest,
+    )
+    with pytest.raises(cl.CommitmentLinkageError) as exc:
+        cl.verify_commitment_linkage(_sign(_unsigned()), context=_ctx(issuer_key=bad))
+    assert exc.value.code == "KEY_MATERIAL"
+    assert exc.value.__cause__ is None and exc.value.__context__ is None
+    assert "SECRETKEYCHAR" not in _formatted(exc.value) and "\u00e9" not in _formatted(exc.value)
+    with pytest.raises(cl.CommitmentLinkageError) as exc2:
+        cl.verify_and_open_commitment(
+            _sign(_unsigned()),
+            context=_ctx(issuer_key=bad),
+            role="agent",
+            fp_digest=FP,
+            opening=bytes(32),
+        )
+    assert exc2.value.__context__ is None
+    assert "SECRETKEYCHAR" not in _formatted(exc2.value)
+
+
+def test_internal_failures_have_no_chained_context():
+    secret_role = "evaluator:Alice_has_diabetes"
+    entries = _entries()
+    entries[0]["role"] = secret_role
+    with pytest.raises(cl.CommitmentLinkageError) as exc:
+        cl.verify_commitment_linkage(_sign(_unsigned(entries=entries)), context=_ctx())
+    assert exc.value.__context__ is None and exc.value.__suppress_context__
+    assert "Alice" not in _formatted(exc.value)

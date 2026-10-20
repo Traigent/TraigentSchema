@@ -29,11 +29,11 @@
       }
     },
     "CommitmentRoleV1": {
-      "description": "Artifact role. Evaluators are role-indexed: one entry per evaluator role, written 'evaluator:<role>'. The role token is a lowercase code-style identifier from the session's evaluator-role vocabulary, never free text. There is deliberately no build-definition role.",
+      "description": "Artifact role. Evaluators are role-indexed: one entry per evaluator role, written 'evaluator:primary' or 'evaluator:r0' through 'evaluator:r7'. This is a closed, service-assigned vocabulary; customer evaluator labels are content, stay customer-side, and never appear in a role token. There is deliberately no build-definition role.",
       "type": "string",
       "anyOf": [
         {"enum": ["agent", "dataset", "config_space"]},
-        {"pattern": "^evaluator:[a-z][a-z0-9_]{0,31}$"}
+        {"pattern": "^evaluator:(primary|r[0-7])$"}
       ]
     },
     "CommitmentBasisV1": {

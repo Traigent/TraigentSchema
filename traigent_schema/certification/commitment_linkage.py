@@ -102,7 +102,9 @@ _SCHEMAS_DIR = _SCHEMA_PATH.parent.parent
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
-_ROLE_RE = re.compile(r"^(agent|dataset|config_space|evaluator:[a-z][a-z0-9_]{0,31})$")
+# Evaluator roles are a CLOSED, service-assigned vocabulary. Customer labels are
+# content and stay customer-side; they never appear in a role token.
+_ROLE_RE = re.compile(r"^(agent|dataset|config_space|evaluator:(primary|r[0-7]))$")
 _BASES = frozenset(
     {
         "source_text",
@@ -124,7 +126,7 @@ class CommitmentLinkageError(ValueError):
 
 
 def _fail(code: str) -> NoReturn:
-    raise CommitmentLinkageError(code)
+    raise CommitmentLinkageError(code) from None
 
 
 def _lp(value: bytes) -> bytes:
@@ -224,9 +226,10 @@ class CommitmentLinkageVerificationContext:
 class VerifiedCommitmentLinkage:
     """Authenticated linkage: signature, record binding and scope all checked.
 
-    Only :func:`verify_commitment_linkage` constructs a meaningful instance;
-    pass it to :func:`open_commitment`. ``entries`` maps role to
-    ``(basis, commitment-or-None)``.
+    Only :func:`verify_commitment_linkage` constructs a meaningful instance.
+    A caller-constructed instance is NOT authenticated and no public function
+    accepts one for opening; use :func:`verify_and_open_commitment`.
+    ``entries`` maps role to ``(role, basis, commitment-or-None)``.
     """
 
     process_record_digest: str
@@ -267,12 +270,15 @@ def verify_commitment_linkage(
         _fail("CONTEXT")
     if type(envelope) is not dict:
         _fail("ENVELOPE_SHAPE")
+    # Translate to a closed code OUTSIDE any except block so no underlying
+    # exception (and its offending value) stays attached as __context__.
     try:
         return _verify(cast(dict[str, Any], envelope), context)
-    except CommitmentLinkageError:
-        raise
+    except CommitmentLinkageError as err:
+        code = err.code
     except Exception:
-        raise CommitmentLinkageError("VERIFICATION_FAILED") from None
+        code = "VERIFICATION_FAILED"
+    raise CommitmentLinkageError(code) from None
 
 
 def _verify(
@@ -304,6 +310,8 @@ def _verify(
     ):
         _fail("KEY_MISMATCH")
 
+    if not (key.public_key_der_b64.isascii() and key.public_key_digest.isascii()):
+        _fail("KEY_MATERIAL")
     try:
         public_key = _material_public_key(
             {
@@ -345,10 +353,13 @@ def _verify(
     )
 
 
-def open_commitment(
+def _open_commitment(
     linkage: VerifiedCommitmentLinkage, *, role: str, fp_digest: str, opening: bytes
 ) -> str:
-    """Open one role's commitment against an AUTHENTICATED linkage.
+    """INTERNAL: open one role's commitment against an AUTHENTICATED linkage.
+
+    Not public: ``VerifiedCommitmentLinkage`` can be constructed by any caller,
+    so only :func:`verify_and_open_commitment` (which verifies first) is exported.
 
     Returns ``COMMITMENT_OPENED_MATCH`` iff ``compute_commitment`` over the
     entry's own role and basis, the supplied ``fp_digest`` and ``opening``
@@ -380,6 +391,30 @@ def open_commitment(
     return COMMITMENT_UNAVAILABLE
 
 
+def verify_and_open_commitment(
+    envelope: object,
+    *,
+    context: CommitmentLinkageVerificationContext,
+    role: str,
+    fp_digest: str,
+    opening: bytes,
+) -> str:
+    """Verify the sidecar, then open one role's commitment (public entry point).
+
+    Runs :func:`verify_commitment_linkage` under the trusted ``context`` and
+    only then compares; a result never depends on a caller-built linkage.
+    Returns ``COMMITMENT_OPENED_MATCH``, ``COMMITMENT_OPENED_MISMATCH`` or
+    ``COMMITMENT_UNAVAILABLE`` (see the module claim scope); failures raise a
+    closed :class:`CommitmentLinkageError`.
+    """
+    linkage = verify_commitment_linkage(envelope, context=context)
+    try:
+        return _open_commitment(linkage, role=role, fp_digest=fp_digest, opening=opening)
+    except CommitmentLinkageError as err:
+        code = err.code
+    raise CommitmentLinkageError(code) from None
+
+
 __all__ = [
     "COMMITMENT_LINKAGE_ERROR_CODES",
     "COMMITMENT_OPENED_MATCH",
@@ -391,6 +426,6 @@ __all__ = [
     "VerifiedCommitmentLinkage",
     "compute_commitment",
     "new_opening",
-    "open_commitment",
+    "verify_and_open_commitment",
     "verify_commitment_linkage",
 ]

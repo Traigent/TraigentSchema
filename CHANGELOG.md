@@ -17,10 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are
   untouched, so previously signed bytes verify as before. Per-role entries (`agent`, `dataset`,
-  `evaluator:<role>`, `config_space`) carry a closed `basis`, `attestation: client_declared` and a randomized
+  `evaluator:primary|r0..r7` (closed service-assigned vocabulary), `config_space`) carry a closed `basis`, `attestation: client_declared` and a randomized
   commitment: SHA-256 over a versioned domain and length-prefixed (role, basis, fp1 digest, 32-byte CSPRNG
   opening). New `traigent_schema/certification/commitment_linkage.py` provides `compute_commitment`,
-  `new_opening`, `verify_commitment_linkage` (signature, exact record binding, scope) and `open_commitment`
+  `new_opening`, `verify_commitment_linkage` (signature, exact record binding, scope) and `verify_and_open_commitment` (verifies first; no public opener takes a caller-built result)
   with closed results `COMMITMENT_OPENED_MATCH` / `_MISMATCH` / `COMMITMENT_UNAVAILABLE`. A match is against
   the authenticated client-declared session-start fingerprint, not proof of execution. The build definition
   stays unbound. Pinned by `tests/test_commitment_linkage.py`.

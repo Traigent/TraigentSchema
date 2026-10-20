@@ -19,11 +19,13 @@
           "$ref": "../common_types_schema.json#/definitions/ForeignKeyId"
         },
         "version_digest": {
+          "x-content-class": "digest",
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
           "description": "evaluator_version_digest over an EvaluatorVersionManifestV1 (evaluation/evaluator_version_manifest_v1_schema.json)."
         },
         "resolution": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "witnessed_at_scoring",

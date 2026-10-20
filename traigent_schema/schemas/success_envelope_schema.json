@@ -4,6 +4,9 @@
   "title": "Success Envelope DTO",
   "description": "Canonical success-response envelope {success, message, data} returned by backend routes that use response_handler.success_response or response_handler.paginated_response. The discriminator `success` is true (error_envelope_schema sets it false). `data` is the route-specific payload. Companion to error_envelope_schema.json. PAGINATION IS NESTED, NOT TOP-LEVEL: the canonical `paginated_response` helper is strict nested-only and emits `data.pagination` alongside `data.items` (TraigentBackend src/utils/response_handler.py:288-296 states the rule, :349-356 emits it). This schema previously declared a top-level `pagination` property, which no producer of this envelope emits; the declaration has been removed and each paginated response schema declares `pagination` inside its own `data` object. `additionalProperties` stays true, so a route that still puts pagination at the top level is not rejected by this envelope \u2014 it is simply not described by it. The authoritative backend wrap-map (which route files wrap vs return bare) is recorded in x-wrap-map so consumers and the bare/enveloped read-path can be reconciled (#136); route files that are neither wholly wrapped nor wholly bare are recorded under x-wrap-map.mixed with their enveloped operations enumerated.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "additionalProperties": true,
   "x-wrap-map": {
     "wrapped": [
@@ -50,19 +53,27 @@
   },
   "properties": {
     "success": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "const": true,
       "description": "Discriminator. Always true for success responses."
     },
     "message": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "maxLength": 240,
       "description": "Optional human-readable summary."
     },
     "data": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): data",
       "description": "Route-specific success payload."
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": "object",
       "additionalProperties": true
     }

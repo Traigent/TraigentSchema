@@ -7,6 +7,8 @@
   "version": "1.0.0",
   "properties": {
     "schema_version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "default": "1.0.0",
       "description": "Objective schema version emitted by the SDK"
@@ -28,6 +30,9 @@
       "minItems": 1
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S3-12 (OPEN): metadata",
       "type": "object",
       "description": "Optional implementation metadata for objective producers and consumers",
       "additionalProperties": true

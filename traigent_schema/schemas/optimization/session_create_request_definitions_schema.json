@@ -1,0 +1,230 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_create_request_definitions_schema.json",
+  "title": "SessionCreateRequestDefinitions",
+  "description": "Shared definitions for the POST /api/v1/sessions request body in optimization_endpoints.json, moved out of the embedded schema unchanged so that every $ref resolves against a document root.",
+  "definitions": {
+    "CanonicalTypedObjectiveDefinition": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.traigent.ai/optimization/objective_definition_schema.json"
+        },
+        {
+          "type": "object",
+          "required": [
+            "name",
+            "orientation",
+            "weight"
+          ]
+        }
+      ]
+    },
+    "LegacyObjectObjectiveDefinition": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1: not inventoried (free object/array): LegacyObjectObjectiveDefinition",
+      "type": "object",
+      "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives.",
+      "required": [
+        "metric"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "direction"
+          ]
+        },
+        {
+          "required": [
+            "band"
+          ]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "metric": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S1-23 (LEAK): metric",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "direction": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "maximize",
+            "minimize"
+          ]
+        },
+        "weight": {
+          "x-content-class": "number",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "band": {
+          "$ref": "#/definitions/LegacyObjectiveBand"
+        },
+        "test": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "TOST"
+          ]
+        },
+        "alpha": {
+          "x-content-class": "number",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      }
+    },
+    "LegacyObjectiveBand": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1: not inventoried (free object/array): LegacyObjectiveBand",
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "low",
+            "high"
+          ]
+        },
+        {
+          "required": [
+            "center",
+            "tol"
+          ]
+        }
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "low": {
+          "x-content-class": "number",
+          "type": "number"
+        },
+        "high": {
+          "x-content-class": "number",
+          "type": "number"
+        },
+        "center": {
+          "x-content-class": "number",
+          "type": "number"
+        },
+        "tol": {
+          "x-content-class": "number",
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "TypedObjectiveArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/CanonicalTypedObjectiveDefinition"
+          },
+          {
+            "$ref": "#/definitions/LegacyObjectObjectiveDefinition"
+          }
+        ]
+      }
+    },
+    "LegacyStringObjectiveArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP S1: not inventoried (free string): items",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      }
+    },
+    "ArtifactVersion": {
+      "type": "object",
+      "required": [
+        "schema",
+        "state"
+      ],
+      "properties": {
+        "schema": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Manifest algorithm identifier, e.g. 'afp2' (agent), 'dfp2o' (dataset, ordered), 'efp2' (evaluator), 'cfp2' (config space). Tagging the algorithm lets it change without invalidating stored history."
+        },
+        "digest": {
+          "x-content-class": "digest",
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent.",
+          "maxLength": 71
+        },
+        "state": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "verified",
+            "unknown"
+          ],
+          "description": "'verified' = the manifest was completed and the digest is trustworthy. 'unknown' = the manifest could not be completed (unsupported value, opaque closure state, external evaluator without a declared revision). An 'unknown' version cannot participate in a comparability claim."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "required": [
+              "digest"
+            ],
+            "properties": {
+              "digest": {
+                "type": "string",
+                "maxLength": 71
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "unknown"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "digest": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

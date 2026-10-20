@@ -7,6 +7,7 @@
   "version": "0.10.0",
   "definitions": {
     "ObjectiveDirection": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["maximize", "minimize", "band"],
       "description": "Optimization direction:\n- maximize: Higher values are better\n- minimize: Lower values are better\n- band: Value should fall within a target range"
@@ -20,18 +21,21 @@
           "type": "array",
           "description": "[lower, upper] target band boundaries",
           "items": {
+            "x-content-class": "number",
             "type": "number"
           },
           "minItems": 2,
           "maxItems": 2
         },
         "test": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": ["TOST"],
           "default": "TOST",
           "description": "Statistical test for band compliance"
         },
         "alpha": {
+          "x-content-class": "number",
           "type": "number",
           "description": "Significance level for band test",
           "minimum": 0,
@@ -42,6 +46,7 @@
       "additionalProperties": false
     },
     "NormalizationStrategy": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["min_max", "z_score", "robust"],
       "default": "min_max",
@@ -50,6 +55,8 @@
   },
   "properties": {
     "name": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S1-23 (LEAK): name",
       "type": "string",
       "description": "Objective metric name (must match a measure name)",
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
@@ -63,6 +70,7 @@
       "description": "SDK wire-format optimization orientation for this objective."
     },
     "weight": {
+      "x-content-class": "number",
       "type": "number",
       "description": "Relative weight of this objective in multi-objective optimization",
       "default": 1,
@@ -76,12 +84,15 @@
       "type": ["array", "null"],
       "description": "Optional [lower, upper] objective bounds used by SDK objective schemas",
       "items": {
+        "x-content-class": "number",
         "type": "number"
       },
       "minItems": 2,
       "maxItems": 2
     },
     "unit": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): unit",
       "type": ["string", "null"],
       "description": "Optional unit of measurement (e.g., 'percent', 'seconds', 'usd')"
     },
@@ -97,12 +108,14 @@
       "description": "Target band specification (required when direction is 'band')"
     },
     "band_test": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["TOST"],
       "default": "TOST",
       "description": "SDK wire-format statistical test for banded objectives"
     },
     "band_alpha": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0,
       "maximum": 1,

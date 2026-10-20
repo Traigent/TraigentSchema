@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/label_write_schema.json",
+  "title": "NegotiatedLabelWrite",
+  "description": "Negotiated label write of the content-less optimization channel (plan v2.1 phase 1b-2b, decision D8=A): POST /api/v1/optimization/labels. The body is today's label write (labels/label_io_schema.json#/definitions/LabelWriteRequest) plus `schema_version`; the difference is the route: a write on THIS route can be validated against issued references (object_ref must be a reference the Backend issued, in the caller's tenant and project, of the kind in its prefix) while the legacy PUT /api/v1/labels/objects keeps accepting any well-formed ref. Document root is the request; LabelWriteRequest, LabelWriteResponse and LabelWriteRefusal in definitions are the three bodies of the route. The only content-bearing field is the sealed envelope (ciphertext), classed exactly as in the label contract; every other field is an opaque reference, a closed enum or a number.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_ref",
+    "purpose",
+    "base_revision",
+    "epoch",
+    "envelope"
+  ],
+  "properties": {
+    "schema_version": {
+      "x-content-class": "closed_enum",
+      "type": "integer",
+      "const": 1,
+      "description": "Negotiated label-write contract version."
+    },
+    "object_ref": {
+      "$ref": "../labels/label_common_schema.json#/definitions/ObjectRef",
+      "description": "The object the label names. On this route it must be an ISSUED reference of its kind in the caller's tenant and project (identity kinds through the identity authority registry, knob/choice/metric/template through the token authority), otherwise the write is refused reference_not_issued."
+    },
+    "purpose": {
+      "$ref": "../labels/label_common_schema.json#/definitions/Purpose"
+    },
+    "base_revision": {
+      "$ref": "../labels/label_common_schema.json#/definitions/Revision"
+    },
+    "epoch": {
+      "$ref": "../labels/label_common_schema.json#/definitions/Epoch"
+    },
+    "envelope": {
+      "$ref": "../labels/label_envelope_schema.json",
+      "description": "The sealed label. envelope.key_epoch MUST equal epoch."
+    }
+  },
+  "definitions": {
+    "LabelWriteRequest": {
+      "$ref": "#"
+    },
+    "LabelWriteResponse": {
+      "$ref": "../labels/label_io_schema.json#/definitions/LabelWriteResponse"
+    },
+    "LabelWriteRefusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "error",
+        "error_code",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": false
+        },
+        "error": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "reference_not_issued",
+            "stale_revision",
+            "stale_epoch",
+            "conflict",
+            "internal_error",
+            "service_unavailable"
+          ]
+        },
+        "error_code": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "reference_not_issued",
+            "stale_revision",
+            "stale_epoch",
+            "conflict",
+            "internal_error",
+            "service_unavailable"
+          ],
+          "description": "invalid_request (400): body, schema_version, object_ref, purpose, revision, epoch or envelope fails validation, carries an unknown or duplicate field, or the envelope key_epoch differs from epoch (fixed text, nothing echoed). reference_not_issued (422): object_ref is well formed but is not an issued reference of its kind in the caller's tenant and project (unknown, foreign, not visible, a token of another kind, an identity kind that is not enabled, or a kind with no authority yet); one answer for all of them, the ref is never echoed. stale_revision (409): base_revision is not the object's current revision. stale_epoch (409): epoch is not the project's current epoch. conflict (409): the object already exists under another purpose, or the insert conflicts with stored state. internal_error (500): any server failure, including an unrecognised LABEL_VALIDATE_ISSUED_REFS value (the route refuses rather than guessing a mode). While the route is dark it answers the framework's uniform unknown-route 404, never this envelope. service_unavailable (503): a dependency of the request (for example authentication) is temporarily unavailable; the response may carry a Retry-After header and the request may be retried (fixed text, no details)."
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Request is invalid.",
+            "Reference was not issued.",
+            "Object revision is not current.",
+            "Key epoch is not current.",
+            "Request conflicts with stored state.",
+            "Internal error.",
+            "Service is temporarily unavailable."
+          ],
+          "description": "Fixed text per code, in the order of error_code."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Request is invalid."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_issued"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_issued"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Reference was not issued."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "stale_revision"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "stale_revision"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Object revision is not current."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "stale_epoch"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "stale_epoch"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Key epoch is not current."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "conflict"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "conflict"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Request conflicts with stored state."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Internal error."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "service_unavailable"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Service is temporarily unavailable."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

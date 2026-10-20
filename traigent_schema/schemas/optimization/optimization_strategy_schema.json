@@ -55,6 +55,7 @@
   },
   "definitions": {
     "AdvertisedOptimizationAlgorithmName": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "All algorithm names that may appear in public capability metadata.",
       "enum": [
@@ -68,6 +69,7 @@
       ]
     },
     "SupportedOptimizationStrategyName": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Algorithm names accepted for new optimization_strategy requests.",
       "enum": [
@@ -81,6 +83,7 @@
       ]
     },
     "OptimizationImplementationStatus": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "'supported' = currently executable; 'planned' = advertised in the vocabulary but not yet available.",
       "enum": [
@@ -89,6 +92,7 @@
       ]
     },
     "OptimizationCapabilityExecutionMode": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Canonical execution-mode capability metadata for an algorithm (Traigent#2271: legacy execution_mode request selector and its edge_analytics/hybrid/hybrid_api values are removed). 'local' = client-side orchestration (grid, random algorithms) with no backend egress. 'cloud' = backend-driven trial suggestion (auto, bayesian/tpe, hyperband, frontier_scout). An external evaluator is a separate, orthogonal concern selected via hybrid_api_options, not an execution_mode value.",
       "enum": [
@@ -115,15 +119,19 @@
           "description": "Canonical execution-mode metadata for the algorithm capability (local or cloud)."
         },
         "alias_for": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "tpe"
           ]
         },
         "deprecated": {
+          "x-content-class": "closed_enum",
           "type": "boolean"
         },
         "description": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): description",
           "type": "string"
         }
       },
@@ -136,6 +144,9 @@
           "$ref": "#/definitions/SupportedOptimizationStrategyName"
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "required": [
             "algorithm"
@@ -147,6 +158,7 @@
               "description": "Public SDK optimization algorithm selector. auto lets Traigent choose cloud-first automatic execution with local fallback."
             },
             "offline": {
+              "x-content-class": "closed_enum",
               "type": "boolean",
               "default": false,
               "description": "force fully-local execution with no backend egress."
@@ -156,9 +168,11 @@
               "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
             },
             "seed": {
+              "x-content-class": "number",
               "type": "integer"
             },
             "sampler": {
+              "x-content-class": "closed_enum",
               "type": "string",
               "enum": [
                 "tpe",
@@ -166,24 +180,33 @@
               ]
             },
             "max_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 1
             },
             "startup_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "n_startup_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "random_seed": {
+              "x-content-class": "number",
               "type": "integer"
             },
             "tracking_mode": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): tracking_mode",
               "type": "string"
             },
             "parameters": {
+              "x-content-key-class": "legacy_content",
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): parameters",
               "type": "object",
               "additionalProperties": true
             }
@@ -191,6 +214,9 @@
           "additionalProperties": true
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "required": [
             "type"
@@ -200,6 +226,7 @@
               "$ref": "#/definitions/SupportedOptimizationStrategyName"
             },
             "offline": {
+              "x-content-class": "closed_enum",
               "type": "boolean",
               "default": false,
               "description": "force fully-local execution with no backend egress."
@@ -209,9 +236,11 @@
               "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
             },
             "seed": {
+              "x-content-class": "number",
               "type": "integer"
             },
             "sampler": {
+              "x-content-class": "closed_enum",
               "type": "string",
               "enum": [
                 "tpe",
@@ -219,24 +248,33 @@
               ]
             },
             "max_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 1
             },
             "startup_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "n_startup_trials": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 0
             },
             "random_seed": {
+              "x-content-class": "number",
               "type": "integer"
             },
             "tracking_mode": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): tracking_mode",
               "type": "string"
             },
             "parameters": {
+              "x-content-key-class": "legacy_content",
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): parameters",
               "type": "object",
               "additionalProperties": true
             }

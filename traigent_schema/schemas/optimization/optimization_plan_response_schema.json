@@ -16,12 +16,15 @@
   "additionalProperties": false,
   "definitions": {
     "MetricName": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
     },
     "PlanPhase": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "P1_STATIC"
@@ -29,6 +32,7 @@
       "description": "Coarse pre-run planning phase label."
     },
     "ObjectiveOrientation": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "maximize",
@@ -36,6 +40,7 @@
       ]
     },
     "OptimizationPlanAlgorithm": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "auto",
@@ -47,6 +52,7 @@
       ]
     },
     "EvidenceLevel": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "low",
@@ -67,6 +73,7 @@
           "$ref": "#/definitions/MetricName"
         },
         "weight": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0,
           "description": "Relative objective weight selected for the client-facing plan."
@@ -85,6 +92,8 @@
       "additionalProperties": false,
       "properties": {
         "name": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
@@ -96,6 +105,8 @@
           "minItems": 1,
           "maxItems": 100,
           "items": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP O2: not inventoried (free string): values",
             "type": "string",
             "minLength": 1,
             "maxLength": 255
@@ -130,6 +141,8 @@
           "minItems": 1,
           "maxItems": 50,
           "items": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP O2: not inventoried (free string): models",
             "type": "string",
             "minLength": 1,
             "maxLength": 255
@@ -148,14 +161,17 @@
           "$ref": "#/definitions/OptimizationPlanAlgorithm"
         },
         "max_trials": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 1
         },
         "cost_limit_usd": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": 0
         },
         "offline": {
+          "x-content-class": "closed_enum",
           "type": "boolean"
         }
       }
@@ -170,17 +186,23 @@
       "additionalProperties": false,
       "properties": {
         "id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
           "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"
         },
         "label": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP O2: not inventoried (free string): label",
           "type": "string",
           "minLength": 1,
           "maxLength": 255
         },
         "command_template": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP O2: not inventoried (free string): command_template",
           "type": "string",
           "minLength": 1,
           "maxLength": 2000,
@@ -191,6 +213,8 @@
   },
   "properties": {
     "schema_version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Version of this response contract."
     },
@@ -213,12 +237,15 @@
       "$ref": "#/definitions/EvidenceLevel"
     },
     "caveat": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O2-9 (OPEN): caveat",
       "type": "string",
       "minLength": 1,
       "maxLength": 2000,
       "description": "Client-facing caveat explaining plan limitations."
     },
     "advisory": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "const": true,
       "description": "Plans are advisory until the caller explicitly starts a run."

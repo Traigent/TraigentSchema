@@ -4,34 +4,49 @@
   "title": "SessionCreateResponseDTO",
   "description": "Response of POST /api/v1/sessions (TraigentBackend InteractiveSessionService.create_session typed return; route docstring in src/routes/traigent_session_routes.py create_session). Carries the new session_id and status, plus the experiment's server-issued owning scope (project_id, tenant_id) which the Python and JS SDKs combine with metadata.experiment_id to build the portal link /experiments/view/<experiment_id>?run_id=..&project_id=..&tenant_id=... The legacy route path additionally wraps the payload in success/data and adds message and total_configurations; those keys stay permitted so existing consumers do not break.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "required": [
     "session_id",
     "status"
   ],
   "properties": {
     "session_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1
     },
     "status": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Session lifecycle status; 'created' on success."
     },
     "message": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Legacy human-readable message; not part of the typed contract and not to be parsed."
     },
     "project_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "description": "Server-issued id of the project that owns the experiment (the caller's own context, no customer content). Exists so SDKs can build the portal link, which is scoped by project_id and tenant_id. OPTIONAL: omitted, never null, when the scope is absent; consumers must degrade to a link without it. Present values are non-empty strings."
     },
     "tenant_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "description": "Server-issued id of the tenant that owns the experiment (the caller's own context, no customer content). Exists so SDKs can build the portal link, which is scoped by project_id and tenant_id. OPTIONAL: omitted, never null, when the scope is absent; consumers must degrade to a link without it. Present values are non-empty strings."
     },
     "agent_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": [
         "string",
         "null"
@@ -40,26 +55,39 @@
       "x-reference": "../agents/agent_schema.json#/properties/id"
     },
     "optimization_strategy": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S1-61 (OPEN): optimization_strategy",
       "type": "object",
       "additionalProperties": true,
       "description": "Strategy state echoed by the server (algorithm, resolved_sampler, ...)."
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
       "type": "object",
       "properties": {
         "experiment_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "description": "Experiment the session belongs to; present together with experiment_run_id."
         },
         "experiment_run_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": "string",
           "description": "Experiment run backing the session; present together with experiment_id."
         },
         "total_configurations": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0
         },
         "agent_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
           "type": [
             "string",
             "null"
@@ -67,9 +95,12 @@
           "description": "Agent bound to the session (session_agent_bindings) for an API-key caller; null for a JWT caller, who never gets a binding."
         },
         "function_name": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S1-63 (LEAK): function_name",
           "type": "string"
         },
         "dataset_size": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0
         },
@@ -79,15 +110,37 @@
       },
       "additionalProperties": true
     },
+    "capabilities": {
+      "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+      "description": "Capabilities the Backend supports, advertised so a client can negotiate. `content_less_v1` present = the Backend accepts the content-less shapes. A content-less client that does not find it refuses with `backend_upgrade_required` and never falls back to plaintext. Additive; absent on Backends that predate it."
+    },
+    "agent_ref": {
+      "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+      "description": "Backend-issued opaque reference to the Agent row this session was resolved against. Additive; absent on Backends that predate it. A caller must not infer identity from its absence."
+    },
+    "dataset_ref": {
+      "$ref": "../labels/label_common_schema.json#/definitions/DatasetRef",
+      "description": "Backend-issued opaque reference to the evaluation dataset the session runs against. Additive; absent on Backends that predate it."
+    },
+    "evaluator_ref": {
+      "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
+      "description": "Backend-issued opaque reference to the evaluator. Additive; absent on Backends that predate it."
+    },
     "warnings": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S1-71 (OPEN): warnings",
       "type": "array",
       "description": "Optional non-fatal create-time warnings; omitted when there are none."
     },
     "success": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "description": "Legacy envelope flag (legacy route path only)."
     },
     "data": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP S1: not inventoried (free object/array): data",
       "type": "object",
       "additionalProperties": true,
       "description": "Legacy envelope payload (legacy route path only)."

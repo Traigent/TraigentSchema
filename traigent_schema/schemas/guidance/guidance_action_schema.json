@@ -5,6 +5,7 @@
   "description": "Shared enumerations for the GuidancePlan contract. These are user-facing intent verbs and opaque coarse buckets only. They carry no proprietary tuning-signal names, values, or formulas; the server-side selection policy that assigns them is intentionally not described here.",
   "definitions": {
     "Action": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "What the client should do with the referenced seed. A user-facing generation verb, not a signal.",
       "enum": [
@@ -15,6 +16,7 @@
       ]
     },
     "CoarsePriority": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Opaque coarse priority bucket assigned by the server. Three ordinal levels only; not client-interpretable and not derived-value-bearing.",
       "enum": [
@@ -24,6 +26,7 @@
       ]
     },
     "PlanKind": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "Which guided-generation capability this plan drives.",
       "enum": [
@@ -32,6 +35,7 @@
       ]
     },
     "SeedScope": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "description": "How broadly the client is willing to let the server select seeds. 'auto' lets the private policy decide; the client never asks for a specific signal.",
       "enum": [

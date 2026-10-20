@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/optimization_refusal_schema.json",
+  "title": "OptimizationRefusal",
+  "description": "Wire refusal envelope for the content-less compatibility matrix. Compatible with the generic error envelope (same success/message/error/error_code members) but closed: `error_code` is one of the wire refusal codes, `message` is the fixed text for that code, and nothing of the request is echoed. `backend_upgrade_required` is a client-local refusal (raised by a content-less client when the Backend does not advertise `content_less_v1`) and never appears on the wire.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "error", "error_code"],
+  "properties": {
+    "success": {
+      "x-content-class": "closed_enum",
+      "type": "boolean",
+      "const": false
+    },
+    "error": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "const": "upgrade_required",
+      "description": "Fixed broad error name for every refusal in this envelope."
+    },
+    "error_code": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": ["client_upgrade_required", "session_shape_legacy"],
+      "description": "The wire subset of OptimizationRefusalCode in session_capabilities_schema.json."
+    },
+    "message": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": [
+        "Client upgrade required.",
+        "Session was created with the legacy shape; start a new session."
+      ],
+      "description": "Fixed text per code: client_upgrade_required -> the first, session_shape_legacy -> the second."
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "error_code": {"x-content-class": "closed_enum", "const": "client_upgrade_required"},
+        "message": {"x-content-class": "closed_enum", "const": "Client upgrade required."}
+      }
+    },
+    {
+      "properties": {
+        "error_code": {"x-content-class": "closed_enum", "const": "session_shape_legacy"},
+        "message": {"x-content-class": "closed_enum", "const": "Session was created with the legacy shape; start a new session."}
+      }
+    }
+  ]
+}

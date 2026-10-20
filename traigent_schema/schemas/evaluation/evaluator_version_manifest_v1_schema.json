@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "definitions": {
     "Sha256DigestV1": {
+      "x-content-class": "digest",
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
       "description": "'sha256:' + 64 lowercase hex."
@@ -21,10 +22,14 @@
       ],
       "properties": {
         "provider": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}(?![\\s\\S])"
         },
         "model": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): model",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
@@ -46,11 +51,14 @@
       ],
       "properties": {
         "name": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S1-23 (LEAK): name",
           "type": "string",
           "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]{0,127}(?![\\s\\S])",
           "description": "The repo's canonical metric-name pattern (METRIC_NAME), capped at 128 characters."
         },
         "orientation": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "maximize",
@@ -58,6 +66,7 @@
           ]
         },
         "weight": {
+          "x-content-class": "number",
           "type": "number",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
@@ -79,6 +88,7 @@
       ],
       "properties": {
         "manifest_version": {
+          "x-content-class": "closed_enum",
           "type": "integer",
           "const": 1
         },
@@ -94,9 +104,12 @@
           "description": "jcs_v1 SHA-256 of the evaluator's BOUND configuration: thresholds, captured parameters, closure-bound values and any other setting that changes a score but is not source text. efp2 covers source only, so without this a model-free evaluator's threshold change would not be a new version. The digest of {} when there is none."
         },
         "helper_digests": {
+          "x-content-key-class": "closed_enum",
           "type": "object",
           "maxProperties": 256,
           "propertyNames": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): helper_digests",
             "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
           },
           "additionalProperties": {
@@ -125,12 +138,17 @@
           "description": "The objective set. MUST be sorted ascending by name with unique names (the reference rejects anything else), so one set has one spelling. Changing any objective's orientation or weight is a new evaluator version."
         },
         "dependency_versions": {
+          "x-content-key-class": "closed_enum",
           "type": "object",
           "maxProperties": 256,
           "propertyNames": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): dependency_versions",
             "pattern": "^[A-Za-z0-9_.@/-]{1,128}(?![\\s\\S])"
           },
           "additionalProperties": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): dependency_versions",
             "type": "string",
             "minLength": 1,
             "maxLength": 64

@@ -49,11 +49,14 @@
       "additionalProperties": false
     },
     "MeasureResults": {
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free (keys)",
       "type": "object",
       "description": "Results from measure evaluations. Keys must be valid Python identifiers, values must be numeric or null. Maximum 50 keys per result.",
       "maxProperties": 50,
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_.-]*$": {
+          "x-content-class": "number",
           "type": ["number", "null"],
           "description": "Score for a specific measure (numeric values only)"
         }
@@ -66,6 +69,7 @@
       "required": ["example_id", "metrics"],
       "properties": {
         "example_id": {
+          "x-content-class": "opaque_ref",
           "type": "string",
           "maxLength": 255,
           "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$",
@@ -76,27 +80,33 @@
           "description": "Numeric measure scores for this example"
         },
         "input_id": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV S3-17 (LEAK): input_id",
           "type": "string",
           "minLength": 1,
           "maxLength": 100,
           "description": "Optional client-supplied identifier for the example, distinct from the canonical example_id. Carried through for datasets or legacy callers that key rows by their own identifier rather than the server-assigned one."
         },
         "example_digest": {
+          "x-content-class": "digest",
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
           "description": "A keyed, one-way, client-computed identity digest derived from the example's input and expected output. Its purpose is to let the same example be recognized across runs without transmitting the content itself. It is keyed to a client key version identified by the accompanying signal_key_id: the same content under a different key version, or different content under the same key version, each yield a different digest."
         },
         "output_digest": {
+          "x-content-class": "digest",
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
           "description": "A keyed, one-way, client-computed identity digest derived from the example's produced output. Its purpose is to let the same output be recognized across runs without transmitting the content itself. It is keyed to a client key version identified by the accompanying signal_key_id, the same as example_digest."
         },
         "verified_match": {
+          "x-content-class": "closed_enum",
           "type": "number",
           "enum": [0.0, 1.0],
           "description": "Whether the produced output matched the example's expected answer, determined client-side: 1.0 for a match, 0.0 for no match. Omitted entirely -- not sent as null or as 0.0 -- when the example has no usable expected answer to compare against. Absence therefore means \"not checked\", which is not the same as \"checked and failed\"."
         },
         "signal_key_id": {
+          "x-content-class": "opaque_ref",
           "type": "string",
           "pattern": "^[0-9a-f]{12}$",
           "description": "A short tag identifying which client key version example_digest and output_digest on this row were computed under. Its purpose is to let digests computed under different key versions be told apart rather than conflated as if they belonged to the same identity space. Present only alongside the digests it tags."

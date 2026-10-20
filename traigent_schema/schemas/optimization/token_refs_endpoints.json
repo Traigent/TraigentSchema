@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Content-less Token Issuance Route",
+    "version": "1.0.0",
+    "description": "Opaque token issuance of the content-less optimization channel (plan v2.1 phase 1b-2a). Flag-gated (CONTENT_LESS_TOKEN_REFS_ENABLED, default off)."
+  },
+  "paths": {
+    "/api/v1/optimization/token-refs": {
+      "post": {
+        "summary": "Issue knob, choice, metric or template refs for an agent",
+        "description": "TraigentBackend src/routes/optimization_token_refs_routes.py. Resolves `agent_ref` inside the caller's tenant and project (tenant and project come from the authenticated request context only; X-Tenant-Id, query strings and unknown body fields are never consulted or are refused) and issues one ref per item, in order, idempotently by `operation_key`: a first request records a receipt and the token rows in ONE transaction; a replay with the same agent, item count and item list returns the stored refs and inserts nothing; any difference is 409 operation_key_conflict. While the flag is off the route answers the uniform unknown-route 404, byte-identical to a path that does not exist. ORDER OF REFUSALS: (1) unauthenticated 401 / forbidden 403; (2) body invalid 400 invalid_request (unknown field, bad key, bad kind, parent_ref rules, item count outside 1..200); (3) unknown, foreign or unreadable agent_ref or parent_ref 404 reference_not_found; (4) operation_key_conflict 409. Every error body of this route is the closed envelope in token_refs_schema.json#/definitions/TokenRefsRefusal except 401/403 (best_config_head_refusal_schema.json) and 429.",
+        "operationId": "issueTokenRefs",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./token_refs_schema.json#/definitions/TokenRefsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refs in request item order (a first issuance and an exact replay answer identically).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope with fixed text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope with fixed text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found (closed envelope), or the framework's uniform unknown-route 404 while the flag is off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsRefusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "operation_key_conflict. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope with fixed text; no exception data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsRefusal"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "service_unavailable. Closed envelope with fixed text; a Retry-After header is preserved when present. Retry semantics are unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./token_refs_schema.json#/definitions/TokenRefsRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

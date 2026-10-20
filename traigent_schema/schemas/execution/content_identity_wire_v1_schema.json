@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "definitions": {
     "ContentIdentityUnavailableReasonV1": {
+      "x-content-class": "closed_enum",
       "description": "Closed vocabulary of why a content-identity slot is withheld, shared by both SDKs. Content-free by construction: a reason never carries data. purpose_keys_unavailable / purpose_key_provider_failed: no usable grant (reserved: under the no-grant-no-envelope rule neither SDK currently puts them in an envelope). row_not_canonicalizable: some dataset row cannot be canonicalized, so the dataset (and every trial's evaluated set) has no identity. row_outside_dataset: the trial evaluated a row that is not a row of the identified dataset (or carries another key's id). evaluation_results_unavailable: the per-example results (or, JS session only, the dataset rows) were not available to the SDK. members_exceed_inline_cap: more than 2,000 distinct members; the whole slot is withheld until the member-list store (members_ref) exists. conflicting_example_ids_truncated: the dataset's conflicting_example_ids list was cut to its first 1,000 (sorted) ids. agent_id_unavailable: no usable agent id (declared or fallback). agent_manifest_unavailable: the build manifest could not be built. config_not_canonicalizable: the configuration (base or trial) cannot be fp2-digested. evaluator_id_unavailable: the declared evaluator id is not a ForeignKeyId (Python SDK; the JS SDK reports evaluator_manifest_unavailable). evaluator_manifest_unavailable: some EvaluatorVersionManifestV1 field is not KNOWN (built-in or declared), so no evaluator version is claimed.",
       "type": "string",
       "enum": [
@@ -24,11 +25,13 @@
       ]
     },
     "ContentIdentityProvenanceV1": {
+      "x-content-class": "closed_enum",
       "description": "Who asserts the envelope's facts. 'declared': the client computed them; nothing is server-witnessed until the Backend recomputes it (section 11).",
       "type": "string",
       "const": "declared"
     },
     "ContentIdentityIdSourceV1": {
+      "x-content-class": "closed_enum",
       "description": "How the agent / evaluator id was obtained: 'declared' by the caller, or a 'fallback' (agent: the function name; evaluator: 'sdk_local_evaluator'). A fallback id is not a stable identity and must not be merged with declared history.",
       "type": "string",
       "enum": [
@@ -63,6 +66,7 @@
           ],
           "properties": {
             "resolution": {
+              "x-content-class": "closed_enum",
               "const": "declared_at_session_start"
             }
           }
@@ -82,9 +86,12 @@
           ],
           "properties": {
             "record_state": {
+              "x-content-class": "closed_enum",
               "const": "draft"
             },
             "members": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): members",
               "maxItems": 2000,
               "description": "The inline cap: at most 2,000 distinct (example_id, example_version) members. Above it the SDK sends the whole slot as null with members_exceed_inline_cap."
             }
@@ -105,6 +112,8 @@
           ],
           "properties": {
             "members": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): members",
               "maxItems": 2000,
               "description": "The inline cap: at most 2,000 distinct (example_id, example_version) members. Above it the SDK sends the whole slot as null with members_exceed_inline_cap."
             }
@@ -151,6 +160,7 @@
           "$ref": "#/definitions/ContentIdentityProvenanceV1"
         },
         "key_status": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "const": "available",
           "description": "Always 'available': an envelope exists only when the SDK holds a purpose-key grant."
@@ -216,6 +226,7 @@
           "description": "Slot name -> reason, for every withheld slot. Empty when nothing is withheld.",
           "properties": {
             "agent": {
+              "x-content-class": "closed_enum",
               "description": "Why agent is null.",
               "allOf": [
                 {
@@ -231,6 +242,7 @@
               ]
             },
             "evaluator": {
+              "x-content-class": "closed_enum",
               "description": "Why evaluator is null.",
               "allOf": [
                 {
@@ -245,6 +257,7 @@
               ]
             },
             "dataset": {
+              "x-content-class": "closed_enum",
               "description": "Why dataset is null.",
               "allOf": [
                 {
@@ -260,6 +273,7 @@
               ]
             },
             "conflicting_example_ids": {
+              "x-content-class": "closed_enum",
               "description": "dataset.conflicting_example_ids was truncated.",
               "allOf": [
                 {
@@ -455,6 +469,7 @@
           "description": "Slot name -> reason, for every withheld slot. Empty when nothing is withheld.",
           "properties": {
             "candidate": {
+              "x-content-class": "closed_enum",
               "description": "Why candidate is null.",
               "allOf": [
                 {
@@ -470,6 +485,7 @@
               ]
             },
             "evaluated": {
+              "x-content-class": "closed_enum",
               "description": "Why evaluated is null.",
               "allOf": [
                 {

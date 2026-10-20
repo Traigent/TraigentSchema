@@ -14,6 +14,7 @@ resolves. Some citations name a file that is absent on purpose — for example
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -30,12 +31,17 @@ _EXEMPT = {"CHANGELOG.md"}
 
 
 def _tracked_text_files() -> list[Path]:
+    # The pre-push hook runs this suite with GIT_DIR / GIT_WORK_TREE exported,
+    # which would point `git ls-files` at the hook's repository instead of this
+    # checkout. Drop them so `cwd` decides.
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
     listing = subprocess.run(
         ["git", "ls-files", "-z"],
         cwd=_REPO_ROOT,
         check=True,
         capture_output=True,
         text=True,
+        env=env,
     ).stdout
     return [
         _REPO_ROOT / name
@@ -52,8 +58,11 @@ def test_shipped_data_corpora_are_cited_at_their_shipped_path() -> None:
     corpora = _shipped_corpus_names()
     assert corpora, f"no shipped corpora found under {_SHIPPED_DATA_DIR}"
 
-    # Characters that can precede a basename inside a path, e.g. the
-    # "tests/data/fp2/" in "tests/data/fp2/fp2_conformance.json".
+    # Characters that can precede a basename inside a path: for a citation
+    # "<some>/<dirs>/<corpus>.json" these walk back over the "<some>/<dirs>"
+    # part so it can be compared with the directory the corpus ships from.
+    # (No literal corpus path appears here on purpose — this file is scanned
+    # too, and an example would be read as a citation.)
     path_chars = re.compile(r"[A-Za-z0-9._/-]")
 
     wrong: list[str] = []

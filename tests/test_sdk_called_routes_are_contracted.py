@@ -70,7 +70,13 @@ def test_v1_and_v1beta_overview_declare_the_same_contract() -> None:
     assert response_target(v1) == response_target(v1beta) == (
         "project_scoped_optimization_overview_dashboard_schema.json"
     )
-    assert v1["parameters"] == v1beta["parameters"], (
+    # Query parameters only. The v1beta path template carries `{project_id}`,
+    # so declaring that path parameter there is a correct future fix; comparing
+    # the whole list would turn this red for it.
+    def query_parameters(operation: dict) -> list[dict]:
+        return [p for p in operation["parameters"] if p.get("in") == "query"]
+
+    assert query_parameters(v1) == query_parameters(v1beta), (
         "the v1 and v1beta optimization-overview mounts declare different query "
         "parameters, but one backend handler serves both"
     )
@@ -117,8 +123,33 @@ def test_v1beta_overview_entry_is_not_rewritten_by_the_v1_addition() -> None:
 
 
 def test_v1_overview_declares_the_error_responses_its_siblings_do() -> None:
-    """404 is reachable here: the project id resolves from `X-Project-Id`, and an
-    unknown one raises `PROJECT_NOT_FOUND` with status 404. Every contracted
-    `runs/{run_id}/*` neighbour declares the same set."""
+    """404 is reachable here and every contracted neighbour declares it.
+
+    The project id resolves from `X-Project-Id` (which the Python SDK always
+    sends) and an unknown one raises `PROJECT_NOT_FOUND` with status 404.
+
+    The expected set is derived from the `runs/{run_id}/*` siblings rather than
+    retyped, so a change in the module's convention shows up here instead of
+    being silently out of date. `director-evidence` additionally declares 503,
+    so the shared set is the intersection.
+    """
+    document = json.loads(
+        (get_schemas_dir() / "analytics" / "analytics_endpoints.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    sibling_sets = [
+        set(operation["responses"])
+        for path, operations in document["paths"].items()
+        if path.startswith("/api/v1/analytics/runs/{run_id}/")
+        for operation in operations.values()
+    ]
+    assert len(sibling_sets) >= 8, f"expected the runs/* family, found {len(sibling_sets)}"
+    shared = set.intersection(*sibling_sets)
+    assert shared == {"200", "400", "401", "403", "404", "429", "500"}, (
+        f"the runs/* response convention changed to {sorted(shared)}; "
+        "decide whether the dashboard entry should follow it"
+    )
+
     v1 = _operation("analytics/analytics_endpoints.json", V1_OVERVIEW)
-    assert sorted(v1["responses"]) == ["200", "400", "401", "403", "404", "429", "500"]
+    assert set(v1["responses"]) == shared

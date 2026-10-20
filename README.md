@@ -388,10 +388,12 @@ from traigent_schema import (
 
 ## Development
 
-Use the `make` targets: each one runs exactly the form CI runs, so a green
-target here means a green check there. The bare `ruff check .` and
-`mypy traigent_schema` forms lint and type-check paths CI does not gate, and
-report errors on a clean tree.
+Use the `make` targets: each one mirrors a check CI runs, so a green target
+here means a green check there. (`make lint` and `make typecheck` run CI's
+command verbatim, pinned by a test; `make test` runs the same suite with
+quieter reporting flags.) The bare `ruff check .` and `mypy traigent_schema`
+forms lint and type-check paths CI does not gate, and report errors on a clean
+tree.
 
 ```bash
 # Install with dev dependencies
@@ -407,8 +409,8 @@ make typecheck   # mypy traigent_schema/ --ignore-missing-imports
 make local-gate  # everything CI enforces — run this before you push
 ```
 
-`make test` runs the full suite (7.2k tests; 5-10 minutes depending on the
-machine); `make lint` and
+`make test` runs the full suite (7.2k tests; 5-15 minutes, depending on what
+else the machine is doing); `make lint` and
 `make typecheck` take seconds. `make help` lists every target.
 
 ## Version

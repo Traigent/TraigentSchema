@@ -216,7 +216,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Optimization overview dashboard retrieved successfully. The declared shape is the UNWRAPPED dashboard payload, i.e. the value of the success envelope's data key, which is what the SDK clients return to their callers (the Python client's _get_json unwraps with envelope=True). This matches the v1beta twin and the dataset-quality / next-steps / curation-advice / scoring-job operations in this module; the runs/{run_id}/* family instead declares the full {success, message, data} envelope. That split predates this entry and is tracked separately.",
+            "description": "Optimization overview dashboard retrieved successfully. The declared shape is the UNWRAPPED dashboard payload, i.e. the value of the success envelope's data key: the backend wraps with success_response, and both SDK clients unwrap before returning to their caller (Python _get_json defaults envelope=true; the JS analytics client calls unwrapAnalyticsEnvelope). It is declared this way to stay the same definition as the v1beta twin, which one backend handler serves alongside this mount. NOTE the module is not uniform about this and the inconsistency is older than this entry: the runs/{run_id}/* family declares the full {success, message, data} envelope; next-steps and curation-advice declare a bare body because their handlers really do return bare JSON; dataset-quality and scoring-job declare a bare body while their handlers wrap, which is the same unreviewed mismatch as this entry rather than a precedent for it. Not yet filed as its own issue.",
             "content": {
               "application/json": {
                 "schema": {

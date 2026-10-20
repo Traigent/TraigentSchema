@@ -41,9 +41,13 @@ _GATE_ROW = re.compile(
 # to make a reformatted row go away.
 _EXPECTED_GATE_ROWS = 3
 
-# "make local-gate" / "make install" anywhere on a line, including in a comment
-# such as `pip install -e ".[dev]"   # or: make install`.
-_MAKE_INVOCATION = re.compile(r"\bmake\s+([A-Za-z0-9_-]+)")
+# The command itself: the whole line must be `make <target>`, nothing else.
+# Matching `make` ANYWHERE on the line instead would let a trailing comment
+# exempt the command in front of it - `ruff check .   # or: make lint` is the
+# exact defect #571 is about, and a looser form let it through.
+_MAKE_COMMAND = re.compile(r"^make\s+([A-Za-z0-9_-]+)$")
+# A `make <target>` named inside a trailing comment; it must still exist.
+_MAKE_MENTION = re.compile(r"\bmake\s+([A-Za-z0-9_-]+)")
 # A command line in the README block that is not a `make` call.
 _BARE_COMMAND = re.compile(r"^(?P<tool>[A-Za-z0-9_.-]+)\b")
 # "lint: ## ruff check ..." -> "lint"
@@ -56,6 +60,11 @@ _TARGETS_MIRRORING_CI = {
     "lint": "ruff check traigent_schema/",
     "typecheck": "mypy traigent_schema/ --ignore-missing-imports",
 }
+# `test` is deliberately absent: `make test` runs `pytest tests/ -q
+# -p no:cacheprovider` while ci.yml runs `pytest tests/ -v --cov=traigent_schema
+# --cov-report=xml`. Same suite and same pass/fail, different reporting flags, so
+# pinning them equal would be wrong. The README says the targets mirror the
+# CHECKS CI runs, not the exact command lines, for this reason.
 
 # Commands in the README block that are legitimately not `make` calls.
 _ALLOWED_BARE_TOOLS = {"pip"}
@@ -186,20 +195,28 @@ def test_local_ci_gate_doc_does_not_claim_a_sonarqube_pr_check() -> None:
         "docs/LOCAL_CI_GATE.md no longer names the check that IS required"
     )
 
-    # Negative half: match the claim, not one spelling of it. Any line putting
-    # "SonarQube Quality Gate" next to "check" asserts such a check exists,
-    # unless the line is itself a denial.
-    negated = re.compile(r"\b(no|not|never|cannot|without)\b", re.IGNORECASE)
-    offending = [
-        line
-        for line in doc.splitlines()
-        if "SonarQube Quality Gate" in line
-        and re.search(r"\bcheck\b", line)
-        and not negated.search(line)
-    ]
+    # Negative half, over the WHITESPACE-COLLAPSED document: this doc wraps at
+    # ~75 columns, so a regression is as likely to straddle two lines as to sit
+    # on one, and a line-by-line scan cannot see it. The negation window is the
+    # text immediately BEFORE the phrase, not the whole sentence - a "not"
+    # anywhere else ("...and does not need a token") does not make a claim a
+    # denial. Both shapes passed a line-based version of this check.
+    collapsed = " ".join(doc.split())
+    phrase = "SonarQube Quality Gate"
+    negated = re.compile(r"\b(no|not|never|cannot|without)\b\W*$", re.IGNORECASE)
+
+    offending: list[str] = []
+    at = collapsed.find(phrase)
+    while at != -1:
+        before = collapsed[max(0, at - 40) : at]
+        after = collapsed[at : at + len(phrase) + 80]
+        if not negated.search(before) and re.search(r"\bcheck\b", after):
+            offending.append((before[-40:] + after).strip())
+        at = collapsed.find(phrase, at + len(phrase))
+
     assert not offending, (
         "docs/LOCAL_CI_GATE.md describes a `SonarQube Quality Gate` check as if it exists; "
-        "no workflow produces one. Offending line(s):\n  " + "\n  ".join(offending)
+        "no workflow produces one. Offending text:\n  " + "\n  ".join(offending)
     )
 
 
@@ -208,16 +225,24 @@ def test_readme_development_block_only_runs_mirrored_commands() -> None:
     commands = _development_block()
 
     assert commands, "the README Development block has no commands"
-    for command in commands:
-        # Every `make <target>` on the line must exist, including one named in
-        # a trailing comment (`pip install -e ".[dev]"   # or: make install`).
-        invoked = _MAKE_INVOCATION.findall(command)
-        for target in invoked:
+    for line in commands:
+        command, _, comment = line.partition("#")
+        command = command.strip()
+
+        # A `make <target>` named in a trailing comment must exist, but it does
+        # NOT excuse the command in front of it.
+        for target in _MAKE_MENTION.findall(comment):
             assert target in recipes, (
-                f"README Development block names `make {target}`, "
+                f"README Development block's comment on {line!r} names `make {target}`, "
                 f"which the Makefile does not define. Targets: {sorted(recipes)}"
             )
+
+        invoked = _MAKE_COMMAND.match(command)
         if invoked:
+            assert invoked.group(1) in recipes, (
+                f"README Development block runs `make {invoked.group(1)}`, "
+                f"which the Makefile does not define. Targets: {sorted(recipes)}"
+            )
             continue
 
         tool = _BARE_COMMAND.match(command)

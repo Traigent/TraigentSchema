@@ -6,10 +6,17 @@ citing the old locations for months (#578) because nothing executes those
 strings. This test pins every mention of a shipped corpus to the directory it
 actually ships from, so the next move cannot leave prose behind.
 
-Deliberately narrow: it does not assert that *every* path mentioned anywhere
-resolves. Some citations name a file that is absent on purpose - for example
-`tests/test_x_extensions_governance.py` guards that the retired
-`tests/data/x_extensions_registry.json` is never re-created (#220).
+Deliberately narrow, with three documented exclusions:
+
+* it does not assert that *every* path mentioned anywhere resolves - some
+  citations name a file that is absent on purpose, for example
+  `tests/test_x_extensions_governance.py` guarding that the retired
+  `tests/data/x_extensions_registry.json` is never re-created (#220);
+* a mention not preceded by `/` is not a path citation;
+* a mention inside a URI is skipped, because a permalink pinned to a revision
+  is legitimately not drift. The cost is that a `blob/main/...` link that has
+  gone stale is invisible here. A scheme-less URL (`www.example.com/...`) is
+  still treated as a path.
 """
 
 from __future__ import annotations

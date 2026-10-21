@@ -186,16 +186,21 @@ def test_local_ci_gate_doc_does_not_claim_a_sonarqube_pr_check() -> None:
         "sonarqube-local.yml gained or lost a trigger - re-check what the doc should say"
     )
 
+    # Both halves read the WHITESPACE-COLLAPSED document. This doc wraps at
+    # ~75 columns, so any sentence in it can be reflowed with its words
+    # unchanged; matching the raw text would make the positive half below
+    # false-red on a reflow and report that the denial is gone when it is not.
     doc = _LOCAL_GATE_DOC.read_text(encoding="utf-8")
+    collapsed = " ".join(doc.split())
 
     # Positive half: the denial must be present, so deleting it is also a
     # failure. A purely negative string assertion can be walked around by
     # rewording; this cannot be satisfied by saying nothing.
-    assert "no `SonarQube Quality Gate` check on a pull request" in doc, (
+    assert "no `SonarQube Quality Gate` check on a pull request" in collapsed, (
         "docs/LOCAL_CI_GATE.md no longer states that there is no "
         "`SonarQube Quality Gate` check on a pull request"
     )
-    assert "SonarCloud Code Analysis" in doc, (
+    assert "SonarCloud Code Analysis" in collapsed, (
         "docs/LOCAL_CI_GATE.md no longer names the check that IS required"
     )
 
@@ -210,7 +215,6 @@ def test_local_ci_gate_doc_does_not_claim_a_sonarqube_pr_check() -> None:
     # develop, the `SonarQube Quality Gate` check still runs on every PR"
     # passed). A second mention is not necessarily wrong - it needs a human to
     # look, which is what failing here asks for.
-    collapsed = " ".join(doc.split())
     phrase = "SonarQube Quality Gate"
     occurrences = collapsed.count(phrase)
     assert occurrences == 1, (

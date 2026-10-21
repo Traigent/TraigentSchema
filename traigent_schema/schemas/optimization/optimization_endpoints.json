@@ -1192,6 +1192,10 @@
                   "session_aggregation": {
                     "$ref": "https://schemas.traigent.ai/optimization/session_aggregation_schema.json",
                     "description": "OPTIONAL content-free session-level rollup (Traigent#1720/#1724 g2:agg-summary). Accepted only at this top-level key; the SERVER additionally rejects rollups tunneled under metadata. Persisted into the run's results and echoed back in the finalize response so the SDK can confirm the rollup was stored (not silently dropped)."
+                  },
+                  "stop_reason": {
+                    "$ref": "https://schemas.traigent.ai/optimization/stop_reason_schema.json",
+                    "description": "OPTIONAL closed-enum reason the SDK stopped the optimization (Traigent#2508). The backend stores it and echoes it as stop_reason in the finalize response; the portal displays it. Closed list only: no free text, no customer content."
                   }
                 },
                 "additionalProperties": true

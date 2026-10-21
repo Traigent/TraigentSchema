@@ -109,7 +109,8 @@
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "description": "Why the session stopped. Kept open (string or null) because the backend still emits and passes through its own stored reasons (e.g. finalized, search_complete, budget_exhausted, max_wallclock_reached, smart_prune). Narrowing to the closed shared enum (stop_reason_schema.json, as on the finalize request) is a follow-up once the backend maps its reasons (Traigent#2508)."
     },
     "metadata": {
       "x-content-key-class": "legacy_content",

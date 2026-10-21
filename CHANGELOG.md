@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Explicit unmeasured-cost floor on trial results (Traigent#2688).** `session_submit_results_request_schema.json`
+  gains an optional top-level `cost_floor_usd` (number, minimum 0): the reported LOWER BOUND, in USD, of a trial's
+  spend when its cost was not measured (the trial's `metrics` carry `cost_unmeasured = 1.0`). Lower bound only,
+  never a measured total; `metrics.cost` is not repurposed. Additive: no existing field changes. Pinned by
+  `tests/test_session_submit_results_schema.py`.
+- **Closed `stop_reason` on the session finalize request (Traigent#2508).** New shared
+  `optimization/stop_reason_schema.json` (closed enum of 18 reasons, mirroring the SDK `StopReason`
+  literal, including `safety_constraint_insufficient_evidence`). `POST /api/v1/sessions/{id}/finalize`
+  accepts an optional `stop_reason`. The response `stop_reason` stays string or null until the backend
+  maps its own reasons (it still emits e.g. `finalized`, `search_complete`, `smart_prune`). Pinned by `tests/test_stop_reason_schema.py`.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

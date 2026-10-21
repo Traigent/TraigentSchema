@@ -24,6 +24,12 @@
       "$ref": "../evaluation/configuration_run_schema.json#/definitions/MeasureResults",
       "description": "Per-measure scores for this trial. Inherits the canonical MeasuresDict contract enforced by the backend at the boundary (max 50 keys, identifier keys, numeric|null values)."
     },
+    "cost_floor_usd": {
+      "x-content-class": "number",
+      "type": "number",
+      "minimum": 0,
+      "description": "OPTIONAL reported LOWER BOUND, in USD, of this trial's spend when its cost was not measured (the trial's metrics carry cost_unmeasured = 1.0). Lower bound only: never a measured total, and never a substitute for metrics.cost. Absent when cost was measured. Consumers must not add it to measured totals as if exact; render it as 'at least' (Traigent#2688)."
+    },
     "config_refs": {
       "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
       "description": "Content-less trial configuration as knob_ref -> choice_ref|number (phase 2, additive), sent instead of config."

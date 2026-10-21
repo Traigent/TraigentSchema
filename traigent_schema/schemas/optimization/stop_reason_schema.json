@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/stop_reason_schema.json",
+  "title": "OptimizationStopReason",
+  "description": "Closed list of reasons an optimization session stopped (Traigent#2508). Mirrors the SDK StopReason literal (traigent/api/types.py). Shared by the session finalize request (SDK sends it) and the finalize response (backend echoes the stored value). Closed enum: no free text and no customer content; a new reason is a contract change made here first.",
+  "x-content-class": "closed_enum",
+  "type": "string",
+  "enum": [
+    "max_trials_reached",
+    "max_samples_reached",
+    "timeout",
+    "cost_limit",
+    "execution_budget",
+    "metric_limit",
+    "optimizer",
+    "plateau",
+    "convergence",
+    "semantic_saturation",
+    "safety_constraint",
+    "safety_constraint_insufficient_evidence",
+    "no_usage_captured",
+    "user_cancelled",
+    "condition",
+    "error",
+    "vendor_error",
+    "network_error"
+  ]
+}

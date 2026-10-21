@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Closed `stop_reason` on the session finalize request (Traigent#2508).** New shared
+  `optimization/stop_reason_schema.json` (closed enum of 18 reasons, mirroring the SDK `StopReason`
+  literal, including `safety_constraint_insufficient_evidence`). `POST /api/v1/sessions/{id}/finalize`
+  accepts an optional `stop_reason`, and `SessionFinalizeResponseDTO.stop_reason` now `$ref`s the same
+  definition (enum or null) instead of a bare string. The checker's response-type finding is allowlisted
+  in `scripts/breaking_schema_allowlist.json`. Pinned by `tests/test_stop_reason_schema.py`.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

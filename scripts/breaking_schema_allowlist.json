@@ -8098,6 +8098,56 @@
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A, as recorded on the TraigentSchema#554 entries for the standalone project-scoped dashboard schemas): these planned-projects endpoint catalog dashboard cost fields become number|null (minimum 0 on the number branch) so an unknown cost is reported as null instead of a false 0. Response-side widening; a priced aggregate still returns a number. The earlier hold-back was that the Python SDK crashed on null dashboard costs; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#554"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/responses/200/content/application/json/schema/properties/stop_reason",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "null",
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "29318e0fd178530c496cae574a1228fbc89dbf50112fd4907fb8e89df71c5599"
+        }
+      ],
+      "reason": "Owner ruling 2026-10-21 (decision card product-2026-10-21-sdk-2508-stop-reason A): finalize stop_reason becomes a closed list owned here. The response property now $refs optimization/stop_reason_schema.json (anyOf the closed enum or null) instead of a bare string|null. This is a response-side NARROWING of the value set (the old string|null is replaced by an 18-value enum or null), reported by the checker only because it cannot resolve the cross-file $ref inside anyOf and sees the type as unconstrained. Every value the SDK StopReason literal can emit is in the enum; the Backend must store and echo only these values.",
+      "version": "Unreleased",
+      "pr": "Traigent/Traigent#2508"
+    },
+    {
+      "file": "optimization/session_finalize_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/stop_reason",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "null",
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "30d55e032fc84d77fddceaacbafd290fe2baeda68b7c8ea44af7e85759f969e9"
+        }
+      ],
+      "reason": "Owner ruling 2026-10-21 (decision card product-2026-10-21-sdk-2508-stop-reason A): finalize stop_reason becomes a closed list owned here. The response property now $refs optimization/stop_reason_schema.json (anyOf the closed enum or null) instead of a bare string|null. This is a response-side NARROWING of the value set (the old string|null is replaced by an 18-value enum or null), reported by the checker only because it cannot resolve the cross-file $ref inside anyOf and sees the type as unconstrained. Every value the SDK StopReason literal can emit is in the enum; the Backend must store and echo only these values.",
+      "version": "Unreleased",
+      "pr": "Traigent/Traigent#2508"
     }
   ]
 }

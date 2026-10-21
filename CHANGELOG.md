@@ -67,13 +67,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mounts), the `days` / `limit` bounds the backend enforces, and the error responses its contracted
   siblings declare - including 404, reachable here because an unknown `X-Project-Id` raises
   `PROJECT_NOT_FOUND`. Additive; the v1beta entry is unchanged.
-  The declared 200 shape is the UNWRAPPED payload, i.e. the value of the success envelope's `data` key,
-  which is what both SDK clients return to their callers. The entry says so, and also records that this
-  module is **not uniform** about it: the `runs/{run_id}/*` family declares the full envelope, next-steps
-  and curation-advice declare a bare body because their handlers really return bare JSON, and
-  dataset-quality and scoring-job declare a bare body while their handlers wrap - the same unreviewed
-  mismatch as this entry rather than a precedent for it. That split is older than this entry and is
-  **not yet filed as its own issue**.
+  The 200 declares the **success envelope** `{success, message, data}` with the dashboard payload under
+  `data`, which is what the handler returns. An earlier revision of this branch declared the bare
+  payload instead, reasoning from sibling entries and from the fact that both SDK clients unwrap. That
+  was wrong on the point that decides it: an OpenAPI 200 describes the wire body, and the repository
+  already records the answer in machine-readable form - `success_envelope_schema.json`'s `x-wrap-map`
+  lists `analytics_routes` under `wrapped`. Against the bare declaration every successful response
+  failed validation. The v1beta twin is corrected with it, because one handler serves both mounts;
+  that correction registers as BREAKING against a declaration no response ever satisfied and is
+  acknowledged in `scripts/breaking_schema_allowlist.json`. The payload schema is untouched.
+  This narrows the contract-vs-wire gap rather than closing it: `summary_cards.experiments_in_range`
+  is still required and emitted by nobody, so a genuine response now fails on exactly that one field
+  (#594). The sibling example-scoring mismatches, and the `x-wrap-map` entry that calls
+  `example_scoring_routes` wholly wrapped when one of its operations is bare, are filed as #592.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

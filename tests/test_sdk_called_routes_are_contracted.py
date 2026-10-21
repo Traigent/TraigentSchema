@@ -68,7 +68,11 @@ def test_v1_and_v1beta_overview_declare_the_same_contract() -> None:
         return ref.split("/")[-1]
 
     assert response_target(v1) == response_target(v1beta) == (
-        "project_scoped_optimization_overview_dashboard_schema.json"
+        "optimization_overview_dashboard_response_schema.json"
+    ), (
+        "both mounts must declare the success envelope. The handler returns "
+        "success_response(...), so the wire body is {success, message, data}; "
+        "pointing a 200 at the bare payload describes a body the server never sends."
     )
     # Query parameters only. The v1beta path template carries `{project_id}`,
     # so declaring that path parameter there is a correct future fix; comparing
@@ -107,18 +111,37 @@ def test_v1_overview_declares_the_query_bounds_the_backend_enforces() -> None:
     assert all(not p["required"] for p in parameters.values())
 
 
-def test_v1beta_overview_entry_is_not_rewritten_by_the_v1_addition() -> None:
-    """The v1beta entry is untouched: same operation, same response definition.
+def test_v1beta_overview_entry_keeps_its_identity_and_payload() -> None:
+    """The v1beta entry's 200 moved to the envelope; nothing else about it changed.
+
+    This test previously asserted the entry was untouched and pinned its bare
+    `$ref`, which made it a guard FOR the defect: the declared body described a
+    shape the handler never sends. The envelope fix is the thing being pinned
+    now. What must still hold is that the operation is the same one and that
+    the payload definition underneath is unchanged - SDK clients unwrap and
+    validate against that payload, so moving the wire declaration must not move
+    the payload.
 
     Deliberately does NOT pin its response-code set. v1beta declares only
-    200/429 while the new v1 entry follows this module's fuller convention, and
-    bringing the twin into line is a reasonable follow-up that this test must
-    not turn red.
+    200/429 while the v1 entry follows the analytics module's fuller
+    convention, and bringing the twin into line is a reasonable follow-up that
+    this test must not turn red.
     """
     v1beta = _operation("planned_projects_endpoints.json", V1BETA_OVERVIEW)
     assert v1beta["operationId"] == "getProjectOptimizationOverviewDashboard"
     assert v1beta["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "./projects/project_scoped_optimization_overview_dashboard_schema.json"
+        "$ref": "./analytics/optimization_overview_dashboard_response_schema.json"
+    }
+
+    envelope = json.loads(
+        (
+            get_schemas_dir()
+            / "analytics"
+            / "optimization_overview_dashboard_response_schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert envelope["properties"]["data"] == {
+        "$ref": "../projects/project_scoped_optimization_overview_dashboard_schema.json"
     }
 
 

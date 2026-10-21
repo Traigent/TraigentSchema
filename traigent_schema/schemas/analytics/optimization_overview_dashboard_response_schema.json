@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/optimization_overview_dashboard_response_schema.json",
+  "title": "Optimization Overview Dashboard Response",
+  "description": "GET /api/v1/analytics/dashboards/optimization-overview and its project-scoped /api/v1beta twin. Success envelope (success_response): {success, message, data}, with the dashboard payload under data. One analytics blueprint handler serves both mounts and returns success_response(...), and success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`.",
+  "$comment": "Added by TraigentSchema#591 review. Both mounts previously pointed their 200 straight at project_scoped_optimization_overview_dashboard_schema.json, the bare payload. That payload requires its five fields at the root and sets additionalProperties:false, so a consumer validating a real response against the contract rejected every successful call. The payload schema is unchanged and remains the definition an SDK client validates after unwrapping; only the wire-level 200 moved to this envelope. This closes the envelope half of that defect only: the payload still requires summary_cards.experiments_in_range, which no producer emits, so a genuine response now fails on exactly that one field instead of on every field (TraigentSchema#594).",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "../projects/project_scoped_optimization_overview_dashboard_schema.json"
+    }
+  }
+}

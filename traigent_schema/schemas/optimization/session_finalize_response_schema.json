@@ -104,15 +104,13 @@
       "type": "number"
     },
     "stop_reason": {
-      "anyOf": [
-        {
-          "$ref": "https://schemas.traigent.ai/optimization/stop_reason_schema.json"
-        },
-        {
-          "type": "null"
-        }
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
+      "type": [
+        "string",
+        "null"
       ],
-      "description": "Why the session stopped, echoed from the finalize request; null when none was reported. Closed enum shared with the request (stop_reason_schema.json)."
+      "description": "Why the session stopped. Kept open (string or null) because the backend still emits and passes through its own stored reasons (e.g. finalized, search_complete, budget_exhausted, max_wallclock_reached, smart_prune). Narrowing to the closed shared enum (stop_reason_schema.json, as on the finalize request) is a follow-up once the backend maps its reasons (Traigent#2508)."
     },
     "metadata": {
       "x-content-key-class": "legacy_content",

@@ -538,13 +538,6 @@
    "to": "removed",
    "reason": "relocated to optimization/session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray/items (unchanged, same class and note) so old-dialect refs resolve against a document root.",
    "reference": "tests/test_session_create_request_definitions_move.py:1"
-  },
-  {
-   "location": "optimization/session_finalize_response_schema.json#/properties/stop_reason",
-   "from": "legacy_content",
-   "to": "removed",
-   "reason": "stop_reason now $refs the shared closed enum optimization/stop_reason_schema.json (x-content-class closed_enum, mirrors the SDK StopReason literal); the class moved to that document's root, so this location carries no class of its own.",
-   "reference": "tests/test_stop_reason_schema.py:1"
   }
  ]
 }

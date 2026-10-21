@@ -879,6 +879,7 @@
   "optimization/session_finalize_response_schema.json#/properties/selection_attestation/properties/type": "closed_enum",
   "optimization/session_finalize_response_schema.json#/properties/selection_basis": "closed_enum",
   "optimization/session_finalize_response_schema.json#/properties/session_id": "legacy_content",
+  "optimization/session_finalize_response_schema.json#/properties/stop_reason": "legacy_content",
   "optimization/session_finalize_response_schema.json#/properties/successful_trials": "number",
   "optimization/session_finalize_response_schema.json#/properties/total_duration": "number",
   "optimization/session_finalize_response_schema.json#/properties/total_trials": "number",

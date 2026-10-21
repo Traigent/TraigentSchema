@@ -411,8 +411,8 @@ make typecheck   # mypy traigent_schema/ --ignore-missing-imports
 make local-gate  # everything CI enforces — run this before you push
 ```
 
-`make test` runs the full suite (7.2k tests; 5-15 minutes, depending on what
-else the machine is doing); `make lint` and
+`make test` runs the full suite (7.2k tests; roughly 5-15 minutes, depending on
+what else the machine is doing); `make lint` and
 `make typecheck` take seconds. `make help` lists every target.
 
 ## Version

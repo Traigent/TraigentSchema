@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ruff check .` and `mypy traigent_schema`, which report 171 and 10 errors on a clean tree at this base and which CI
   does not gate; it now points at the `make` targets that mirror CI. `docs/LOCAL_CI_GATE.md` attributed
   linting and type-checking to the `test` job (they run in `lint-type`), put the pytest gate at "~5s"
-  (five measured runs spanning 302-778 s), and described a `SonarQube Quality Gate` required check on pull requests
+  (measured runs ranging from about 5 min idle to about 13 min under load), and described a `SonarQube Quality Gate` required check on pull requests
   that no workflow produces — `sonarqube-local.yml` runs only on push to `main` and
   `workflow_dispatch`. `SonarCloud Code Analysis` is the required static-analysis check on a PR
   into `main`; a PR into `develop`, which is where ordinary work lands, has none. Both rulesets

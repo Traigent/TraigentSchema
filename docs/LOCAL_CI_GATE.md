@@ -2,9 +2,10 @@
 
 Coding agents (and humans) repeatedly miss a check that is cheap to run locally
 and only discover it when the cloud PR goes **red** — a wasted push + a full CI
-round-trip per miss. Most of TraigentSchema's CI checks are runnable **locally
-in seconds**. This repo ships a single local gate that mirrors them so the
-failure is caught before the push.
+round-trip per miss. Every one of TraigentSchema's CI checks is runnable
+**locally**. This repo ships a single local gate that runs them so the failure
+is caught before the push. Budget **5-15 minutes**: lint, type-check and the
+manifest gates take seconds, the pytest step is the full 7.2k-test suite.
 
 ## TL;DR
 

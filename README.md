@@ -169,10 +169,12 @@ examples. This contract declaration does not establish Backend runtime
 conformance.
 
 > **Before you push:** run `make install-hooks` once per clone, then
-> `make local-gate` before every push. The local gate mirrors the cloud CI
-> gates (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the
-> spine-trail reminder, and — for main-bound branches — SonarQube) so avoidable
-> reds are caught in seconds instead of after a push. See
+> `make local-gate` before every push. The local gate runs the checks CI
+> enforces (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the
+> spine-trail reminder, and — for main-bound branches — a local scan that
+> approximates the `SonarCloud Code Analysis` required check), so avoidable reds
+> are caught before the push rather than after it. Budget 5-15 minutes: the
+> pytest step is the full suite, not a smoke test. See
 > [docs/LOCAL_CI_GATE.md](docs/LOCAL_CI_GATE.md).
 
 ## Installation

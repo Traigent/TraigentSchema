@@ -5,8 +5,9 @@
 # Why: coding agents (and humans) routinely miss a check that is cheap to run
 # locally and only find out when the cloud PR goes red — a ruff/lint red, an
 # mypy red, a stale structural/parity gate, the spine-trail gate, or SonarQube.
-# This mirrors those gates locally so the failure is caught in seconds, not
-# after a push + a full CI round-trip.
+# This runs those gates locally so the failure is caught before the push rather
+# than after a push + a full CI round-trip. Budget 5-15 min: lint, type-check
+# and the manifest gates take seconds, the pytest step is the full suite.
 #
 # Runs (fast → slow), mirroring .github/workflows/*:
 #   0. freshness preflight   (origin/develop + origin/main)
@@ -174,8 +175,9 @@ fi
 
 # ── 3. pytest — the structural / contract gate ────────────────────────────
 # The schema-integrity gate IS the pytest suite (test_structural_validity.py +
-# the per-contract tests). It is DB-free and runs in seconds, so it belongs in
-# the local gate.
+# the per-contract tests). It is DB-free, so it needs no services and belongs
+# in the local gate - but it is the slow step: ~7.2k tests, 5-15 min depending
+# on the machine. It is not hung.
 if ! skip pytest; then
   section "pytest — structural + contract gate (ci.yml: Run tests)"
   if command -v pytest >/dev/null 2>&1; then

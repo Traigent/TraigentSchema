@@ -664,7 +664,7 @@
       ]
     },
     "MeasuredClaimsV1": {
-      "description": "The certified objective set. At most one record per objective_id is a verifier obligation (OBJECTIVE_DUPLICATE); uniqueItems cannot express it because two records may differ only in interval_params.",
+      "description": "The objective set reported by the customer. At most one record per objective_id is a verifier obligation (OBJECTIVE_DUPLICATE); uniqueItems cannot express it because two records may differ only in interval_params.",
       "type": "array",
       "minItems": 0,
       "maxItems": 8,

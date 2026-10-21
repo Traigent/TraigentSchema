@@ -504,7 +504,12 @@ def test_real_response_is_still_rejected_on_one_payload_field():
     envelope_errors = [e for e in errors if not list(e.absolute_path)]
     assert not envelope_errors, [e.message for e in envelope_errors]
 
-    # The payload half: exactly one field, named, in a known place.
-    assert len(errors) == 1, [e.message for e in errors]
+    # The payload half: exactly one divergence, pinned as a SET rather than a
+    # count. Same strictness - a second error still fails - but the failure
+    # names what appeared instead of reporting "2 != 1" and leaving the reader
+    # to find it. #594 guarantees this payload gets edited, so this assertion
+    # is written to be informative when it fires.
+    assert {(tuple(e.absolute_path), e.validator) for e in errors} == {
+        (("data", "summary_cards"), "required")
+    }, [f"{list(e.absolute_path)}: {e.message}" for e in errors]
     assert _UNEMITTED_REQUIRED_FIELD in errors[0].message
-    assert list(errors[0].absolute_path) == ["data", "summary_cards"]

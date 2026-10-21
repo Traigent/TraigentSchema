@@ -15,7 +15,8 @@
 #   3. pytest (structural)   (CI: ci.yml "Run tests" — incl. structural_validity)
 #   4. parity --check        (CI: parity-check.yml — schema manifest freshness)
 #   5. spine preflight       (CI: spine-trail-gate.yml — trail reminder)
-#   6. SonarQube quality gate (CI: sonarqube-local.yml — main-bound branches only)
+#   6. SonarQube quality gate (approximates the `SonarCloud Code Analysis` required
+#                             check; main-bound branches only)
 #
 # Usage:
 #   scripts/local_gate.sh            # auto: 1-5 always; sonar if main-bound

@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into `main`; a PR into `develop`, which is where ordinary work lands, has none. Both rulesets
   are now quoted in the doc. `scripts/local_gate.sh`, which is what `make local-gate` runs,
   repeated the same retracted claim in three places and is corrected with it.
+- **The README says which version PyPI actually serves (#576, partially addressed).** The README named
+  7.0.0 as the current release line and told consumers to install from PyPI, which serves **5.8.0**:
+  6.0.0, 6.1.0 and 7.0.0 are dated in this file and live on `main` but were never tagged or published,
+  so a consumer silently validates against a contract two breaking releases behind. The README now says
+  that and points at `publish.yml`. Tagging and publishing are owner actions under the release freeze
+  and are NOT done here, so #576 stays open.
 - **Stale corpus paths and a missing third-party notice (#578).** The fp2 corpora moved into the package
   in #439; six comments, notes and one `sonar-project.properties` comment still cited `tests/data/...`
   (the `sonar.cpd.exclusions=tests/data/**` setting itself is unchanged — its own comment records it
@@ -58,7 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/api/v1beta/projects/{project_id}/...` twin was declared, so `SchemaValidator` answered
   `UNVALIDATED_ENDPOINT` for the path the SDKs actually use. The `backend` catalog's analytics module now
   declares it, reusing the same response definition as the v1beta entry (one backend handler serves both
-  mounts) and the `days` / `limit` bounds the backend enforces. Additive; the v1beta entry is unchanged.
+  mounts), the `days` / `limit` bounds the backend enforces, and the error responses its contracted
+  siblings declare - including 404, reachable here because an unknown `X-Project-Id` raises
+  `PROJECT_NOT_FOUND`. Additive; the v1beta entry is unchanged.
+  The declared 200 shape is the UNWRAPPED payload, i.e. the value of the success envelope's `data` key,
+  which is what both SDK clients return to their callers. The entry says so, and also records that this
+  module is **not uniform** about it: the `runs/{run_id}/*` family declares the full envelope, next-steps
+  and curation-advice declare a bare body because their handlers really return bare JSON, and
+  dataset-quality and scoring-job declare a bare body while their handlers wrap - the same unreviewed
+  mismatch as this entry rather than a precedent for it. That split is older than this entry and is
+  **not yet filed as its own issue**.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

@@ -482,16 +482,29 @@ def test_real_response_is_still_rejected_on_one_payload_field():
     hits). So a validator fed a genuine response still rejects it - after the
     envelope fix, for a different and much smaller reason.
 
-    This test pins BOTH halves, so it goes red if either moves: the envelope is
-    no longer the problem (no error mentions success/message/data), and exactly
-    one field is. Whichever way TraigentSchema#594 is settled - the schema stops
-    requiring the field, or the backend starts emitting it - this test fails and
-    has to be updated deliberately.
+    This test pins both halves of that sentence, so it goes red if either moves:
+    nothing is wrong at the envelope level, and exactly one thing is wrong
+    inside the payload. Whichever way TraigentSchema#594 is settled - the schema
+    stops requiring the field, or the backend starts emitting it - this fails
+    and has to be updated deliberately.
+
+    Scope note: this validates against the envelope schema directly, so it does
+    NOT notice a route whose 200 stops pointing at that schema.
+    `test_both_overview_mounts_declare_the_envelope_response` owns that, and a
+    probe regressing both route `$ref`s leaves this test green and turns that
+    one red.
     """
     val = _overview_response_validator()
     real = {"success": True, "message": "ok", "data": _DASHBOARD_PAYLOAD}
 
     errors = list(val.iter_errors(real))
+
+    # The envelope half: an error with an empty path is one about the envelope's
+    # own keys (success / message / data) rather than the payload beneath it.
+    envelope_errors = [e for e in errors if not list(e.absolute_path)]
+    assert not envelope_errors, [e.message for e in envelope_errors]
+
+    # The payload half: exactly one field, named, in a known place.
     assert len(errors) == 1, [e.message for e in errors]
     assert _UNEMITTED_REQUIRED_FIELD in errors[0].message
     assert list(errors[0].absolute_path) == ["data", "summary_cards"]

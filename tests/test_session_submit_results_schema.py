@@ -261,3 +261,31 @@ def test_submit_results_measures_reference_canonical_definition():
         assert branches[0]["$ref"] == dict_ref
         assert branches[1]["type"] == "array"
         assert branches[1]["items"]["$ref"] == list_item_ref
+
+
+def test_cost_floor_usd_is_an_optional_nonnegative_number_beside_unmeasured_cost():
+    validator = SchemaValidator(contract="sdk_tuning")
+    unmeasured = {"accuracy": 0.5, "cost_unmeasured": 1.0}
+
+    assert validator.validate_json(_request(metrics=unmeasured), SCHEMA) == []
+    assert (
+        validator.validate_json(_request(metrics=unmeasured, cost_floor_usd=0.0123), SCHEMA) == []
+    )
+    assert validator.validate_json(_request(metrics=unmeasured, cost_floor_usd=0), SCHEMA) == []
+    assert validator.validate_json(_request(cost_floor_usd=-0.01), SCHEMA)
+    assert validator.validate_json(_request(cost_floor_usd="0.01"), SCHEMA)
+    assert validator.validate_json(_request(cost_floor_usd=None), SCHEMA)
+
+
+def test_cost_floor_usd_documents_lower_bound_only_and_does_not_repurpose_cost():
+    with open(
+        get_schemas_dir() / "optimization" / "session_submit_results_request_schema.json",
+        encoding="utf-8",
+    ) as fh:
+        spec = json.load(fh)
+
+    floor = spec["properties"]["cost_floor_usd"]
+    assert "required" not in spec or "cost_floor_usd" not in spec["required"]
+    assert "LOWER BOUND" in floor["description"]
+    assert "never a measured total" in floor["description"]
+    assert floor["x-content-class"] == "number"

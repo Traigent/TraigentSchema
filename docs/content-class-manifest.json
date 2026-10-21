@@ -926,6 +926,7 @@
   "optimization/session_next_trial_response_schema.json#/properties/trial/properties/trial_id": "legacy_content",
   "optimization/session_submit_results_request_schema.json#/properties/config": "legacy_content",
   "optimization/session_submit_results_request_schema.json#/properties/config [keys]": "legacy_content",
+  "optimization/session_submit_results_request_schema.json#/properties/cost_floor_usd": "number",
   "optimization/session_submit_results_request_schema.json#/properties/duration": "number",
   "optimization/session_submit_results_request_schema.json#/properties/error_message": "legacy_content",
   "optimization/session_submit_results_request_schema.json#/properties/execution_environment": "legacy_content",

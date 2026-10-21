@@ -87,7 +87,7 @@
     {
       "non_claim_id": "NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED",
       "reason_template_id": "tmpl.aq.noncert.selection_estimate_not_certified.v1",
-      "rendered_text": "Estimates computed on the selection set are not covered by this document; only the holdout objective, as reported by the customer, is stated here, and Traigent does not vouch for it."
+      "rendered_text": "Estimates computed on the selection set are outside the holdout claim and are not covered by it; the holdout objective is reported by the customer, and Traigent does not vouch for it."
     },
     {
       "non_claim_id": "NCQ_NO_COST_LATENCY_SLA",

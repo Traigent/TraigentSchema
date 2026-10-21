@@ -107,17 +107,17 @@
     {
       "non_claim_id": "NCQ_SUFFICIENT_STATISTICS_ATTESTED",
       "reason_template_id": "tmpl.aq.noncert.sufficient_statistics_attested.v1",
-      "rendered_text": "The verifier recomputes each interval's endpoints from the printed sufficient statistics; that those statistics correctly summarise the underlying observations is the issuer's attestation, not a fact independently verified here."
+      "rendered_text": "The verifier recomputes each interval's endpoints from the printed sufficient statistics; the statistics are reported by the customer's SDK, and Traigent has not observed or verified the underlying observations."
     },
     {
       "non_claim_id": "NCQ_SPLIT_MEMBERSHIP_NOT_OPENED",
       "reason_template_id": "tmpl.aq.noncert.split_membership_not_opened.v1",
-      "rendered_text": "The committed selection and holdout sets were not opened by this certificate; that they are the declared rule's partition is the issuer's attestation, not a verified fact."
+      "rendered_text": "The committed selection and holdout sets were not opened by this certificate; that they are the declared rule's partition is reported by the customer; Traigent has not verified it."
     },
     {
       "non_claim_id": "NCQ_QUANTILE_ENDPOINTS_ATTESTED",
       "reason_template_id": "tmpl.aq.noncert.quantile_endpoints_attested.v1",
-      "rendered_text": "The interval endpoints for quantile objectives are attested from the printed order-statistic record, not independently recomputed from the underlying observations by this certificate."
+      "rendered_text": "The interval endpoints for quantile objectives are reported by the customer's SDK in the printed order-statistic record; Traigent has not recomputed them from, or verified, the underlying observations."
     },
     {
       "non_claim_id": "NCQ_SPLIT_KEY_TIMING_NOT_PROVEN",
@@ -132,7 +132,7 @@
     {
       "non_claim_id": "NCQ_HOLDOUT_NONUSE_NOT_PROVEN",
       "reason_template_id": "tmpl.aq.noncert.holdout_nonuse_not_proven.v1",
-      "rendered_text": "That no holdout item informed the choice of certified configuration is the issuer's attestation; this certificate does not independently prove holdout non-use."
+      "rendered_text": "That no holdout item informed the choice of configuration is reported by the customer; Traigent has not verified it and this certificate does not prove holdout non-use."
     },
     {
       "non_claim_id": "NCQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION",

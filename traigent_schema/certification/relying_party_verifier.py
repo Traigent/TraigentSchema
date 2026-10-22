@@ -917,7 +917,7 @@ def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> ob
             serialization.Encoding.DER,
             serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-    except (UnicodeEncodeError, ValueError, TypeError, IndexError, UnsupportedAlgorithm):
+    except (ValueError, TypeError, IndexError, UnsupportedAlgorithm):
         _fail("MATERIALS_KEY")
     if canonical != der:
         _fail("MATERIALS_KEY")
@@ -1673,7 +1673,7 @@ def _verify(
     context: VerificationContext,
     policy: RelyingPartyPolicy,
 ) -> None:
-    document, signatures, unsigned, manifest_bytes, manifest_digest, _ = _validated_document(
+    document, signatures, unsigned, manifest_bytes, _, _ = _validated_document(
         certificate, policy
     )
     _check_context(unsigned, signatures, context)

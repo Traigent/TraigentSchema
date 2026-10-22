@@ -843,7 +843,6 @@ def _walk_strict_integers(value: Any, location: str) -> None:
     if type(value) is list:
         for index, item in enumerate(value):
             _walk_strict_integers(item, f"{location}/{index}")
-        return
 
 
 def _check_strict_integers(bundle: dict[str, Any]) -> None:

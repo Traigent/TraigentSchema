@@ -5,6 +5,7 @@
   "description": "Deploy publish-result and finalize contracts of the agent-configuration-head deploy target (TRAIG-101 plan 8.7). Closed: refs, digests, enums, integers and timestamps only. The published CONFIGURATION itself is customer content (plan 8.4), is NOT part of this closed contract and is not covered by the Director bridge guarantee; it is classified in best_config_agent_head_config_schema.json.",
   "definitions": {
     "DeployIdempotencyKey": {
+      "x-content-class": "opaque_ref",
       "type": "string",
       "pattern": "^deploy:attemptref_[0-9a-f]{32}:[0-9a-f]{64}:[0-9a-f]{64}$",
       "minLength": 180,
@@ -24,6 +25,7 @@
       ],
       "properties": {
         "schema_version": {
+          "x-content-class": "closed_enum",
           "type": "integer",
           "const": 1
         },
@@ -31,6 +33,7 @@
           "$ref": "#/definitions/DeployIdempotencyKey"
         },
         "state": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "succeeded",
@@ -40,6 +43,7 @@
           "description": "succeeded: the publish committed and advanced the head; cancelled: a cancellation tombstone was committed under the head lock (a tombstoned publication cannot commit); pending: neither yet."
         },
         "head_generation": {
+          "x-content-class": "number",
           "type": [
             "integer",
             "null"
@@ -49,6 +53,7 @@
           "description": "Head generation produced by the committed publish; null unless succeeded."
         },
         "pinned_version": {
+          "x-content-class": "number",
           "type": [
             "integer",
             "null"
@@ -58,6 +63,7 @@
           "description": "Pinned config version promoted; null unless succeeded."
         },
         "decided_at": {
+          "x-content-class": "timestamp",
           "type": [
             "string",
             "null"
@@ -71,19 +77,24 @@
         {
           "properties": {
             "state": {
+              "x-content-class": "closed_enum",
+              "type": "string",
               "const": "succeeded"
             },
             "head_generation": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "pinned_version": {
+              "x-content-class": "number",
               "type": "integer",
               "minimum": 1,
               "maximum": 9007199254740991
             },
             "decided_at": {
+              "x-content-class": "timestamp",
               "type": "string",
               "format": "date-time",
               "maxLength": 40
@@ -93,15 +104,22 @@
         {
           "properties": {
             "state": {
+              "x-content-class": "closed_enum",
+              "type": "string",
               "const": "cancelled"
             },
             "head_generation": {
-              "type": "null"
+              "x-content-class": "closed_enum",
+              "type": "null",
+              "const": null
             },
             "pinned_version": {
-              "type": "null"
+              "x-content-class": "closed_enum",
+              "type": "null",
+              "const": null
             },
             "decided_at": {
+              "x-content-class": "timestamp",
               "type": "string",
               "format": "date-time",
               "maxLength": 40
@@ -111,16 +129,24 @@
         {
           "properties": {
             "state": {
+              "x-content-class": "closed_enum",
+              "type": "string",
               "const": "pending"
             },
             "head_generation": {
-              "type": "null"
+              "x-content-class": "closed_enum",
+              "type": "null",
+              "const": null
             },
             "pinned_version": {
-              "type": "null"
+              "x-content-class": "closed_enum",
+              "type": "null",
+              "const": null
             },
             "decided_at": {
-              "type": "null"
+              "x-content-class": "closed_enum",
+              "type": "null",
+              "const": null
             }
           }
         }
@@ -134,6 +160,7 @@
       ],
       "properties": {
         "schema_version": {
+          "x-content-class": "closed_enum",
           "type": "integer",
           "const": 1
         }

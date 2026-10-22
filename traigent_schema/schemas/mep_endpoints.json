@@ -73,6 +73,11 @@
       "paths_file": "./execution/best_config_deploy_endpoints.json"
     },
     {
+      "name": "Agent Head Pinned Config",
+      "description": "Exact pinned-version config read of an agent head (TRAIG-101 plan 8.5; customer content, not a content-class lint root).",
+      "paths_file": "./execution/best_config_agent_head_config_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

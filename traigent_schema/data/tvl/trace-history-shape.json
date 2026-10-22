@@ -1,0 +1,610 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/data/tvl/trace-history-shape.json",
+  "title": "TvlTraceHistoryShape",
+  "description": "EXACT fact shapes accepted by the TVL reference trace (tvl python/tvl/runtime_trace.py at the pin in SOURCE.json), with local names as plain bounded strings. A reference shape for projection tests, NOT a wire contract (the closed wire contract is optimization/tvl_reactive_facts_schema.json, which adds transport-only fields that traigent_schema.tvl_reactive.project_fact drops).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agent",
+    "environment",
+    "evaluations"
+  ],
+  "properties": {
+    "agent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instant"
+        ],
+        "properties": {
+          "instant": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "revisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "name",
+                "value"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "response",
+                    "monitor"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "monitor",
+                "start",
+                "end",
+                "verdict",
+                "usable"
+              ],
+              "properties": {
+                "monitor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "start": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "MET",
+                    "BREACHED",
+                    "UNKNOWN"
+                  ]
+                },
+                "usable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "monitor",
+                    "scope",
+                    "event"
+                  ],
+                  "properties": {
+                    "monitor": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "event": {
+                      "type": "string",
+                      "enum": [
+                        "opened",
+                        "continued"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "monitor",
+                    "scope",
+                    "event",
+                    "reason"
+                  ],
+                  "properties": {
+                    "monitor": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "event": {
+                      "const": "closed"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "resolved",
+                        "withdrawn"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "liveness": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "monitor",
+                "event",
+                "scope"
+              ],
+              "properties": {
+                "monitor": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "event": {
+                  "type": "string",
+                  "enum": [
+                    "stale",
+                    "live_again"
+                  ]
+                },
+                "scope": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          },
+          "optimizations": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "fired"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "started"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact",
+                    "completion",
+                    "candidates"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "finished"
+                    },
+                    "completion": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "error",
+                        "cancelled",
+                        "cost_limit"
+                      ]
+                    },
+                    "candidates": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "evidence_valid",
+                              "legacy_decision",
+                              "monitor_verdicts"
+                            ],
+                            "properties": {
+                              "evidence_valid": {
+                                "const": true
+                              },
+                              "legacy_decision": {
+                                "type": "string",
+                                "enum": [
+                                  "Promote",
+                                  "Reject",
+                                  "NoDecision"
+                                ]
+                              },
+                              "monitor_verdicts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(MET|BREACHED|UNKNOWN|UNKNOWN\\([a-z][a-z0-9_]*\\))$"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "evidence_valid"
+                            ],
+                            "properties": {
+                              "evidence_valid": {
+                                "const": false
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact",
+                    "effect",
+                    "state"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "approval"
+                    },
+                    "effect": {
+                      "type": "string",
+                      "enum": [
+                        "optimize",
+                        "deploy"
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "granted",
+                        "declined",
+                        "expired"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact",
+                    "state"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "authority"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "reachable",
+                        "unreachable"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "deploy_started"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "response",
+                    "revision",
+                    "rule",
+                    "scope",
+                    "occurrence",
+                    "fact",
+                    "checks",
+                    "write",
+                    "retries_exhausted"
+                  ],
+                  "properties": {
+                    "response": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "rule": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "occurrence": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "fact": {
+                      "const": "deploy_result"
+                    },
+                    "checks": {
+                      "type": "string",
+                      "enum": [
+                        "passed",
+                        "refused",
+                        "unreachable"
+                      ]
+                    },
+                    "write": {
+                      "type": "string",
+                      "enum": [
+                        "succeeded",
+                        "failed",
+                        "not_attempted"
+                      ]
+                    },
+                    "retries_exhausted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

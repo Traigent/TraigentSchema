@@ -15,7 +15,8 @@ EXE = SCHEMAS / "execution"
 REGISTRY = build_registry()
 B = "https://schemas.traigent.ai/"
 REACTIVE_DOCS = sorted(OPT.glob("tvl_reactive_*_schema.json")) + [EXE / "best_config_deploy_schema.json"]
-CATALOGS = [OPT / "tvl_reactive_endpoints.json", EXE / "best_config_deploy_endpoints.json"]
+CATALOGS = [OPT / "tvl_reactive_endpoints.json", EXE / "best_config_deploy_endpoints.json",
+            EXE / "best_config_agent_head_config_endpoints.json"]
 
 TOK = "t" + "A1_-" * 4
 TOK2 = "t" + "b2c3" * 4
@@ -405,3 +406,141 @@ def test_every_ref_resolves():
             if isinstance(node, dict) and isinstance(node.get("$ref"), str) and not node["$ref"].startswith("#"):
                 target = (path.parent / node["$ref"].split("#")[0]).resolve()
                 assert target.exists(), (path.name, node["$ref"])
+
+
+# ------------------------------------------------------------------ trace shape, projection, lint roots
+import hashlib  # noqa: E402
+import importlib.util  # noqa: E402
+import sys  # noqa: E402
+
+import yaml  # noqa: E402
+from jsonschema import Draft7Validator  # noqa: E402
+
+from traigent_schema.tvl_reactive import project_evaluation, project_fact  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests" / "fixtures" / "tvl" / "semantic_traces"
+TRACE_SHAPE = Draft7Validator(load(ROOT / "traigent_schema" / "data" / "tvl" / "trace-history-shape.json"))
+FACTS_V = v("tvl_reactive_facts_schema", "OptimizationFact")
+CASES = sorted(FIXTURES.glob("*.yml"))
+
+
+def test_fixture_copies_are_pinned_and_complete():
+    src = load(FIXTURES / "SOURCE.json")
+    assert len(CASES) == 13 == len(src["files"])
+    for c in CASES:
+        assert hashlib.sha256(c.read_bytes()).hexdigest() == src["files"][c.name]
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda p: p.stem)
+def test_fixture_histories_match_trace_shape(case):
+    history = yaml.safe_load(case.read_text(encoding="utf-8"))["input"]["history"]
+    assert not list(TRACE_SHAPE.iter_errors(history))
+
+
+def test_trace_shape_rejects_transport_only_fields():
+    hist = {"agent": "a", "environment": "e", "evaluations": [{"instant": 6, "windows": [{**window(), "monitor": "m", "unknown_reason": "insufficient", "verdict": "UNKNOWN"}]}]}
+    assert list(TRACE_SHAPE.iter_errors(hist))
+    cand = {"evidence_valid": True, "legacy_decision": "Promote", "monitor_verdicts": ["MET"], "fingerprint": H64}
+    fact = {"response": "r", "revision": "1", "rule": "x", "scope": "s", "occurrence": 0, "fact": "finished", "completion": "normal", "candidates": [cand]}
+    assert list(TRACE_SHAPE.iter_errors({"agent": "a", "environment": "e", "evaluations": [{"instant": 1, "optimizations": [fact]}]}))
+
+
+class _Tokens:
+    def __init__(self):
+        self.fwd, self.back = {}, {}
+
+    def tok(self, name):
+        if name not in self.fwd:
+            t = "t" + hashlib.sha256(name.encode()).hexdigest()[:16].translate(str.maketrans("abcdef", "ABCDEF"))
+            self.fwd[name], self.back[t] = t, name
+        return self.fwd[name]
+
+    def dig(self, value):
+        d = hashlib.sha256(("rev:" + value).encode()).hexdigest()
+        self.back[d] = value
+        return d
+
+
+def _to_transport(ev, tk):
+    out = {"instant": ev["instant"]}
+    for cat in ev:
+        if cat == "instant":
+            continue
+        facts = []
+        for f in ev[cat]:
+            g = dict(f)
+            for k in ("monitor", "scope", "response", "rule"):
+                if k in g:
+                    g[k] = tk.tok(g[k])
+            if cat == "revisions":
+                g = {"kind": g["kind"], "target": tk.tok(f["name"]), "value": tk.dig(f["value"])}
+            if "revision" in g:
+                g["revision"] = tk.dig(g["revision"])
+            if cat == "windows" and g["verdict"] == "UNKNOWN":
+                g["unknown_reason"] = "insufficient"  # transport-only metadata
+            if cat == "optimizations" and "candidates" in g:
+                g["candidates"] = [({**c, "fingerprint": H64, "gate_result_digest": H64B} if c["evidence_valid"] else c) for c in g["candidates"]]
+            facts.append(g)
+        out[cat] = facts
+    return out
+
+
+def _detranslate(node, tk, key=None):
+    if isinstance(node, dict):
+        return {k: _detranslate(x, tk, k) for k, x in node.items()}
+    if isinstance(node, list):
+        return [_detranslate(x, tk, key) for x in node]
+    if key in ("monitor", "scope", "response", "rule", "name", "revision", "value") and isinstance(node, str):
+        return tk.back.get(node, node)
+    return node
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda p: p.stem)
+def test_transport_facts_validate_and_project_to_the_trace_fact(case):
+    history = yaml.safe_load(case.read_text(encoding="utf-8"))["input"]["history"]
+    tk = _Tokens()
+    stage_v = v("tvl_reactive_stage_schema", "EvaluationStageRequest")
+    for ev in history["evaluations"]:
+        transport = _to_transport(ev, tk)
+        body = stage(**{k: x for k, x in transport.items() if k != "instant"})
+        assert not stage_v(body), (case.name, stage_v(body))
+        projected = _detranslate(project_evaluation(transport), tk)
+        assert projected == ev, case.name
+
+
+def test_projection_drops_exactly_the_documented_fields():
+    w = window(verdict="UNKNOWN", unknown_reason="insufficient")
+    assert project_fact("windows", w) == {k: x for k, x in w.items() if k != "unknown_reason"}
+    cand = {"evidence_valid": True, "legacy_decision": "Promote", "monitor_verdicts": ["MET"], "fingerprint": H64, "gate_result_digest": H64B}
+    f = opt("finished", completion="normal", candidates=[cand, {"evidence_valid": False}])
+    pf = project_fact("optimizations", f)
+    assert pf["candidates"] == [{"evidence_valid": True, "legacy_decision": "Promote", "monitor_verdicts": ["MET"]}, {"evidence_valid": False}]
+    assert project_fact("revisions", {"kind": "monitor", "target": TOK, "value": H64}) == {"kind": "monitor", "name": TOK, "value": H64}
+    assert f["candidates"][0]["fingerprint"] == H64  # input not mutated
+    with pytest.raises(ValueError):
+        project_fact("other", {})
+
+
+def _lint():
+    spec = importlib.util.spec_from_file_location("content_class_lint_t", ROOT / "scripts" / "content_class_lint.py")
+    m = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = m
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_deploy_contracts_are_lint_roots_and_the_content_read_is_an_explicit_exception():
+    m = _lint()
+    assert "execution/best_config_deploy_schema.json" in m.EXTRA_ROOT_FILES
+    assert "execution/best_config_deploy_endpoints.json" in m.EXTRA_ROOT_FILES
+    assert set(m.EXPLICIT_CONTENT_EXCEPTIONS) == {
+        "execution/best_config_agent_head_config_schema.json",
+        "execution/best_config_agent_head_config_endpoints.json",
+    }
+    assert not set(m.EXPLICIT_CONTENT_EXCEPTIONS) & set(m.EXTRA_ROOT_FILES)
+    manifest = load(ROOT / "docs" / "content-class-manifest.json")["classes"]
+    assert any(k.startswith("execution/best_config_deploy_schema.json#") for k in manifest)
+    assert not any(k.startswith("execution/best_config_agent_head_config") for k in manifest)
+    for name in m.EXPLICIT_CONTENT_EXCEPTIONS:
+        assert "customer content" in (SCHEMAS / name).read_text(encoding="utf-8").lower()

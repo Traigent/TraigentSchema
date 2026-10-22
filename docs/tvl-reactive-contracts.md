@@ -30,17 +30,29 @@ Every array has `maxItems`; every object is closed (`additionalProperties: false
 are refused. `tests/test_tvl_reactive_contracts.py` pins all of this, and `scripts/content_class_lint.py`
 walks the `optimization/` documents (the manifest `docs/content-class-manifest.json` lists every location).
 
-## Not part of the closed contract
+## Trace shape versus transport shape
 
-`execution/best_config_deploy_schema.json` and `execution/best_config_deploy_endpoints.json` carry only
-refs, digests, enums, integers and timestamps (publish-result record, finalize), but they live in
-`execution/`, beside the best-config publish, which is not a content-class lint root. The deploy
-idempotency key `deploy:{attempt_ref}:{candidate_fingerprint}:{gate_result_digest}` has a composite fixed
-shape that the class vocabulary has no member for.
+`optimization/tvl_reactive_facts_schema.json` is a SUPERSET of the fact shape the TVL reference trace
+(`python/tvl/runtime_trace.py`) accepts. Transport-only fields: window `unknown_reason`, candidate
+`fingerprint` and `gate_result_digest`; revision facts say `target` where the trace says `name`; hosted
+tokens and digests stand in for local names and revision strings. `traigent_schema.tvl_reactive.project_fact`
+/ `project_evaluation` drop or rename exactly these fields to produce a trace-shaped fact (the caller maps
+tokens back to local names). `traigent_schema/data/tvl/trace-history-shape.json` is the exact trace shape;
+`tests/test_tvl_reactive_contracts.py` validates all 13 TVL semantic-trace fixtures
+(`tests/fixtures/tvl/semantic_traces/`, pinned in `SOURCE.json`) against it, translates each to transport
+facts, validates those against the stage request, and checks the projection equals the original fact.
 
-`execution/best_config_agent_head_config_schema.json` (the exact pinned version read) returns the stored
-configuration. That is customer content (plan 8.4): it is outside the closed contract, outside the
-Director bridge guarantee, and must not be described as privacy-preserving.
+## Deploy contracts and the customer-content exception
+
+`execution/best_config_deploy_schema.json` and `best_config_deploy_endpoints.json` (publish-result,
+finalize, the deploy idempotency key `deploy:{attempt_ref}:{candidate_fingerprint}:{gate_result_digest}`,
+a fixed shape of one ref and two digests) ARE content-class lint roots and are in the manifest.
+
+`execution/best_config_agent_head_config_{schema,endpoints}.json` (the exact pinned version read) return
+the stored configuration. That is customer content (plan 8.4): outside the closed contract, outside the
+Director bridge guarantee, and never to be described as privacy-preserving. It is an explicit allow-listed
+exception (`EXPLICIT_CONTENT_EXCEPTIONS` in `scripts/content_class_lint.py`, pinned by a test), not a
+silent skip.
 
 ## Principals
 

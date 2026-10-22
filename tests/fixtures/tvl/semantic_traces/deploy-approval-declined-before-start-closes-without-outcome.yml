@@ -1,0 +1,198 @@
+case_format: tvl-runtime-case/1
+family: semantic_traces
+description: Declining separate deploy approval before the deploy starts closes attempt_open
+  and emits no deploy outcome.
+spec_refs:
+- formalization/rfc-0004-reactive-outcomes-and-guards.md#2
+- formalization/rfc-0004-reactive-outcomes-and-guards.md#5
+module:
+  tvl:
+    module: conformance.semantic_trace
+  tvl_version: '1.4'
+  environment:
+    snapshot_id: '2026-10-16T00:00:00Z'
+  evaluation_set:
+    dataset: test://runtime
+  tvars:
+  - name: model_choice
+    type: enum[str]
+    domain:
+    - small
+    - large
+  objectives:
+  - name: quality
+    direction: maximize
+  promotion_policy:
+    dominance: epsilon_pareto
+    alpha: 0.05
+    min_effect:
+      quality: 0.02
+  requirements:
+  - name: requirement_main
+    kind: rate_bound
+    unit: invocation
+    violation:
+      metric: wall_clock_latency_ms
+      exceeds: 2000
+    max_rate: 0.05
+  monitors:
+  - name: monitor_main
+    requirement: requirement_main
+    phase: runtime
+    evidence:
+      source: customer_side
+      deployment_environment: production
+      attribution: agent_key_exact_v1
+      resolution: terminal_status_v1
+      sampling:
+        mode: head_sampled_declared
+        rate: 0.5
+    decision:
+      method: clopper_pearson_rational_v2
+      confidence: 0.95
+      false_alarm_budget: 0.05
+      min_samples: 200
+      max_unresolved_fraction: 0.05
+      horizon_days: 30
+      model: iid_bernoulli_within_window_v1
+    applies_to: agent
+    window:
+      tumbling_hours: 6
+      grace_minutes: 0
+    episode:
+      closure_windows: 2
+      closure_max_age_hours: 24
+  - name: monitor_gate
+    requirement: requirement_main
+    phase: promotion
+    evidence:
+      source: evaluation_set
+    decision:
+      method: clopper_pearson_rational_v2
+      confidence: 0.95
+      false_alarm_budget: 0.05
+  responses:
+  - name: repair
+    rules:
+    - id: fix
+      trigger:
+        monitor: monitor_main
+        event: episode_opened
+      do: optimize
+      approval: human
+      deploy: if_promoted
+    - id: optimize_no_candidate
+      trigger:
+        rule: fix
+        event: optimize_no_candidate
+      do: notify
+      unless:
+      - rule: fix
+        state: attempt_open
+    - id: optimize_failed
+      trigger:
+        rule: fix
+        event: optimize_failed
+      do: notify
+      unless:
+      - rule: fix
+        state: attempt_open
+    - id: deploy_refused
+      trigger:
+        rule: fix
+        event: deploy_refused
+      do: notify
+      unless:
+      - rule: fix
+        state: attempt_open
+    - id: deploy_failed
+      trigger:
+        rule: fix
+        event: deploy_failed
+      do: notify
+      unless:
+      - rule: fix
+        state: attempt_open
+    - id: page_unless_repair
+      trigger:
+        monitor: monitor_main
+        event: episode_continued
+      do: notify
+      unless:
+      - rule: fix
+        state: attempt_open
+input:
+  kind: trace
+  history:
+    agent: agent-1
+    environment: production
+    evaluations:
+    - instant: 0
+      episodes:
+      - monitor: monitor_main
+        scope: episode-1
+        event: opened
+      optimizations:
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: fired
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: approval
+        effect: optimize
+        state: granted
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: started
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: finished
+        completion: normal
+        candidates:
+        - evidence_valid: true
+          legacy_decision: Promote
+          monitor_verdicts:
+          - MET
+    - instant: 1
+      episodes:
+      - monitor: monitor_main
+        scope: episode-1
+        event: continued
+      optimizations:
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: approval
+        effect: deploy
+        state: declined
+    - instant: 2
+      optimizations:
+      - response: repair
+        revision: '1'
+        rule: fix
+        scope: episode-1
+        occurrence: 0
+        fact: deploy_result
+        checks: refused
+        write: not_attempted
+        retries_exhausted: false
+expected:
+  notifications:
+  - response: repair
+    rule: page_unless_repair
+    event: episode_continued
+    instant: 1

@@ -8114,7 +8114,7 @@
       ],
       "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema (this change)"
+      "pr": "Traigent/TraigentSchema#599"
     },
     {
       "file": "auth/auth_endpoints.json",
@@ -8147,7 +8147,7 @@
       ],
       "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema (this change)"
+      "pr": "Traigent/TraigentSchema#599"
     },
     {
       "file": "auth/auth_endpoints.json",
@@ -8171,7 +8171,7 @@
       ],
       "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema (this change)"
+      "pr": "Traigent/TraigentSchema#599"
     },
     {
       "file": "auth/auth_endpoints.json",
@@ -8188,7 +8188,7 @@
       ],
       "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema (this change)"
+      "pr": "Traigent/TraigentSchema#599"
     },
     {
       "file": "auth/auth_endpoints.json",
@@ -8212,7 +8212,7 @@
       ],
       "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema (this change)"
+      "pr": "Traigent/TraigentSchema#599"
     }
   ]
 }

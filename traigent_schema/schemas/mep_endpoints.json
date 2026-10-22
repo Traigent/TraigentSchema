@@ -63,6 +63,16 @@
       "paths_file": "./optimization/label_write_endpoints.json"
     },
     {
+      "name": "TVL Reactive Contracts",
+      "description": "TVL 1.4 reactive layer (TRAIG-101): evaluation-batch staging, producer watermarks, human approval grants, reservations, start authorization, effect outcomes, cancel, attempt and notification read models (/api/v1/production-reactive/...; flag-gated, closed contract).",
+      "paths_file": "./optimization/tvl_reactive_endpoints.json"
+    },
+    {
+      "name": "Best Config Deploy Target",
+      "description": "Agent-head deploy publish-result lookup, finalize and exact pinned-version config read (TRAIG-101 plan 8; /api/v1/best-configs/agent-heads/{agent_ref}/...).",
+      "paths_file": "./execution/best_config_deploy_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

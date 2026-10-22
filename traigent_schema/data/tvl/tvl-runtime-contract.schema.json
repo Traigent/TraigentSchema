@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tvl-lang.org/schemas/tvl-runtime-contract.schema.json",
+  "title": "TVL Runtime Contract",
+  "description": "Schema for compiled hosted runtime contracts tvl-runtime-contract/1 (RFC 0003 §11.4.1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "tvl_version",
+    "document",
+    "declarations",
+    "backend_profiles",
+    "packs_checked",
+    "toolchain"
+  ],
+  "properties": {
+    "format": { "const": "tvl-runtime-contract/1" },
+    "tvl_version": { "const": "1.3" },
+    "document": { "enum": ["module", "pack"] },
+    "declarations": { "$ref": "#/$defs/HostedDeclarations" },
+    "backend_profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/BackendProfileEntry" }
+    },
+    "packs_checked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pack_module_ref", "pack_contract_digest"],
+        "properties": {
+          "pack_module_ref": { "$ref": "#/$defs/Ref" },
+          "pack_contract_digest": { "$ref": "#/$defs/Fingerprint" }
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "tvl" },
+        "version": { "$ref": "#/$defs/SdkVersion" }
+      }
+    }
+  },
+  "$defs": {
+    "Ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "Fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "DecimalString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$"
+    },
+    "SdkVersion": {
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "CodeIdent": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    },
+    "HostedDeclarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "monitors", "responses"],
+      "oneOf": [
+        { "required": ["tvl"] },
+        { "required": ["pack"] }
+      ],
+      "properties": {
+        "tvl": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module"],
+          "properties": {
+            "module": { "$ref": "#/$defs/Ref" }
+          }
+        },
+        "pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module"],
+          "properties": {
+            "module": { "$ref": "#/$defs/Ref" }
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HostedRequirement" }
+        },
+        "monitors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HostedMonitor" }
+        },
+        "responses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HostedResponse" }
+        }
+      }
+    },
+    "HostedRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "unit"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Ref" },
+        "kind": { "enum": ["rate_bound", "zero_tolerance", "recovery_time", "evidence_liveness"] },
+        "unit": { "enum": ["trace", "invocation", "episode", "window"] },
+        "among": { "$ref": "#/$defs/HostedPredicate" },
+        "violation": { "$ref": "#/$defs/HostedPredicate" },
+        "max_rate": { "$ref": "#/$defs/DecimalString" },
+        "of": { "$ref": "#/$defs/Ref" },
+        "within_hours": { "type": "integer", "minimum": 1 },
+        "max_stale_windows": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "HostedPredicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "enum": ["wall_clock_latency_ms", "cost_usd", "total_tokens", "tool_calls"] },
+        "exceeds": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "$ref": "#/$defs/DecimalString" }
+          ]
+        },
+        "checker": {
+          "oneOf": [
+            { "const": "traigent.refusal.v1" },
+            { "type": "string", "pattern": "^customer:[0-9a-f]{64}$" }
+          ]
+        },
+        "label_in": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "enum": ["must_refuse", "complied"] },
+              { "type": "integer", "minimum": 0 }
+            ]
+          }
+        },
+        "pattern": { "enum": ["absence", "bounded_existence", "precedence", "bounded_response", "protocol"] },
+        "a": { "$ref": "#/$defs/HostedSelector" },
+        "b": { "$ref": "#/$defs/HostedSelector" },
+        "max_count": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["single_use", "reusable"] },
+        "correlate_by": { "enum": ["unit", "correlation_id", "tool_call_id"] },
+        "within_ms": { "type": "integer", "minimum": 1 },
+        "alphabet": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HostedSelector" }
+        },
+        "states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Ref" }
+        },
+        "start": { "$ref": "#/$defs/Ref" },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "when", "to"],
+            "properties": {
+              "from": { "$ref": "#/$defs/Ref" },
+              "when": { "$ref": "#/$defs/HostedSelector" },
+              "to": { "$ref": "#/$defs/Ref" }
+            }
+          }
+        },
+        "accepting": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Ref" }
+        },
+        "rejecting": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Ref" }
+        },
+        "unlisted": { "enum": ["reject", "ignore"] }
+      }
+    },
+    "HostedSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event"],
+      "properties": {
+        "event": {
+          "enum": [
+            "unit_start",
+            "unit_end",
+            "tool_call",
+            "tool_result",
+            "model_call",
+            "handoff",
+            "error",
+            "authorization_granted",
+            "authorization_revoked"
+          ]
+        },
+        "tool": { "$ref": "#/$defs/CodeIdent" },
+        "status": { "enum": ["running", "completed", "failed", "rejected"] },
+        "ref": { "$ref": "#/$defs/Ref" }
+      }
+    },
+    "HostedMonitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "requirement", "phase", "applies_to", "evidence", "decision"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Ref" },
+        "requirement": { "$ref": "#/$defs/Ref" },
+        "phase": { "enum": ["promotion", "runtime"] },
+        "profile": { "const": "backend_v1" },
+        "applies_to": { "enum": ["agent", "tenant_floor"] },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "enum": ["backend_trace_metadata", "customer_side", "evaluation_set", "episodes", "windows"] },
+            "deployment_environment": { "$ref": "#/$defs/Ref" },
+            "attribution": { "const": "agent_key_exact_v1" },
+            "resolution": { "const": "terminal_status_v1" },
+            "sampling": {
+              "oneOf": [
+                { "const": "unverified" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["mode", "rate"],
+                  "properties": {
+                    "mode": { "enum": ["head_sampled_declared", "hash_bernoulli_committed_v1"] },
+                    "rate": { "$ref": "#/$defs/DecimalString" }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tumbling_hours", "grace_minutes"],
+          "properties": {
+            "tumbling_hours": { "enum": [1, 2, 3, 4, 6, 8, 12, 24] },
+            "grace_minutes": { "type": "integer", "minimum": 0, "maximum": 360 }
+          }
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method"],
+          "properties": {
+            "method": { "enum": ["clopper_pearson_exact_v1", "clopper_pearson_rational_v2", "exact_count_v1"] },
+            "model": { "const": "iid_bernoulli_within_window_v1" },
+            "confidence": { "$ref": "#/$defs/DecimalString" },
+            "false_alarm_budget": { "$ref": "#/$defs/DecimalString" },
+            "horizon_days": { "type": "integer", "minimum": 1, "maximum": 365 },
+            "min_samples": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+            "max_unresolved_fraction": { "$ref": "#/$defs/DecimalString" },
+            "threshold_factor": { "$ref": "#/$defs/DecimalString" }
+          }
+        },
+        "episode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["closure_windows", "closure_max_age_hours"],
+          "properties": {
+            "closure_windows": { "type": "integer", "minimum": 1, "maximum": 24 },
+            "closure_max_age_hours": { "type": "integer", "minimum": 1, "maximum": 720 }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_active_obligations": { "type": "integer", "minimum": 1 },
+            "max_tracked_correlations": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "single_producer": { "type": "boolean" }
+      }
+    },
+    "HostedResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "rules"],
+      "properties": {
+        "name": { "$ref": "#/$defs/Ref" },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HostedRule" }
+        }
+      }
+    },
+    "HostedRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trigger", "do", "approval"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Ref" },
+        "trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monitor", "event"],
+          "properties": {
+            "monitor": { "$ref": "#/$defs/Ref" },
+            "event": {
+              "enum": [
+                "episode_opened",
+                "episode_continued",
+                "episode_open_for",
+                "episode_resolved",
+                "episode_withdrawn",
+                "recovery_overdue",
+                "recovery_cancelled",
+                "recovery_recovered",
+                "burn_breached",
+                "stale",
+                "live_again",
+                "unit_violation"
+              ]
+            },
+            "hours": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "do": {
+          "enum": [
+            "notify",
+            "open_next_step",
+            "optimize",
+            "rollback",
+            "throttle",
+            "degrade",
+            "suspend",
+            "block_action",
+            "halt_unit"
+          ]
+        },
+        "approval": { "enum": ["none", "standing", "human"] },
+        "target": {
+          "oneOf": [
+            { "const": "last_certified" },
+            { "$ref": "#/$defs/Fingerprint" }
+          ]
+        },
+        "severity": { "enum": ["info", "warning", "critical"] },
+        "fallback": {
+          "oneOf": [
+            { "enum": ["static_unavailable", "route_to_human"] },
+            { "$ref": "#/$defs/Fingerprint" }
+          ]
+        },
+        "rate_floor": { "$ref": "#/$defs/DecimalString" },
+        "repeat_after_hours": { "type": "integer", "minimum": 1 },
+        "max_repeats": { "type": "integer", "minimum": 1 },
+        "on_check_error": { "enum": ["block", "allow"] },
+        "deploy": { "enum": ["never", "if_promoted"] }
+      },
+      "if": { "properties": { "do": { "const": "optimize" } } },
+      "then": { "required": ["deploy"] },
+      "else": { "not": { "required": ["deploy"] } }
+    },
+    "BackendProfileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monitor_ref", "scope", "backend_profile", "evaluation_metadata"],
+      "properties": {
+        "monitor_ref": { "$ref": "#/$defs/Ref" },
+        "scope": { "enum": ["agent", "tenant_floor"] },
+        "backend_profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "latency_threshold_ms",
+            "environment_ref",
+            "max_violation_rate",
+            "confidence",
+            "window_hours",
+            "grace_minutes",
+            "min_samples",
+            "max_unresolved_fraction",
+            "closure_windows",
+            "closure_max_age_hours",
+            "false_alarm_budget",
+            "horizon_days"
+          ],
+          "properties": {
+            "kind": { "const": "latency_violation_rate" },
+            "latency_threshold_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+            "environment_ref": { "$ref": "#/$defs/Ref" },
+            "max_violation_rate": { "$ref": "#/$defs/DecimalString" },
+            "confidence": { "$ref": "#/$defs/DecimalString" },
+            "window_hours": { "enum": [1, 3, 6, 12, 24] },
+            "grace_minutes": { "type": "integer", "minimum": 0, "maximum": 360 },
+            "min_samples": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+            "max_unresolved_fraction": { "$ref": "#/$defs/DecimalString" },
+            "closure_windows": { "type": "integer", "minimum": 1, "maximum": 24 },
+            "closure_max_age_hours": { "type": "integer", "minimum": 1, "maximum": 720 },
+            "false_alarm_budget": { "$ref": "#/$defs/DecimalString" },
+            "horizon_days": { "type": "integer", "minimum": 1, "maximum": 365 }
+          }
+        },
+        "evaluation_metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "model", "sampling"],
+          "properties": {
+            "method": { "const": "clopper_pearson_exact_v1" },
+            "model": { "const": "iid_bernoulli_within_window_v1" },
+            "sampling": { "const": "unverified" }
+          }
+        }
+      }
+    }
+  }
+}

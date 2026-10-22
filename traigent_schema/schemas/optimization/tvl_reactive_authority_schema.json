@@ -736,10 +736,123 @@
               "type": "string",
               "const": "deploy_result"
             },
+            "checks": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "passed"
+            },
+            "write": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "succeeded"
+            },
+            "retries_exhausted": {
+              "x-content-class": "closed_enum",
+              "type": "boolean",
+              "const": false
+            }
+          },
+          "required": [
+            "fact",
+            "checks",
+            "write",
+            "retries_exhausted",
+            "publish_result_key"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "completion"
+                ]
+              },
+              {
+                "required": [
+                  "candidates"
+                ]
+              },
+              {
+                "required": [
+                  "state"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "fact": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "deploy_result"
+            },
+            "checks": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "passed"
+            },
+            "write": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "failed"
+            },
+            "retries_exhausted": {
+              "x-content-class": "closed_enum",
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "fact",
+            "checks",
+            "write",
+            "retries_exhausted",
+            "publish_result_key"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "completion"
+                ]
+              },
+              {
+                "required": [
+                  "candidates"
+                ]
+              },
+              {
+                "required": [
+                  "state"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "fact": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "deploy_result"
+            },
+            "checks": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "enum": [
+                "refused",
+                "unreachable"
+              ]
+            },
             "write": {
               "x-content-class": "closed_enum",
               "type": "string",
               "const": "not_attempted"
+            },
+            "retries_exhausted": {
+              "x-content-class": "closed_enum",
+              "type": "boolean",
+              "const": false
             }
           },
           "required": [
@@ -768,49 +881,6 @@
               {
                 "required": [
                   "publish_result_key"
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "properties": {
-            "fact": {
-              "x-content-class": "closed_enum",
-              "type": "string",
-              "const": "deploy_result"
-            },
-            "write": {
-              "x-content-class": "closed_enum",
-              "type": "string",
-              "enum": [
-                "succeeded",
-                "failed"
-              ]
-            }
-          },
-          "required": [
-            "fact",
-            "checks",
-            "write",
-            "retries_exhausted",
-            "publish_result_key"
-          ],
-          "not": {
-            "anyOf": [
-              {
-                "required": [
-                  "completion"
-                ]
-              },
-              {
-                "required": [
-                  "candidates"
-                ]
-              },
-              {
-                "required": [
-                  "state"
                 ]
               }
             ]

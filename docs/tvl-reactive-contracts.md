@@ -86,7 +86,7 @@ from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`
   gate-result digest, optimization-start generation and current head generation (both shown) and the attempt state.
 - **Cancel is optimization-only** (`effect: optimize` is required): it appends `finished{cancelled}`, which the
   reference trace rejects once optimization has finished ("optimization not running"). A lapsed deployment recovers
-  via finalize and then a `deploy_result`. Tested against the real checker when `tvl-spec` is installed.
+  via finalize and then a `deploy_result`. Tested against the real checker (`tvl-spec==1.4.0`, a dev dependency on Python >= 3.12; the tests fail, not skip, there if it is missing).
 - **Lease**: the lease of an effect is its reservation. `POST .../attempts/{attempt_ref}/heartbeat` renews it, bound to the
   existing reservation and generation. No new reservation, no second start.
 - **Rate limiting** is the closed `rate_limited` code (429) plus a `Retry-After` header; no free-text message or details.

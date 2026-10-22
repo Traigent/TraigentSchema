@@ -298,6 +298,16 @@ def test_reservation_start_results_cancel():
     assert not o({**base, "fact": "deploy_result", "checks": "refused", "write": "not_attempted", "retries_exhausted": False})
     assert not o({**base, "fact": "authority", "state": "reachable"})
     pk = KEY_D
+    ok_s = {**base, "fact": "deploy_result", "checks": "passed", "write": "succeeded", "retries_exhausted": False, "publish_result_key": pk}
+    ok_f = {**base, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True, "publish_result_key": pk}
+    ok_r = {**base, "fact": "deploy_result", "checks": "refused", "write": "not_attempted", "retries_exhausted": False}
+    assert not o(ok_s) and not o(ok_f) and not o(ok_r)
+    assert not o({**ok_r, "checks": "unreachable"})
+    assert o({**ok_f, "retries_exhausted": False})  # failed needs the retry bound reached
+    assert o({**ok_s, "retries_exhausted": True})
+    assert o({**ok_f, "checks": "refused"}) and o({**ok_s, "checks": "unreachable"})
+    assert o({**ok_r, "checks": "passed"})  # passed with no write attempted is not a valid terminal result
+    assert o({**ok_r, "write": "failed"}) and o({**ok_r, "retries_exhausted": True})
     assert not o({**base, "fact": "deploy_result", "checks": "passed", "write": "succeeded", "retries_exhausted": False, "publish_result_key": pk})
     assert not o({**base, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True, "publish_result_key": pk})
     assert o({**base, "fact": "deploy_result", "checks": "passed", "write": "succeeded", "retries_exhausted": False})
@@ -611,7 +621,13 @@ def test_deploy_publication_is_its_own_branch_with_the_approval_time_generation(
 
 # trace-level proof of the two lapse recoveries, against the real reference checker
 def _tvl():
-    tvl = pytest.importorskip("tvl.runtime_trace", reason="tvl-spec not installed")
+    """The reference checker. tvl-spec needs Python >= 3.12 and is a dev dependency there
+    (pyproject dev extra, requirements-dev.txt). On >= 3.12 a missing package FAILS; the only skip is the
+    interpreter-version one, and the required 3.12 CI job runs these tests."""
+    if sys.version_info < (3, 12):
+        pytest.skip("tvl-spec requires Python >= 3.12; these tests run in the 3.12 job")
+    import tvl.runtime_trace as tvl  # noqa: PLC0415 - a missing package must fail, not skip
+
     return tvl
 
 
@@ -636,13 +652,13 @@ def test_lapsed_deployment_recovers_via_deploy_result_never_optimization_finishe
     a = copy.deepcopy(hist)
     a["evaluations"] = copy.deepcopy(evs) + [{"instant": 2, "optimizations": [
         {**fact, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True}]}]
-    assert [n["event"] for n in rt.notification_trace(module, a)] == ["deploy_failed"] or True
     out_a = rt.notification_trace(module, a)
-    assert all(n["event"] != "optimize_failed" for n in out_a)
+    assert [n["event"] for n in out_a] == ["deploy_failed"], out_a
     # recovery path B (finalize returned the stored success)
     b = copy.deepcopy(a)
     b["evaluations"][2]["optimizations"][0].update(write="succeeded", retries_exhausted=False)
-    rt.notification_trace(module, b)
+    out_b = rt.notification_trace(module, b)
+    assert out_b == [], out_b  # deployed: attempt closes with no failure notification
     # the forbidden recovery: optimization finished{cancelled} after the deployment started
     bad = copy.deepcopy(hist)
     bad["evaluations"] = copy.deepcopy(evs) + [{"instant": 2, "optimizations": [

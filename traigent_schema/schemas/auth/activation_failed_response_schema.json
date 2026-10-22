@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/activation_failed_response_schema.json",
+  "title": "Activation Failed Response DTO",
+  "description": "HTTP 400 body returned by POST /api/v1/auth/verify-email and POST /api/v1/auth/verify-email/preview when an activation link is invalid, expired, already used, or the request is malformed. A single uniform response is used for every such case. Carries Cache-Control: no-store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "error",
+    "error_code"
+  ],
+  "properties": {
+    "success": {
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable error text."
+    },
+    "error_code": {
+      "const": "ACTIVATION_FAILED"
+    }
+  }
+}

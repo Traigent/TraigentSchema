@@ -8261,6 +8261,121 @@
       "reason": "TraigentSchema#591 review. The declared 200 for this route matched NO real response and therefore cannot have a working consumer to break. The analytics blueprint handler returns response_handler.success_response(...), so the wire body is {success, message, data} with the dashboard payload under data; the entry declared the bare payload, which requires its five fields at the ROOT with additionalProperties:false. Every successful call failed that schema. The repository's own authoritative record agrees: success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`, not `bare`, and the route is not among the per-operation exceptions in x-wrap-map.mixed. The findings below are the artefacts of moving the declaration from the payload to the envelope that contains it: additionalProperties opens because the canonical envelope is open, `data` appears, and the five payload fields stop being root-level requirements because they are now required one level down, inside data, by the SAME unchanged payload schema (projects/project_scoped_optimization_overview_dashboard_schema.json is not touched). Nothing is loosened in substance: a body that satisfies the new declaration contains exactly the same required payload. No cross-repo coordination is needed for THIS change because its direction is forced, not chosen: making the server return a bare body instead would contradict the repo's own wrap-map and the convention of twelve route files, so there is no second option to coordinate. (The separate residual in TraigentSchema#594 - summary_cards.experiments_in_range is required and emitted by nobody - is deliberately NOT fixed here precisely because its direction IS a choice: either the schema drops the field or the backend emits it, and nothing on record picks one. So this change narrows the contract-vs-wire gap to one field; it does not close it.) One handler serves this v1beta mount and the unscoped /api/v1 mount, so fixing one and leaving the other would have left the two declarations of a single handler disagreeing. Scoped to this one route's 200.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#591"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "a5ecaee0a922bf9eee8023a980e21594f3a7fe0c014b137ecb691b76af6b4544"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "f1a8f1b445d4706b34b74368e8a36c9003005702e8bd6af048a2813ebbb7b4a1"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "8d17e005c0a6c51f87d0362dd4b7b31590fb0a4b51cc9950d3e8272ef8b42dce"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "b3db833fa648fc3bdb97e107e4adab69c8d67a2b94dbbc0710bb839787b2eb87"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "f558712cb4cbdf0b6fb94ff4c3b82e82340a4df7ca4528ad24f1ef97d31d9aed"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "3b400adb9b2f649e5f16938e90773fdedc697db8e94935012252d061eb3cdaca"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "7ae57e5f5f5c692a2eb3885862fe77150c9fb84e20d4d427fe8cefa5219e3e68"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
     }
   ]
 }

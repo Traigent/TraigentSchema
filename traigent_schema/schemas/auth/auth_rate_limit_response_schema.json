@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/auth_rate_limit_response_schema.json",
+  "title": "Auth Rate Limit Response DTO",
+  "description": "HTTP 429 (rate limit exceeded) and HTTP 503 (rate limiter unavailable, fails closed) body returned by the activation endpoints POST /api/v1/auth/verify-email and POST /api/v1/auth/verify-email/preview. Rate-limit headers X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset are set, plus Retry-After when a retry interval is known.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "error",
+    "rate_limit"
+  ],
+  "properties": {
+    "success": {
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rate_limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "current_usage",
+        "remaining",
+        "reset_time",
+        "retry_after"
+      ],
+      "properties": {
+        "limit": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "current_usage": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "remaining": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "reset_time": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        },
+        "retry_after": {
+          "type": [
+            "number",
+            "integer",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -960,11 +960,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Optimization overview dashboard retrieved successfully",
+            "description": "Optimization overview dashboard retrieved successfully. Success envelope {success, message, data}; the dashboard payload is under data. Same handler as the unscoped /api/v1 mount.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./projects/project_scoped_optimization_overview_dashboard_schema.json"
+                  "$ref": "./analytics/optimization_overview_dashboard_response_schema.json"
                 }
               }
             }

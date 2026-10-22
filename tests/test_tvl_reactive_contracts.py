@@ -605,13 +605,16 @@ def test_lease_renewal_is_bound_to_the_existing_reservation():
 
 def test_deploy_publication_is_its_own_branch_with_the_approval_time_generation():
     f = vx("best_config_agent_head_config_schema", "DeployPublishRequest")
-    spec = {"schema_version": "1", "config_id": "c", "function_ref": "m:f", "environment": "e", "config": {}, "provenance": {}}
+    spec = {"schema_version": "traigent.best_config.v1", "config_id": "c", "function_ref": "m:f", "environment": "default", "config": {}, "provenance": {}}
     ok = {"schema_version": 1, "idempotency_key": KEY_D, "attempt_ref": r("attempt"), "grant_ref": r("grant"),
           "reservation_ref": r("reservation"), "reservation_generation": 1, "expected_head_generation": 4, "spec": spec}
     props = load(EXE / "best_config_agent_head_config_schema.json")["definitions"]["DeployPublishRequest"]
     assert props["additionalProperties"] is False and set(ok) == set(props["required"])
     assert "APPROVAL-TIME" in props["properties"]["expected_head_generation"]["description"] or "READ AT APPROVAL" in props["properties"]["expected_head_generation"]["description"]
-    assert f({k: x for k, x in ok.items() if k != "grant_ref"}) == f({k: x for k, x in ok.items() if k != "grant_ref"})
+    assert not f(ok)
+    for needed in ok:
+        assert f({k: x for k, x in ok.items() if k != needed}), f"{needed} must be required"
+    assert f({**ok, "expected_head_generation": -1}) and f({**ok, "idempotency_key": "deploy:x"})
     assert [e for e in f({**ok, "extra": 1})]
     cat = load(EXE / "best_config_agent_head_config_endpoints.json")["paths"]
     desc = cat["/api/v1/best-configs/agent-heads/{agent_ref}/deploy-publications"]["post"]["description"]

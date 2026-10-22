@@ -1157,6 +1157,8 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+tvl = [
     { name = "tvl-spec", marker = "python_full_version >= '3.12'" },
 ]
 
@@ -1171,9 +1173,9 @@ requires-dist = [
     { name = "referencing", specifier = ">=0.30.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.9" },
     { name = "tomli", marker = "python_full_version < '3.11' and extra == 'dev'", specifier = ">=2.0" },
-    { name = "tvl-spec", marker = "python_full_version >= '3.12' and extra == 'dev'", specifier = "==1.4.0" },
+    { name = "tvl-spec", marker = "python_full_version >= '3.12' and extra == 'tvl'", specifier = "==1.4.0" },
 ]
-provides-extras = ["certification", "dev"]
+provides-extras = ["certification", "dev", "tvl"]
 
 [[package]]
 name = "tvl-spec"

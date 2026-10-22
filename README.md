@@ -202,6 +202,8 @@ For development:
 
 ```bash
 pip install -e ".[dev]"
+# Python >= 3.12, to run the TVL reactive trace tests too (they fail, not skip, without it):
+pip install -e ".[dev,tvl]"
 ```
 
 ## Quick Start
@@ -376,8 +378,9 @@ from traigent_schema import (
 ## Development
 
 ```bash
-# Install with dev dependencies
+# Install with dev dependencies (add the tvl extra on Python >= 3.12 for the TVL trace tests)
 pip install -e ".[dev]"
+pip install -e ".[dev,tvl]"
 
 # Run tests
 pytest

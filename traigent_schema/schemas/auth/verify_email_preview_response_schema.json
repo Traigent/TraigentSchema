@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/verify_email_preview_response_schema.json",
+  "title": "Verify Email Preview Response DTO",
+  "description": "HTTP 200 body for POST /api/v1/auth/verify-email/preview. Returns only a masked form of the address the activation link targets. Carries Cache-Control: no-store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "const": true
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "email_masked"
+      ],
+      "properties": {
+        "email_masked": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Masked address, e.g. first character of the local part and of the domain name followed by ***."
+        }
+      }
+    }
+  }
+}

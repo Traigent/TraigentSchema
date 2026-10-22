@@ -8098,6 +8098,121 @@
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A, as recorded on the TraigentSchema#554 entries for the standalone project-scoped dashboard schemas): these planned-projects endpoint catalog dashboard cost fields become number|null (minimum 0 on the number branch) so an unknown cost is reported as null instead of a false 0. Response-side widening; a priced aggregate still returns a number. The earlier hold-back was that the Python SDK crashed on null dashboard costs; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#554"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "a5ecaee0a922bf9eee8023a980e21594f3a7fe0c014b137ecb691b76af6b4544"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema (this change)"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "f1a8f1b445d4706b34b74368e8a36c9003005702e8bd6af048a2813ebbb7b4a1"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "8d17e005c0a6c51f87d0362dd4b7b31590fb0a4b51cc9950d3e8272ef8b42dce"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "b3db833fa648fc3bdb97e107e4adab69c8d67a2b94dbbc0710bb839787b2eb87"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema (this change)"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "f558712cb4cbdf0b6fb94ff4c3b82e82340a4df7ca4528ad24f1ef97d31d9aed"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema (this change)"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "3b400adb9b2f649e5f16938e90773fdedc697db8e94935012252d061eb3cdaca"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema (this change)"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "7ae57e5f5f5c692a2eb3885862fe77150c9fb84e20d4d427fe8cefa5219e3e68"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema (this change)"
     }
   ]
 }

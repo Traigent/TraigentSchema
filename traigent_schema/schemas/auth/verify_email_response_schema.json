@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/verify_email_response_schema.json",
+  "title": "Verify Email Response DTO",
+  "description": "HTTP 200 body for POST /api/v1/auth/verify-email. Either a signed-in session (tokens issued), or, in the activation-confirmation flow when the tenant enforces single sign-on, an activation-only acknowledgement without tokens. Multi-factor outcomes are HTTP 403 and are described by verify_email_mfa_response_schema.json. The activation-confirmation flow responses carry Cache-Control: no-store where noted by the endpoint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "data": {
+      "oneOf": [
+        {
+          "title": "Session issued",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user",
+            "access_token",
+            "refresh_token"
+          ],
+          "properties": {
+            "user": {
+              "$ref": "./auth_user_identity_schema.json"
+            },
+            "access_token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "refresh_token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "csrf_token": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Present only for cookie-mode auth (request sent with X-Use-Cookie-Auth)."
+            }
+          }
+        },
+        {
+          "title": "Activated, sign in with SSO",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "activated"
+          ],
+          "properties": {
+            "activated": {
+              "const": true
+            }
+          }
+        }
+      ]
+    }
+  }
+}

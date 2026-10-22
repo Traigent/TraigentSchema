@@ -11,9 +11,12 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string"
     },
     "covered_step_count": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     }

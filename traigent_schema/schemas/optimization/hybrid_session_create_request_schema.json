@@ -4,18 +4,28 @@
   "title": "Hybrid Session Create Request",
   "description": "POST /api/v1/hybrid/sessions request. Accepts the canonical backend shape and the SDK legacy shape; prompt-like text is capped at 10,000 characters.",
   "type": "object",
+  "x-content-class": "legacy_content",
+  "x-content-key-class": "legacy_content",
+  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
   "additionalProperties": true,
   "definitions": {
     "ModelSpec": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP H1: not inventoried (free object/array): ModelSpec",
       "type": "object",
       "additionalProperties": true,
       "properties": {
         "model_name": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP H1: not inventoried (free string): model_name",
           "type": "string",
           "minLength": 1,
           "maxLength": 200
         },
         "provider": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP H1: not inventoried (free string): provider",
           "type": [
             "string",
             "null"
@@ -23,6 +33,7 @@
           "maxLength": 255
         },
         "temperature": {
+          "x-content-class": "number",
           "type": [
             "number",
             "null"
@@ -31,6 +42,7 @@
           "maximum": 2
         },
         "max_tokens": {
+          "x-content-class": "number",
           "type": [
             "integer",
             "null"
@@ -59,6 +71,9 @@
       ]
     },
     "LegacyObjectObjectiveDefinition": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP H1: not inventoried (free object/array): LegacyObjectObjectiveDefinition",
       "type": "object",
       "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives.",
       "required": [
@@ -79,11 +94,14 @@
       "additionalProperties": true,
       "properties": {
         "metric": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP H1: not inventoried (free string): metric",
           "type": "string",
           "minLength": 1,
           "maxLength": 255
         },
         "direction": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "maximize",
@@ -91,6 +109,7 @@
           ]
         },
         "weight": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0
         },
@@ -98,12 +117,14 @@
           "$ref": "#/definitions/LegacyObjectiveBand"
         },
         "test": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "TOST"
           ]
         },
         "alpha": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 1
@@ -111,6 +132,9 @@
       }
     },
     "LegacyObjectiveBand": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP H1: not inventoried (free object/array): LegacyObjectiveBand",
       "type": "object",
       "oneOf": [
         {
@@ -129,15 +153,19 @@
       "additionalProperties": true,
       "properties": {
         "low": {
+          "x-content-class": "number",
           "type": "number"
         },
         "high": {
+          "x-content-class": "number",
           "type": "number"
         },
         "center": {
+          "x-content-class": "number",
           "type": "number"
         },
         "tol": {
+          "x-content-class": "number",
           "type": "number",
           "exclusiveMinimum": 0
         }
@@ -161,6 +189,8 @@
       "type": "array",
       "minItems": 1,
       "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP H1: not inventoried (free string): items",
         "type": "string",
         "minLength": 1,
         "maxLength": 1000
@@ -173,38 +203,56 @@
       "minItems": 2,
       "maxItems": 200,
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV H1-2 (LEAK): config_space",
         "type": "object",
         "additionalProperties": true
       }
     },
     "task_description": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-1 (LEAK): task_description",
       "type": "string",
       "minLength": 1,
       "maxLength": 10000
     },
     "problem_statement": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-1 (LEAK): problem_statement",
       "type": "string",
       "minLength": 1,
       "maxLength": 10000
     },
     "search_space": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-2 (LEAK): search_space",
       "oneOf": [
         {
           "type": "array",
           "minItems": 2,
           "maxItems": 200,
           "items": {
+            "x-content-key-class": "legacy_content",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV H1-2 (LEAK): search_space",
             "type": "object",
             "additionalProperties": true
           }
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "additionalProperties": true
         }
       ]
     },
     "optimization_config": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-3 (OPEN): optimization_config",
       "type": "object",
       "additionalProperties": true
     },
@@ -214,11 +262,13 @@
       "description": "Public SDK optimization algorithm selector. auto lets Traigent choose cloud-first automatic execution with local fallback."
     },
     "offline": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "default": false,
       "description": "force fully-local execution with no backend egress."
     },
     "trial_sequencing": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "client",
@@ -232,33 +282,42 @@
       "description": "Optional external evaluator configuration. Meaningful only when an external evaluator is configured."
     },
     "optimization_strategy": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-3 (OPEN): arbitrary legacy objects remain accepted",
       "description": "Optional strategy configuration. The typed vNext shape is optimization_strategy_schema; arbitrary legacy objects remain accepted for compatibility.",
       "anyOf": [
         {
           "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json"
         },
         {
+          "x-content-class": "legacy_content",
+          "x-content-key-class": "legacy_content",
+          "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
           "type": "object",
           "additionalProperties": true
         }
       ]
     },
     "epsilon": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0.01,
       "maximum": 2
     },
     "delta": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0.001,
       "maximum": 0.5
     },
     "max_rounds": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 1,
       "maximum": 100
     },
     "items_per_round": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 1,
       "maximum": 200
@@ -271,6 +330,9 @@
       "minItems": 1,
       "maxItems": 10000,
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV H1-5 (LEAK): eval_dataset",
         "type": "object",
         "additionalProperties": true
       }
@@ -296,6 +358,8 @@
       ]
     },
     "evaluation_criteria": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-7 (LEAK): evaluation_criteria",
       "type": [
         "string",
         "null"
@@ -310,6 +374,9 @@
       "minItems": 1,
       "maxItems": 50,
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV H1-6 (LEAK): scored_examples",
         "type": "object",
         "additionalProperties": true,
         "required": [
@@ -318,6 +385,9 @@
       }
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV H1-4 (OPEN): metadata",
       "type": [
         "object",
         "null"

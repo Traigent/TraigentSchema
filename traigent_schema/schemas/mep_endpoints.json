@@ -48,6 +48,21 @@
       "paths_file": "./execution/best_config_endpoints.json"
     },
     {
+      "name": "Best Config Agent Heads",
+      "description": "Content-less ref-addressed agent promotion head read (/api/v1/best-configs/agent-heads/by-ref/{agent_ref}).",
+      "paths_file": "./optimization/best_config_head_endpoints.json"
+    },
+    {
+      "name": "Optimization Token Refs",
+      "description": "Content-less opaque token issuance (/api/v1/optimization/token-refs; flag-gated).",
+      "paths_file": "./optimization/token_refs_endpoints.json"
+    },
+    {
+      "name": "Optimization Negotiated Label Write",
+      "description": "Content-less negotiated label write (/api/v1/optimization/labels; flag-gated).",
+      "paths_file": "./optimization/label_write_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

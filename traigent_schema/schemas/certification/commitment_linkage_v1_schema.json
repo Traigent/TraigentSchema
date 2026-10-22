@@ -1,0 +1,158 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/commitment_linkage_v1_schema.json",
+  "title": "Traigent Commitment Linkage Sidecar v1",
+  "description": "Closed contract for a SEPARATELY SIGNED sidecar that carries randomized commitments to client-declared session-start fingerprints (fp1). It is bound to one UNCHANGED process-record certificate by that record's unsigned_manifest_digest; it adds nothing to process_record_v1 or the certificate envelope, so previously signed bytes verify exactly as before. Claim scope: each entry says 'the client declared this fingerprint at session start and the issuer checked equality with that session's recorded declaration'. It is NOT proof of the version that ran, NOT proof of execution, and the build definition is deliberately unbound (no entry role exists for it). A commitment is SHA-256 over a versioned domain, length-prefixed (role, basis, fingerprint) and a 32-byte CSPRNG opening kept client-side; it hides the fingerprint only while the opening stays secret. Closed vocabularies only; no field carries customer content.",
+  "definitions": {
+    "CommitmentLinkageDigestDomainRegistryV1": {
+      "description": "Normative fixed domains. unsigned_linkage digest = SHA-256 over UTF8(unsigned_linkage domain) || 0x00 || jcs_v1(unsigned_linkage). The issuer signature preimage is UTF8(issuer_signature domain) || 0x00 || jcs_v1(unsigned_linkage). The commitment preimage is defined in CommitmentConstructionV1 and is a different, length-prefixed framing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unsigned_linkage", "issuer_signature", "commitment"],
+      "properties": {
+        "unsigned_linkage": {"const": "traigent.commitment_linkage.unsigned.v1"},
+        "issuer_signature": {"const": "traigent.commitment_linkage.issuer_signature.v1"},
+        "commitment": {"const": "traigent.commitment-linkage.v1"}
+      }
+    },
+    "CommitmentConstructionV1": {
+      "description": "Normative commitment construction. commitment = 'sha256:' || lowercase_hex(SHA-256(P)) where P = lp(UTF8('traigent.commitment-linkage.v1')) || lp(UTF8(role)) || lp(UTF8(basis)) || lp(UTF8(fp_schema)) || lp(UTF8(fp_digest)) || lp(opening) and lp(x) = uint64_be(len(x)) || x. fp_schema is the literal 'fp1'. fp_digest is the 71-character ASCII string 'sha256:' + 64 lowercase hex characters, byte for byte the `digest` member of the identity-v2 snapshot slot {schema: 'fp1', digest: 'sha256:...'}; it is NOT re-encoded, re-hashed, or canonicalized. opening is exactly 32 bytes from a cryptographically secure random generator, fresh and independent per artifact role per issuance, generated and kept client-side (the issuing Backend learns it at issuance and must not persist or log it). Reusing an opening, or deriving it from the fingerprint or any other guessable value, voids the hiding property.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash", "domain", "framing", "fp_schema", "opening_bytes"],
+      "properties": {
+        "hash": {"const": "sha256"},
+        "domain": {"const": "traigent.commitment-linkage.v1"},
+        "framing": {"const": "lp(domain) || lp(role) || lp(basis) || lp(fp_schema) || lp(fp_digest) || lp(opening); lp(x) = uint64_be(len(x)) || x"},
+        "fp_schema": {"const": "fp1"},
+        "opening_bytes": {"const": 32}
+      }
+    },
+    "CommitmentRoleV1": {
+      "description": "Artifact role. Evaluators are role-indexed: one entry per evaluator role, written 'evaluator:primary' or 'evaluator:r0' through 'evaluator:r7'. This is a closed, service-assigned vocabulary; customer evaluator labels are content, stay customer-side, and never appear in a role token. There is deliberately no build-definition role.",
+      "type": "string",
+      "enum": [
+        "agent",
+        "dataset",
+        "config_space",
+        "evaluator:primary",
+        "evaluator:r0",
+        "evaluator:r1",
+        "evaluator:r2",
+        "evaluator:r3",
+        "evaluator:r4",
+        "evaluator:r5",
+        "evaluator:r6",
+        "evaluator:r7"
+      ]
+    },
+    "CommitmentBasisV1": {
+      "description": "What the fingerprint measured: source_text (a source fingerprint), name_only (module:qualname only), endpoint_only (an endpoint identity, never a source-backed claim), order_free_multiset (order-free multiset of example digests), config_space (the configuration space; NOT a build definition), unavailable (no fingerprint was declared; never promoted).",
+      "type": "string",
+      "enum": ["source_text", "name_only", "endpoint_only", "order_free_multiset", "config_space", "unavailable"]
+    },
+    "CommitmentAttestationV1": {
+      "description": "Who vouches for the fingerprint. The only value is client_declared: a modified SDK or dishonest client can declare copied fingerprints at session start.",
+      "type": "string",
+      "enum": ["client_declared"]
+    },
+    "CommitmentLinkageEntryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "basis", "attestation"],
+      "properties": {
+        "role": {"$ref": "#/definitions/CommitmentRoleV1"},
+        "basis": {"$ref": "#/definitions/CommitmentBasisV1"},
+        "attestation": {"$ref": "#/definitions/CommitmentAttestationV1"},
+        "commitment": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"}
+      },
+      "allOf": [
+        {
+          "description": "unavailable carries no commitment; every other basis requires one.",
+          "if": {"properties": {"basis": {"const": "unavailable"}}, "required": ["basis"]},
+          "then": {"not": {"required": ["commitment"]}},
+          "else": {"required": ["commitment"]}
+        },
+        {
+          "description": "agent role: source_text, name_only or unavailable.",
+          "if": {"properties": {"role": {"const": "agent"}}, "required": ["role"]},
+          "then": {"properties": {"basis": {"enum": ["source_text", "name_only", "unavailable"]}}}
+        },
+        {
+          "description": "dataset role: order_free_multiset or unavailable.",
+          "if": {"properties": {"role": {"const": "dataset"}}, "required": ["role"]},
+          "then": {"properties": {"basis": {"enum": ["order_free_multiset", "unavailable"]}}}
+        },
+        {
+          "description": "config_space role: config_space or unavailable.",
+          "if": {"properties": {"role": {"const": "config_space"}}, "required": ["role"]},
+          "then": {"properties": {"basis": {"enum": ["config_space", "unavailable"]}}}
+        },
+        {
+          "description": "evaluator roles: source_text, endpoint_only, name_only or unavailable.",
+          "if": {"properties": {"role": {"pattern": "^evaluator:"}}, "required": ["role"]},
+          "then": {"properties": {"basis": {"enum": ["source_text", "endpoint_only", "name_only", "unavailable"]}}}
+        },
+        {
+          "description": "config_space basis is only valid on the config_space role.",
+          "if": {"properties": {"basis": {"const": "config_space"}}, "required": ["basis"]},
+          "then": {"properties": {"role": {"const": "config_space"}}}
+        }
+      ]
+    },
+    "UnsignedCommitmentLinkageV1": {
+      "description": "The signed projection. process_record_digest is the unsigned_manifest_digest of the exact process-record certificate this sidecar belongs to; project and build-session scope repeat that record's scope. Entry roles are unique.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "process_record_digest", "project_ref", "build_session_ref", "entries"],
+      "properties": {
+        "schema_version": {"const": "traigent.commitment_linkage.unsigned.v1"},
+        "process_record_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "project_ref": {"$ref": "certification_common_v0_schema.json#/definitions/ProjectRefV0"},
+        "build_session_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {"$ref": "#/definitions/CommitmentLinkageEntryV1"}
+        }
+      }
+    },
+    "CommitmentLinkageSignatureV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "algorithm", "issuer_key_ref", "trust_ring_ref", "signed_payload", "unsigned_linkage_digest", "signature"],
+      "properties": {
+        "schema_version": {"const": "traigent.commitment_linkage.signature.v1"},
+        "algorithm": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"},
+        "issuer_key_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "trust_ring_ref": {"$ref": "certification_common_v0_schema.json#/definitions/OpaqueRef"},
+        "signed_payload": {"const": "unsigned_commitment_linkage"},
+        "unsigned_linkage_digest": {"$ref": "certification_common_v0_schema.json#/definitions/Sha256Digest"},
+        "signature": {"$ref": "certification_common_v0_schema.json#/definitions/SignatureBytes"}
+      }
+    },
+    "CommitmentLinkageEnvelopeV1": {
+      "description": "Separately signed sidecar. The issuer key is the same issuer key as the process record it binds; the verifier is handed that key (taken from the already-verified record's materials), never reads it from this envelope.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "unsigned_linkage", "signature"],
+      "properties": {
+        "schema_version": {"const": "traigent.commitment_linkage.v1"},
+        "unsigned_linkage": {"$ref": "#/definitions/UnsignedCommitmentLinkageV1"},
+        "signature": {"$ref": "#/definitions/CommitmentLinkageSignatureV1"}
+      }
+    },
+    "CommitmentOpenResultV1": {
+      "description": "Closed outcome of opening a commitment. MATCH means the supplied fingerprint and opening reproduce the commitment in the AUTHENTICATED linkage; it is not artifact recomputation and not proof of execution.",
+      "type": "string",
+      "enum": ["COMMITMENT_OPENED_MATCH", "COMMITMENT_OPENED_MISMATCH", "COMMITMENT_UNAVAILABLE"]
+    },
+    "CommitmentLinkageErrorCodeV1": {
+      "description": "Closed verifier failure codes. No code echoes a customer value.",
+      "type": "string",
+      "enum": ["CONTEXT", "ENVELOPE_SHAPE", "SCHEMA", "CANONICALIZATION", "UNSIGNED_LINKAGE_DIGEST_MISMATCH", "KEY_MISMATCH", "KEY_MATERIAL", "SIGNATURE_INVALID", "RECORD_BINDING_MISMATCH", "SCOPE_MISMATCH", "DUPLICATE_ROLE", "OPENING_SHAPE", "FINGERPRINT_SHAPE", "ROLE_SHAPE", "VERIFICATION_FAILED"]
+    }
+  },
+  "allOf": [{"$ref": "#/definitions/CommitmentLinkageEnvelopeV1"}]
+}

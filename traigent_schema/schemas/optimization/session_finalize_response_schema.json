@@ -11,16 +11,25 @@
   ],
   "properties": {
     "session_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string"
     },
     "best_config": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S5-22 (LEAK): best_config",
       "type": "object",
       "description": "The selected configuration; EMPTY ({}) when reason_code is set."
     },
     "best_metrics": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S5-23 (LEAK): best_metrics",
       "type": "object"
     },
     "reason_code": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "NO_CERTIFIED_SELECTION",
@@ -29,6 +38,7 @@
       "description": "Present ONLY on honest no-winner results; consumers must not treat best_config as deployable when set."
     },
     "selection_basis": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "certified_selection",
@@ -45,17 +55,22 @@
       "description": "Content-free provenance of a certified selection (present IFF selection_basis=certified_selection — ENFORCED by the allOf conditionals below). HONESTY CONTRACT: the server cross-checked trial binding and per-CVAR coverage but did NOT verify the certificates' evidence — display as client-attested, never as server-verified.",
       "properties": {
         "type": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "client_attested"
           ]
         },
         "attested_by": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
           "description": "Attesting client identifier (e.g. python_sdk)."
         },
         "sdk_version": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]{0,63}$",
           "description": "Anchored version token — never free text (P8: no room for value/evidence snippets)."
@@ -70,27 +85,37 @@
       "description": "OPTIONAL session-level rollup, echoed back IFF the finalize request carried a session_aggregation the server persisted (Traigent#1720/#1724 g2:agg-summary). Its presence is the SDK's confirmation that the rollup was actually stored — absence means an older backend dropped it, and the SDK reports persistence as degraded rather than succeeded."
     },
     "total_trials": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     },
     "successful_trials": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     },
     "total_duration": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0
     },
     "cost_savings": {
+      "x-content-class": "number",
       "type": "number"
     },
     "stop_reason": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": [
         "string",
         "null"
-      ]
+      ],
+      "description": "Why the session stopped. Kept open (string or null) because the backend still emits and passes through its own stored reasons (e.g. finalized, search_complete, budget_exhausted, max_wallclock_reached, smart_prune). Narrowing to the closed shared enum (stop_reason_schema.json, as on the finalize request) is a follow-up once the backend maps its reasons (Traigent#2508)."
     },
     "metadata": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV S5-31 (LEAK): metadata",
       "type": "object",
       "properties": {
         "strategy_preset": {
@@ -107,36 +132,55 @@
       "type": "array",
       "description": "Per-trial history, present only when the finalize request set include_full_history.",
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP S5: not inventoried (free object/array): full_history",
         "type": "object",
         "properties": {
           "session_id": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           },
           "trial_id": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
             "type": "string"
           },
           "trial_number": {
+            "x-content-class": "number",
             "type": [
               "integer",
               "null"
             ]
           },
           "config": {
+            "x-content-key-class": "legacy_content",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S5-31 (LEAK): config",
             "type": "object"
           },
           "metrics": {
+            "x-content-key-class": "legacy_content",
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S5-31 (LEAK): metrics",
             "type": "object"
           },
           "duration": {
+            "x-content-class": "number",
             "type": "number"
           },
           "status": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
             "type": [
               "string",
               "null"
             ]
           },
           "error_message": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV S5-32 (LEAK): error_message",
             "type": [
               "string",
               "null"

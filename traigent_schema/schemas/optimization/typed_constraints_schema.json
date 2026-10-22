@@ -9,6 +9,9 @@
       "type": "array",
       "description": "Structural constraints on tunable combinations (e.g., mutual exclusion, dependency)",
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): structural",
         "type": "object",
         "additionalProperties": true
       }
@@ -17,6 +20,9 @@
       "type": "array",
       "description": "Derived constraints computed from tunable values (e.g., total cost bounds)",
       "items": {
+        "x-content-key-class": "legacy_content",
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): derived",
         "type": "object",
         "additionalProperties": true
       }

@@ -15,8 +15,9 @@
     "certificate"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "traigent.guaranteed_selection_result.v1" },
+    "schema_version": { "x-content-class": "closed_enum", "type": "string", "const": "traigent.guaranteed_selection_result.v1" },
     "status": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "CERTIFIED_SELECTION",
@@ -26,15 +27,20 @@
       ]
     },
     "deployable": {
+      "x-content-class": "closed_enum",
       "type": "boolean",
       "description": "True only for CERTIFIED_SELECTION (enforced below). Deploy gates MUST require this true."
     },
     "selected_config": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): selected_config",
       "type": ["string", "null"],
       "maxLength": 128,
       "description": "The certified config to deploy. Non-null ONLY for CERTIFIED_SELECTION."
     },
     "fallback_config": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): fallback_config",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,

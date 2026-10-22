@@ -15,162 +15,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "definitions": {
-                  "CanonicalTypedObjectiveDefinition": {
-                    "allOf": [
-                      {
-                        "$ref": "https://schemas.traigent.ai/optimization/objective_definition_schema.json"
-                      },
-                      {
-                        "type": "object",
-                        "required": [
-                          "name",
-                          "orientation",
-                          "weight"
-                        ]
-                      }
-                    ]
-                  },
-                  "LegacyObjectObjectiveDefinition": {
-                    "type": "object",
-                    "description": "Legacy SDK/backend objective object accepted by TraigentBackend interactive_session_service._normalize_objectives.",
-                    "required": [
-                      "metric"
-                    ],
-                    "anyOf": [
-                      {
-                        "required": [
-                          "direction"
-                        ]
-                      },
-                      {
-                        "required": [
-                          "band"
-                        ]
-                      }
-                    ],
-                    "additionalProperties": true,
-                    "properties": {
-                      "metric": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "direction": {
-                        "type": "string",
-                        "enum": [
-                          "maximize",
-                          "minimize"
-                        ]
-                      },
-                      "weight": {
-                        "type": "number",
-                        "exclusiveMinimum": 0
-                      },
-                      "band": {
-                        "$ref": "#/definitions/LegacyObjectiveBand"
-                      },
-                      "test": {
-                        "type": "string",
-                        "enum": [
-                          "TOST"
-                        ]
-                      },
-                      "alpha": {
-                        "type": "number",
-                        "exclusiveMinimum": 0,
-                        "exclusiveMaximum": 1
-                      }
-                    }
-                  },
-                  "LegacyObjectiveBand": {
-                    "type": "object",
-                    "oneOf": [
-                      {
-                        "required": [
-                          "low",
-                          "high"
-                        ]
-                      },
-                      {
-                        "required": [
-                          "center",
-                          "tol"
-                        ]
-                      }
-                    ],
-                    "additionalProperties": true,
-                    "properties": {
-                      "low": {
-                        "type": "number"
-                      },
-                      "high": {
-                        "type": "number"
-                      },
-                      "center": {
-                        "type": "number"
-                      },
-                      "tol": {
-                        "type": "number",
-                        "exclusiveMinimum": 0
-                      }
-                    }
-                  },
-                  "TypedObjectiveArray": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "oneOf": [
-                        {
-                          "$ref": "#/definitions/CanonicalTypedObjectiveDefinition"
-                        },
-                        {
-                          "$ref": "#/definitions/LegacyObjectObjectiveDefinition"
-                        }
-                      ]
-                    }
-                  },
-                  "LegacyStringObjectiveArray": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "ArtifactVersion": {
-                    "type": "object",
-                    "required": ["schema", "state"],
-                    "properties": {
-                      "schema": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 32,
-                        "description": "Manifest algorithm identifier, e.g. 'afp2' (agent), 'dfp2o' (dataset, ordered), 'efp2' (evaluator), 'cfp2' (config space). Tagging the algorithm lets it change without invalidating stored history."
-                      },
-                      "digest": {
-                        "type": ["string", "null"],
-                        "pattern": "^sha256:[0-9a-f]{64}$",
-                        "description": "Algorithm-prefixed digest over the manifest. Required when state is 'verified'; must be absent or null when state is 'unknown'. Both directions are structurally enforced by the allOf below: an 'unknown' carrying a digest would let a consumer compare it and read two incomparable runs as equal, which is the whole failure state 'unknown' exists to prevent."
-                      },
-                      "state": {
-                        "type": "string",
-                        "enum": ["verified", "unknown"],
-                        "description": "'verified' = the manifest was completed and the digest is trustworthy. 'unknown' = the manifest could not be completed (unsupported value, opaque closure state, external evaluator without a declared revision). An 'unknown' version cannot participate in a comparability claim."
-                      }
-                    },
-                    "additionalProperties": false,
-                    "allOf": [
-                      {
-                        "if": { "properties": { "state": { "const": "verified" } }, "required": ["state"] },
-                        "then": { "required": ["digest"], "properties": { "digest": { "type": "string" } } }
-                      },
-                      {
-                        "if": { "properties": { "state": { "const": "unknown" } }, "required": ["state"] },
-                        "then": { "properties": { "digest": { "type": "null" } } }
-                      }
-                    ]
-                  }
-                },
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "required": [
                   "function_name",
                   "configuration_space",
@@ -178,17 +25,23 @@
                 ],
                 "properties": {
                   "function_name": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-1 (LEAK): function_name",
                     "type": "string",
                     "minLength": 1,
                     "description": "Display/code label for the optimized function. Historically this doubled as the agent identity key: when `agent_key` is absent the backend still resolves the owning agent by normalizing this value, so callers that vary it per run fragment their (agent, dataset) optimization history. New callers SHOULD send a stable `agent_key` and put per-run intent in `run_title` instead."
                   },
                   "agent_key": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-2 (LEAK): agent_key",
                     "type": ["string", "null"],
                     "minLength": 1,
                     "maxLength": 255,
                     "description": "Stable identity key for the agent being optimized. Explicit null is accepted and means absent (the server treats it exactly as an omitted field), matching the run narrative on experiment_run_schema.json. When present it is the sole basis for resolving the owning agent, and therefore for grouping runs into an (agent, dataset) optimization history. It MUST be stable across runs of the same agent — do not encode a variant, hypothesis, weighting, permutation count, or date into it. Omit to preserve the legacy behavior of deriving identity from `function_name`. The 255 limit is the agent-name storage limit, so a schema-valid key is always servable; an over-length key is REJECTED rather than truncated, because silently shortening an identity would merge two distinct agents — and their two optimization histories — into one."
                   },
                   "run_title": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-3 (LEAK): run_title",
                     "type": ["string", "null"],
                     "maxLength": 512,
                     "description": "Optional author-supplied title stating what this run is testing (e.g. 'Check best router model'). Persisted as the experiment run's `name`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
@@ -196,6 +49,8 @@
                     "x-privacy-classification": "user_content"
                   },
                   "run_description": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-4 (LEAK): run_description",
                     "type": ["string", "null"],
                     "maxLength": 4000,
                     "description": "Optional author-supplied description of what this run is testing and why — the hypothesis or intent, recorded before results are known. Persisted as the experiment run's `description`. Purely a label: it never affects agent identity, cohorting, scoring, or recommendations.",
@@ -203,6 +58,8 @@
                     "x-privacy-classification": "user_content"
                   },
                   "agent_id": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-5 (LEAK): agent_id",
                     "type": ["string", "null"],
                     "minLength": 1,
                     "maxLength": 255,
@@ -211,12 +68,15 @@
                     "x-content": true
                   },
                   "agent_id_source": {
+                    "x-content-class": "closed_enum",
                     "type": ["string", "null"],
                     "enum": ["declared", "registered", "unknown", null],
                     "description": "How agent_id was obtained. 'declared' = supplied by the caller (argument, environment variable, or project config). 'registered' = resolved from a verified server-side object. 'unknown' = no identity could be established; the run is keyed as a singleton on its own run id and joins no cohort. There is deliberately no 'derived' value: inference is what fragmented history in the first place.",
                     "x-privacy-classification": "metadata"
                   },
                   "dataset_id": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-7 (LEAK): dataset_id",
                     "type": ["string", "null"],
                     "minLength": 1,
                     "maxLength": 255,
@@ -225,12 +85,14 @@
                     "x-content": true
                   },
                   "dataset_id_source": {
+                    "x-content-class": "closed_enum",
                     "type": ["string", "null"],
                     "enum": ["declared", "registered", "unknown", null],
                     "description": "How dataset_id was obtained. Same vocabulary and semantics as agent_id_source.",
                     "x-privacy-classification": "metadata"
                   },
                   "evaluator_id_source": {
+                    "x-content-class": "closed_enum",
                     "type": ["string", "null"],
                     "enum": ["declared", "registered", "unknown", null],
                     "description": "How evaluator_id was obtained. Same vocabulary and semantics as agent_id_source.",
@@ -242,26 +104,26 @@
                     "properties": {
                       "agent": {
                         "allOf": [
-                          { "$ref": "#/definitions/ArtifactVersion" },
-                          { "properties": { "schema": { "enum": ["afp2", "fp1"] } } }
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["afp2", "fp1"] } } }
                         ]
                       },
                       "dataset": {
                         "allOf": [
-                          { "$ref": "#/definitions/ArtifactVersion" },
-                          { "properties": { "schema": { "enum": ["dfp2o", "fp1"] } } }
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["dfp2o", "fp1"] } } }
                         ]
                       },
                       "evaluator": {
                         "allOf": [
-                          { "$ref": "#/definitions/ArtifactVersion" },
-                          { "properties": { "schema": { "enum": ["efp2", "fp1"] } } }
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["efp2", "fp1"] } } }
                         ]
                       },
                       "config_space": {
                         "allOf": [
-                          { "$ref": "#/definitions/ArtifactVersion" },
-                          { "properties": { "schema": { "enum": ["cfp2", "fp1"] } } }
+                          { "$ref": "./session_create_request_definitions_schema.json#/definitions/ArtifactVersion" },
+                          { "properties": { "schema": { "x-content-class": "closed_enum", "enum": ["cfp2", "fp1"] } } }
                         ]
                       }
                     },
@@ -269,12 +131,15 @@
                     "x-privacy-classification": "metadata"
                   },
                   "code_revision": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-17 (OPEN): code_revision",
                     "type": ["string", "null"],
                     "maxLength": 255,
                     "description": "Optional VCS revision of the caller's code at run time, typically a git commit SHA. Provenance only: it never participates in identity or comparability, because a commit can change without changing the agent and vice versa. Mirrors the observability execution-context field of the same name.",
                     "x-privacy-classification": "metadata"
                   },
                   "identity_version": {
+                    "x-content-class": "closed_enum",
                     "type": ["integer", "null"],
                     "enum": [1, 2, null],
                     "description": "Which identity contract the caller is speaking. 1 = legacy, identity inferred from function_name/agent_key. 2 = declared identity with derived versions. Absent means 1. The server records this immutably on the run so a session created before a deploy and finalized after it resolves consistently.",
@@ -286,6 +151,8 @@
                     "description": "Reference to a dataset already registered server-side. This is the ONLY typed channel for pointing at a hosted dataset; dataset_metadata is free-form and must never be used to smuggle an identity. The server verifies this id against the caller's tenant and project visibility BEFORE deriving dataset_id from it, and sets dataset_id_source='registered' on success. A reference the caller cannot see is rejected, not silently downgraded to unknown.",
                     "properties": {
                       "dataset_id": {
+                        "x-content-class": "legacy_content",
+                        "x-content-note": "INV S1-7 (LEAK): dataset_id",
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 255,
@@ -295,36 +162,88 @@
                     "additionalProperties": false,
                     "x-privacy-classification": "metadata"
                   },
+                  "agent_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+                    "description": "Content-less opaque reference for the agent, sent INSTEAD of agent_key/agent_id by content-less clients (phase 2, additive). Legacy fields stay accepted during the mixed-version window."
+                  },
+                  "dataset_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/DatasetRef",
+                    "description": "Content-less opaque reference for the evaluation dataset, sent instead of dataset_id."
+                  },
+                  "evaluation_set_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/EvaluationSetRef",
+                    "description": "Content-less opaque reference for the evaluation set, sent instead of the evaluation-set name in dataset_metadata/metadata."
+                  },
+                  "evaluator_ref": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
+                    "description": "Content-less opaque reference for the evaluator, sent instead of evaluator_id."
+                  },
+                  "environment": {
+                    "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment",
+                    "description": "Run environment of the session, a closed enum (production|staging|development|test|default). Additive; absent means default."
+                  },
+                  "capabilities": {
+                    "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+                    "description": "Capabilities the client speaks. `content_less_v1` marks a content-less client: the Backend records the session's contract shape at create from its presence. Absent = legacy shape (accepted before the per-tenant cutoff, refused with `client_upgrade_required` after)."
+                  },
+                  "knob_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/KnobRefList",
+                    "description": "Opaque refs of the declared knobs, in declaration order. Replaces the keys of configuration_space."
+                  },
+                  "choice_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/ChoiceRefMap",
+                    "description": "knob_ref -> declared choice_refs. Replaces categorical choices in configuration_space."
+                  },
+                  "metric_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/MetricRefList",
+                    "description": "Opaque refs of the objective metrics, in objectives order. Replaces objective metric names."
+                  },
+                  "default_config_refs": {
+                    "$ref": "../labels/label_common_schema.json#/definitions/ConfigRefMap",
+                    "description": "Default configuration as knob_ref -> choice_ref|number. Replaces default_config."
+                  },
                   "configuration_space": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-20 (LEAK): configuration_space",
                     "type": "object"
                   },
                   "objectives": {
                     "description": "Optimization objectives. Accepts canonical typed objective definitions, legacy SDK/backend objective objects, and the legacy SDK string-array form still accepted by the backend.",
                     "oneOf": [
                       {
-                        "$ref": "#/definitions/TypedObjectiveArray"
+                        "$ref": "./session_create_request_definitions_schema.json#/definitions/TypedObjectiveArray"
                       },
                       {
-                        "$ref": "#/definitions/LegacyStringObjectiveArray"
+                        "$ref": "./session_create_request_definitions_schema.json#/definitions/LegacyStringObjectiveArray"
                       }
                     ]
                   },
                   "dataset_metadata": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV-GAP S1: not inventoried (free object/array): dataset_metadata",
                     "type": "object"
                   },
                   "task_type": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-28 (OPEN): task_type",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
                     "description": "Optional COARSE task category for the run, e.g. multiple_choice, exact_match, text2sql, code_generation, summarization. The server maps it internally to an evaluator-quality anchor policy (which verifiable ground truth, if any, an audit may use); the client never names an anchor. Unknown values are accepted and resolve to no anchor. Same vocabulary and shape as optimization_plan_request.task_type."
                   },
                   "evaluator_id": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-10 (OPEN): evaluator_id",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
                     "description": "Optional compatibility alias identifying an evaluator definition already registered with the backend. Unregistered callable evaluators omit this and remain content-addressed by artifact_fingerprints.evaluator."
                   },
                   "evaluator_definition_id": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-11 (OPEN): evaluator_definition_id",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
@@ -335,6 +254,8 @@
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
                     "properties": {
                       "dataset": {
+                        "x-content-class": "legacy_content",
+                        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
                         "type": [
                           "string",
                           "null"
@@ -342,6 +263,8 @@
                         "description": "Opaque content fingerprint for the example set provenance."
                       },
                       "agent": {
+                        "x-content-class": "legacy_content",
+                        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
                         "type": [
                           "string",
                           "null"
@@ -349,6 +272,8 @@
                         "description": "Opaque content fingerprint for the decorated function provenance."
                       },
                       "evaluator": {
+                        "x-content-class": "legacy_content",
+                        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
                         "type": [
                           "string",
                           "null"
@@ -356,6 +281,8 @@
                         "description": "Opaque content fingerprint for evaluator provenance."
                       },
                       "config_space": {
+                        "x-content-class": "legacy_content",
+                        "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
                         "type": [
                           "string",
                           "null"
@@ -375,15 +302,18 @@
                     ],
                     "properties": {
                       "algorithm": {
+                        "x-content-class": "closed_enum",
                         "const": "fp1",
                         "description": "Opaque content fingerprint algorithm identifier."
                       },
                       "dataset_example_count": {
+                        "x-content-class": "number",
                         "type": "integer",
                         "minimum": 0,
                         "description": "Number of examples included in the dataset fingerprint input."
                       },
                       "source_available": {
+                        "x-content-class": "closed_enum",
                         "type": "boolean",
                         "description": "Whether SDK source text was available for function fingerprinting."
                       }
@@ -391,19 +321,31 @@
                     "additionalProperties": false
                   },
                   "max_trials": {
+                    "x-content-class": "number",
                     "type": "integer",
                     "minimum": 1
                   },
                   "budget": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-30 (OPEN): budget",
                     "type": "object"
                   },
                   "constraints": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-31 (OPEN): constraints",
                     "type": "object"
                   },
                   "default_config": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-32 (LEAK): default_config",
                     "type": "object"
                   },
                   "warm_start_from": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-33 (OPEN): warm_start_from",
                     "type": [
                       "string",
                       "null"
@@ -418,11 +360,13 @@
                     "description": "Public SDK optimization algorithm selector. auto lets Traigent choose cloud-first automatic execution with local fallback."
                   },
                   "offline": {
+                    "x-content-class": "closed_enum",
                     "type": "boolean",
                     "default": false,
                     "description": "force fully-local execution with no backend egress."
                   },
                   "trial_sequencing": {
+                    "x-content-class": "closed_enum",
                     "type": "string",
                     "enum": [
                       "client",
@@ -443,24 +387,36 @@
                     "description": "Optional cloud-derived smart pruning policy. The label selects a cloud profile; omitted parameters are derived server-side."
                   },
                   "optimization_strategy": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-41 (OPEN): optimization_strategy",
                     "description": "Optional strategy configuration. The typed vNext shape is optimization_strategy_schema; arbitrary legacy objects remain accepted for compatibility.",
                     "anyOf": [
                       {
                         "$ref": "https://schemas.traigent.ai/optimization/optimization_strategy_schema.json"
                       },
                       {
+                        "x-content-class": "legacy_content",
+                        "x-content-key-class": "legacy_content",
+                        "x-content-note": "INV-GAP (implicit-open, reclassified by review): object accepts properties it does not declare (additionalProperties omitted or true); extra names and values are unclassified",
                         "type": "object",
                         "additionalProperties": true
                       }
                     ]
                   },
                   "user_id": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-42 (OPEN): user_id",
                     "type": "string"
                   },
                   "billing_tier": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S1-43 (OPEN): billing_tier",
                     "type": "string"
                   },
                   "metadata": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
                     "type": "object",
                     "properties": {
                       "strategy_preset": {
@@ -606,29 +562,61 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "x-content-class": "legacy_content",
+                  "x-content-key-class": "legacy_content",
+                  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                   "properties": {
                     "session_id": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
                       "type": "string"
                     },
                     "status": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
                       "type": "string"
                     },
                     "project_id": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
                       "type": "string",
                       "minLength": 1,
                       "description": "Server-issued id of the project that owns the experiment, used by SDKs to build the portal link. Optional: omitted, never null, when absent. See session_create_response_schema.json."
                     },
                     "tenant_id": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
                       "type": "string",
                       "minLength": 1,
                       "description": "Server-issued id of the tenant that owns the experiment, used by SDKs to build the portal link. Optional: omitted, never null, when absent. See session_create_response_schema.json."
                     },
+                    "capabilities": {
+                      "$ref": "./session_capabilities_schema.json#/definitions/SessionCapabilityList",
+                      "description": "Capabilities the Backend supports, advertised so a client can negotiate. `content_less_v1` present = the Backend accepts the content-less shapes. A content-less client that does not find it refuses with `backend_upgrade_required` and never falls back to plaintext. Additive; absent on Backends that predate it."
+                    },
+                    "agent_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+                      "description": "Backend-issued opaque reference to the Agent row this session was resolved against. Additive; absent on Backends that predate it. A caller must not infer identity from its absence."
+                    },
+                    "dataset_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/DatasetRef",
+                      "description": "Backend-issued opaque reference to the evaluation dataset the session runs against. Additive; absent on Backends that predate it."
+                    },
+                    "evaluator_ref": {
+                      "$ref": "../labels/label_common_schema.json#/definitions/EvaluatorRef",
+                      "description": "Backend-issued opaque reference to the evaluator. Additive; absent on Backends that predate it."
+                    },
                     "agent_id": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
                       "type": ["string", "null"],
                       "description": "Backend identifier of the Agent row (agents.id) this session was resolved against, using the SAME resolution the server already performs to persist the session (function_name / agent_key / declared identity) -- not a second lookup. This is NOT the request's `agent_id` (a caller-declared, human-chosen identity string used for cohort grouping -- see the identity contract on this same endpoint) and not `agent_key` (the resolution key); it is the resolved row's own primary key, the value an SDK sends back as the X-Traigent-Agent-Id header when promoting a best config via POST /best-configs and reading GET /best-configs/agent-heads/{agent_id}. Optional and additive: absent on servers that have not yet been updated to resolve and return it, and a caller must not infer identity from its absence.",
                       "x-reference": "../agents/agent_schema.json#/properties/id"
                     },
                     "metadata": {
+                      "x-content-key-class": "legacy_content",
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP S1: not inventoried (free object/array): metadata",
                       "type": "object",
                       "properties": {
                         "warm_start_transfer": {
@@ -639,6 +627,16 @@
                     }
                   },
                   "additionalProperties": true
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Upgrade required — a legacy-shape client was refused after the tenant cutoff (client_upgrade_required). Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
                 }
               }
             }
@@ -709,17 +707,38 @@
     "/api/v1/sessions/{session_id}/next-trial": {
       "post": {
         "summary": "Fetch the next trial suggestion",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "properties": {
                   "previous_results": {
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S2-3 (OPEN): previous_results",
                     "type": "array"
                   },
                   "request_metadata": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S2-4 (OPEN): request_metadata",
                     "type": "object"
                   }
                 },
@@ -735,6 +754,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
                 }
               }
             }
@@ -815,6 +844,19 @@
     "/api/v1/sessions/{session_id}/intermediate-report": {
       "post": {
         "summary": "Report intermediate trial progress",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -832,6 +874,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./intermediate_report_schema.json#/definitions/IntermediateReportResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
                 }
               }
             }
@@ -912,6 +964,19 @@
     "/api/v1/sessions/{session_id}/results": {
       "post": {
         "summary": "Submit trial results",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -925,6 +990,16 @@
         "responses": {
           "200": {
             "description": "Results submitted successfully"
+          },
+          "409": {
+            "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_refusal_schema.json"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request — malformed body or parameters.",
@@ -1010,7 +1085,7 @@
             "name": "session_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "minLength": 1 }
+            "schema": { "x-content-class": "opaque_ref", "type": "string", "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions." }
           }
         ],
         "responses": {
@@ -1070,17 +1145,37 @@
     "/api/v1/sessions/{session_id}/finalize": {
       "post": {
         "summary": "Finalize optimization session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "properties": {
                   "include_full_history": {
+                    "x-content-class": "closed_enum",
                     "type": "boolean"
                   },
                   "metadata": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV S5-5 (OPEN): metadata",
                     "type": "object",
                     "properties": {
                       "strategy_preset": {
@@ -1097,6 +1192,10 @@
                   "session_aggregation": {
                     "$ref": "https://schemas.traigent.ai/optimization/session_aggregation_schema.json",
                     "description": "OPTIONAL content-free session-level rollup (Traigent#1720/#1724 g2:agg-summary). Accepted only at this top-level key; the SERVER additionally rejects rollups tunneled under metadata. Persisted into the run's results and echoed back in the finalize response so the SDK can confirm the rollup was stored (not silently dropped)."
+                  },
+                  "stop_reason": {
+                    "$ref": "https://schemas.traigent.ai/optimization/stop_reason_schema.json",
+                    "description": "OPTIONAL closed-enum reason the SDK stopped the optimization (Traigent#2508). The backend stores it and echoes it as stop_reason in the finalize response; the portal displays it. Closed list only: no free text, no customer content."
                   }
                 },
                 "additionalProperties": true
@@ -1281,6 +1380,19 @@
     "/api/v1/hybrid/sessions/{session_id}/status": {
       "get": {
         "summary": "Get hybrid session status",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Hybrid session status retrieved successfully",
@@ -1288,14 +1400,24 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "x-content-class": "legacy_content",
+                  "x-content-key-class": "legacy_content",
+                  "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                   "properties": {
                     "session_id": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP H2: not inventoried (free string): session_id",
                       "type": "string"
                     },
                     "status": {
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV H2-1 (OPEN): status",
                       "type": "string"
                     },
                     "metadata": {
+                      "x-content-key-class": "legacy_content",
+                      "x-content-class": "legacy_content",
+                      "x-content-note": "INV-GAP H2: not inventoried (free object/array): metadata",
                       "type": "object",
                       "properties": {
                         "warm_start_transfer": {
@@ -1376,17 +1498,36 @@
     "/api/v1/hybrid/sessions/{session_id}/results": {
       "post": {
         "summary": "Submit hybrid results",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "x-content-class": "legacy_content",
+                "x-content-key-class": "legacy_content",
+                "x-content-note": "INV-GAP (reclassified by review): open payload root accepts extra properties that carry no class; names and values are unclassified",
                 "required": [
                   "scores"
                 ],
                 "properties": {
                   "scores": {
+                    "x-content-key-class": "legacy_content",
+                    "x-content-class": "legacy_content",
+                    "x-content-note": "INV-GAP H3: not inventoried (free object/array): scores",
                     "type": "object"
                   }
                 },
@@ -1475,6 +1616,19 @@
     "/api/v1/hybrid/sessions/{session_id}/abort": {
       "post": {
         "summary": "Abort hybrid session",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "description": "Server-minted session id: a uuid4, or tv0_ plus a uuid4 for typed sessions."
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Hybrid session aborted successfully"
@@ -1552,6 +1706,8 @@
             "in": "query",
             "required": false,
             "schema": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV O1-1 (OPEN): agent_type",
               "type": "string",
               "minLength": 1
             }
@@ -1561,6 +1717,8 @@
             "in": "query",
             "required": false,
             "schema": {
+              "x-content-class": "legacy_content",
+              "x-content-note": "INV O1-2 (LEAK): metric",
               "type": "string",
               "minLength": 1
             }
@@ -1575,6 +1733,8 @@
             "schema": {
               "type": "array",
               "items": {
+                "x-content-class": "legacy_content",
+                "x-content-note": "INV-GAP O1: not inventoried (free string): items",
                 "type": "string",
                 "minLength": 1
               }
@@ -1602,6 +1762,7 @@
                       }
                     },
                     "generated_at": {
+                      "x-content-class": "timestamp",
                       "type": "string",
                       "format": "date-time"
                     }

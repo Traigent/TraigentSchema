@@ -5,6 +5,8 @@
   "description": "Canonical definitions for shared logical fields (foreign-key identifiers and timestamps). Reference these instead of re-modeling ids/timestamps ad-hoc per schema, to stop cross-schema drift (#137). ForeignKeyId accepts BOTH server-generated UUID4 ids and SDK-generated trial_<hex> ids (the two real id populations).",
   "definitions": {
     "ForeignKeyId": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
@@ -12,11 +14,13 @@
       "description": "Canonical foreign-key identifier. NOT format:uuid — accepts UUID4 (server) and trial_<hex>/<optimization_id>_<n> (SDK). A format:uuid constraint on these fields rejects real SDK ids (422)."
     },
     "Timestamp": {
+      "x-content-class": "timestamp",
       "type": "string",
       "format": "date-time",
       "description": "Canonical ISO-8601 / RFC-3339 timestamp."
     },
     "NullableTimestamp": {
+      "x-content-class": "timestamp",
       "type": [
         "string",
         "null"
@@ -44,6 +48,7 @@
       "description": "Canonical categorical priority vocabulary with an escalation tier (low < normal < high < critical). Superset of Priority (#313). Distinct from the integer 'priority' rank-order fields, which are numeric ordering, not this severity vocabulary."
     },
     "Confidence": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0,
       "maximum": 1,

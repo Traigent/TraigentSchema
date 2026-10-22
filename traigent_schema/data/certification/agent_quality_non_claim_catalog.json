@@ -7,7 +7,7 @@
     {
       "non_claim_id": "NCQ_NO_GENERALIZATION",
       "reason_template_id": "tmpl.aq.noncert.no_generalization.v1",
-      "rendered_text": "This certificate does not establish that the measured result generalizes to inputs, workloads, or deployments beyond the declared holdout evaluation."
+      "rendered_text": "This certificate does not establish that the result reported by the customer generalizes to inputs, workloads, or deployments beyond the declared holdout evaluation."
     },
     {
       "non_claim_id": "NCQ_NO_EXPANDED_EVALUATION",
@@ -22,7 +22,7 @@
     {
       "non_claim_id": "NCQ_NO_GENERAL_CORRECTNESS",
       "reason_template_id": "tmpl.aq.noncert.no_general_correctness.v1",
-      "rendered_text": "This certificate does not establish that the certified agent behaves correctly, or as intended, in general; only the declared objectives on the declared holdout were measured."
+      "rendered_text": "This certificate does not establish that the certified agent behaves correctly, or as intended, in general; only the declared objectives on the declared holdout were reported by the customer, and Traigent has not measured them."
     },
     {
       "non_claim_id": "NCQ_NO_STATISTICAL_SUPERIORITY",
@@ -57,7 +57,7 @@
     {
       "non_claim_id": "NCQ_NO_SAFETY_OR_HARM",
       "reason_template_id": "tmpl.aq.noncert.no_safety_or_harm.v1",
-      "rendered_text": "This certificate makes no assertion about safety or harm; only the declared quality objectives were measured."
+      "rendered_text": "This certificate makes no assertion about safety or harm; only the declared quality objectives were reported by the customer, and Traigent has not measured them."
     },
     {
       "non_claim_id": "NCQ_NO_DISTRIBUTION_SHIFT",
@@ -87,7 +87,7 @@
     {
       "non_claim_id": "NCQ_SELECTION_ESTIMATE_NOT_CERTIFIED",
       "reason_template_id": "tmpl.aq.noncert.selection_estimate_not_certified.v1",
-      "rendered_text": "Estimates computed on the selection set are not certified by this document; only the holdout-evaluated objective is certified."
+      "rendered_text": "Estimates computed on the selection set are outside the holdout claim and are not covered by it; the holdout objective is reported by the customer, and Traigent does not vouch for it."
     },
     {
       "non_claim_id": "NCQ_NO_COST_LATENCY_SLA",
@@ -97,7 +97,7 @@
     {
       "non_claim_id": "NCQ_NO_LONGITUDINAL_STABILITY",
       "reason_template_id": "tmpl.aq.noncert.no_longitudinal_stability.v1",
-      "rendered_text": "This certificate does not establish that the measured objectives remain stable over time; it reflects a single evaluation at a single point in time."
+      "rendered_text": "This certificate does not establish that the objectives reported by the customer remain stable over time; it reflects a single evaluation at a single point in time."
     },
     {
       "non_claim_id": "NCQ_HOLDOUT_ONE_SHOT_SCOPE",
@@ -107,17 +107,17 @@
     {
       "non_claim_id": "NCQ_SUFFICIENT_STATISTICS_ATTESTED",
       "reason_template_id": "tmpl.aq.noncert.sufficient_statistics_attested.v1",
-      "rendered_text": "The verifier recomputes each interval's endpoints from the printed sufficient statistics; that those statistics correctly summarise the underlying observations is the issuer's attestation, not a fact independently verified here."
+      "rendered_text": "The verifier recomputes each interval's endpoints from the printed sufficient statistics; the statistics are reported by the customer's SDK, and Traigent has not observed or verified the underlying observations."
     },
     {
       "non_claim_id": "NCQ_SPLIT_MEMBERSHIP_NOT_OPENED",
       "reason_template_id": "tmpl.aq.noncert.split_membership_not_opened.v1",
-      "rendered_text": "The committed selection and holdout sets were not opened by this certificate; that they are the declared rule's partition is the issuer's attestation, not a verified fact."
+      "rendered_text": "The committed selection and holdout sets were not opened by this certificate; that they are the declared rule's partition is reported by the customer; Traigent has not verified it."
     },
     {
       "non_claim_id": "NCQ_QUANTILE_ENDPOINTS_ATTESTED",
       "reason_template_id": "tmpl.aq.noncert.quantile_endpoints_attested.v1",
-      "rendered_text": "The interval endpoints for quantile objectives are attested from the printed order-statistic record, not independently recomputed from the underlying observations by this certificate."
+      "rendered_text": "The interval endpoints for quantile objectives are reported by the customer's SDK in the printed order-statistic record; Traigent has not recomputed them from, or verified, the underlying observations."
     },
     {
       "non_claim_id": "NCQ_SPLIT_KEY_TIMING_NOT_PROVEN",
@@ -132,7 +132,7 @@
     {
       "non_claim_id": "NCQ_HOLDOUT_NONUSE_NOT_PROVEN",
       "reason_template_id": "tmpl.aq.noncert.holdout_nonuse_not_proven.v1",
-      "rendered_text": "That no holdout item informed the choice of certified configuration is the issuer's attestation; this certificate does not independently prove holdout non-use."
+      "rendered_text": "That no holdout item informed the choice of configuration is reported by the customer; Traigent has not verified it and this certificate does not prove holdout non-use."
     },
     {
       "non_claim_id": "NCQ_REF_MINTING_IS_AN_ISSUER_OBLIGATION",

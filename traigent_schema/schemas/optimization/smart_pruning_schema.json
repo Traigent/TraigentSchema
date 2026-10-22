@@ -10,6 +10,7 @@
   ],
   "properties": {
     "label": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": [
         "aggressive",
@@ -19,31 +20,38 @@
       "description": "Cloud-side pruning profile used to derive omitted smart-pruning parameters."
     },
     "min_completed_trials": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 1
     },
     "warmup_steps": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     },
     "epsilon": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0
     },
     "cost_threshold": {
+      "x-content-class": "number",
       "type": "number",
       "minimum": 0
     },
     "confidence": {
+      "x-content-class": "number",
       "type": "number",
       "exclusiveMinimum": 0,
       "exclusiveMaximum": 1
     },
     "min_samples_per_config": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 1
     },
     "warmup_trials": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0
     }

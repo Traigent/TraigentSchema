@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 412
+      "refOrEndpointGraph": 430
     },
-    "reachableCount": 445,
-    "schemaFileCount": 490,
-    "unreachableCount": 45
+    "reachableCount": 463,
+    "schemaFileCount": 514,
+    "unreachableCount": 51
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -33,6 +33,7 @@
     "certification/certificate_registry_agent_revision_v0_schema.json",
     "certification/certificate_registry_measurement_contract_v0_schema.json",
     "certification/certificate_rejection_v0_schema.json",
+    "certification/commitment_linkage_v1_schema.json",
     "certification/dataset_record_v1_schema.json",
     "certification/evaluator_quality_v1_schema.json",
     "certification/process_record_v1_schema.json",
@@ -46,6 +47,11 @@
     "execution/dataset_storage_schema.json",
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
+    "labels/label_epoch_schema.json",
+    "labels/label_key_binding_schema.json",
+    "labels/label_local_protection_schema.json",
+    "labels/label_member_key_schema.json",
+    "labels/label_wrap_schema.json",
     "mep.json",
     "onboarding/onboarding_funnel_event_schema.json",
     "optimization/best_config_manifest_v2_schema.json",

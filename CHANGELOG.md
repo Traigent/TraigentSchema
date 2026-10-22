@@ -13,6 +13,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Explicit unmeasured-cost floor on trial results (Traigent#2688).** `session_submit_results_request_schema.json`
+  gains an optional top-level `cost_floor_usd` (number, minimum 0): the reported LOWER BOUND, in USD, of a trial's
+  spend when its cost was not measured (the trial's `metrics` carry `cost_unmeasured = 1.0`). Lower bound only,
+  never a measured total; `metrics.cost` is not repurposed. Additive: no existing field changes. Pinned by
+  `tests/test_session_submit_results_schema.py`.
+- **Closed `stop_reason` on the session finalize request (Traigent#2508).** New shared
+  `optimization/stop_reason_schema.json` (closed enum of 18 reasons, mirroring the SDK `StopReason`
+  literal, including `safety_constraint_insufficient_evidence`). `POST /api/v1/sessions/{id}/finalize`
+  accepts an optional `stop_reason`. The response `stop_reason` stays string or null until the backend
+  maps its own reasons (it still emits e.g. `finalized`, `search_complete`, `smart_prune`). Pinned by `tests/test_stop_reason_schema.py`.
+- **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
+  New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
+  process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are
+  untouched, so previously signed bytes verify as before. Per-role entries (`agent`, `dataset`,
+  `evaluator:primary|r0..r7` (closed service-assigned vocabulary), `config_space`) carry a closed `basis`, `attestation: client_declared` and a randomized
+  commitment: SHA-256 over a versioned domain and length-prefixed (role, basis, fp1 digest, 32-byte CSPRNG
+  opening). New `traigent_schema/certification/commitment_linkage.py` provides `compute_commitment`,
+  `new_opening`, `verify_commitment_linkage` (signature, exact record binding, scope) and `verify_and_open_commitment` (verifies first; no public opener takes a caller-built result)
+  with closed results `COMMITMENT_OPENED_MATCH` / `_MISMATCH` / `COMMITMENT_UNAVAILABLE`. A match is against
+  the authenticated client-declared session-start fingerprint, not proof of execution. The build definition
+  stays unbound. Pinned by `tests/test_commitment_linkage.py`.
 - **Cross-SDK identity vectors v1 (guard G1; local, held until the ledger filing).** New
   `traigent_schema/data/identity/identity_vectors_v1.json` (+ `.schema.json`) with version-pinned vectors
   for registration identity and provenance (Python `_build_default_experiment_name`, JS
@@ -22,6 +43,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `closed_sets.rule` (for example `provenance.user_named`, `attribution.otlp.strict`, `environment.order`).
 
 ### Fixed
+- **The legacy `traigent.best_config.v1` `spec_hash` rule is frozen in one place
+  (`best_config_schema.json`, `x-traigent-spec-hash`), with language-neutral vectors
+  (`tests/data/best_config_v1_spec_hash_vectors.json`).** No behaviour change for the
+  Backend, which has applied this rule since #819: provenance and `forward_compat` are not
+  hashed; `validation` has its result/claim keys removed recursively and is omitted when
+  empty; `config_id` is trimmed; the effective environment is always hashed; NFC, then
+  Python JSON serialization. The SDK hashed provenance and unfiltered validation, so a real
+  publish raised an integrity error after the Backend had committed it. The rule is
+  explicitly not the v2 / fp2 contract. The vector file also freezes the edge cases: NaN/±Infinity
+  and a spec nested deeper than 16 levels are refused; NFC-colliding object keys collapse with the
+  later key winning; `-0.0` vs `0.0` and `1` vs `1.0` hash differently.
+  Non-finite numbers are refused over the original spec, before NFC and before the validation exclusions (a NaN
+  in `validation.status`, or an Infinity lost to an NFC key collision, is refused too). A NEW publish whose spec
+  holds object keys equal after NFC is refused at ingress; the hash rule keeps last-wins for already-stored specs.
 - **Observability trace/session list query parameters now match the backend (#550).
   Additive only.** `tags` stays a `string` parameter and its new description
   says what one occurrence means: each `tags=` value is ONE tag, taken literally (a comma is
@@ -39,6 +74,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime dispatch continues to reject unsupported Hyperband execution (#277).
 
 ### Added
+- **Content-class lint now checks class semantics, conditional branches and a checked-in manifest (content-less plan, review follow-up).**
+  New class `key_material` (public keys, signatures, salts, nonces, credential ids) split out of `digest`;
+  `closed_enum`, `number`, `digest`, `opaque_ref`, `timestamp`, `code_identifier` and `encrypted_blob`
+  must be backed by a matching constraint, so values the first pass over-claimed (for example the error
+  envelope `message`, the external dataset version tag) are now `legacy_content`. `if`/`then`/`else`/`not`
+  branches are linted. The count ratchet is replaced by `docs/content-class-manifest.json` plus
+  `docs/content-class-dispositions.json`. Label contract: tenant/project refs are UUIDs and other refs
+  are `<kind>ref_<32 hex>` (the Backend's formats); the recovery wrap binds `subject` into its AAD
+  (vectors regenerated); the envelope doc states that `revision` is bound into the AAD; member keys are
+  admin-signed only. Annotation and description changes only on existing schemas: no type, `required`
+  or validation change.
+- **Label service contract and opaque-identity fields (additive, content-less plan phase 2).**
+  New `labels/` schemas: label envelope (HPKE base mode, X25519/HKDF-SHA256/AES-256-GCM, bucket-padded),
+  signed key bindings (root -> admin -> project epoch -> member), member key registration/approval,
+  member and recovery wraps, local-protection metadata, label write/read bodies, epoch and rotation
+  records. Optional `opaque_ref` fields (`agent_ref`, `dataset_ref`, `evaluation_set_ref`, `evaluator_ref`,
+  `knob_refs`, `choice_refs`, `metric_refs`, `*_config_refs`, `metric_values`) sit beside the legacy fields on the optimization schemas; nothing is removed or
+  changed. Conformance vectors in `traigent_schema/data/label_vectors_v0.json`, a test-only reference
+  (`scripts/labels_reference.py`, proven on RFC 9180 A.1/A.2) and `docs/labels-v0.md`. The content-class
+  lint now also walks `labels/`; the `legacy_content` count is unchanged.
 - **Optional pricing-coverage counts on the project-usage dashboard (additive).**
   `project_scoped_project_usage_dashboard_schema.json` gains optional
   `priced_configuration_runs` / `unpriced_configuration_runs` on each `top_experiments[]` item

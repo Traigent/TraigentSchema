@@ -7,6 +7,8 @@
   "version": "1.0.0",
   "definitions": {
     "TvarValue": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP O1: not inventoried (free string (union type)): TvarValue",
       "description": "Compact scalar tuned-variable value.",
       "anyOf": [
         {
@@ -29,13 +31,17 @@
       "description": "Server-provided recommendation score for a candidate tuned-variable value.",
       "properties": {
         "value": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP O1: not inventoried (free string (union type)): value",
           "$ref": "#/definitions/TvarValue"
         },
         "score": {
+          "x-content-class": "number",
           "type": "number",
           "description": "Higher scores are more promising for the target metric."
         },
         "support_n": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0,
           "description": "Sample size backing this candidate value."
@@ -54,10 +60,13 @@
       "description": "Optional opaque source summary for this recommendation hint.",
       "properties": {
         "observation_count": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0
         },
         "window": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP O1: not inventoried (free string): window",
           "type": "string",
           "minLength": 1,
           "maxLength": 256
@@ -69,31 +78,42 @@
   },
   "properties": {
     "schema_version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Version of this hint contract."
     },
     "tvar_name": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP O1: not inventoried (free string): tvar_name",
       "type": "string",
       "minLength": 1,
       "maxLength": 256
     },
     "catalog_entry_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256
     },
     "agent_type": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O1-1 (OPEN): agent_type",
       "type": "string",
       "minLength": 1,
       "maxLength": 128
     },
     "metric": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV O1-2 (LEAK): metric",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
       "description": "Objective metric this recommendation is for."
     },
     "objective_direction": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["maximize", "minimize"]
     },
@@ -107,10 +127,13 @@
       "type": "array",
       "description": "Gated top picks from value_recommendations.",
       "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP O1: not inventoried (free string (union type)): recommended_values",
         "$ref": "#/definitions/TvarValue"
       }
     },
     "support_n": {
+      "x-content-class": "number",
       "type": "integer",
       "minimum": 0,
       "description": "Sample size backing this hint."
@@ -124,6 +147,7 @@
       "$ref": "#/definitions/DerivedFrom"
     },
     "generated_at": {
+      "x-content-class": "timestamp",
       "type": "string",
       "format": "date-time"
     }

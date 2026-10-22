@@ -27,6 +27,7 @@
       "description": "Optional client-requested ceilings. The server may cap these further.",
       "properties": {
         "max_items": {
+          "x-content-class": "number",
           "type": [
             "integer",
             "null"
@@ -36,6 +37,7 @@
           "description": "Maximum number of seeds the client wants in the plan."
         },
         "max_total_generations": {
+          "x-content-class": "number",
           "type": [
             "integer",
             "null"

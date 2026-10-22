@@ -6,26 +6,31 @@
   "version": "1.0.0",
   "definitions": {
     "RangeType": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["Range", "IntRange", "LogRange", "Choices"],
       "description": "Supported tuned-variable range constructor."
     },
     "CatalogKind": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["value", "cardinality", "topology", "policy"],
       "description": "Kind of recommendation represented by this catalog entry."
     },
     "EffectuationStatus": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["executable", "manual_guidance", "advisory"],
       "description": "Whether the recommendation can be applied automatically."
     },
     "ImpactEstimate": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["high", "medium", "low"],
       "description": "Qualitative impact estimate from the supporting evidence."
     },
     "CatalogStatus": {
+      "x-content-class": "closed_enum",
       "type": "string",
       "enum": ["active", "deprecated", "experimental"],
       "description": "Lifecycle status for this catalog entry."
@@ -35,41 +40,53 @@
       "description": "Public-safe evidence summary.",
       "properties": {
         "scope": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free string): scope",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
           "description": "Evaluation scope covered by the evidence."
         },
         "metric": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free string): metric",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
           "description": "Metric summarized by this evidence reference."
         },
         "n": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 0,
           "description": "Number of trials, examples, or observations behind the evidence."
         },
         "model": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free string): model",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
           "description": "Model or model family for which the evidence applies."
         },
         "baseline": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free string): baseline",
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
           "description": "Baseline configuration or value summarized by the evidence."
         },
         "candidate": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP no-route: not inventoried (free string): candidate",
           "type": "string",
           "minLength": 1,
           "maxLength": 512,
           "description": "Candidate configuration or value summarized by the evidence."
         },
         "delta": {
+          "x-content-class": "number",
           "type": ["number", "null"],
           "description": "Observed candidate-baseline delta for the referenced metric."
         },
@@ -77,6 +94,8 @@
           "type": "array",
           "description": "Known limitations of the evidence.",
           "items": {
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP no-route: not inventoried (free string): limitations",
             "type": "string",
             "maxLength": 512
           }
@@ -97,16 +116,22 @@
   },
   "properties": {
     "entry_id": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was opaque_ref; contract has no ref pattern, so the value is not provably content-free",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
       "description": "Stable catalog entry identifier."
     },
     "schema_version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Version of this catalog entry contract."
     },
     "name": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): name",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
@@ -117,6 +142,9 @@
       "description": "Range constructor used by range_kwargs."
     },
     "range_kwargs": {
+      "x-content-key-class": "legacy_content",
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free object/array): range_kwargs",
       "type": "object",
       "description": "Keyword arguments for the selected range constructor.",
       "additionalProperties": true
@@ -128,17 +156,23 @@
       "$ref": "#/definitions/EffectuationStatus"
     },
     "effectuation_strategy": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): effectuation_strategy",
       "type": "string",
       "minLength": 1,
       "maxLength": 256,
       "description": "Strategy identifier used when effectuation_status is executable."
     },
     "category": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): category",
       "type": "string",
       "maxLength": 256,
       "description": "Catalog category."
     },
     "reasoning": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): reasoning",
       "type": "string",
       "maxLength": 4096,
       "description": "Summary of why this recommendation exists."
@@ -150,6 +184,8 @@
       "type": "array",
       "description": "Agent types for which this recommendation is relevant.",
       "items": {
+        "x-content-class": "legacy_content",
+        "x-content-note": "INV-GAP no-route: not inventoried (free string): agent_types",
         "type": "string",
         "minLength": 1,
         "maxLength": 128
@@ -163,6 +199,8 @@
       }
     },
     "apply_guidance": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP no-route: not inventoried (free string): apply_guidance",
       "type": "string",
       "maxLength": 4096,
       "description": "Operational guidance for applying this recommendation."
@@ -172,6 +210,8 @@
       "default": "active"
     },
     "version": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
       "type": "string",
       "description": "Catalog entry revision."
     }

@@ -1,0 +1,123 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Content-less Negotiated Label Write Route",
+    "version": "1.0.0",
+    "description": "Negotiated label write of the content-less optimization channel (plan v2.1 phase 1b-2b, D8=A). Flag-gated (CONTENT_LESS_TOKEN_REFS_ENABLED and LABEL_SERVICE_ENABLED, both default off); issued-reference validation is governed by LABEL_VALIDATE_ISSUED_REFS (off|negotiated|global, shipped off)."
+  },
+  "paths": {
+    "/api/v1/optimization/labels": {
+      "post": {
+        "summary": "Write the next sealed revision of a label, with object_ref validated as an issued reference",
+        "description": "TraigentBackend src/routes/optimization_label_routes.py. The legacy PUT /api/v1/labels/objects is unchanged; this route is the versioned content-less contract (body = LabelWriteRequest plus `schema_version`). Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). With LABEL_VALIDATE_ISSUED_REFS = negotiated or global, `object_ref` must be an issued reference of its kind in the caller's tenant and project, else 422 reference_not_issued; with off no validation is applied (current behaviour). While CONTENT_LESS_TOKEN_REFS_ENABLED or LABEL_SERVICE_ENABLED is off the route answers the uniform unknown-route 404, byte-identical to a path that does not exist. Not replayed by any generic HTTP idempotency layer (revision CAS, base_revision, is the write's concurrency control). ORDER OF REFUSALS: (1) unauthenticated 401 / forbidden 403; (2) body invalid 400 invalid_request; (3) object_ref not issued 422 reference_not_issued (mode-dependent); (4) stale_epoch / stale_revision / conflict 409; (5) internal_error 500. Every error body of this route is the closed envelope in label_write_schema.json#/definitions/LabelWriteRefusal except 401/403 (best_config_head_refusal_schema.json) and 429.",
+        "operationId": "writeNegotiatedLabel",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./label_write_schema.json#/definitions/LabelWriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored revision (object_ref, purpose, revision, epoch, updated_at); no envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope with fixed text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope with fixed text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./best_config_head_refusal_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The framework's uniform unknown-route 404 while the route is dark. No body contract (byte-identical to a path that does not exist)."
+          },
+          "409": {
+            "description": "stale_revision, stale_epoch or conflict. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "reference_not_issued. Closed envelope; the ref is never echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope with fixed text; no exception data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "service_unavailable. Closed envelope with fixed text; a Retry-After header is preserved when present. Retry semantics are unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./label_write_schema.json#/definitions/LabelWriteRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@
   "version": "1.0.0",
   "definitions": {
     "Sha256DigestV1": {
+      "x-content-class": "digest",
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
       "description": "'sha256:' + 64 lowercase hex."
@@ -21,17 +22,20 @@
       ],
       "properties": {
         "vcs": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "git"
           ]
         },
         "commit": {
+          "x-content-class": "digest",
           "type": "string",
           "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])",
           "description": "Full SHA-1 or SHA-256 git object id; abbreviations are not identities."
         },
         "dirty": {
+          "x-content-class": "closed_enum",
           "type": "boolean"
         }
       }
@@ -45,6 +49,7 @@
       ],
       "properties": {
         "language": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "python",
@@ -52,10 +57,14 @@
           ]
         },
         "language_version": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "maxLength": 64
         },
         "sdk_version": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "minLength": 1,
           "maxLength": 64
@@ -76,6 +85,7 @@
       ],
       "properties": {
         "manifest_version": {
+          "x-content-class": "closed_enum",
           "type": "integer",
           "const": 1
         },
@@ -84,6 +94,8 @@
           "description": "The project-owned agent identity (Backend agents.id). Part of the manifest so two agents with byte-identical builds still get distinct build digests."
         },
         "label": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): label",
           "type": "string",
           "minLength": 1,
           "maxLength": 128,
@@ -111,9 +123,12 @@
           "description": "Digests of every behaviour-affecting file outside the decorated function, keyed by a stable asset name within its category. All three categories are required; {} asserts the category is empty.",
           "properties": {
             "prompts": {
+              "x-content-key-class": "closed_enum",
               "type": "object",
               "maxProperties": 256,
               "propertyNames": {
+                "x-content-class": "legacy_content",
+                "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): prompts",
                 "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
               },
               "additionalProperties": {
@@ -122,9 +137,12 @@
               "description": "Prompt templates and system prompts."
             },
             "helper_modules": {
+              "x-content-key-class": "closed_enum",
               "type": "object",
               "maxProperties": 256,
               "propertyNames": {
+                "x-content-class": "legacy_content",
+                "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): helper_modules",
                 "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
               },
               "additionalProperties": {
@@ -133,9 +151,12 @@
               "description": "Source files of helper modules the agent imports from the project (not third-party packages, which dependency_lock_digest covers)."
             },
             "tool_definitions": {
+              "x-content-key-class": "closed_enum",
               "type": "object",
               "maxProperties": 256,
               "propertyNames": {
+                "x-content-class": "legacy_content",
+                "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free object/array): tool_definitions",
                 "pattern": "^[A-Za-z0-9_.:/-]{1,128}(?![\\s\\S])"
               },
               "additionalProperties": {
@@ -153,6 +174,7 @@
           "$ref": "#/definitions/AgentRuntimeV1"
         },
         "coverage": {
+          "x-content-class": "closed_enum",
           "type": "string",
           "enum": [
             "complete",
@@ -207,15 +229,21 @@
       ],
       "properties": {
         "provider": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}(?![\\s\\S])"
         },
         "requested_model": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): requested_model",
           "type": "string",
           "minLength": 1,
           "maxLength": 256
         },
         "response_model": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP S1,S3,S5,O2,H1: not inventoried (free string): response_model",
           "type": [
             "string",
             "null"
@@ -224,6 +252,8 @@
           "description": "null when the provider response did not name a model: an honest 'unknown', never a copy of requested_model."
         },
         "system_fingerprint": {
+          "x-content-class": "legacy_content",
+          "x-content-note": "INV-GAP: was digest; contract has no digest pattern, so the value is not provably content-free",
           "type": [
             "string",
             "null"
@@ -231,6 +261,7 @@
           "maxLength": 256
         },
         "call_count": {
+          "x-content-class": "number",
           "type": "integer",
           "minimum": 1,
           "maximum": 9007199254740991

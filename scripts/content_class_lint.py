@@ -1,0 +1,928 @@
+#!/usr/bin/env python3
+"""Content-class lint for the optimization channel contracts.
+
+Every value an optimization channel carries between a customer machine and
+Traigent servers must declare an ``x-content-class`` (see
+``docs/content-classes.md``).  This lint walks every schema used by the
+optimization routes, recursively through object properties, map keys
+(``additionalProperties`` / ``patternProperties`` / ``propertyNames``), array
+items, request/response bodies, parameters and response headers, following
+``$ref`` into other schema files.  It fails on any value node that has no
+class, prints a count per class, and lists every ``legacy_content`` location
+(the P3 removal checklist).
+
+Usage::
+
+    python3 scripts/content_class_lint.py            # lint, exit 1 on gaps
+    python3 scripts/content_class_lint.py --report   # + per-class counts
+    python3 scripts/content_class_lint.py --legacy   # + legacy_content list
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCHEMAS_DIR = REPO_ROOT / "traigent_schema" / "schemas"
+ID_BASE = "https://schemas.traigent.ai/"
+
+CLASS_KEY = "x-content-class"
+KEY_CLASS_KEY = "x-content-key-class"
+NOTE_KEY = "x-content-note"
+
+CONTENT_CLASSES = frozenset(
+    {
+        "opaque_ref",
+        "closed_enum",
+        "number",
+        "digest",
+        "key_material",
+        "timestamp",
+        "code_identifier",
+        "encrypted_blob",
+        "auth_header",
+        "legacy_content",
+    }
+)
+LEGACY = "legacy_content"
+
+# --- class semantics ------------------------------------------------------------------
+# A class name alone proves nothing: each content-free class must be backed by a schema
+# constraint that actually limits what the value can carry.  ``semantic_problem`` checks
+# that the node's own keywords satisfy the class; the approved forms are documented in
+# docs/content-classes.md.
+UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+# Old dialects (Draft 4-7, OpenAPI 3.0, no ``$schema``) resolve ``#/...`` against the document
+# or an ``id`` base. The lint does not model bases: nested ``id``/``$id`` and non-root
+# ``definitions``/``$defs`` are refused; a ``$ref`` resolves against the document root.
+OLD_DIALECT_BASE_ERROR = (
+    "old-dialect schemas may not declare a nested id/$id or a non-root definitions/$defs "
+    "(a $ref resolves against the document root)"
+)
+# The two session id formats the Backend mints: a uuid4 and ``tv0_`` + uuid4 (typed sessions).
+SESSION_ID_PATTERN = "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+KEY_ID_PATTERN = "^[A-Za-z0-9_-]{22}$"
+BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
+# ``<kind>ref_<32 lowercase hex>`` (Backend minting convention: ``_new_id(prefix)`` in
+# pillar_legend_service.py and ``opaque_ref`` in director/opaque_ref.py), with one kind or
+# a closed alternation of kinds.
+_KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{32\}\$$")
+# ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids
+# (enterprise_tenant.py, project.py).
+_PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
+# Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
+# than chosen: they carry no customer text because the pattern admits none.
+_FIXED_REF_PATTERNS = frozenset(
+    {
+        UUID_PATTERN,
+        SESSION_ID_PATTERN,
+        KEY_ID_PATTERN,
+        "^k[0-9a-f]{16}(?![\\s\\S])",  # content identity key id
+        "^ex1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # keyed example id
+        "^exv1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # keyed example version
+        "^msr1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # multiset root
+        "^ex_[a-f0-9]{8,12}_[0-9]+$",  # hex digest prefix + row index
+        "^[0-9a-f]{12}$",  # key-version tag (hex)
+    }
+)
+
+
+def _types(node: dict) -> set[str]:
+    typ = node.get("type")
+    return set(typ) if isinstance(typ, list) else ({typ} if isinstance(typ, str) else set())
+
+
+def _compiled(pattern: Any) -> re.Pattern[str] | None:
+    try:
+        return re.compile(pattern) if isinstance(pattern, str) else None
+    except re.error:
+        return None
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
+    """Why ``node`` does not justify ``cls`` (None when it does)."""
+    if node.get("type") == "null":
+        return None  # the null branch of a nullable value carries nothing
+    types = _types(node) - {"null"}
+    pattern = node.get("pattern")
+    rx = _compiled(pattern)
+    if cls == "closed_enum":
+        if "enum" in node or "const" in node or types == {"boolean"}:
+            return None
+        return "closed_enum needs enum, const or a boolean type"
+    if cls == "number":
+        if not types or not types <= {"integer", "number"}:
+            return "number needs an integer/number type"
+        for k in ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"):
+            if k in node and not _is_number(node[k]):
+                return f"number bound {k} must be numeric"
+        lo, hi = node.get("minimum"), node.get("maximum")
+        if _is_number(lo) and _is_number(hi) and lo > hi:
+            return "number minimum exceeds maximum"
+        return None
+    if types and types != {"string"}:
+        return f"{cls} needs a string type"
+    if cls == "digest":
+        if rx is None:
+            return "digest needs an approved hash pattern"
+        sha = "a" * 64
+        if not (rx.search(sha) or rx.search("sha256:" + sha)):
+            return "digest pattern does not accept a 64-hex digest"
+        if any(rx.search(x) for x in ("a" * 63, "a" * 65, "Alice_has_diabetes", "sha256: " + sha)):
+            return "digest pattern also accepts non-digest text"
+        return None
+    if cls == "timestamp":
+        if node.get("format") in ("date-time", "date"):
+            return None
+        if rx and rx.search("2026-10-16T00:00:00Z") and not rx.search("Alice_has_diabetes"):
+            return None
+        return "timestamp needs format date-time/date or a timestamp pattern"
+    if cls == "opaque_ref":
+        if isinstance(pattern, str) and (
+            pattern in _FIXED_REF_PATTERNS
+            or _KINDED_REF.match(pattern)
+            or _PREFIXED_ID.match(pattern)
+        ):
+            return None
+        return (
+            "opaque_ref needs an approved ref pattern "
+            "(uuid, <kind>ref_<32 hex>, tenant_/project_<32 hex>, key id)"
+        )
+    if cls == "code_identifier":
+        if rx and rx.search("pkg.module:func") or rx and rx.search("src/pkg/module.py"):
+            if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
+                return None
+        return "code_identifier needs an identifier or repo-relative path pattern"
+    if cls == "key_material":
+        if pattern != BASE64URL_PATTERN:
+            return "key_material needs the base64url pattern " + BASE64URL_PATTERN
+        if not isinstance(node.get("maxLength"), int):
+            return "key_material needs maxLength"
+        return None
+    if cls == "encrypted_blob":
+        if doc and not doc.startswith("labels/"):
+            return "encrypted_blob outside labels/ must $ref the label envelope"
+        if pattern != BASE64URL_PATTERN or not isinstance(node.get("maxLength"), int):
+            return "encrypted_blob needs the base64url pattern and maxLength"
+        return None
+    return None
+
+
+# Full-document roots: every schema document under optimization/ (endpoint
+# inventories are walked as OpenAPI), plus the guidance and run-measure
+# documents the optimization routes reference.  Other referenced documents
+# are walked only at the fragment that is referenced.
+ROOT_DIRS = ("optimization", "labels")
+EXTRA_ROOT_FILES = (
+    "guidance/guidance_plan_request_schema.json",
+    "guidance/guidance_plan_schema.json",
+    "guidance/guidance_plan_item_schema.json",
+    "guidance/guidance_action_schema.json",
+    "guidance/guidance_result_submission_schema.json",
+    # Phase 0c: the best-config endpoints and their publish / rollback request bodies carry
+    # customer-chosen values (config_id, function_ref, free-form metadata).
+    "execution/best_config_endpoints.json",
+    "execution/best_config_publish_request_schema.json",
+    "execution/best_config_rollback_request_schema.json",
+)
+# Closed by design (privacy bridge), not field-audited here.
+EXCLUDED_PREFIXES = ("legend/",)
+
+_SCHEMA_LIST_SLOTS = ("allOf", "anyOf", "oneOf")
+_SCHEMA_MAP_SLOTS = ("definitions", "$defs", "dependencies")
+_HTTP_METHODS = {"get", "put", "post", "delete", "patch", "head", "options"}
+
+
+@dataclass
+class Finding:
+    loc: str
+    kind: str  # value | key
+    cls: str | None
+    note: str | None = None
+
+
+@dataclass
+class LintResult:
+    findings: list[Finding] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
+    invalid: list[str] = field(default_factory=list)
+    unresolved: list[str] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
+
+    @property
+    def counts(self) -> Counter[str]:
+        return Counter(f.cls for f in self.findings if f.cls)
+
+    @property
+    def legacy(self) -> list[Finding]:
+        return [f for f in self.findings if f.cls == LEGACY]
+
+    @property
+    def ok(self) -> bool:
+        return not (self.missing or self.invalid or self.unresolved)
+
+
+_MISSING = object()
+
+
+def _esc(token: str) -> str:
+    return token.replace("~", "~0").replace("/", "~1")
+
+
+def _unesc(token: str) -> str:
+    return token.replace("~1", "/").replace("~0", "~")
+
+
+class Linter:
+    def __init__(self, schemas_dir: Path = SCHEMAS_DIR) -> None:
+        self.dir = schemas_dir
+        self.docs: dict[str, Any] = {}
+        self.seen: set[tuple[str, str]] = set()
+        self.result = LintResult()
+
+    # -- documents -----------------------------------------------------
+    def load(self, rel: str) -> Any:
+        if rel not in self.docs:
+            self.docs[rel] = json.loads((self.dir / rel).read_text(encoding="utf-8"))
+            self.result.documents.append(rel)
+        return self.docs[rel]
+
+    def roots(self) -> list[str]:
+        out: list[str] = []
+        for d in ROOT_DIRS:
+            out += sorted(
+                p.relative_to(self.dir).as_posix() for p in (self.dir / d).rglob("*.json")
+            )
+        out += [f for f in EXTRA_ROOT_FILES if (self.dir / f).exists()]
+        return out
+
+    def _resolve(self, doc: str, scope: list[tuple[str, Any, str]], ref: str):
+        """Return (doc, absolute pointer, node, new_scope) or None."""
+        path, _, frag = ref.partition("#")
+        if frag and not frag.startswith("/"):
+            return None
+        if path.startswith(ID_BASE):
+            target = path[len(ID_BASE) :]
+        elif path:
+            parts: list[str] = []
+            for seg in (Path(doc).parent / path).as_posix().split("/"):
+                if seg == "..":
+                    if parts:
+                        parts.pop()
+                elif seg not in ("", "."):
+                    parts.append(seg)
+            target = "/".join(parts)
+        else:
+            target = ""
+        if target:
+            if not (self.dir / target).exists():
+                return None
+            root = self.load(target)
+            cur_doc, base, base_ptr = target, root, ""
+            new_scope = [(target, root, "")]
+        else:
+            cur_doc = doc
+            new_scope = scope
+            base, base_ptr = (scope[-1][1], scope[-1][2]) if scope else (self.load(doc), "")
+        node = self._pointer(base, frag)
+        if node is _MISSING:
+            return None
+        return cur_doc, base_ptr + frag, node, new_scope
+
+    @staticmethod
+    def _pointer(base: Any, frag: str) -> Any:
+        node = base
+        if frag:
+            try:
+                for tok in frag[1:].split("/"):
+                    node = node[_unesc(tok)] if isinstance(node, dict) else node[int(tok)]
+            except (KeyError, IndexError, ValueError, TypeError):
+                return _MISSING
+        return node
+
+    # -- classification helpers ---------------------------------------
+    def effective_class(self, doc: str, scope, node: Any, depth: int = 0) -> str | None:
+        if not isinstance(node, dict) or depth > 12:
+            return None
+        if CLASS_KEY in node:
+            return node[CLASS_KEY]
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res:
+                return self.effective_class(res[0], res[3], res[2], depth + 1)
+            return None
+        for slot in _SCHEMA_LIST_SLOTS:
+            branches = node.get(slot)
+            if isinstance(branches, list):
+                classes = {
+                    self.effective_class(doc, scope, b, depth + 1)
+                    for b in branches
+                    if self._is_value_branch(b)
+                }
+                classes.discard(None)
+                if len(classes) == 1 and all(
+                    self.effective_class(doc, scope, b, depth + 1) or not self._is_value_branch(b)
+                    for b in branches
+                ):
+                    return next(iter(classes))
+        return None
+
+    @staticmethod
+    def _is_value_branch(node: Any) -> bool:
+        """A branch that declares a value (not a constraint overlay or null)."""
+        if not isinstance(node, dict):
+            return False
+        if node.get("type") == "null" or ("const" in node and node["const"] is None):
+            return False
+        if "$ref" in node or CLASS_KEY in node:
+            return True
+        if any(
+            k in node
+            for k in (
+                "enum",
+                "const",
+                "format",
+                "pattern",
+                "properties",
+                "items",
+                "additionalProperties",
+                "patternProperties",
+            )
+        ):
+            return True
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        if types & {"string", "number", "integer", "boolean"}:
+            return True
+        return any(k in node for k in _SCHEMA_LIST_SLOTS)
+
+    def _children(self, node: dict) -> bool:
+        """True when the node's content is described by child schemas."""
+        return (
+            any(
+                isinstance(node.get(k), dict) and node.get(k) not in ({}, True)
+                for k in ("properties", "patternProperties")
+            )
+            or isinstance(node.get("items"), (dict, list))
+            or isinstance(node.get("additionalProperties"), dict)
+            and node["additionalProperties"] != {}
+        )
+
+    def _modern_dialect(self, doc: str) -> bool:
+        """2019-09+ / OpenAPI 3.1: ``unevaluatedProperties`` exists and ``$ref`` has siblings."""
+        return self._honours_unevaluated(doc)
+
+    def _honours_unevaluated(self, doc: str) -> bool:
+        """``unevaluatedProperties`` exists only in 2019-09+ (and OpenAPI 3.1) documents."""
+        data = self.docs.get(doc)
+        if not isinstance(data, dict):
+            return False
+        dialect = data.get("$schema")
+        if isinstance(dialect, str):
+            return bool(re.search(r"2019-09|2020-12", dialect))
+        version = data.get("openapi")
+        return isinstance(version, str) and version.startswith("3.1")
+
+    def _open_extras(self, node: dict, doc: str = "") -> bool:
+        """True when the object accepts properties it does not declare.
+
+        In JSON Schema an object that omits ``additionalProperties`` accepts extras, so
+        omission is open.  ``unevaluatedProperties: false`` closes it only in dialects that
+        define the keyword (a Draft-7 validator ignores it).  Nodes that only compose or
+        reference other schemas are judged where the object is declared.
+        """
+        ap = node.get("additionalProperties", _MISSING)
+        if ap is True or ap == {}:
+            return True
+        if ap is not _MISSING:
+            return False
+        if node.get("unevaluatedProperties") is False and self._honours_unevaluated(doc):
+            return False
+        if self._is_ref_or_composition_only(node):
+            return False
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        return "object" in types or "properties" in node
+
+    def _closes(self, node: Any, doc: str, scope=None, depth: int = 0) -> bool:
+        """True when ``node`` (or a $ref it points at) explicitly forbids undeclared properties."""
+        if not isinstance(node, dict) or depth > 6:
+            return False
+        if node.get("additionalProperties") is False:
+            return True
+        if node.get("unevaluatedProperties") is False and self._honours_unevaluated(doc):
+            return True
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope or [], ref)
+            if res:
+                return self._closes(res[2], res[0], res[3], depth + 1)
+        return False
+
+    def _is_container(self, doc, scope, node: dict) -> bool:
+        """Object/array whose content is covered by (separately checked) children."""
+        if "enum" in node or "const" in node:
+            return False
+        typ = node.get("type")
+        types = typ if isinstance(typ, list) else [typ]
+        if "string" in types or "number" in types or "integer" in types or "boolean" in types:
+            return False
+        if "properties" in node or "items" in node or "patternProperties" in node:
+            return True
+        if (
+            isinstance(node.get("additionalProperties"), dict)
+            and node["additionalProperties"] != {}
+        ):
+            return True
+        for slot in _SCHEMA_LIST_SLOTS:
+            branches = node.get(slot)
+            if isinstance(branches, list) and branches:
+                structural = [b for b in branches if self._is_value_branch(b)]
+                if structural and all(
+                    self.effective_class(doc, scope, b) or self._is_branch_structural(doc, scope, b)
+                    for b in structural
+                ):
+                    return True
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res and isinstance(res[2], dict):
+                return self.effective_class(
+                    res[0], res[3], res[2]
+                ) is not None or self._is_container(res[0], res[3], res[2])
+        return False
+
+    def _is_branch_structural(self, doc, scope, b: Any) -> bool:
+        return isinstance(b, dict) and self._is_container(doc, scope, b)
+
+    # -- recording ----------------------------------------------------
+    def _record_value(self, loc: str, node: dict, doc, scope, kind: str = "value") -> None:
+        own = node.get(CLASS_KEY)
+        if own is not None:
+            if own not in CONTENT_CLASSES:
+                self.result.invalid.append(f"{loc}: unknown class {own!r}")
+                return
+            self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
+            if own == LEGACY and not node.get(NOTE_KEY):
+                self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
+            if own != LEGACY:
+                self._check_semantics(loc, own, node, doc, scope)
+            return
+        eff = self.effective_class(doc, scope, node)
+        if eff is not None:
+            return  # inherited from a classed definition
+        if self._is_container(doc, scope, node) and not self._open_extras(node, doc):
+            return
+        self.result.missing.append(loc)
+
+    def _check_semantics(self, loc: str, cls: str, node: dict, doc, scope) -> None:
+        """Validate that ``cls`` holds for every value the node can accept.
+
+        A class is a claim about all accepted values: ``allOf`` members intersect (one
+        satisfying conjunct is enough, a conjunct that accepts text is not), while every
+        ``anyOf``/``oneOf`` alternative must satisfy it, including unconstrained ``{}`` / ``true``
+        alternatives and ``$ref`` targets.
+        """
+        for why in self._class_problems(cls, node, doc, scope, root=True):
+            self.result.invalid.append(f"{loc}: {why}")
+
+    _VALUE_KEYS = ("type", "enum", "const", "pattern", "format")
+
+    def _class_problems(
+        self, cls: str, node: Any, doc: str, scope, *, root: bool = False, depth: int = 0
+    ) -> list[str]:
+        """Reasons the claim ``cls`` does not hold for ``node`` ([] when it holds)."""
+        if (
+            isinstance(node, dict)
+            and isinstance(node.get("$ref"), str)
+            and not self._modern_dialect(doc)
+        ):
+            # Draft-4/6/7 and OpenAPI 3.0 ignore every keyword beside $ref (including
+            # ``type: null``): the target alone determines the accepted values.
+            res = self._resolve(doc, scope, node["$ref"])
+            if res is None or not isinstance(res[2], dict):
+                return [f"unresolvable $ref {node['$ref']}"]
+            if depth > 12:
+                return ["composition too deep to verify"]
+            if not root and node.get(CLASS_KEY) == LEGACY:
+                return ["a branch is legacy_content"]
+            return self._class_problems(cls, res[2], res[0], res[3], depth=depth + 1)
+        if node is False or (isinstance(node, dict) and node.get("type") == "null"):
+            return []  # accepts nothing / only null
+        if node is True or not isinstance(node, dict):
+            return ["an unconstrained alternative accepts any value"]
+        if depth > 12:
+            return ["composition too deep to verify"]
+        if not root and node.get(CLASS_KEY) == LEGACY:
+            return ["a branch is legacy_content"]
+        # A branch's own (different) class proves nothing about the parent's claim: the
+        # parent's class is checked against the branch's constraints below.
+        conjuncts: list[list[str]] = []
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res is None or not isinstance(res[2], dict):
+                conjuncts.append([f"unresolvable $ref {ref}"])
+            else:
+                conjuncts.append(self._class_problems(cls, res[2], res[0], res[3], depth=depth + 1))
+            if not self._modern_dialect(doc):
+                # Draft-4/6/7 and OpenAPI 3.0 ignore every keyword beside $ref: the target
+                # alone determines the accepted values.
+                return conjuncts[0]
+        if any(k in node for k in self._VALUE_KEYS):
+            why = semantic_problem(cls, node, doc)
+            conjuncts.append([why] if why else [])
+        for slot in ("anyOf", "oneOf"):
+            branches = node.get(slot)
+            if isinstance(branches, list):
+                problems: list[str] = []
+                for i, b in enumerate(branches):
+                    problems += [
+                        f"{slot}/{i}: {w}"
+                        for w in self._class_problems(cls, b, doc, scope, depth=depth + 1)
+                    ]
+                conjuncts.append(problems)
+        members = node.get("allOf")
+        if isinstance(members, list):
+            for i, b in enumerate(members):
+                conjuncts.append(
+                    [
+                        f"allOf/{i}: {w}"
+                        for w in self._class_problems(cls, b, doc, scope, depth=depth + 1)
+                    ]
+                )
+        if not conjuncts:
+            return ["an unconstrained alternative accepts any value"]
+        if any(not c for c in conjuncts):
+            return []  # at least one conjunct restricts the value to the claimed class
+        return [w for c in conjuncts for w in c]
+
+    def _record_annotation(self, loc: str, node: dict, doc, scope) -> None:
+        """Record a class declared on a composition branch / overlay (not a parent slot)."""
+        own = node.get(CLASS_KEY)
+        if own is None:
+            return
+        if own not in CONTENT_CLASSES:
+            self.result.invalid.append(f"{loc}: unknown class {own!r}")
+            return
+        self.result.findings.append(Finding(loc, "value", own, node.get(NOTE_KEY)))
+        if own == LEGACY:
+            if not node.get(NOTE_KEY):
+                self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
+        else:
+            self._check_semantics(loc, own, node, doc, scope)
+
+    def _check_open_root(self, loc: str, node: dict, doc, scope) -> None:
+        """A document/body root that accepts extra properties must classify them."""
+        if self._is_ref_or_composition_only(node):
+            return
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        if "object" not in types and "properties" not in node:
+            return
+        if not self._open_extras(node, doc):
+            return
+        key_cls = node.get(KEY_CLASS_KEY)
+        if node.get(CLASS_KEY) is None or key_cls is None:
+            self.result.missing.append(
+                f"{loc} (open payload root: declare {CLASS_KEY} and {KEY_CLASS_KEY} "
+                "for the extra properties it accepts, or close it with additionalProperties:false)"
+            )
+            return
+        if key_cls not in CONTENT_CLASSES:
+            self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
+            return
+        self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        if key_cls == LEGACY and not node.get(NOTE_KEY):
+            self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
+        elif key_cls != LEGACY:
+            self.result.invalid.append(
+                f"{loc} [keys]: an open root cannot claim a content-free key class "
+                "(its extra property names are unconstrained)"
+            )
+
+    def _is_object_node(self, node: dict) -> bool:
+        typ = node.get("type")
+        types = set(typ) if isinstance(typ, list) else {typ}
+        return ("object" in types or "properties" in node) and not self._is_ref_or_composition_only(
+            node
+        )
+
+    @staticmethod
+    def _is_ref_or_composition_only(node: dict) -> bool:
+        return "properties" not in node and (
+            "$ref" in node or any(k in node for k in _SCHEMA_LIST_SLOTS)
+        )
+
+    def _record_keys(self, loc: str, node: dict, doc, scope) -> None:
+        pn = node.get("propertyNames")
+        if isinstance(pn, dict) and self.effective_class(doc, scope, pn):
+            return
+        key_cls = node.get(KEY_CLASS_KEY)
+        if key_cls is None:
+            self.result.missing.append(
+                f"{loc} (map keys: add propertyNames x-content-class or {KEY_CLASS_KEY})"
+            )
+            return
+        if key_cls not in CONTENT_CLASSES:
+            self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
+            return
+        self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        if key_cls != LEGACY:
+            why = semantic_problem(key_cls, pn if isinstance(pn, dict) else {}, doc)
+            if why:
+                self.result.invalid.append(f"{loc} [keys]: {why} (on propertyNames)")
+        if key_cls == LEGACY and not node.get(NOTE_KEY):
+            self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
+
+    # -- schema walk ----------------------------------------------------
+    def declared_names(self, doc: str, scope, node: Any, depth: int = 0) -> set[str]:
+        """Property names the primary declaration of ``node`` introduces (own, allOf, $ref)."""
+        names: set[str] = set()
+        if not isinstance(node, dict) or depth > 6:
+            return names
+        props = node.get("properties")
+        if isinstance(props, dict):
+            names |= {n for n, c in props.items() if c != {}}
+        for slot in _SCHEMA_LIST_SLOTS:
+            for b in node.get(slot) or []:
+                names |= self.declared_names(doc, scope, b, depth + 1)
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res:
+                names |= self.declared_names(res[0], res[3], res[2], depth + 1)
+        return names
+
+    def _opens_scope(self, doc: str, node: dict, ptr: str, loc: str) -> bool:
+        """Whether sibling ``definitions``/``$defs`` of ``node`` can resolve a ``#/...`` ref.
+
+        Draft 4-7 (and OpenAPI 3.0, and a document without ``$schema``) resolve ``#/...``
+        against the document, or against an ``id``/``$id`` base. The lint does not model base
+        URIs, so for those dialects it refuses a nested ``id``/``$id`` and any ``definitions``
+        or ``$defs`` outside the document root. A ``$ref`` always resolves against the document
+        root (or the file it names).
+        """
+        if self._modern_dialect(doc):
+            return True
+        if ptr and any(isinstance(node.get(k), str) for k in ("id", "$id")):
+            self.result.invalid.append(f"{loc}: {OLD_DIALECT_BASE_ERROR}")
+        if not (node.get("definitions") or node.get("$defs")):
+            return False
+        if ptr == "":
+            return True
+        self.result.invalid.append(f"{loc}: {OLD_DIALECT_BASE_ERROR}")
+        return False
+
+    def walk_schema(
+        self,
+        doc: str,
+        scope,
+        node: Any,
+        ptr: str,
+        *,
+        value: bool,
+        depth: int = 0,
+        overlay: frozenset[str] | None = None,
+        primary: frozenset[str] = frozenset(),
+        root: bool = False,
+        branch: bool = False,
+        closed: bool = False,
+        covered: bool = False,
+    ) -> None:
+        if not isinstance(node, dict) or depth > 60:
+            return
+        key = (doc, ptr)
+        if key in self.seen:
+            return
+        self.seen.add(key)
+        loc = f"{doc}#{ptr}" if ptr else doc
+        if self._opens_scope(doc, node, ptr, loc) and (
+            node.get("definitions") or node.get("$defs")
+        ):
+            scope = scope + [(doc, node, ptr)]
+
+        if value:
+            self._record_value(loc, node, doc, scope)
+        else:
+            self._record_annotation(loc, node, doc, scope)
+        if value or root or ptr == "":
+            self._check_open_root(loc, node, doc, scope)
+        elif branch and not closed:
+            self._check_open_root(loc, node, doc, scope)  # open object inside a composition
+
+        for k in ("properties", "patternProperties"):
+            sub = node.get(k)
+            if isinstance(sub, dict):
+                composed = any(c in node for c in _SCHEMA_LIST_SLOTS) or "$ref" in node
+                for name, child in sub.items():
+                    if (
+                        overlay is not None
+                        and k == "properties"
+                        and name in overlay
+                        and CLASS_KEY not in child
+                    ):
+                        # constrains a property whose primary declaration (already
+                        # classified) lives in the enclosing schema
+                        continue
+                    if child == {} and composed:
+                        # placeholder redeclaration (keeps additionalProperties:false
+                        # valid); the real declaration lives in the composed branch.
+                        continue
+                    self.walk_schema(
+                        doc, scope, child, f"{ptr}/{k}/{_esc(name)}", value=True, depth=depth + 1
+                    )
+        ap = node.get("additionalProperties")
+        if isinstance(ap, dict) and ap != {}:
+            self.walk_schema(
+                doc, scope, ap, f"{ptr}/additionalProperties", value=True, depth=depth + 1
+            )
+        if isinstance(ap, dict) and ap != {} or isinstance(node.get("patternProperties"), dict):
+            self._record_keys(loc, node, doc, scope)
+        pn = node.get("propertyNames")
+        if isinstance(pn, dict):
+            self.walk_schema(doc, scope, pn, f"{ptr}/propertyNames", value=True, depth=depth + 1)
+        items = node.get("items")
+        if isinstance(items, dict):
+            self.walk_schema(doc, scope, items, f"{ptr}/items", value=True, depth=depth + 1)
+        elif isinstance(items, list):
+            for i, child in enumerate(items):
+                self.walk_schema(doc, scope, child, f"{ptr}/items/{i}", value=True, depth=depth + 1)
+        # if/then/else/not branches may only re-constrain a property whose primary
+        # declaration is classified in the enclosing schema; any other property they
+        # introduce is a new value and must carry its own class.
+        own_names = frozenset(self.declared_names(doc, scope, node))
+        branch_overlay = primary | own_names
+        # An object closed by this node (or inherited) cannot be re-opened by a branch: all
+        # conjuncts must accept an extra property for it to be accepted.  if/then/else/not only
+        # restrict what the unconditional keywords accept, so they are never open-checked.
+        node_closed = closed or self._closes(node, doc, scope)
+        # ``covered``: an enclosing object node is itself open-checked, so a conditional
+        # branch adds nothing to what is already classified there.
+        node_covered = covered or self._is_object_node(node)
+        for k in ("if", "then", "else", "not"):
+            if isinstance(node.get(k), dict):
+                self.walk_schema(
+                    doc,
+                    scope,
+                    node[k],
+                    f"{ptr}/{k}",
+                    value=False,
+                    depth=depth + 1,
+                    overlay=branch_overlay,
+                    primary=primary,
+                    branch=k in ("then", "else") and not node_covered,
+                    closed=node_closed,
+                    covered=node_covered,
+                )
+        for k in _SCHEMA_LIST_SLOTS:
+            if isinstance(node.get(k), list):
+                sibling_closed = k == "allOf" and any(self._closes(b, doc, scope) for b in node[k])
+                for i, child in enumerate(node[k]):
+                    self.walk_schema(
+                        doc,
+                        scope,
+                        child,
+                        f"{ptr}/{k}/{i}",
+                        value=False,
+                        depth=depth + 1,
+                        overlay=overlay,
+                        primary=primary | own_names,
+                        branch=True,
+                        closed=node_closed or sibling_closed,
+                        covered=node_covered,
+                    )
+        for k in _SCHEMA_MAP_SLOTS:
+            if isinstance(node.get(k), dict):
+                for name, child in node[k].items():
+                    if isinstance(child, dict):
+                        self.walk_schema(
+                            doc,
+                            scope,
+                            child,
+                            f"{ptr}/{k}/{_esc(name)}",
+                            value=(k != "dependencies"),
+                            depth=depth + 1,
+                        )
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            res = self._resolve(doc, scope, ref)
+            if res is None:
+                self.result.unresolved.append(f"{loc}: {ref}")
+            else:
+                rdoc, rptr, rnode, rscope = res
+                if any(rdoc.startswith(p) for p in EXCLUDED_PREFIXES):
+                    return
+                # follow without re-asserting the target as a value (its own
+                # parent slot does that); definitions are walked as values.
+                self.walk_schema(rdoc, rscope, rnode, rptr, value=bool(rptr), depth=depth + 1)
+
+    # -- openapi walk -------------------------------------------------
+    def walk_openapi(self, doc: str, data: dict) -> None:
+        for path, item in (data.get("paths") or {}).items():
+            if not isinstance(item, dict):
+                continue
+            for p in item.get("parameters", []) or []:
+                self._param(doc, [], p, f"/paths/{_esc(path)}/parameters")
+            for method, op in item.items():
+                if method not in _HTTP_METHODS or not isinstance(op, dict):
+                    continue
+                base = f"/paths/{_esc(path)}/{method}"
+                for i, p in enumerate(op.get("parameters", []) or []):
+                    self._param(doc, [], p, f"{base}/parameters/{i}")
+                rb = op.get("requestBody")
+                if isinstance(rb, dict):
+                    self._content(doc, rb.get("content"), f"{base}/requestBody/content")
+                for status, resp in (op.get("responses") or {}).items():
+                    if not isinstance(resp, dict):
+                        continue
+                    self._content(doc, resp.get("content"), f"{base}/responses/{status}/content")
+                    for hname, h in (resp.get("headers") or {}).items():
+                        if isinstance(h, dict) and isinstance(h.get("schema"), dict):
+                            self.walk_schema(
+                                doc,
+                                [],
+                                h["schema"],
+                                f"{base}/responses/{status}/headers/{_esc(hname)}/schema",
+                                value=True,
+                            )
+
+    def _param(self, doc, scope, p: Any, ptr: str) -> None:
+        if isinstance(p, dict) and isinstance(p.get("schema"), dict):
+            self.walk_schema(doc, scope, p["schema"], f"{ptr}/schema", value=True)
+
+    def _content(self, doc, content: Any, ptr: str) -> None:
+        for media, body in (content or {}).items():
+            if isinstance(body, dict) and isinstance(body.get("schema"), dict):
+                self.walk_schema(
+                    doc,
+                    [],
+                    body["schema"],
+                    f"{ptr}/{_esc(media)}/schema",
+                    value=False,
+                    root=True,
+                )
+
+    # -- driver ---------------------------------------------------------
+    def run(self) -> LintResult:
+        for rel in self.roots():
+            if any(rel.startswith(p) for p in EXCLUDED_PREFIXES):
+                continue
+            data = self.load(rel)
+            if isinstance(data, dict) and "paths" in data and "openapi" in data:
+                self.walk_openapi(rel, data)
+            elif isinstance(data, dict):
+                self.walk_schema(rel, [], data, "", value=False)
+        self.result.missing = sorted(set(self.result.missing))
+        return self.result
+
+
+def run_lint(schemas_dir: Path = SCHEMAS_DIR) -> LintResult:
+    return Linter(schemas_dir).run()
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--report", action="store_true", help="print per-class counts")
+    ap.add_argument("--legacy", action="store_true", help="list every legacy_content location")
+    args = ap.parse_args(argv)
+    res = run_lint()
+    for line in res.invalid:
+        print(f"INVALID  {line}")
+    for line in res.unresolved:
+        print(f"UNRESOLVED  {line}")
+    for line in res.missing:
+        print(f"MISSING  {line}")
+    if args.report or args.legacy or res.ok:
+        print("class counts:")
+        for cls in sorted(CONTENT_CLASSES):
+            print(f"  {cls:16} {res.counts.get(cls, 0)}")
+        print(f"documents walked: {len(res.documents)}")
+    if args.legacy:
+        print("legacy_content locations:")
+        for f in sorted(res.legacy, key=lambda f: f.loc):
+            print(f"  {f.loc}  -- {f.note}")
+    if not res.ok:
+        print(
+            f"FAIL: {len(res.missing)} missing, {len(res.invalid)} invalid, "
+            f"{len(res.unresolved)} unresolved"
+        )
+        return 1
+    print("OK")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

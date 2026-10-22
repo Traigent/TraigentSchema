@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "x_extensions_meta_schema",
   "title": "Allowed x-* Extension Keywords",
-  "description": "Canonical vocabulary of all permitted x-* custom extension keywords used across Traigent contract schemas. This schema is documentation and governance only — it is not applied as a JSON Schema validator over other schemas. Any x-* key not listed here is disallowed; add it here (with a description) before using it in any schema file.",
+  "description": "Canonical vocabulary of all permitted x-* custom extension keywords used across Traigent contract schemas. It is not applied at runtime to request or response bodies, but it is enforced: tests/test_x_extensions_governance.py validates every x-* KEY and every x-* VALUE in the shipped schemas against the entries below, and traigent_schema/invariants.py consumes the x-traigent-invariants entry as a live validator. Any x-* key not listed here is disallowed; add it here (with a description) before using it in any schema file.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -229,8 +229,15 @@
       "description": "Lists API-key scope tokens that are considered privileged and cannot be requested by end users (e.g. 'admin:all'). Placed on the authorization vocabulary schema alongside x-user-requestable-scopes."
     },
     "x-reference": {
-      "type": "string",
-      "description": "A $ref-style pointer (relative path or JSON Pointer) to the canonical definition of this concept elsewhere in the schema graph. Used for cross-schema identity tracing and documentation of canonical sources."
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "const": true
+        }
+      ],
+      "description": "Marks a field as a reference to a concept defined canonically elsewhere. Two forms: a $ref-style pointer (relative path or JSON Pointer) to the canonical definition, which is the target form and the only one tooling can follow; or the boolean true, meaning 'references a canonical identifier, target not yet pinned'. The boolean form is a ratchet, not a style choice -- tests/test_x_extensions_governance.py pins the number of boolean sites, which may only shrink, so a new site must use the pointer form."
     },
     "x-references": {
       "type": "object",

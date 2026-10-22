@@ -2,9 +2,10 @@
 
 Coding agents (and humans) repeatedly miss a check that is cheap to run locally
 and only discover it when the cloud PR goes **red** — a wasted push + a full CI
-round-trip per miss. Most of TraigentSchema's CI checks are runnable **locally
-in seconds**. This repo ships a single local gate that mirrors them so the
-failure is caught before the push.
+round-trip per miss. Every one of TraigentSchema's CI checks is runnable
+**locally**. This repo ships a single local gate that runs them so the failure
+is caught before the push. Budget **5-15 minutes**: lint, type-check and the
+manifest gates take seconds, the pytest step is the full 7.2k-test suite.
 
 ## TL;DR
 
@@ -20,14 +21,14 @@ would reject. Fix what it reports, then push.
 
 | Step | Mirrors cloud check | Notes |
 |------|---------------------|-------|
-| `ruff check traigent_schema/` | `CI / test` → *Run linting* (`ci.yml`) | The #1 source of avoidable reds. Fix with `ruff check --fix traigent_schema/`. |
-| `mypy traigent_schema/ --ignore-missing-imports` | `CI / test` → *Run type checking* (`ci.yml`) | Same flags as CI. |
-| `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, ~5s. |
+| `ruff check traigent_schema/` | `CI / lint-type` → *Run linting* (`ci.yml`) | The #1 source of avoidable reds. Fix with `ruff check --fix traigent_schema/`. |
+| `mypy traigent_schema/ --ignore-missing-imports` | `CI / lint-type` → *Run type checking* (`ci.yml`) | Same flags as CI. |
+| `pytest tests/` | `CI / test` → *Run tests* (`ci.yml`) | **The structural / contract gate.** Includes `test_structural_validity.py` plus every per-contract test. DB-free, but not quick: minutes, not seconds. Measured runs of the 7.2k-test suite have ranged from about 5 min on an idle machine to about 13 min under load — it scales with what else is running, so budget 5-15 min rather than a fixed figure. It is not hung at this step. |
 | `python3 scripts/refresh_parity.py --check` | `Parity manifest freshness` (`parity-check.yml`) | Fails if schema files changed without re-stamping `parity/python-js-sdk.json`. Fix with `make format` (re-stamp), then commit. |
 | auth-taxonomy parity detector | `auth-taxonomy-parity.yml` | **Non-blocking** (Schema#219 DETECT phase). |
 | `python3 scripts/breaking_schema_check.py --check` | `breaking-schema-check` job (`ci.yml`, fanned into `ci-required`) | Diffs changed `traigent_schema/schemas/**/*.json` against `$base_ref` and fails on un-acknowledged BREAKING contract changes, using request/response mirror-image rules — see the script's module docstring. The failure output names each finding and prints a ready-to-paste `scripts/breaking_schema_allowlist.json` entry for an intentional, reviewed break (placeholder reasons like "TODO"/"see PR" are rejected). Runs only on PRs that touch schema-relevant paths (a `changes` classifier job decides that; `scripts/check_required_gate.py` verifies its skip is legitimate before `ci-required` accepts it — TraigentSchema#392). |
 | spine preflight (reminder) | `spine-trail present` (`spine-trail-gate.yml`) | **Reminder only** — see below. |
-| SonarQube quality gate | `SonarQube Quality Gate` (`sonarqube-local.yml`) | **Only for `release/*` / `hotfix/*` branches** (or `LOCAL_GATE_SONAR=1`). Runs `sonar-scanner -Dsonar.qualitygate.wait=true`. |
+| SonarQube quality gate | approximates the `SonarCloud Code Analysis` required check (`sonarqube-local.yml` itself is a post-merge `main` scan) | **Only for `release/*` / `hotfix/*` branches** (or `LOCAL_GATE_SONAR=1`). Runs `sonar-scanner -Dsonar.qualitygate.wait=true`. |
 
 ### Why no `ruff format --check`?
 
@@ -66,9 +67,27 @@ wire it into `scripts/local_gate.sh` in place of this reminder.
 
 ## SonarQube locally before a main PR
 
-`sonarqube-local.yml` is **REQUIRED on `main`**, optional on `develop`. For
-`release/*` / `hotfix/*` branches the gate runs the SonarQube quality gate
-locally and **blocks the push if it fails**. Configure once:
+There is **no `SonarQube Quality Gate` check on a pull request.**
+`sonarqube-local.yml` runs only on `push` to `main` and on
+`workflow_dispatch` (which carries no ref restriction), and its own header
+states that this privileged self-hosted workflow "must never execute
+pull-request code" — so it is a scan of trusted `main` commits, not a PR gate.
+
+Static analysis on a PR into `main` is enforced by the
+**`SonarCloud Code Analysis`** required check. **A PR into `develop` has no
+SonarCloud check at all** — and `develop` is the target for ordinary work here,
+so for the common case there is no automated static-analysis gate. Both
+rulesets, read with `gh api repos/Traigent/TraigentSchema/rules/branches/main`
+and `.../branches/develop`:
+
+| Branch | Required checks |
+|---|---|
+| `main` | `test (3.11)`, `test (3.12)`, `package`, `Analyze (actions)`, `Analyze (python)`, `Aikido Security: check code`, `SonarCloud Code Analysis`, `ci-required`, `spine-trail present` |
+| `develop` | `Aikido Security: check code`, `ci-required`, `Analyze (python)`, `Analyze (actions)`, `spine-trail present` |
+
+The optional local scan **approximates that check** before you push. For
+`release/*` / `hotfix/*` branches the gate runs it and **blocks the push if it
+fails**. Configure once:
 
 ```bash
 export SONAR_HOST_URL="https://<your-sonarqube>"   # or SonarCloud / http://localhost:9000
@@ -76,11 +95,10 @@ export SONAR_TOKEN="<token>"                         # or keep a .env.sonar entr
 ```
 
 It runs the Dockerized `sonar-scanner` (or a local one) with
-`-Dsonar.qualitygate.wait=true` against `Traigent_TraigentSchema`, producing the
-same pass/fail verdict the `SonarQube Quality Gate` required check produces on
-the PR — before you push. If you don't have SonarQube access, run it another way
-or bypass consciously (`git push --no-verify`) and have a reviewer who can run
-it.
+`-Dsonar.qualitygate.wait=true` against `Traigent_TraigentSchema`. Its verdict
+is an approximation of SonarCloud's, not the same engine, so treat a local pass
+as a strong signal rather than a guarantee. If you don't have SonarQube access,
+push and read the `SonarCloud Code Analysis` result on the PR.
 
 ## Bypassing
 

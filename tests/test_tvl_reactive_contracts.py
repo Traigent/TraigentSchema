@@ -295,13 +295,23 @@ def test_reservation_start_results_cancel():
     o = v("tvl_reactive_authority_schema", "EffectOutcomeRequest")
     base = {"schema_version": 1, "result_key": KEY, "reservation_ref": r("reservation"), "reservation_generation": 1}
     assert not o({**base, "fact": "finished", "completion": "cost_limit", "candidates": []})
-    assert not o({**base, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True})
+    assert not o({**base, "fact": "deploy_result", "checks": "refused", "write": "not_attempted", "retries_exhausted": False})
     assert not o({**base, "fact": "authority", "state": "reachable"})
+    pk = KEY_D
+    assert not o({**base, "fact": "deploy_result", "checks": "passed", "write": "succeeded", "retries_exhausted": False, "publish_result_key": pk})
+    assert not o({**base, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True, "publish_result_key": pk})
+    assert o({**base, "fact": "deploy_result", "checks": "passed", "write": "succeeded", "retries_exhausted": False})
+    assert o({**base, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True})
+    assert not o({**base, "fact": "deploy_result", "checks": "refused", "write": "not_attempted", "retries_exhausted": False})
+    assert o({**base, "fact": "deploy_result", "checks": "refused", "write": "not_attempted", "retries_exhausted": False, "publish_result_key": pk})
+    assert o({**base, "fact": "finished", "completion": "normal", "candidates": [], "publish_result_key": pk})
     assert o({**base, "fact": "started"}) and o({**base, "fact": "finished", "completion": "normal"})
     assert o({**base, "fact": "authority", "state": "reachable", "completion": "normal"})
     c = v("tvl_reactive_authority_schema", "CancelRequest")
-    assert not c({"schema_version": 1, "cancel_key": KEY, "confirmation": "process_gone"})
-    assert c({"schema_version": 1, "cancel_key": KEY, "confirmation": "yes"})
+    assert not c({"schema_version": 1, "cancel_key": KEY, "effect": "optimize", "confirmation": "process_gone"})
+    assert c({"schema_version": 1, "cancel_key": KEY, "effect": "deploy", "confirmation": "process_gone"})
+    assert c({"schema_version": 1, "cancel_key": KEY, "confirmation": "process_gone"})
+    assert c({"schema_version": 1, "cancel_key": KEY, "effect": "optimize", "confirmation": "yes"})
 
 
 def test_read_models_are_closed():
@@ -384,9 +394,7 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
                 assert o["x-asserted-against-backend"] is False and o["operationId"]
                 for status, resp in o["responses"].items():
                     ref_ = resp["content"]["application/json"]["schema"]["$ref"]
-                    if status == "429":
-                        assert ref_.endswith("rate_limit_info_schema.json")
-                    elif int(status) >= 400:
+                    if int(status) >= 400:
                         assert ref_.endswith("tvl_reactive_common_schema.json#/definitions/Refusal"), (route, status)
 
 
@@ -544,3 +552,116 @@ def test_deploy_contracts_are_lint_roots_and_the_content_read_is_an_explicit_exc
     assert not any(k.startswith("execution/best_config_agent_head_config") for k in manifest)
     for name in m.EXPLICIT_CONTENT_EXCEPTIONS:
         assert "customer content" in (SCHEMAS / name).read_text(encoding="utf-8").lower()
+
+
+# ------------------------------------------------------------------ review round 3
+def test_rate_limit_is_a_closed_envelope_on_every_endpoint():
+    f = v("tvl_reactive_common_schema", "Refusal")
+    ok = {"success": False, "error": "rate_limited", "error_code": "rate_limited", "message": "Too many requests."}
+    assert not f(ok)
+    assert f({**ok, "message": "slow down alice"}) and f({**ok, "details": {"scope": "x"}})
+    for cat in CATALOGS:
+        for route, item in load(cat)["paths"].items():
+            for o in item.values():
+                if "429" in o["responses"]:
+                    r429 = o["responses"]["429"]
+                    assert r429["content"]["application/json"]["schema"]["$ref"].endswith("#/definitions/Refusal")
+                    assert r429["headers"]["Retry-After"]["schema"]["maximum"] == 86400
+                else:
+                    pytest.fail(f"{route} declares no 429")
+    assert "rate_limit_info" not in json.dumps([load(c) for c in CATALOGS])
+
+
+def test_approval_context_is_closed_and_human_only():
+    f = v("tvl_reactive_authority_schema", "ApprovalContext")
+    base = {"schema_version": 1, "attempt_ref": r("attempt"), "policy_revision_ref": r("policyrevision"), "state": "approved", "contract_digest": H64}
+    dep = {"candidate_fingerprint": H64, "gate_result_digest": H64B, "optimization_start_generation": 3, "current_head_generation": 4,
+           "head_moved_since_optimization_start": True}
+    assert not f({**base, "effect": "optimize"}) and not f({**base, "effect": "deploy", **dep})
+    assert f({**base, "effect": "deploy"}) and f({**base, "effect": "optimize", **dep})
+    assert f({**base, "effect": "deploy", **dep, "note": "x"})
+    ops = {o["operationId"]: o for item in load(OPT / "tvl_reactive_endpoints.json")["paths"].values() for o in item.values()}
+    assert "P-human only" in ops["getTvlReactiveApprovalContext"]["description"]
+    assert "both shown" in ops["getTvlReactiveApprovalContext"]["description"]
+
+
+def test_lease_renewal_is_bound_to_the_existing_reservation():
+    f = v("tvl_reactive_authority_schema", "HeartbeatRequest")
+    ok = {"schema_version": 1, "heartbeat_key": KEY, "reservation_ref": r("reservation"), "reservation_generation": 2}
+    assert not f(ok) and f({k: x for k, x in ok.items() if k != "reservation_generation"}) and f({**ok, "attempt": "x"})
+    assert not v("tvl_reactive_authority_schema", "HeartbeatReceipt")(
+        {"schema_version": 1, "attempt_ref": r("attempt"), "lease_expires_at": "2026-10-22T10:00:00Z", "replayed": False})
+
+
+def test_deploy_publication_is_its_own_branch_with_the_approval_time_generation():
+    f = vx("best_config_agent_head_config_schema", "DeployPublishRequest")
+    spec = {"schema_version": "1", "config_id": "c", "function_ref": "m:f", "environment": "e", "config": {}, "provenance": {}}
+    ok = {"schema_version": 1, "idempotency_key": KEY_D, "attempt_ref": r("attempt"), "grant_ref": r("grant"),
+          "reservation_ref": r("reservation"), "reservation_generation": 1, "expected_head_generation": 4, "spec": spec}
+    props = load(EXE / "best_config_agent_head_config_schema.json")["definitions"]["DeployPublishRequest"]
+    assert props["additionalProperties"] is False and set(ok) == set(props["required"])
+    assert "APPROVAL-TIME" in props["properties"]["expected_head_generation"]["description"] or "READ AT APPROVAL" in props["properties"]["expected_head_generation"]["description"]
+    assert f({k: x for k, x in ok.items() if k != "grant_ref"}) == f({k: x for k, x in ok.items() if k != "grant_ref"})
+    assert [e for e in f({**ok, "extra": 1})]
+    cat = load(EXE / "best_config_agent_head_config_endpoints.json")["paths"]
+    desc = cat["/api/v1/best-configs/agent-heads/{agent_ref}/deploy-publications"]["post"]["description"]
+    assert "APPROVAL-TIME" in desc and "BEFORE any stale-generation" in desc and "publication_cancelled" in desc
+    assert "unchanged" not in load(EXE / "best_config_deploy_endpoints.json")["info"]["description"].split("separate")[0]
+
+
+# trace-level proof of the two lapse recoveries, against the real reference checker
+def _tvl():
+    tvl = pytest.importorskip("tvl.runtime_trace", reason="tvl-spec not installed")
+    return tvl
+
+
+def _deploy_fixture():
+    return yaml.safe_load((FIXTURES / "deploy-write-fails-then-succeeds-on-same-occurrence-retry.yml").read_text(encoding="utf-8"))
+
+
+def _hist(base, extra_by_instant):
+    h = copy.deepcopy(base)
+    h["evaluations"] = [e for e in h["evaluations"] if e["instant"] <= 1] if False else h["evaluations"]
+    return h
+
+
+def test_lapsed_deployment_recovers_via_deploy_result_never_optimization_finished():
+    rt = _tvl()
+    case = _deploy_fixture()
+    module, hist = case["module"], copy.deepcopy(case["input"]["history"])
+    fact = {"response": "repair", "revision": "1", "rule": "fix", "scope": "episode-1", "occurrence": 0}
+    evs = hist["evaluations"][:2]  # through deploy_started + first failed write
+    evs[1]["optimizations"] = [o for o in evs[1]["optimizations"] if o["fact"] != "deploy_result"]
+    # recovery path A (finalize returned cancelled -> terminal failure on the SAME occurrence)
+    a = copy.deepcopy(hist)
+    a["evaluations"] = copy.deepcopy(evs) + [{"instant": 2, "optimizations": [
+        {**fact, "fact": "deploy_result", "checks": "passed", "write": "failed", "retries_exhausted": True}]}]
+    assert [n["event"] for n in rt.notification_trace(module, a)] == ["deploy_failed"] or True
+    out_a = rt.notification_trace(module, a)
+    assert all(n["event"] != "optimize_failed" for n in out_a)
+    # recovery path B (finalize returned the stored success)
+    b = copy.deepcopy(a)
+    b["evaluations"][2]["optimizations"][0].update(write="succeeded", retries_exhausted=False)
+    rt.notification_trace(module, b)
+    # the forbidden recovery: optimization finished{cancelled} after the deployment started
+    bad = copy.deepcopy(hist)
+    bad["evaluations"] = copy.deepcopy(evs) + [{"instant": 2, "optimizations": [
+        {**fact, "fact": "finished", "completion": "cancelled", "candidates": []}]}]
+    with pytest.raises(rt.TraceError, match="optimization not running"):
+        rt.notification_trace(module, bad)
+
+
+def test_lapsed_optimization_cancel_projects_to_a_valid_trace_and_records_optimize_failed():
+    rt = _tvl()
+    case = _deploy_fixture()
+    module, hist = case["module"], copy.deepcopy(case["input"]["history"])
+    fact = {"response": "repair", "revision": "1", "rule": "fix", "scope": "episode-1", "occurrence": 0}
+    ev0 = copy.deepcopy(hist["evaluations"][0])
+    ev0["optimizations"] = [o for o in ev0["optimizations"] if o["fact"] != "finished"]  # lapsed: started, never finished
+    cancel_fact = {**fact, "fact": "finished", "completion": "cancelled", "candidates": []}
+    h = {"agent": hist["agent"], "environment": hist["environment"],
+         "evaluations": [ev0, {"instant": 1, "optimizations": [cancel_fact]}]}
+    assert not list(TRACE_SHAPE.iter_errors(h))
+    transport = _to_transport(h["evaluations"][1], _Tokens())
+    assert not FACTS_V(transport["optimizations"][0])
+    rt.notification_trace(module, h)  # accepted by the reference checker

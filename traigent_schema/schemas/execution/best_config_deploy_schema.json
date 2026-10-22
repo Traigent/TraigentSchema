@@ -10,7 +10,7 @@
       "pattern": "^deploy:attemptref_[0-9a-f]{32}:[0-9a-f]{64}:[0-9a-f]{64}$",
       "minLength": 180,
       "maxLength": 180,
-      "description": "Deploy idempotency key `deploy:{attempt_ref}:{candidate_fingerprint}:{gate_result_digest}`, carried on the publish in header X-Traigent-Deploy-Idempotency-Key and stored with a durable publish-result record. Fixed shape of refs and digests only. Same key replays the original result before any stale-generation check."
+      "description": "Deploy idempotency key `deploy:{attempt_ref}:{candidate_fingerprint}:{gate_result_digest}`, carried in the body of the deploy publication (POST .../deploy-publications), the path of publish-results and the deploy_result outcome, and stored with a durable publish-result record. Fixed shape of refs and digests only. Same key replays the original result before any stale-generation check."
     },
     "DeployPublishResult": {
       "type": "object",

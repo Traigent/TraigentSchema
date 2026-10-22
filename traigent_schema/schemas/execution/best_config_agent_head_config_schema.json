@@ -34,6 +34,50 @@
         }
       },
       "description": "Exact pinned best-config version of an agent head, read with its generation in one read (ETag = generation). Unlike the config GET (current version) and the listing (no spec), this returns the version the head pins."
+    },
+    "DeployPublishRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "idempotency_key",
+        "attempt_ref",
+        "grant_ref",
+        "reservation_ref",
+        "reservation_generation",
+        "expected_head_generation",
+        "spec"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "idempotency_key": {
+          "$ref": "./best_config_deploy_schema.json#/definitions/DeployIdempotencyKey"
+        },
+        "attempt_ref": {
+          "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/AttemptRef"
+        },
+        "grant_ref": {
+          "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/GrantRef"
+        },
+        "reservation_ref": {
+          "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/ReservationRef"
+        },
+        "reservation_generation": {
+          "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/Generation"
+        },
+        "expected_head_generation": {
+          "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "The head generation READ AT APPROVAL and bound in the grant (plan 8.3); must equal grant.deploy.expected_head_generation. NOT the generation captured at optimization start."
+        },
+        "spec": {
+          "$ref": "./best_config_publish_request_schema.json#/properties/spec",
+          "description": "The candidate configuration to publish (customer content, plan 8.4)."
+        }
+      },
+      "description": "Deploy publication request. Bindings: grant (valid at server time, effect deploy, contract current), reservation holder generation, and an idempotency key equal to deploy:{attempt_ref}:{grant candidate fingerprint}:{grant gate-result digest}. CARRIES CUSTOMER CONTENT in `spec`."
     }
   }
 }

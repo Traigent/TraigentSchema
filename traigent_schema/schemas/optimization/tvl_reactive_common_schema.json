@@ -223,6 +223,7 @@
             "attempt_not_open",
             "head_generation_stale",
             "publication_cancelled",
+            "rate_limited",
             "internal_error",
             "service_unavailable"
           ]
@@ -250,6 +251,7 @@
             "attempt_not_open",
             "head_generation_stale",
             "publication_cancelled",
+            "rate_limited",
             "internal_error",
             "service_unavailable"
           ]
@@ -277,13 +279,14 @@
             "Attempt is not open.",
             "Agent head moved since approval.",
             "Publication was cancelled.",
+            "Too many requests.",
             "Internal error.",
             "Service is temporarily unavailable."
           ],
           "description": "Fixed text per code."
         }
       },
-      "description": "Closed error envelope of every TVL reactive route (stage, complete, grants, reservations, start, results, cancel, notifications, attempts, deploy finalize and publish-result). `error` and `error_code` are the same closed code; `message` is the fixed text for that code. Nothing of the request is echoed: no key, value, ref, token, name or digest. While the feature flag is off the routes answer the framework's uniform unknown-route 404, never this envelope. Codes by status: 400 invalid_request; 401 unauthenticated; 403 forbidden; 403 fact_source_not_permitted; 404 reference_not_found; 413 payload_too_large; 409 batch_out_of_order; 409 instant_not_increasing; 409 evaluation_inputs_frozen; 409 instant_sealed; 409 fact_contradicts_record; 409 idempotency_conflict; 409 grant_not_valid; 409 reservation_conflict; 409 reservation_generation_stale; 409 start_refused; 409 attempt_not_open; 409 head_generation_stale; 409 publication_cancelled; 500 internal_error; 503 service_unavailable. Precedence is fixed by each route: authentication and permission first, then body validity, then reference ownership, then record contradictions, then ordering and phase refusals.",
+      "description": "Closed error envelope of every TVL reactive route (stage, complete, grants, reservations, start, results, cancel, notifications, attempts, deploy finalize and publish-result). `error` and `error_code` are the same closed code; `message` is the fixed text for that code. Nothing of the request is echoed: no key, value, ref, token, name or digest. While the feature flag is off the routes answer the framework's uniform unknown-route 404, never this envelope. Codes by status: 400 invalid_request; 401 unauthenticated; 403 forbidden; 403 fact_source_not_permitted; 404 reference_not_found; 413 payload_too_large; 409 batch_out_of_order; 409 instant_not_increasing; 409 evaluation_inputs_frozen; 409 instant_sealed; 409 fact_contradicts_record; 409 idempotency_conflict; 409 grant_not_valid; 409 reservation_conflict; 409 reservation_generation_stale; 409 start_refused; 409 attempt_not_open; 409 head_generation_stale; 409 publication_cancelled; 429 rate_limited; 500 internal_error; 503 service_unavailable. Precedence is fixed by each route: authentication and permission first, then body validity, then reference ownership, then record contradictions, then ordering and phase refusals.",
       "oneOf": [
         {
           "properties": {
@@ -643,6 +646,25 @@
               "x-content-class": "closed_enum",
               "type": "string",
               "const": "Publication was cancelled."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "rate_limited"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "rate_limited"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "type": "string",
+              "const": "Too many requests."
             }
           }
         },

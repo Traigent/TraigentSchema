@@ -117,11 +117,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -260,11 +271,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -391,11 +413,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -491,11 +524,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -615,11 +659,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -715,11 +770,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -855,11 +921,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -995,11 +1072,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -1135,11 +1223,284 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "service_unavailable. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/heartbeat": {
+      "post": {
+        "summary": "Renew the lease of a reserved or started effect",
+        "description": "P-ingest, reservation holder. Bound to the existing reservation and generation. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the uniform unknown-route 404. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
+        "operationId": "renewTvlReactiveAttemptLease",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Agent ref.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "attempt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Attempt ref.",
+            "schema": {
+              "$ref": "./tvl_reactive_common_schema.json#/definitions/AttemptRef"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./tvl_reactive_authority_schema.json#/definitions/HeartbeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New lease expiry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_authority_schema.json#/definitions/HeartbeatReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden, fact_source_not_permitted. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "batch_out_of_order, instant_not_increasing, evaluation_inputs_frozen, instant_sealed, fact_contradicts_record, idempotency_conflict, grant_not_valid, reservation_conflict, reservation_generation_stale, start_refused, attempt_not_open, head_generation_stale, publication_cancelled. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "payload_too_large. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "service_unavailable. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/approval-context": {
+      "get": {
+        "summary": "Read what an approver needs to build a grant",
+        "description": "P-human only (an SDK API key is 403 forbidden). Returns candidate fingerprint, gate-result digest, optimization-start generation and current head generation (both shown) and the attempt state. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the uniform unknown-route 404. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
+        "operationId": "getTvlReactiveApprovalContext",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Agent ref.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "attempt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Attempt ref.",
+            "schema": {
+              "$ref": "./tvl_reactive_common_schema.json#/definitions/AttemptRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The approval context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_authority_schema.json#/definitions/ApprovalContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden, fact_source_not_permitted. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -1170,7 +1531,7 @@
     "/api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/cancel": {
       "post": {
         "summary": "Human cancel of a lapsed started effect",
-        "description": "P-human only, after confirming the process is gone. Appends finished{cancelled} on the same occurrence. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the uniform unknown-route 404. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
+        "description": "P-human only, after confirming the process is gone. OPTIMIZATION attempts only: appends finished{cancelled} on the same occurrence; any other state is 409 attempt_not_open (a lapsed deployment recovers through finalize and deploy_result). Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the uniform unknown-route 404. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
         "operationId": "cancelTvlReactiveAttempt",
         "x-asserted-against-backend": false,
         "parameters": [
@@ -1275,11 +1636,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -1412,11 +1784,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -1512,11 +1895,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }

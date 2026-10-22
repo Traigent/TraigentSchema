@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent Deploy Publish-result and Pinned Config Routes",
     "version": "1.0.0",
-    "description": "Agent-configuration-head deploy target of TVL Reactive Contracts (TRAIG-101 plan 8). Publish itself is POST /api/v1/best-configs (best_config_endpoints.json), unchanged here; it additionally accepts the optional header X-Traigent-Deploy-Idempotency-Key (best_config_deploy_schema.json#/definitions/DeployIdempotencyKey) and, on a same-key replay, returns the original success before any stale-generation check."
+    "description": "Agent-configuration-head deploy target of TVL Reactive Contracts (TRAIG-101 plan 8): publish-result lookup and finalize. The deploy publication itself is POST .../deploy-publications (best_config_agent_head_config_endpoints.json), a branch separate from POST /api/v1/best-configs because its precondition is the APPROVAL-TIME generation, whereas best_config_endpoints.json requires the generation captured at optimization start and forbids refreshing it."
   },
   "paths": {
     "/api/v1/best-configs/agent-heads/{agent_ref}/publish-results/{key}": {
@@ -74,11 +74,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }
@@ -204,11 +215,22 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "rate_limited. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/Refusal"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait; the only rate-limit detail on the wire.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 86400
                 }
               }
             }

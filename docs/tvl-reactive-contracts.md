@@ -69,3 +69,45 @@ silent skip.
 repository (`spec/grammar/`). `SOURCE.json` records the source commit, the v1.4.0 tag and per-file
 SHA-256; `tests/test_tvl_vendored_schemas.py` fails if any byte drifts. To refresh: copy the four files
 from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`, and say so in the PR.
+
+## Deploy publication, approval context, lease, cancel, rate limit
+
+- **Deploy publication is its own branch**, `POST /api/v1/best-configs/agent-heads/{agent_ref}/deploy-publications`
+  (`execution/best_config_agent_head_config_*`). The existing `POST /api/v1/best-configs` requires the generation
+  captured at optimization START and forbids refreshing it; a deploy needs the APPROVAL-TIME generation bound in the
+  grant (plan 8.3), so it cannot share that route's precondition. Bindings: valid human grant, reservation holder
+  generation, idempotency key `deploy:{attempt_ref}:{fingerprint}:{gate digest}`. Same-key replay answers before any
+  stale-generation check; a head move after approval is 409 `head_generation_stale`.
+- **Terminal acceptance is bound to the durable record.** A `deploy_result` with `write` of `succeeded` or `failed`
+  must carry `publish_result_key`; the Backend accepts `succeeded` only against a succeeded publish-result and
+  `failed` with `retries_exhausted` only after head-lock finalization returned `cancelled`. A lost response cannot
+  become `deploy_failed`.
+- **Approval context**: `GET .../attempts/{attempt_ref}/approval-context` (P-human only) returns candidate fingerprint,
+  gate-result digest, optimization-start generation and current head generation (both shown) and the attempt state.
+- **Cancel is optimization-only** (`effect: optimize` is required): it appends `finished{cancelled}`, which the
+  reference trace rejects once optimization has finished ("optimization not running"). A lapsed deployment recovers
+  via finalize and then a `deploy_result`. Tested against the real checker when `tvl-spec` is installed.
+- **Lease**: the lease of an effect is its reservation. `POST .../attempts/{attempt_ref}/heartbeat` renews it, bound to the
+  existing reservation and generation. No new reservation, no second start.
+- **Rate limiting** is the closed `rate_limited` code (429) plus a `Retry-After` header; no free-text message or details.
+- **Reporter completion scope**: there is one `optimization_reporter` producer per agent per evaluation. Its
+  `complete` or `defer` applies to ALL its open authority slots in that evaluation (a slot has no wire id); it does not
+  wait for external runs, does not close any attempt, and attempts still awaiting approval remain open for a later
+  evaluation.
+
+## Decisions (ambiguities resolved in S1, most closed option)
+
+1. Hosted tokens are pinned to the SDK-minted shape `t` + 16 base64url characters (the compiler accepts 1..128).
+2. Tokens are classed `key_material` with the base64url base pattern plus an `allOf` narrowing, as `operation_key` is.
+3. The deploy publish-result/finalize contracts are content-class lint roots; the pinned config read and deploy publication
+   request (they carry config content) are the explicit allow-listed exception.
+4. Deploy publication is a separate route from `POST /api/v1/best-configs`, which is left untouched (see above).
+5. Paths are `/api/v1/production-reactive/agents/{agent_ref}/...` with the project from the auth context only.
+6. `agent_ref` (`agentref_<hex>`) is the only agent addressing form, including the pinned config read.
+7. Attempt read routes were added: a human has no other way to learn the `attempt_ref` a grant needs.
+8. The stage schema accepts the full fact vocabulary (including `approval`, `started`, `deploy_started`) so harnesses can post
+   fixture histories; such facts never create authority and a contradiction is 409 `fact_contradicts_record`.
+9. `usable_mapping` is server-assigned when a window is stored, not a request field.
+10. A revision fact's `value` is a digest.
+11. Grant `duration_hours` is 1, 4 or 24.
+12. Caps: instants 1e9 hours; list pages 100; fact arrays 256; candidates 64. The 13 TVL fixtures are far below them.

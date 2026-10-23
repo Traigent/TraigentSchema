@@ -248,7 +248,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -288,7 +288,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -368,7 +368,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -418,7 +418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -438,7 +438,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -505,7 +505,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -583,7 +583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -633,7 +633,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }
@@ -653,7 +653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_plain_error_schema.json"
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }

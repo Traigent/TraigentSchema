@@ -3065,8 +3065,9 @@ def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> No
     it, so the suppressed exception is not merely suppressed -- it is not
     there."""
     built = _build()
+    exploding = _ExplodingLeafLists()
     with pytest.raises(DatasetRecordVerificationError) as exc_info:
-        _verify(built, leaf_lists=_ExplodingLeafLists())
+        _verify(built, leaf_lists=exploding)
     assert exc_info.value.code == "VERIFICATION_FAILED"
     assert exc_info.value.__context__ is None
     assert exc_info.value.__cause__ is None

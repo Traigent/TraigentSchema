@@ -773,11 +773,9 @@ def test_prepare_rejects_wrong_issuer_public_key(algorithm: str) -> None:
     else:
         wrong_issuer = ec.derive_private_key(3, ec.SECP256R1())
 
+    wrong_context = replace(context, issuer_public_key=wrong_issuer.public_key())
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-        prepare_client_co_attestation(
-            cert,
-            context=replace(context, issuer_public_key=wrong_issuer.public_key()),
-        )
+        prepare_client_co_attestation(cert, context=wrong_context)
 
 
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
@@ -853,11 +851,9 @@ def test_prepare_rejects_duplicate_g1_with_bounded_code() -> None:
     prepare_response["claims"].append(copy.deepcopy(prepare_response["claims"][0]))
     unsigned["claims"].append(copy.deepcopy(unsigned["claims"][0]))
 
+    prep_context = _client_preparation_context(cert, verification_context)
     with pytest.raises(VerificationError) as raised:
-        prepare_client_co_attestation(
-            prepare_response,
-            context=_client_preparation_context(cert, verification_context),
-        )
+        prepare_client_co_attestation(prepare_response, context=prep_context)
     assert raised.value.code == "CO_PROJECTION"
     assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
 
@@ -1318,15 +1314,13 @@ def test_prepare_context_requires_immutable_complete_compiler_register_pins() ->
         replace(context, expected_compiler_register_versions=list(registers))  # type: ignore[arg-type]
     with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
         replace(context, expected_compiler_register_versions=registers[:-1])
+    tampered_context = replace(
+        context,
+        expected_compiler_register_versions=registers[:-1]
+        + ((registers[-1][0], "sha256:" + "f" * 64),),
+    )
     with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
-        prepare_client_co_attestation(
-            prepare_response,
-            context=replace(
-                context,
-                expected_compiler_register_versions=registers[:-1]
-                + ((registers[-1][0], "sha256:" + "f" * 64),),
-            ),
-        )
+        prepare_client_co_attestation(prepare_response, context=tampered_context)
 
 
 @pytest.mark.parametrize(
@@ -1383,19 +1377,15 @@ def test_prepare_rejects_wrong_client_public_key_and_private_key() -> None:
     context = _client_preparation_context(cert, verification_context)
     other_public_key = ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32).public_key()
 
+    other_key_context = replace(context, client_public_key=other_public_key)
     with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
-        prepare_client_co_attestation(
-            prepare_response,
-            context=replace(context, client_public_key=other_public_key),
-        )
+        prepare_client_co_attestation(prepare_response, context=other_key_context)
+    private_key_context = replace(
+        context,
+        client_public_key=ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32),
+    )
     with pytest.raises(VerificationError, match="^CO_CONTEXT$"):
-        prepare_client_co_attestation(
-            prepare_response,
-            context=replace(
-                context,
-                client_public_key=ed25519.Ed25519PrivateKey.from_private_bytes(b"z" * 32),
-            ),
-        )
+        prepare_client_co_attestation(prepare_response, context=private_key_context)
 
 
 def test_prepare_rejects_schema_dependency_failure_distinctly(
@@ -1408,10 +1398,9 @@ def test_prepare_rejects_schema_dependency_failure_distinctly(
         raise verifier_impl.SchemaDependencyError("packaged resources unavailable")
 
     monkeypatch.setattr(verifier_impl, "_certificate_preparation_validator", unavailable)
+    prep_context = _client_preparation_context(cert, verification_context)
     with pytest.raises(VerificationError, match="^CO_SCHEMA_DEPENDENCY$"):
-        prepare_client_co_attestation(
-            cert, context=_client_preparation_context(cert, verification_context)
-        )
+        prepare_client_co_attestation(cert, context=prep_context)
 
 
 def test_prepare_rejects_malformed_packaged_catalog_as_schema_dependency(
@@ -1539,10 +1528,9 @@ def test_prepare_duplicate_g1_reaches_closed_g1_required_code() -> None:
     unsigned["claims"].append(copy.deepcopy(duplicate))
     assert not list(verifier_impl._certificate_preparation_validator().iter_errors(cert))
 
+    prep_context = _client_preparation_context(cert, verification_context)
     with pytest.raises(VerificationError, match="^CO_G1_REQUIRED$") as raised:
-        prepare_client_co_attestation(
-            cert, context=_client_preparation_context(cert, verification_context)
-        )
+        prepare_client_co_attestation(cert, context=prep_context)
     assert raised.value.code in CLIENT_CO_ATTESTATION_ERROR_CODES
 
 
@@ -1556,10 +1544,9 @@ def test_prepare_does_not_mislabel_internal_defect_as_caller_projection(
         raise RuntimeError("internal defect sentinel")
 
     monkeypatch.setattr(verifier_impl, "_check_streams", defect)
+    prep_context = _client_preparation_context(cert, verification_context)
     with pytest.raises(RuntimeError, match="^internal defect sentinel$"):
-        prepare_client_co_attestation(
-            cert, context=_client_preparation_context(cert, verification_context)
-        )
+        prepare_client_co_attestation(cert, context=prep_context)
 
 
 def _b1_g1_bounded_prepare_response() -> tuple[dict, ClientCoAttestationContext, dict, dict]:
@@ -1893,10 +1880,9 @@ def test_prepare_rejects_non_integral_nonfinite_or_unsafe_float(value: float) ->
     cert["signatures"].pop("co_attestation")
     cert["claims"][0]["tier"] = value
 
+    prep_context = _client_preparation_context(cert, verification_context)
     with pytest.raises(VerificationError, match="^CO_PROJECTION$"):
-        prepare_client_co_attestation(
-            cert, context=_client_preparation_context(cert, verification_context)
-        )
+        prepare_client_co_attestation(cert, context=prep_context)
 
 
 def test_prepare_accepts_minimal_optional_evidence_reference_shape() -> None:
@@ -2081,9 +2067,10 @@ def test_discovered_materials_rejects_caller_bundle_client_key_substitution() ->
         client_public_key=replacement_client_key.public_key(),
     )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_BINDING$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref=materials["certificate_ref"],
@@ -2105,9 +2092,10 @@ def test_discovered_materials_rejects_noncanonical_verifier_policy(mutation: str
         {key: value for key, value in materials.items() if key != "materials_digest"},
     )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_SCHEMA$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref=materials["certificate_ref"],
@@ -2416,9 +2404,10 @@ def test_discovered_materials_rejects_non_context_before_material_binding() -> N
     cert, issuer, context, policy = _sign_fixture()
     materials = _materials_fixture(cert, issuer, context, policy)
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^CONTEXT$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref=materials["certificate_ref"],
@@ -2431,9 +2420,10 @@ def test_discovered_materials_digest_mutation_is_rejected() -> None:
     materials = _materials_fixture(cert, issuer, context, policy)
     materials["client"]["key_ref"] = "ckr:" + "B" * 43
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -2448,17 +2438,19 @@ def test_discovered_materials_expected_digest_is_required_and_pinned() -> None:
     with pytest.raises(TypeError):
         verify_certificate_with_materials(cert, materials, context=context)
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(TypeError):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             context=context,
         )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest="sha256:" + "0" * 64,
             certificate_ref="certificate:opaque0001",
@@ -2482,9 +2474,10 @@ def test_discovered_materials_whole_bundle_replacement_is_rejected() -> None:
         {key: value for key, value in replacement.items() if key != "materials_digest"},
     )
 
+    wrapper = _retrieval_wrapper(cert, replacement)
     with pytest.raises(VerificationError, match="^MATERIALS_DIGEST$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, replacement),
+            wrapper,
             replacement,
             expected_materials_digest=trusted["materials_digest"],
             certificate_ref=trusted["certificate_ref"],
@@ -2501,9 +2494,10 @@ def test_discovered_materials_issuer_key_ref_binding_is_rejected() -> None:
         {key: value for key, value in materials.items() if key != "materials_digest"},
     )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_BINDING$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -2521,9 +2515,10 @@ def test_discovered_materials_issuer_der_mismatch_is_rejected() -> None:
         {key: value for key, value in materials.items() if key != "materials_digest"},
     )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",
@@ -2542,9 +2537,10 @@ def test_discovered_materials_stale_spki_digest_is_rejected(location: str, seed:
         {key: value for key, value in materials.items() if key != "materials_digest"},
     )
 
+    wrapper = _retrieval_wrapper(cert, materials)
     with pytest.raises(VerificationError, match="^MATERIALS_KEY$"):
         verify_certificate_with_materials(
-            _retrieval_wrapper(cert, materials),
+            wrapper,
             materials,
             expected_materials_digest=materials["materials_digest"],
             certificate_ref="certificate:opaque0001",

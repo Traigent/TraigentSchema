@@ -8392,7 +8392,7 @@
       ],
       "reason": "pre-release correction: contract merged in #601 has no production consumer; SDK needs the server-vouched post-start lease deadline (TRAIG-101 plan §7.5)",
       "version": "Unreleased",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/TBD"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
     }
   ]
 }

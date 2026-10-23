@@ -49,10 +49,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 FAIL=0
-skip() { [[ ",${LOCAL_GATE_SKIP:-}," == *",$1,"* ]]; }
+skip() { [[ ",${LOCAL_GATE_SKIP:-}," == *",$1,"* ]]; return $?; }
 
-hr() { printf '─%.0s' {1..64}; echo; }
-section() { hr; echo "▶ $1"; }
+hr() { printf '─%.0s' {1..64}; echo; return $?; }
+section() { hr; echo "▶ $1"; return $?; }
 
 # release/hotfix branches target main; a checkout literally ON main (the
 # core_project/main/<repo> surface) targets main too -- it IS main, so its

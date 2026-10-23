@@ -97,6 +97,7 @@ _safe_git_ref = _ps.safe_git_ref
 Role = Literal["request", "response", "conservative"]
 Severity = Literal["BREAKING", "INFO"]
 
+_JSON_SUFFIX = ".json"
 _MAX_KEYS = ("maxLength", "maximum", "maxItems", "maxProperties")
 _MIN_KEYS = ("minLength", "minimum", "minItems", "minProperties")
 
@@ -1624,17 +1625,17 @@ def changed_schema_files(
         status = parts[0]
         if status.startswith("R") or status.startswith("C"):
             old_path, new_path = parts[1], parts[2]
-            if old_path.endswith(".json"):
+            if old_path.endswith(_JSON_SUFFIX):
                 rel = _relative_to_schemas_dir(old_path)
                 if rel:
                     result.append(("D", rel))
-            if new_path.endswith(".json"):
+            if new_path.endswith(_JSON_SUFFIX):
                 rel = _relative_to_schemas_dir(new_path)
                 if rel:
                     result.append(("A", rel))
             continue
         path = parts[1]
-        if path.endswith(".json"):
+        if path.endswith(_JSON_SUFFIX):
             rel = _relative_to_schemas_dir(path)
             if rel:
                 result.append((status[0], rel))

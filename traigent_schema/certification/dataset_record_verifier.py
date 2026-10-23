@@ -105,7 +105,7 @@ _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
 _LEAKAGE_SCOPE_REF_RE = re.compile(r"^lsr:[A-Za-z0-9_-]{43}$")
-_UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
+_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$", re.ASCII)
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
 # Every role-digest domain this module uses, and NOTHING ELSE: each constant

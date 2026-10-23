@@ -79,7 +79,7 @@ _MAX_COMPARISON_NODES = 100_000
 # characters, since an object member name can legitimately look like a
 # non-canonical number) -- this regex only decides which *array* index
 # segments this function will follow.
-_ARRAY_INDEX_SEGMENT = re.compile(r"(?:0|[1-9][0-9]*)")
+_ARRAY_INDEX_SEGMENT = re.compile(r"(?:0|[1-9]\d*)", re.ASCII)
 
 
 class InvariantDeclarationError(Exception):

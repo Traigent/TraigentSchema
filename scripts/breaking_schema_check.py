@@ -1659,12 +1659,12 @@ def changed_schema_files(
 # security review; see PR #333 for the audit trail", is fine).
 _PLACEHOLDER_REASON_PATTERNS = [
     re.compile(
-        r"^\s*(todo|tbd|tba|n/?a|wip|pending|placeholder|reason|approved)\s*[:.]?\s*$",
+        r"^\s*(todo|tbd|tba|n/?a|wip|pending|placeholder|reason|approved)(?:\s*[:.])?\s*$",
         re.IGNORECASE,
     ),
-    re.compile(r"^\s*see\s+(pr|above|below|issue|ticket)\b\s*[:.#0-9]*\s*$", re.IGNORECASE),
-    re.compile(r"^\s*(#|pr\s*#?|issue\s*#?)\s*\d+\s*$", re.IGNORECASE),
-    re.compile(r"^\s*(intentional|breaking change|because)\s*[:.]?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*see\s+(pr|above|below|issue|ticket)\b(?:\s*[:.#0-9]+)?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*(#|pr(?:\s*#)?|issue(?:\s*#)?)\s*\d+\s*$", re.IGNORECASE),
+    re.compile(r"^\s*(intentional|breaking change|because)(?:\s*[:.])?\s*$", re.IGNORECASE),
 ]
 _MIN_REASON_LENGTH = 20
 

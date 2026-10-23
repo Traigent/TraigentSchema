@@ -33,19 +33,22 @@ walks the `optimization/` documents (the manifest `docs/content-class-manifest.j
 ## Policy read
 
 `GET /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy`
-(`optimization/tvl_reactive_policy_schema.json`, registered in `tvl_reactive_endpoints.json`) is the
+(response `optimization/tvl_reactive_policy_schema.json`; route in the portal catalog `production_requirements/tvl_reactive_policy_endpoints.json`, registered in `mep_endpoints.json`) is the
 authoritative read of the declared policy: P-human portal read, tenant and project from the
 authenticated context, project and agent authorized before anything is returned. It returns
 `{schema_version, agent_ref, policy: null | {policy_revision_ref, contract_digest, rules, promotion_gates, control_limits}}`.
-The `agent_ref` is the server-issued opaque ref the portal then uses unchanged on every reactive route; the plain
-`project_id`/`agent_id` path ids exist only at this authorized human edge and are classed `key_material` (charset `[A-Za-z0-9_-]{1,128}`, with an
-`x-content-note` that they are customer-chosen, because no narrower class fits and the `legacy_content` ratchet admits no new
-location; GNFR-PRIV-003), never sent through the Director bridge. Declarations only: every identifier is a hosted token,
+The `agent_ref` is the server-issued opaque ref the portal then uses unchanged on every reactive route. The plain
+`project_id`/`agent_id` path ids exist only at this authorized human edge. Like the other portal catalogs (agent readiness)
+the route lives outside the optimization-channel content-class lint roots and its path parameters are unannotated; the
+response schema stays a lint root, closed and content-class checked, and the `legacy_content` ratchet is untouched.
+The plain ids are never sent through the Director bridge or observability. Declarations only: every identifier is a hosted token,
 there is no human-readable name, no `standing` approval, no occurrence record and no verdict. Rules keep declared order
 (response order, then `position`). Conditional fields follow the action (`deploy` iff `optimize`; `severity` only on
-`notify`; `on_check_error` only on a local action; `executes` is `sdk_local` iff `block_action`/`halt_unit`; outcome
-and `unknown_for` triggers and guards only with `notify`; `deploy: if_promoted` needs `approval: human`; no repeats on
-outcome triggers). Control limits are declared limits only (no fabricated default) and are distinct from the native
+`notify`; `on_check_error` required on, and only on, a local action; `executes` is `sdk_local` iff `block_action`/`halt_unit`,
+whose trigger is a monitor `unit_violation` (valid for no other action; declaration only, local violation facts are not
+posted); outcome and `unknown_for` triggers and guards only with `notify`; `optimize` needs `approval: human` and every
+other supported action `approval: none`; no repeats on outcome triggers; `max_repeats` needs `repeat_after_hours`; a
+non-notify repeat needs `max_repeats`; mirroring the pinned compiler lints). Control limits are declared limits only (no fabricated default) and are distinct from the native
 thresholds in `effective_profile` and from grant ceilings. Array limits follow the importer (64 per array; the
 flattened `rules` and `promotion_gates` lists are bounded at 64 x 64 = 4096).
 

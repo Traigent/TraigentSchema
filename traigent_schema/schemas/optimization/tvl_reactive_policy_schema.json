@@ -70,7 +70,8 @@
                 "episode_withdrawn",
                 "stale",
                 "live_again",
-                "unknown_for"
+                "unknown_for",
+                "unit_violation"
               ]
             },
             "hours": {
@@ -411,13 +412,15 @@
         {
           "if": {
             "properties": {
-              "deploy": {
+              "action": {
                 "x-content-class": "closed_enum",
-                "const": "if_promoted"
+                "enum": [
+                  "optimize"
+                ]
               }
             },
             "required": [
-              "deploy"
+              "action"
             ]
           },
           "then": {
@@ -425,6 +428,65 @@
               "approval": {
                 "x-content-class": "closed_enum",
                 "const": "human"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "approval": {
+                "x-content-class": "closed_enum",
+                "const": "none"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "x-content-class": "closed_enum",
+                "enum": [
+                  "block_action",
+                  "halt_unit"
+                ]
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "required": [
+              "on_check_error"
+            ],
+            "properties": {
+              "trigger": {
+                "required": [
+                  "monitor",
+                  "event"
+                ],
+                "properties": {
+                  "event": {
+                    "x-content-class": "closed_enum",
+                    "const": "unit_violation"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "trigger": {
+                "not": {
+                  "properties": {
+                    "event": {
+                      "const": "unit_violation"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ]
+                }
               }
             }
           }
@@ -458,9 +520,48 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "max_repeats"
+            ]
+          },
+          "then": {
+            "required": [
+              "repeat_after_hours"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "repeat_after_hours"
+            ]
+          },
+          "then": {
+            "if": {
+              "properties": {
+                "action": {
+                  "x-content-class": "closed_enum",
+                  "enum": [
+                    "notify"
+                  ]
+                }
+              },
+              "required": [
+                "action"
+              ]
+            },
+            "else": {
+              "required": [
+                "max_repeats"
+              ]
+            }
+          }
         }
       ],
-      "description": "Declaration of one reactive rule as stored in the current policy revision. Identifiers are hosted tokens; no human-readable name exists on the wire. Conditional fields follow the action: deploy iff optimize; severity only on notify; on_check_error only on a local action; executes is sdk_local iff the action is block_action or halt_unit; an outcome trigger, an unknown_for trigger and any non-empty guard list are valid only with notify; deploy if_promoted requires approval human; repeat fields are refused on an outcome trigger."
+      "description": "Declaration of one reactive rule as stored in the current policy revision. Identifiers are hosted tokens; no human-readable name exists on the wire. Conditional fields follow the action: deploy iff optimize; severity only on notify; on_check_error only on a local action; executes is sdk_local iff the action is block_action or halt_unit; an outcome trigger, an unknown_for trigger and any non-empty guard list are valid only with notify; a local action requires a unit_violation monitor trigger and on_check_error, and unit_violation is valid only for a local action; optimize requires approval human and every other supported action approval none; repeat fields are refused on an outcome trigger; max_repeats requires repeat_after_hours; a non-notify action with repeat_after_hours requires max_repeats."
     },
     "PromotionMonitorRequirement": {
       "type": "object",

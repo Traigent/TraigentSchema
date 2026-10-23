@@ -21,8 +21,10 @@ B = "https://schemas.traigent.ai/"
 REACTIVE_DOCS = sorted(OPT.glob("tvl_reactive_*_schema.json")) + [
     EXE / "best_config_deploy_schema.json"
 ]
+POLICY_CATALOG = SCHEMAS / "production_requirements" / "tvl_reactive_policy_endpoints.json"
 CATALOGS = [
     OPT / "tvl_reactive_endpoints.json",
+    POLICY_CATALOG,
     EXE / "best_config_deploy_endpoints.json",
     EXE / "best_config_agent_head_config_endpoints.json",
 ]
@@ -1289,8 +1291,10 @@ POLICY_READ = v("tvl_reactive_policy_schema", "PolicyReadResponse")
 
 
 def test_policy_read_is_registered_and_closed():
-    cat = load(OPT / "tvl_reactive_endpoints.json")
+    cat = load(POLICY_CATALOG)
+    assert POLICY_PATH not in load(OPT / "tvl_reactive_endpoints.json")["paths"]
     get = cat["paths"][POLICY_PATH]["get"]
+    assert all("x-content-class" not in p["schema"] for p in get["parameters"])
     assert get["operationId"] == "getTvlReactivePolicy"
     assert set(get["responses"]) == {"200", "400", "401", "403", "404", "429", "500", "503"}
     assert "P-human only" in get["description"]
@@ -1323,7 +1327,8 @@ def test_policy_rules_use_tokens_and_reject_names_and_standing():
 def test_policy_rule_conditional_fields_follow_the_action():
     ok = lambda rule: not POLICY_READ(_read(policy=_policy(rules=[rule])))  # noqa: E731
     assert ok(_opt())
-    assert ok(_opt(deploy="never", approval="none"))
+    assert ok(_opt(deploy="never"))
+    assert not ok(_opt(deploy="never", approval="none"))
     # deploy iff optimize
     assert not ok(_notify(deploy="never"))
     assert not ok({k: x for k, x in _opt().items() if k != "deploy"})
@@ -1332,9 +1337,29 @@ def test_policy_rule_conditional_fields_follow_the_action():
     # severity only on notify
     assert not ok(_opt(severity="info"))
     # local guards
-    local = _notify(action="block_action", executes="sdk_local", on_check_error="block")
+    local = _notify(
+        action="block_action",
+        executes="sdk_local",
+        on_check_error="block",
+        trigger={"monitor": TOK, "event": "unit_violation"},
+    )
     local.pop("severity")
     assert ok(local)
+    assert ok({**local, "action": "halt_unit", "on_check_error": "allow"})
+    assert not ok({k: x for k, x in local.items() if k != "on_check_error"})
+    assert not ok({**local, "trigger": {"monitor": TOK, "event": "episode_opened"}})
+    assert not ok({**local, "trigger": {"rule": TOK, "event": "optimize_failed"}})
+    assert not ok({**local, "approval": "human"})
+    assert not ok(_notify(trigger={"monitor": TOK, "event": "unit_violation"}))
+    assert not ok(_opt(trigger={"monitor": TOK, "event": "unit_violation"}))
+    # approval ladder: optimize human, every other supported action none
+    assert not ok(_notify(approval="human"))
+    assert not ok(_opt(approval="none"))
+    # repeats: max_repeats needs repeat_after_hours; non-notify repeat must be bounded
+    assert not ok(_notify(max_repeats=2))
+    assert not ok(_opt(repeat_after_hours=2))
+    assert ok(_opt(repeat_after_hours=2, max_repeats=2))
+    assert not ok(_opt(max_repeats=2))
     assert not ok({**local, "executes": "server"})
     assert not ok(_notify(executes="sdk_local"))
     assert not ok(_notify(on_check_error="block"))
@@ -1390,11 +1415,12 @@ def test_flag_off_is_the_closed_404_and_no_unknown_route_promise_remains():
         "message": "Reference not found.",
     }
     assert not refusal(body)
-    for path in [OPT / "tvl_reactive_endpoints.json", *CATALOGS[1:], *REACTIVE_DOCS]:
+    for path in [*CATALOGS, *REACTIVE_DOCS]:
         assert "unknown-route" not in path.read_text(encoding="utf-8"), path.name
-    for entry in load(OPT / "tvl_reactive_endpoints.json")["paths"].values():
-        for op in entry.values():
-            assert '"error":"reference_not_found"' in op["description"]
+    for cat in (OPT / "tvl_reactive_endpoints.json", POLICY_CATALOG):
+        for entry in load(cat)["paths"].values():
+            for op in entry.values():
+                assert '"error":"reference_not_found"' in op["description"]
     common = load(OPT / "tvl_reactive_common_schema.json")
     assert "reference_not_found" in common["definitions"]["Refusal"]["description"]
 
@@ -1424,3 +1450,43 @@ def test_start_receipt_carries_the_post_start_lease_deadline():
     assert not f(ok)
     assert f({k: x for k, x in ok.items() if k != "lease_expires_at"})
     assert f({**ok, "extra": 1})
+
+
+def test_compiler_valid_local_guard_is_a_valid_declaration():
+    """Compile a local guard with tvl-spec and return its hosted shape as a declaration."""
+    import hashlib  # noqa: PLC0415
+
+    import yaml  # noqa: PLC0415
+    from tvl.runtime_compiler import compile_runtime_document  # noqa: PLC0415
+    from tvl.runtime_projection import token_map_template  # noqa: PLC0415
+
+    _tvl()
+    import tvl  # noqa: PLC0415
+
+    case = (
+        Path(tvl.__file__).parent
+        / "conformance/cases/runtime/lints/local-guard-error-policy-required.yml"
+    )
+    module = yaml.safe_load(case.read_text(encoding="utf-8"))["module"]
+    module["responses"][0]["rules"][0]["on_check_error"] = "block"
+    tokens = token_map_template([module])
+    for entry in tokens["tokens"]:
+        digest = hashlib.sha256((entry["namespace"] + entry["local"]).encode()).hexdigest()
+        entry["hosted"] = "t" + digest[:16]
+    hosted, _local, _profiles = compile_runtime_document(module, token_map_doc=tokens)
+    response = hosted["declarations"]["responses"][0]
+    compiled = response["rules"][0]
+    assert compiled["trigger"]["event"] == "unit_violation" and compiled["do"] == "block_action"
+    rule = {
+        "response": response["name"],
+        "rule": compiled["id"],
+        "position": 0,
+        "trigger": compiled["trigger"],
+        "action": compiled["do"],
+        "approval": compiled["approval"],
+        "executes": "sdk_local",
+        "only_while": [],
+        "unless": [],
+        "on_check_error": compiled["on_check_error"],
+    }
+    assert not POLICY_READ(_read(policy=_policy(rules=[rule])))

@@ -68,6 +68,11 @@
       "paths_file": "./optimization/tvl_reactive_endpoints.json"
     },
     {
+      "name": "TVL Reactive Policy Read",
+      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy; flag-gated, closed response).",
+      "paths_file": "./production_requirements/tvl_reactive_policy_endpoints.json"
+    },
+    {
       "name": "Best Config Deploy Target",
       "description": "Agent-head deploy publish-result lookup, finalize and exact pinned-version config read (TRAIG-101 plan 8; /api/v1/best-configs/agent-heads/{agent_ref}/...).",
       "paths_file": "./execution/best_config_deploy_endpoints.json"

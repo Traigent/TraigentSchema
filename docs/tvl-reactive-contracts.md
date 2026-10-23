@@ -17,18 +17,37 @@ echo input. Observability is NOT privacy-preserving and must carry none of these
 
 | Class (`x-content-class`) | Fields | Constraint that proves it |
 |---|---|---|
-| hosted token (`key_material`) | `response`, `rule`, `scope`, `monitor`, `environment`, `target` | exactly `^t[A-Za-z0-9_-]{16}$` (the SDK mints `t` + 16 random base64url characters, never a hash or name); Backend ownership check against the stored policy revision or a previously announced scope |
-| server ref (`opaque_ref`) | `policy_revision_ref`, `attempt_ref`, `grant_ref`, `reservation_ref`, `notification_ref`, `agent_ref`, `decided_by` (UUID) | `<kind>ref_<32 lowercase hex>` or UUID |
-| closed enum (`closed_enum`) | verdicts, episode/liveness events, fact kinds, completion, approval and authority states, checks/write outcomes, effects, decisions, attempt and outcome states, evidence source, refusal codes and messages, `duration_hours` (1, 4, 24) | `enum` / `const` |
-| bounded integer (`number`) | instants and window bounds (hours, 0..1e9), occurrence and repeat indices, generations (0..2^53-1), ceilings (`max_trials`, `max_cost_micro_usd`), counts | `minimum`/`maximum` |
+| hosted token (`key_material`) | `response`, `rule`, `scope`, `monitor`, `environment`, `target`, `runtime_monitor`, `requirement` | exactly `^t[A-Za-z0-9_-]{16}$` (the SDK mints `t` + 16 random base64url characters, never a hash or name); Backend ownership check against the stored policy revision or a previously announced scope (a first authenticated liveness fact may establish its own scope, see Decisions 13) |
+| server ref (`opaque_ref`) | `policy_revision_ref` (also in the policy read), `attempt_ref`, `grant_ref`, `reservation_ref`, `notification_ref`, `agent_ref`, `decided_by` (UUID) | `<kind>ref_<32 lowercase hex>` or UUID |
+| closed enum (`closed_enum`) | policy-read declaration enums (`action`, `approval`, `deploy`, `executes`, `severity`, `on_check_error`, trigger and guard events and states, `required_result`), verdicts, episode/liveness events, fact kinds, completion, approval and authority states, checks/write outcomes, effects, decisions, attempt and outcome states, evidence source, refusal codes and messages, `duration_hours` (1, 4, 24) | `enum` / `const` |
+| bounded integer (`number`) | rule `position` (0..63), trigger `hours`, `repeat_after_hours`, `max_repeats`, control limits (1..1e9), instants and window bounds (hours, 0..1e9), occurrence and repeat indices, generations (0..2^53-1), ceilings (`max_trials`, `max_cost_micro_usd`), counts | `minimum`/`maximum` |
 | boolean (`closed_enum`) | `usable`, `evidence_valid`, `retries_exhausted`, `producers_missing`, `lapsed`, `replayed`, `head_moved_since_optimization_start` | boolean type |
 | digest (`digest`) | `contract_digest`, `revision`, revision `value`, `fingerprint`, `gate_result_digest`, `candidate_fingerprint` | `^[0-9a-f]{64}$` |
 | idempotency nonce (`key_material`) | `stage_key`, `complete_key`, `grant_key`, `reservation_key`, `start_key`, `result_key`, `cancel_key` | 32 lowercase hex, client-generated random |
-| timestamp (`timestamp`) | `recorded_at`, `decided_at`, `expires_at`, `opened_at`, `started_at` | server clock, `date-time` |
+| timestamp (`timestamp`) | `lease_expires_at`, `recorded_at`, `decided_at`, `expires_at`, `opened_at`, `started_at` | server clock, `date-time` |
 
 Every array has `maxItems`; every object is closed (`additionalProperties: false`); unknown keys
 are refused. `tests/test_tvl_reactive_contracts.py` pins all of this, and `scripts/content_class_lint.py`
 walks the `optimization/` documents (the manifest `docs/content-class-manifest.json` lists every location).
+
+## Policy read
+
+`GET /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy`
+(`optimization/tvl_reactive_policy_schema.json`, registered in `tvl_reactive_endpoints.json`) is the
+authoritative read of the declared policy: P-human portal read, tenant and project from the
+authenticated context, project and agent authorized before anything is returned. It returns
+`{schema_version, agent_ref, policy: null | {policy_revision_ref, contract_digest, rules, promotion_gates, control_limits}}`.
+The `agent_ref` is the server-issued opaque ref the portal then uses unchanged on every reactive route; the plain
+`project_id`/`agent_id` path ids exist only at this authorized human edge and are classed `key_material` (charset `[A-Za-z0-9_-]{1,128}`, with an
+`x-content-note` that they are customer-chosen, because no narrower class fits and the `legacy_content` ratchet admits no new
+location; GNFR-PRIV-003), never sent through the Director bridge. Declarations only: every identifier is a hosted token,
+there is no human-readable name, no `standing` approval, no occurrence record and no verdict. Rules keep declared order
+(response order, then `position`). Conditional fields follow the action (`deploy` iff `optimize`; `severity` only on
+`notify`; `on_check_error` only on a local action; `executes` is `sdk_local` iff `block_action`/`halt_unit`; outcome
+and `unknown_for` triggers and guards only with `notify`; `deploy: if_promoted` needs `approval: human`; no repeats on
+outcome triggers). Control limits are declared limits only (no fabricated default) and are distinct from the native
+thresholds in `effective_profile` and from grant ceilings. Array limits follow the importer (64 per array; the
+flattened `rules` and `promotion_gates` lists are bounded at 64 x 64 = 4096).
 
 ## Trace shape versus transport shape
 
@@ -111,3 +130,13 @@ from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`
 10. A revision fact's `value` is a digest.
 11. Grant `duration_hours` is 1, 4 or 24.
 12. Caps: instants 1e9 hours; list pages 100; fact arrays 256; candidates 64. The 13 TVL fixtures are far below them.
+13. Liveness scope: the first authenticated `stale`/`live_again` fact of a liveness monitor may establish its own
+    customer-minted scope bound to agent, environment, policy revision and liveness monitor, without a preceding
+    `opened`/`fired` fact (authorized through the observed primary monitor; native primaries stay refused). Episode
+    `continued`/`closed` still need an announced scope.
+14. Flag off: every reactive route answers the closed 404 `{success: false, error: "reference_not_found",
+    error_code: "reference_not_found", message: "Reference not found."}` before authentication and body processing; it is
+    not distinguishable from a missing or inaccessible reference. No new enum value.
+15. `StartReceipt.lease_expires_at` (required timestamp) is the server-vouched post-start lease deadline, so the SDK knows the
+    started lease before its first heartbeat (plan 7.5). Adding a required field to this unreleased response is
+    contract-only; consumers must read it.

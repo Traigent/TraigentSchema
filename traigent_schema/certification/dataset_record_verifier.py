@@ -1684,9 +1684,7 @@ def _check_leaf_generation_attestation(
     return True
 
 
-def _check_ds4_method(
-    unsigned: dict[str, Any], leakage_report: dict[str, Any], prereg: dict[str, Any]
-) -> None:
+def _check_ds4_method(leakage_report: dict[str, Any], prereg: dict[str, Any]) -> None:
     for index, finding in enumerate(leakage_report["findings"]):
         if finding["finding_kind"] != "near_duplicate_overlap":
             continue
@@ -2440,7 +2438,7 @@ def _verify(
     _check_inert_fraction(identity, efficiency_report)
     _check_decisive_subset(identity, efficiency_report)
     _check_cost_and_latency(efficiency_report)
-    _check_ds4_method(unsigned, leakage_report, prereg)
+    _check_ds4_method(leakage_report, prereg)
     ds4_available = any(
         f["finding_kind"] == "near_duplicate_overlap" for f in leakage_report["findings"]
     )

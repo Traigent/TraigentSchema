@@ -2935,11 +2935,9 @@ def _gv_measured_claims_raw() -> list[dict]:
     )
     mean_fixed, sample_stddev_fixed, sample_count, t_coverage_ppm = 800000, 50000, 200, 950000
     half_width = v._student_t_half_width(
-        mean_fixed=mean_fixed,
         sample_stddev_fixed=sample_stddev_fixed,
         sample_count=sample_count,
         coverage_ppm=t_coverage_ppm,
-        unit_scale="ppm",
     )
     student_t_claim = _schema_fixtures._student_t_claim(
         point_estimate=mean_fixed,
@@ -3448,11 +3446,9 @@ def test_golden_measured_claim_recomputes() -> None:
 
     t_stats = student_t_claim["sufficient_statistics"]
     half_width = v._student_t_half_width(
-        mean_fixed=t_stats["mean_fixed"],
         sample_stddev_fixed=t_stats["sample_stddev_fixed"],
         sample_count=t_stats["sample_count"],
         coverage_ppm=student_t_claim["nominal_coverage_ppm"],
-        unit_scale=t_stats["unit_scale"],
     )
     assert student_t_claim["point_estimate"] == t_stats["mean_fixed"]
     assert student_t_claim["interval_low"] == t_stats["mean_fixed"] - half_width
@@ -5219,11 +5215,9 @@ def test_s5_nominal_coverage_mismatch_not_uniform_across_claims() -> None:
     stats = student_t_claim["sufficient_statistics"]
     mean_fixed = stats["mean_fixed"]
     half_width = v._student_t_half_width(
-        mean_fixed=mean_fixed,
         sample_stddev_fixed=stats["sample_stddev_fixed"],
         sample_count=stats["sample_count"],
         coverage_ppm=990000,
-        unit_scale=stats["unit_scale"],
     )
     student_t_claim["interval_low"] = mean_fixed - half_width
     student_t_claim["interval_high"] = mean_fixed + half_width

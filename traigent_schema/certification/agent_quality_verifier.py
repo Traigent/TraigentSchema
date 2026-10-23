@@ -1446,11 +1446,9 @@ def _wilson_bounds(successes: int, trials: int, coverage_ppm: int) -> tuple[int,
 
 
 def _student_t_half_width(
-    mean_fixed: int,
     sample_stddev_fixed: int,
     sample_count: int,
     coverage_ppm: int,
-    unit_scale: str,
 ) -> int:
     """Outward-rounded Student-t half-width: ``ceil(t * sd / sqrt(n))``, in
     the objective's own fixed-point unit -- no square root, no float.
@@ -1466,14 +1464,9 @@ def _student_t_half_width(
     result, never narrow it; the final division is then rounded up
     (ceiling), an independent second source of outward widening.
 
-    ``mean_fixed`` and ``unit_scale`` are accepted, and deliberately unused
-    here, so that every recomputation input for a bounded_mean /
-    nonnegative_mean claim's interval travels through one function
-    signature: the half-width itself depends only on the sample's spread and
-    size, never its location, but the caller (the complete check sequence)
-    needs ``mean_fixed`` alongside this return value to reconstruct
-    ``mean_fixed - half_width`` / ``mean_fixed + half_width`` and needs
-    ``unit_scale`` to know which bounded range the result must respect.
+    The half-width depends only on the sample's spread and size, never its
+    location or unit, so the caller reconstructs ``mean_fixed -/+ half_width``
+    and applies the ``unit_scale`` bounded-range check itself.
     """
     df = sample_count - 1
     t_scaled = _lookup_t_scaled(coverage_ppm, df)
@@ -2212,16 +2205,13 @@ def _stage_s5_objective_measurement(
             # correctly typed by S1's schema validation before S5 ever runs.
             mean_fixed = cast(int, stats.get("mean_fixed"))
             sample_stddev_fixed = cast(int, stats.get("sample_stddev_fixed"))
-            unit_scale = cast(str, stats.get("unit_scale"))
             sample_count = cast(int, stat_own_count)
             if point != mean_fixed:
                 _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", _FIELD_MC_INTERVAL)
             half_width = _student_t_half_width(
-                mean_fixed=mean_fixed,
                 sample_stddev_fixed=sample_stddev_fixed,
                 sample_count=sample_count,
                 coverage_ppm=coverage_ppm,
-                unit_scale=unit_scale,
             )
             expected_low = mean_fixed - half_width
             expected_high = mean_fixed + half_width

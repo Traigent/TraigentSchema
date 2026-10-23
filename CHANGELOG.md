@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (platform-admin only; body `reason`; response `{success, data:{ok:true}}`). Three breaking-gate acknowledgements are in
   `scripts/breaking_schema_allowlist.json` (default responses replaced, `setup_token` query parameter declared, login 429 widened to
   oneOf); the MFA catalog moves into `FULLY_COVERED` in the 429 coverage test. Pinned by `tests/test_mfa_portal_contract.py`.
+  Review follow-up: the admin reset now requires the ACTING admin's own step-up (`X-MFA-Code` header or `code` in the body; new
+  400 `MFA_STEP_UP_REQUIRED`, 401 `MFA_STEP_UP_INVALID`, 403 `MFA_STEP_UP_ENROLL_REQUIRED` for an admin with no MFA enrolled) and
+  documents that an audit-persistence failure fails the whole request with 500. The 400/500 responses of disable and backup-codes
+  (and the message-less failure bodies of the other MFA routes) are now `anyOf` the step-up error and the new
+  `mfa/mfa_plain_error_schema.json` (`{success:false, error}`), which is what the Backend actually returns there.
 
 - **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
   `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`

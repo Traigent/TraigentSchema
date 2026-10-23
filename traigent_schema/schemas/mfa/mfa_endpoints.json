@@ -21,11 +21,18 @@
             }
           },
           "400": {
-            "description": "MFA_STEP_UP_REQUIRED (no or malformed code) or MFA was not enabled for this user.",
+            "description": "MFA_STEP_UP_REQUIRED (no or malformed code), or the plain body `MFA was not enabled for this user`.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "./mfa_plain_error_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -61,11 +68,18 @@
             }
           },
           "500": {
-            "description": "MFA_STEP_UP_ERROR or disable failed.",
+            "description": "MFA_STEP_UP_ERROR (step-up verification failed internally) or, when the disable itself fails, the plain body `Failed to disable MFA`.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "./mfa_plain_error_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -123,11 +137,18 @@
             }
           },
           "400": {
-            "description": "MFA_STEP_UP_REQUIRED (no or malformed code), or MFA_BACKUP_CODES_UNAVAILABLE.",
+            "description": "MFA_STEP_UP_REQUIRED (no or malformed code), or an envelope with error_code MFA_BACKUP_CODES_UNAVAILABLE.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -163,11 +184,18 @@
             }
           },
           "500": {
-            "description": "MFA_STEP_UP_ERROR or backup-code generation failed.",
+            "description": "MFA_STEP_UP_ERROR (step-up verification failed internally) or, when generation itself fails, the plain body `Failed to generate backup codes`.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "./mfa_plain_error_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -220,7 +248,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -260,7 +288,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -340,7 +368,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -390,7 +418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -410,7 +438,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -477,7 +505,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -555,7 +583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -605,7 +633,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -625,7 +653,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./mfa_plain_error_schema.json"
                 }
               }
             }
@@ -636,7 +664,7 @@
     "/api/v1/admin/users/{user_id}/mfa/reset": {
       "post": {
         "summary": "Platform-admin reset of another user's MFA (lost device and recovery codes)",
-        "description": "Platform-admin only, human JWT only (API keys refused), never the caller's own account. Clears the target's MFA settings and recovery codes, revokes all of the target's sessions and writes an audit event carrying the actor, target and reason. The target can re-enroll at next login (an enforced admin is forced to). Answers 503 when MFA is globally disabled, like the /mfa routes. Fails closed.",
+        "description": "Platform-admin only, human JWT only (API keys refused), never the caller's own account. Requires the ACTING admin's own fresh second factor (step-up): current TOTP or an unused recovery code in the `X-MFA-Code` header or the JSON `code` field (both given must be identical; a recovery code used is consumed). An admin with no MFA enrolled cannot reset anyone (403 MFA_STEP_UP_ENROLL_REQUIRED, fail closed). Clears the target's MFA settings and recovery codes, revokes all of the target's sessions and writes the MFA_ADMIN_RESET audit event (actor, target, reason) in the same transaction: if the audit record cannot be persisted the request fails with 500 and nothing changes. The target can re-enroll at next login (an enforced admin is forced to). Answers 503 when MFA is globally disabled, like the /mfa routes. Fails closed.",
         "parameters": [
           {
             "name": "user_id",
@@ -645,6 +673,18 @@
             "schema": {
               "type": "string",
               "minLength": 1
+            }
+          },
+          {
+            "name": "X-MFA-Code",
+            "in": "header",
+            "required": false,
+            "description": "Step-up second factor: current TOTP or unused recovery code. Alternative to the JSON `{code}` body (use the header for GET, which has no body). If both are given they must be identical. Never send it as a query parameter.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "x-privacy-classification": "secret"
             }
           }
         ],
@@ -670,27 +710,41 @@
             }
           },
           "400": {
-            "description": "Bad request — reason missing or invalid.",
+            "description": "Reason missing or invalid (error envelope), or MFA_STEP_UP_REQUIRED (the acting admin sent no or a malformed code).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }
           },
           "401": {
-            "description": "Unauthorized — invalid credentials/token.",
+            "description": "MFA_STEP_UP_INVALID (the acting admin's code is wrong) or unauthorized (invalid credentials/token).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }
           },
           "403": {
-            "description": "Caller is not a platform admin, used a non-human credential, or targeted their own account.",
+            "description": "Caller is not a platform admin, used a non-human credential, targeted their own account, or has no MFA enrolled (error_code MFA_STEP_UP_ENROLL_REQUIRED).",
             "content": {
               "application/json": {
                 "schema": {
@@ -720,11 +774,18 @@
             }
           },
           "500": {
-            "description": "Internal server error.",
+            "description": "Reset failed (including audit persistence failure) or step-up verification failed internally (MFA_STEP_UP_ERROR); nothing was changed.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }

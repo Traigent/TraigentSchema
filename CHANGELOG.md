@@ -49,6 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Portal MFA flow contract (owner card security-policy-2026-10-23-portal-mfa-scope = A).** `POST /api/v1/mfa/setup` gets a
+  typed 200 (`mfa/mfa_setup_response_schema.json`: `setup_token`, `message`, plus NEW `secret` base32 and `otpauth_uri`, both
+  `x-privacy-classification: secret`); the QR stays the separate `GET /mfa/setup/qr` PNG. `mfa_endpoints.json` replaces the
+  `default` placeholders on status, backup-codes, setup/qr and disable with typed 200/4xx/5xx responses, documents the step-up
+  (`X-MFA-Code` header or `{code}` body, errors MFA_STEP_UP_REQUIRED / MFA_STEP_UP_INVALID / MFA_STEP_UP_ERROR) and notes that
+  `GET /mfa/backup-codes` regenerates codes. `POST /api/v1/auth/login` documents the 403 `mfa_setup_required` (enroll-only
+  `access_token`, scope `mfa_enroll`) and `mfa_required` bodies (`auth/login_mfa_response_schema.json`), and a distinct 429
+  `MFA_RATE_LIMITED` with `Retry-After` for an exhausted per-user MFA attempt budget. NEW `POST /api/v1/admin/users/{user_id}/mfa/reset`
+  (platform-admin only; body `reason`; response `{success, data:{ok:true}}`). Three breaking-gate acknowledgements are in
+  `scripts/breaking_schema_allowlist.json` (default responses replaced, `setup_token` query parameter declared, login 429 widened to
+  oneOf); the MFA catalog moves into `FULLY_COVERED` in the 429 coverage test. Pinned by `tests/test_mfa_portal_contract.py`.
+
 - **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
   `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`
   (source commit and SHA-256 pinned in `SOURCE.json`). New closed contracts: `optimization/tvl_reactive_{common,facts,

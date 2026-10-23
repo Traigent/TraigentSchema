@@ -2,47 +2,358 @@
   "openapi": "3.0.0",
   "info": {
     "title": "Traigent MFA Contract (registered routes)",
-    "version": "1.0.0",
-    "description": "Documented Flask MFA routes registered in TraigentBackend/src/routes/mfa_routes.py. V1: minimal path + method declarations to satisfy the cross-repo conformance gate. Full request/response schemas are follow-up authoring work (Batch 3b). Codex review of Batch 3: response codes replaced with `default` until each handler is traced; this prevents the OpenAPI from contradicting actual handler returns."
+    "version": "1.1.0",
+    "description": "Documented Flask MFA routes registered in TraigentBackend/src/routes/mfa_routes.py, plus the platform-admin MFA reset in admin_routes.py. Response schemas are typed per operation; step-up (`X-MFA-Code` header or `{code}` body) is documented on DELETE /mfa/disable and GET /mfa/backup-codes."
   },
   "paths": {
     "/api/v1/mfa/disable": {
       "delete": {
-        "summary": "Disable MFA for the current user",
+        "summary": "Disable MFA for the current user (requires step-up)",
         "responses": {
-          "default": {
-            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "MFA disabled; all sessions ended.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_disable_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MFA_STEP_UP_REQUIRED (no or malformed code) or MFA was not enabled for this user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "MFA_STEP_UP_INVALID (wrong code) or unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — a non-human (API key / service) credential, or a token the route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MFA_STEP_UP_ERROR or disable failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         },
-        "x-traigent-body": "none — disables MFA for the authenticated caller; no request body consumed."
+        "description": "Requires step-up (`X-MFA-Code` header or JSON `{code}`). Clears the secret and recovery codes and ends ALL of the user's sessions. An enforced platform admin is forced to re-enroll at next login.",
+        "parameters": [
+          {
+            "name": "X-MFA-Code",
+            "in": "header",
+            "required": false,
+            "description": "Step-up second factor: current TOTP or unused recovery code. Alternative to the JSON `{code}` body (use the header for GET, which has no body). If both are given they must be identical. Never send it as a query parameter.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "x-privacy-classification": "secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./mfa_step_up_request_schema.json"
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/mfa/backup-codes": {
       "get": {
-        "summary": "Retrieve current MFA backup codes",
+        "summary": "Regenerate MFA recovery codes (state-mutating despite GET; requires step-up)",
         "responses": {
-          "default": {
-            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "New recovery codes (shown once).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_backup_codes_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MFA_STEP_UP_REQUIRED (no or malformed code), or MFA_BACKUP_CODES_UNAVAILABLE.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "MFA_STEP_UP_INVALID (wrong code) or unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — a non-human (API key / service) credential, or a token the route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "MFA_STEP_UP_ERROR or backup-code generation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_step_up_error_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
-        }
+        },
+        "description": "Replaces the user's recovery codes with a new set; previously issued codes stop working. Requires step-up: `X-MFA-Code` header (GET has no body). Moving this to POST is a deferred breaking change.",
+        "parameters": [
+          {
+            "name": "X-MFA-Code",
+            "in": "header",
+            "required": false,
+            "description": "Step-up second factor: current TOTP or unused recovery code. Alternative to the JSON `{code}` body (use the header for GET, which has no body). If both are given they must be identical. Never send it as a query parameter.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "x-privacy-classification": "secret"
+            }
+          }
+        ]
       }
     },
     "/api/v1/mfa/setup/qr": {
       "get": {
-        "summary": "Return MFA setup QR-code payload",
+        "summary": "Return the MFA setup QR code as a PNG image",
         "responses": {
-          "default": {
-            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "PNG image of the otpauth URI (issuer \"Traigent\"). Requires the Authorization header, so browsers must fetch it as a blob rather than via <img src>. Accepts an enrollment-only or normal JWT.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Setup token missing, invalid or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — a non-human (API key / service) credential, or a token the route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "setup_token",
+            "in": "query",
+            "required": true,
+            "description": "Token returned by POST /mfa/setup.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          }
+        ]
       }
     },
     "/api/v1/mfa/status": {
       "get": {
-        "summary": "Get the current user's MFA enrollment status",
+        "summary": "Get the current user's MFA enrollment status (normal JWT only)",
         "responses": {
-          "default": {
-            "description": "Response shape pending — see Flask handler in TraigentBackend/src/routes/ for actual return shape; full request/response schemas tracked as follow-up."
+          "200": {
+            "description": "Current MFA status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_status_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — a non-human (API key / service) credential, or a token the route does not accept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -109,13 +420,40 @@
     },
     "/api/v1/mfa/setup": {
       "post": {
-        "summary": "Begin MFA enrollment",
+        "summary": "Begin MFA enrollment (returns setup_token, manual-entry secret and otpauth URI; the QR is a separate GET)",
         "responses": {
           "200": {
-            "description": "MFA enrollment started; returns provisioning secret/QR."
+            "description": "MFA enrollment started. `data` has setup_token, message, secret (base32) and otpauth_uri. Accepts an enrollment-only (scope `mfa_enroll`) or normal JWT. Credential material: never logged, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_setup_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "MFA_ALREADY_ENABLED, or request validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden — a non-human (API key / service) credential, or a token the route does not accept.",
             "content": {
               "application/json": {
                 "schema": {
@@ -136,6 +474,16 @@
           },
           "500": {
             "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -163,10 +511,17 @@
         },
         "responses": {
           "200": {
-            "description": "MFA enrollment confirmed."
+            "description": "MFA enrollment confirmed. Recovery codes are returned once; no session is created (an enrollment-only token must be exchanged by logging in again with a code).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_setup_verify_response_schema.json"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad request — malformed or missing fields.",
+            "description": "Bad request — MFA_VERIFICATION_CODE_INVALID, MFA_SETUP_TOKEN_INVALID, MFA_SETUP_TOKEN_EXPIRED or validation failure.",
             "content": {
               "application/json": {
                 "schema": {
@@ -197,6 +552,16 @@
           },
           "500": {
             "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -257,6 +622,115 @@
           },
           "500": {
             "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/mfa/reset": {
+      "post": {
+        "summary": "Platform-admin reset of another user's MFA (lost device and recovery codes)",
+        "description": "Platform-admin only, human JWT only (API keys refused), never the caller's own account. Clears the target's MFA settings and recovery codes, revokes all of the target's sessions and writes an audit event carrying the actor, target and reason. The target can re-enroll at next login (an enforced admin is forced to). Answers 503 when MFA is globally disabled, like the /mfa routes. Fails closed.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./mfa_admin_reset_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA reset; target sessions revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./mfa_admin_reset_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — reason missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized — invalid credentials/token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a platform admin, used a non-human credential, or targeted their own account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Target user not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MFA is globally disabled (MFA_ENABLED off): every /mfa/* route answers 503 `{success:false,error:\"MFA is not enabled\"}`.",
             "content": {
               "application/json": {
                 "schema": {

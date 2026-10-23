@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_step_up_request_schema.json",
+  "title": "MFA Step-Up Request",
+  "description": "Second-factor proof required by security-reducing MFA operations (DELETE /api/v1/mfa/disable and GET /api/v1/mfa/backup-codes). Supply the current TOTP code or an unused recovery code either as this JSON body or in the `X-MFA-Code` request header (GET has no body, so use the header; never a query string because URLs are logged). When both are given they MUST be identical. A recovery code used for step-up is consumed. Errors: 400 MFA_STEP_UP_REQUIRED (missing/malformed), 401 MFA_STEP_UP_INVALID (wrong code), 500 MFA_STEP_UP_ERROR.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "x-privacy-classification": "secret",
+      "description": "Current 6-digit TOTP code or an unused recovery code (XXXX-XXXX)."
+    }
+  },
+  "required": ["code"]
+}

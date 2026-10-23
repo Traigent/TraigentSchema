@@ -8393,6 +8393,81 @@
       "reason": "pre-release correction: contract merged in #601 has no production consumer; SDK needs the server-vouched post-start lease deadline (TRAIG-101 plan §7.5)",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/login/post/responses/429/content/application/json/schema/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "1cea7d692ee996160d02e5b8a75c8a537f35a69ac5b6a37e229df619dbfea3ed"
+        }
+      ],
+      "reason": "Deliberate widening: POST /auth/login 429 now documents two bodies (generic RATE_LIMIT_EXCEEDED and the new MFA_RATE_LIMITED) as oneOf instead of the single rate_limit_info allOf. Portal MFA flow needs to branch on the distinct throttle code.",
+      "version": "Unreleased",
+      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
+    },
+    {
+      "file": "mfa/mfa_endpoints.json",
+      "rule": "parameter_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/mfa/setup/qr/get/parameters/setup_token",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1c82dea7b802f43a4f721bc97ee1185475a867a597ce04dda33e8e281c5d7aa4"
+        }
+      ],
+      "reason": "The route already rejects a missing setup_token with 400; the contract never declared the query parameter. Documenting it as required matches shipped behaviour (TraigentBackend src/routes/mfa_routes.py get_qr_code). No consumer exists in generated clients (FE has no mfa entries).",
+      "version": "Unreleased",
+      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
+    },
+    {
+      "file": "mfa/mfa_endpoints.json",
+      "rule": "response_status_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/mfa/backup-codes/get/responses/default",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "efdd1545b02cb9ee3508ce3013fffcbef5e28490ffb0b43936a06ed7d2ff9255"
+        },
+        {
+          "pointer": "#/paths//api/v1/mfa/disable/delete/responses/default",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ee4afc88e0ca210cc489d47ae1099221f797c5989f2ae076c39b94e4655a7b02"
+        },
+        {
+          "pointer": "#/paths//api/v1/mfa/setup/qr/get/responses/default",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f1d922d3b67978de43f1d6eb83f5c930dba6caf57a38c187ceb2fbad12ccdbdf"
+        },
+        {
+          "pointer": "#/paths//api/v1/mfa/status/get/responses/default",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "d4deb011f618d47a3a3841fc81f4de067e227f768945d56629da60674d8a9c61"
+        }
+      ],
+      "reason": "Placeholder `default` responses ('Response shape pending') replaced by typed 200/4xx/5xx responses traced to the handlers. Pre-release authoring completion; the generated FE client has no MFA entries.",
+      "version": "Unreleased",
+      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
     }
   ]
 }

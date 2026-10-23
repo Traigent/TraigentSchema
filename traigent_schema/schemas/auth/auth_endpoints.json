@@ -574,7 +574,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized — invalid credentials/token.",
+            "description": "Unauthorized — invalid credentials, or (second leg) a wrong `mfa_token`; in the latter case `details` carries `mfa_required: true` and `user_id`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -583,12 +583,29 @@
               }
             }
           },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
+          "403": {
+            "description": "MFA applies: `mfa_setup_required` (enforced admin not enrolled; enrollment-only `access_token`, scope `mfa_enroll`) or `mfa_required` (re-POST with `mfa_token`).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./login_mfa_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. The generic rate-limit envelope, or — when the per-user MFA attempt budget (5 per 300 s) is exhausted on the `mfa_token` leg — the MFA_RATE_LIMITED variant, both with a Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "../mfa/mfa_rate_limited_response_schema.json"
+                    }
+                  ]
                 }
               }
             }

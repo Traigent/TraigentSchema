@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_status_response_schema.json",
+  "title": "MFA Status Response",
+  "description": "200 body for GET /api/v1/mfa/status (normal JWT; the enrollment-only token is not accepted).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "data"],
+  "properties": {
+    "success": { "const": true },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["is_enabled", "is_setup_complete", "backup_codes_count"],
+      "properties": {
+        "is_enabled": { "type": "boolean" },
+        "is_setup_complete": { "type": "boolean" },
+        "backup_codes_count": { "type": "integer", "minimum": 0 },
+        "last_used_at": { "type": ["string", "null"], "format": "date-time" },
+        "backup_codes_generated_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}

@@ -1457,11 +1457,11 @@ def test_compiler_valid_local_guard_is_a_valid_declaration():
     import hashlib  # noqa: PLC0415
 
     import yaml  # noqa: PLC0415
+
+    _tvl()  # version gate first: tvl-spec needs Python >= 3.12
+    import tvl  # noqa: PLC0415
     from tvl.runtime_compiler import compile_runtime_document  # noqa: PLC0415
     from tvl.runtime_projection import token_map_template  # noqa: PLC0415
-
-    _tvl()
-    import tvl  # noqa: PLC0415
 
     case = (
         Path(tvl.__file__).parent

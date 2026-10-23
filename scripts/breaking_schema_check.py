@@ -429,7 +429,7 @@ def deref(
         try:
             doc = registry.contents(doc_uri)
             target = _json_pointer_get(doc, pointer)
-        except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a finding, not a crash
+        except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a finding instead of a crash
             raise UnresolvedRef(f"{node['$ref']} (resolved to {doc_uri}#{pointer}): {exc}") from exc
         visited = visited | {key}
         node, base_uri = target, doc_uri
@@ -519,7 +519,7 @@ class _NodeScope:
         )
 
 
-def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
+def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API)
     old_raw: Any,
     new_raw: Any,
     *,

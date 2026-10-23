@@ -308,7 +308,7 @@ def canonicalize(value: Any) -> str:
         return _encode(value)
     except Fp2UnsupportedValue:
         raise
-    except Exception as error:  # noqa: BLE001 - deliberate, see docstring
+    except Exception as error:  # noqa: BLE001 - deliberate; see docstring
         # Only the exception TYPE is reported. A foreign exception's message can
         # embed caller data (a KeyError naming a user key, for instance), and
         # fp2 messages must stay content-free. The original is kept on __cause__
@@ -330,7 +330,7 @@ def digest(value: Any) -> str:
         return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     except Fp2UnsupportedValue:
         raise
-    except Exception as error:  # noqa: BLE001 - deliberate, see canonicalize
+    except Exception as error:  # noqa: BLE001 - deliberate; see canonicalize
         raise Fp2UnsupportedValue(
             f"manifest could not be digested ({type(error).__name__})"
         ) from error

@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Evaluator `target_filters` is now a closed contract (`TargetFilters`).** Was a free-form object (`additionalProperties: true`) on evaluator create, update and the definition response; now one shared definition in `evaluator_definition_schema.json` (`#/definitions/TargetFilters`), `additionalProperties: false`, with optional keys `environment`, `release`, `name` (any-of) and `tags` (all-of), each an array of 1-20 unique non-empty strings (maxLength 64, 128, 255, 128). Matched against trace metadata columns only, never input/output; applies only to `target_type` `observability_trace` (others use `{}`, stated in the description, not enforced by a conditional); `status` is deliberately not a key. Update keeps its existing semantics (field optional, not nullable). Tightening: producers that sent other keys now fail validation. Parity manifest regenerated (`scripts/refresh_parity.py --update`). Package version unchanged until a release is cut.
 - **`POST /api/v1/sessions` gains optional `evaluator_code_digest`: identity for an unregistered user-code evaluator (identified, never validated).** Pattern `^sha256:[0-9a-f]{64}$`, `x-content-class: digest`, `x-privacy-classification: sdk_runtime_metadata`. It is accepted only in the `identity_version` 2 typed shape and only instead of `evaluator_id`, `evaluator_definition_id` and `evaluator_ref`; `evaluator_id_source` must be absent or `unknown`; it is refused when `capabilities` contains `content_less_v1`. Additive and optional, so existing bodies validate unchanged. Content-class manifest and parity manifest regenerated. Downstream pins: not released yet; the SDK and Backend pin the commit/tag that carries this entry (package version stays 7.0.0 until a release is cut).
 
+### Breaking
+- **Removed the never-implemented `key_type: "director"` and `resource_grants` from the API-key create
+  request contract.** `api_key_create_request_schema.json` gained a `key_type=director` enum member and
+  a `resource_grants` field in #471 (2026-09-15) alongside the Director evidence v2 contract, but neither
+  was ever intended for this public schema and TraigentBackend never implemented either one (no route or
+  model accepts `key_type=director` or reads `resource_grants` off the create-request body). Owner ruling
+  (Nimrod, 2026-10-23): correct the public contract by removing both. `key_type` is back to
+  `["user", "service", "admin", "temporary", "readonly", "system"]`; `resource_grants` and the
+  director-only `allOf` conditional are gone; `scopes`/`permissions` carry their pre-#471 `minItems: 1`
+  directly again instead of through that conditional's `else` branch. `api_key_update_request_schema.json`
+  and `api_key_rotate_request_schema.json` drop the matching director-only `x-backend-obligations` entries.
+  The restricted `director_evidence:read` scope/permission and the Director evidence DTO/envelope/route
+  from the same #471 PR are unaffected — those are a separate, intentionally contract-first feature
+  (`x-asserted-against-backend: false`) and stay as-is. Acknowledged in
+  `scripts/breaking_schema_allowlist.json`; the TraigentBackend-side gap is tracked privately as a
+  GitHub issue in that repo.
+
 ### Changed
 - **Agent-readiness `JourneyItem` gains optional `metric_configuration_source`.** Producers already emit it on journey items and `anchor_summary`; the closed shape rejected it. Enum `selected` | `sole_trial` | null, not required, so existing bodies still validate. Acknowledged in the breaking-change allowlist because the response object is closed.
 - **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`

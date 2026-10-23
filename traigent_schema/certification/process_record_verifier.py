@@ -118,7 +118,7 @@ _TRUST_ANCHOR_SPKI_DOMAIN = b"traigent.process_record.trust_anchor_spki_der.v1"
 _TRUST_POLICY_ID = "traigent.trust_policy.process_record.v1"
 _TRUST_MAX_AGE_SECONDS = 86400
 _TRUST_SKEW_SECONDS = 0
-_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$", re.ASCII)
+_UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
 _EXPECTED_STEPS = ("prepare", "evaluate", "aggregate", "select", "finalize")

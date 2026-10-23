@@ -39,10 +39,6 @@ from traigent_schema.certification.process_record_verifier import (
     _verify_signature,
 )
 
-_FIELD_M_INTERVAL = "measurements.interval"
-_FIELD_PLANNED_MEASUREMENTS = "declared_plan.planned_measurements"
-_FIELD_M_RELIABILITY = "measurements.reliability"
-
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
 _SCHEMA_RESOURCE = (
@@ -575,11 +571,11 @@ def _check_measurement_registry_admissibility(row: dict[str, Any]) -> None:
 def _check_interval_well_formed(row: dict[str, Any]) -> None:
     low, point, high = row["interval_low_value"], row["point_value"], row["interval_high_value"]
     if not low <= point <= high:
-        _fail("INTERVAL_MALFORMED", _FIELD_M_INTERVAL)
+        _fail("INTERVAL_MALFORMED", "measurements.interval")
     if row["value_unit"] in ("ppm_unsigned", "ppm_signed"):
         floor = 0 if row["value_unit"] == "ppm_unsigned" else -1000000
         if not (floor <= low <= 1000000 and floor <= high <= 1000000):
-            _fail("INTERVAL_MALFORMED", _FIELD_M_INTERVAL)
+            _fail("INTERVAL_MALFORMED", "measurements.interval")
 
 
 def _check_interval_width(row: dict[str, Any], planned: dict[str, Any]) -> None:
@@ -590,10 +586,10 @@ def _check_interval_width(row: dict[str, Any], planned: dict[str, Any]) -> None:
     are rejected here rather than silently compared on the wrong scale.
     """
     if row["value_unit"] not in ("ppm_unsigned", "ppm_signed"):
-        _fail("UNIT_NOT_ADMISSIBLE", _FIELD_M_INTERVAL)
+        _fail("UNIT_NOT_ADMISSIBLE", "measurements.interval")
     width = row["interval_high_value"] - row["interval_low_value"]
     if width > planned["maximum_interval_width_ppm"]:
-        _fail("INTERVAL_WIDTH_EXCEEDED", _FIELD_M_INTERVAL)
+        _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")
 
 
 def _check_resample_unit(row: dict[str, Any]) -> None:
@@ -627,7 +623,7 @@ def _check_plan_direction_coupling(bundle: dict[str, Any]) -> None:
         direction = planned["estimator_parameters"]["direction"]
         expected = _THRESHOLD_COMPARISON_FOR_DIRECTION[direction]
         if planned["threshold_comparison"] != expected:
-            _fail("DECLARED_PLAN_SCOPE_VIOLATION", _FIELD_PLANNED_MEASUREMENTS)
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
 def _check_sensitivity_pair_set_binding(bundle: dict[str, Any]) -> None:
@@ -647,7 +643,7 @@ def _check_sensitivity_pair_set_binding(bundle: dict[str, Any]) -> None:
     if sensitivity is None:
         return
     if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:
-        _fail("DECLARED_PLAN_SCOPE_VIOLATION", _FIELD_PLANNED_MEASUREMENTS)
+        _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
 def _check_plan_containment(bundle: dict[str, Any]) -> None:
@@ -671,7 +667,7 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
     }
     for role in rows:
         if role not in planned_roles:
-            _fail("DECLARED_PLAN_SCOPE_VIOLATION", _FIELD_PLANNED_MEASUREMENTS)
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
     for planned in bundle["declared_plan"]["planned_measurements"]:
         row = rows.get(planned["measurement_role"])
         if row is None:
@@ -685,7 +681,7 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
             or row["value_unit"] != planned["value_unit"]
             or row["estimator_parameters"] != planned["estimator_parameters"]
         ):
-            _fail("DECLARED_PLAN_SCOPE_VIOLATION", _FIELD_PLANNED_MEASUREMENTS)
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
         _check_measurement_registry_admissibility(row)
         _check_interval_well_formed(row)
         _check_resample_unit(row)
@@ -694,15 +690,15 @@ def _check_plan_containment(bundle: dict[str, Any]) -> None:
         _check_interval_width(row, planned)
         if planned["threshold_comparison"] == "interval_low_ge":
             if row["interval_low_value"] < planned["threshold_value"]:
-                _fail("THRESHOLD_NOT_MET", _FIELD_M_INTERVAL)
+                _fail("THRESHOLD_NOT_MET", "measurements.interval")
         elif planned["threshold_comparison"] == "interval_high_le":
             if row["interval_high_value"] > planned["threshold_value"]:
-                _fail("THRESHOLD_NOT_MET", _FIELD_M_INTERVAL)
+                _fail("THRESHOLD_NOT_MET", "measurements.interval")
         else:
             # Unreachable while the schema enum has exactly two members --
             # kept explicit so a future third member fails closed instead of
             # silently routing into the high-side branch.
-            _fail("DECLARED_PLAN_SCOPE_VIOLATION", _FIELD_PLANNED_MEASUREMENTS)
+            _fail("DECLARED_PLAN_SCOPE_VIOLATION", "declared_plan.planned_measurements")
 
 
 def _check_sensitivity_claim_evidence(bundle: dict[str, Any]) -> None:
@@ -755,7 +751,7 @@ def _check_probe_coverage(bundle: dict[str, Any]) -> None:
     }
     for probe in reliability["probe_results"]:
         if probe["probe_id"] in required and probe["status"] != "measured":
-            _fail("PROBE_COVERAGE_INSUFFICIENT", _FIELD_M_RELIABILITY)
+            _fail("PROBE_COVERAGE_INSUFFICIENT", "measurements.reliability")
 
 
 def _check_perturbation_set_registry_binding(bundle: dict[str, Any]) -> None:
@@ -786,7 +782,7 @@ def _check_perturbation_set_registry_binding(bundle: dict[str, Any]) -> None:
             probe["status"] == "skipped"
             and probe["skip_reason"] not in registry_index[probe["probe_id"]]["skip_reasons"]
         ):
-            _fail("PERTURBATION_SET_MISMATCH", _FIELD_M_RELIABILITY)
+            _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")
 
 
 def _check_perturbation_set_digest_bindings(bundle: dict[str, Any]) -> None:
@@ -808,7 +804,7 @@ def _check_perturbation_set_digest_bindings(bundle: dict[str, Any]) -> None:
     )
     reliability = bundle["measurements"].get("reliability")
     if reliability is not None and reliability["perturbation_set_digest"] != digest:
-        _fail("PERTURBATION_SET_MISMATCH", _FIELD_M_RELIABILITY)
+        _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")
     if bundle["declared_plan"]["perturbation_set_digest"] != digest:
         _fail("PERTURBATION_SET_MISMATCH", "declared_plan")
 
@@ -834,9 +830,9 @@ def _check_reliability_determinism(bundle: dict[str, Any]) -> None:
     repeat_stability = reliability.get("repeat_stability")
     if determinism == "deterministic":
         if repeat_stability is not None:
-            _fail("RELIABILITY_DETERMINISM_CONTRADICTION", _FIELD_M_RELIABILITY)
+            _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
     elif repeat_stability is None:
-        _fail("RELIABILITY_DETERMINISM_CONTRADICTION", _FIELD_M_RELIABILITY)
+        _fail("RELIABILITY_DETERMINISM_CONTRADICTION", "measurements.reliability")
 
 
 def _check_reliability_axis_required(bundle: dict[str, Any]) -> None:
@@ -853,7 +849,7 @@ def _check_reliability_axis_required(bundle: dict[str, Any]) -> None:
         bundle["descriptor"]["evaluator_kind"] in ("llm_judge_pairwise", "ensemble_panel")
         and "position_stability" not in reliability
     ):
-        _fail("RELIABILITY_AXIS_MISSING", _FIELD_M_RELIABILITY)
+        _fail("RELIABILITY_AXIS_MISSING", "measurements.reliability")
 
 
 def _check_selection_set_overlap(bundle: dict[str, Any]) -> None:

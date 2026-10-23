@@ -37,8 +37,8 @@
     "execution_time_ms":    { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "single",  "scope": "config" },
     "total_latency_ms":     { "unit": "ms", "to_ms": 1,    "role": "accepted",  "aggregate": "sum",     "scope": "config" }
   },
+  "$comment": "x-non-canonical-pending-migration lists keys emitted today that are NOT canonical. Tracked for SDK migration in Traigent/Traigent#1225; consumers MAY map them during the compat window but new code MUST NOT introduce them. Semantics confirmed by the SDK agent (#1225). This note is a sibling of the map rather than an entry in it, because the meta-schema declares every entry an object (#573).",
   "x-non-canonical-pending-migration": {
-    "description": "Emitted today but NOT canonical. Tracked for SDK migration in Traigent/Traigent#1225; consumers MAY map them during the compat window but new code MUST NOT introduce them. Semantics confirmed by the SDK agent (#1225).",
     "function_duration":   { "unit": "s", "to_ms": 1000, "should_become": "execution_time_ms", "note": "per-example wall-clock; folds into execution_time_ms (decision in #118). NOT minted as a new function_duration_ms key." },
     "model_response_time": { "unit": "s", "to_ms": 1000, "should_become": "response_time_ms", "note": "lossy rename of an already-ms model latency; emit raw ms as response_time_ms instead." }
   }

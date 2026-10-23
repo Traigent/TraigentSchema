@@ -169,10 +169,12 @@ examples. This contract declaration does not establish Backend runtime
 conformance.
 
 > **Before you push:** run `make install-hooks` once per clone, then
-> `make local-gate` before every push. The local gate mirrors the cloud CI
-> gates (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the
-> spine-trail reminder, and — for main-bound branches — SonarQube) so avoidable
-> reds are caught in seconds instead of after a push. See
+> `make local-gate` before every push. The local gate runs the checks CI
+> enforces (`ruff check`, `mypy`, the `pytest`/parity **structural** gates, the
+> spine-trail reminder, and — for main-bound branches — a local scan that
+> approximates the `SonarCloud Code Analysis` required check), so avoidable reds
+> are caught before the push rather than after it. Budget 5-15 minutes: the
+> pytest step is the full suite, not a smoke test. See
 > [docs/LOCAL_CI_GATE.md](docs/LOCAL_CI_GATE.md).
 
 ## Installation
@@ -322,16 +324,29 @@ The shared MeasuresDict contract is enforced across projects:
 
 Schemas may tag fields (or object groupings) with a machine-readable privacy
 class so redaction, retention, and export tooling can reason **by contract**
-instead of hard-coding field names. Allowed values:
+instead of hard-coding field names.
+
+The vocabulary is closed: the twelve allowed values below are exactly the `enum` in
+[`x_extensions_meta_schema.json`](traigent_schema/schemas/x_extensions_meta_schema.json),
+which is the source of truth, and a test keeps this table equal to it. A consumer
+that builds redaction rules should handle all twelve, since any of them may appear;
+`pii` and `restricted` are declared but currently carry no shipped field. This table
+listed six until #573, omitting `secret`, which five shipped fields use.
 
 | Value | Meaning |
 |-------|---------|
 | `user_content` | Raw user-supplied content / model output (prompts, inputs, outputs). The hybrid-path content fields use this — paired with `x-content: true` so a consumer can enumerate content-bearing leaves directly from the contract. |
-| `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
+| `pii` | Personally identifiable information. |
 | `auth_sensitive` | Authentication and authorization payloads such as device-flow tokens, API keys, and SSO auth responses. |
 | `billing_sensitive` | Billing / pricing data (e.g. wallet, checkout). |
-| `tenant_admin_safe` | Visible to tenant admins only. |
+| `secret` | One-time secrets, never re-readable after issue. |
+| `restricted` | Tightly access-controlled values. |
+| `aggregate_safe` | Aggregated / derived values safe to surface broadly. |
 | `manifest_safe` | Safe to include in exported manifests. |
+| `tenant_admin_safe` | Visible to tenant admins only. |
+| `sdk_runtime_metadata` | SDK execution metadata. Carried both by whole run-context schemas and, on the session-create request, by run-provenance fields such as artifact versions and code revision. |
+| `internal_confidential` | Service-only policy, certificate, or short-lived execution metadata. |
+| `system` | Internal system data. |
 
 Content-bearing fields on the hybrid DTOs carry `x-content: true` +
 `x-privacy-classification: user_content`: `trace`/`observation`
@@ -377,24 +392,45 @@ from traigent_schema import (
 
 ## Development
 
+Use the `make` targets: each one mirrors a check CI runs, so a green target
+here means a green check there. (`make lint` and `make typecheck` run CI's
+command verbatim, pinned by a test; `make test` runs the same suite with
+quieter reporting flags.) The bare `ruff check .` and `mypy traigent_schema`
+forms lint and type-check paths CI does not gate, and report errors on a clean
+tree.
+
 ```bash
 # Install with dev dependencies (add the tvl extra on Python >= 3.12 for the TVL trace tests)
-pip install -e ".[dev]"
+pip install -e ".[dev]"   # or: make install
 pip install -e ".[dev,tvl]"
 
-# Run tests
-pytest
+# mirrors CI / test
+make test        # pytest tests/ -q -p no:cacheprovider
 
-# Run linting
-ruff check .
+# mirrors CI / lint-type
+make lint        # ruff check traigent_schema/
+make typecheck   # mypy traigent_schema/ --ignore-missing-imports
 
-# Type checking
-mypy traigent_schema
+make local-gate  # everything CI enforces — run this before you push
 ```
+
+`make test` runs the full suite (7.2k tests; roughly 5-15 minutes, depending on
+what else the machine is doing); `make lint` and
+`make typecheck` take seconds. `make help` lists every target.
 
 ## Version
 
 Current release line: **7.0.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+
+> **That is the repository version, not the published one.** PyPI's newest `traigent_schema`
+> release is **5.8.0** (uploaded 2026-09-05), so `pip install traigent_schema` installs 5.8.0.
+> 6.0.0, 6.1.0 and 7.0.0 are dated in `CHANGELOG.md` and live on `main`, but none of them was
+> ever tagged or published, so a package consumer is missing two breaking changes: the 6.0.0
+> legacy execution-selector removals and the 7.0.0 `ExperimentStatus` rebind. Check what is
+> actually published with `pip index versions traigent-schema` (the distribution name in
+> `pyproject.toml`; `traigent_schema` normalizes to it); publishing is a manual dispatch
+> of [`.github/workflows/publish.yml`](.github/workflows/publish.yml) from an exact `main`
+> commit. Tracked in TraigentSchema#576.
 
 The 5.4 register additions are documentation-only annotations: `invite_token` and the portal's
 unified `registration_code` wire field remain unconstrained by validating keywords so every

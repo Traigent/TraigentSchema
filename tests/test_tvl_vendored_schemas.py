@@ -20,6 +20,7 @@ def test_source_record_pins_commit_and_all_four_files():
     assert SOURCE["release_tag"] == "v1.4.0" and SOURCE["identical_at_release_tag"] is True
     on_disk = {p.name for p in DATA.glob("*.schema.json")}
     assert on_disk == set(EXPECTED), "an unpinned or missing vendored schema"
+    assert SOURCE["source_dir"] == "spec/grammar/"
 
 
 def test_bytes_match_pinned_digest():
@@ -27,7 +28,7 @@ def test_bytes_match_pinned_digest():
         raw = (DATA / name).read_bytes()
         assert hashlib.sha256(raw).hexdigest() == meta["sha256"], f"{name} drifted from its pin"
         assert len(raw) == meta["bytes"]
-        assert meta["source_path"] == f"spec/grammar/{name}"
+        assert "source_path" not in meta  # a basename citation would trip the shipped-path drift test
 
 
 def test_schemas_are_valid_2020_12_and_carry_their_format_and_version():

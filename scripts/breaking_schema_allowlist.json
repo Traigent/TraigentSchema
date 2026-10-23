@@ -8098,6 +8098,284 @@
       "reason": "Owner-approved (decision cards product-2026-09-30-legacy-cost-null A, release-2026-10-01-schema-acks-analytics-cost A, product-2026-10-10-trial-cost-nullable A, as recorded on the TraigentSchema#554 entries for the standalone project-scoped dashboard schemas): these planned-projects endpoint catalog dashboard cost fields become number|null (minimum 0 on the number branch) so an unknown cost is reported as null instead of a false 0. Response-side widening; a priced aggregate still returns a number. The earlier hold-back was that the Python SDK crashed on null dashboard costs; Traigent Python SDK PR #2619 (https://github.com/Traigent/Traigent/pull/2619, commit f0f10e50, independently reviewed and approved) updates the consumer so it parses these members without crashing. Consumers must treat null as unknown, never zero. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#554"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-reference/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 2,
+          "fingerprint": "a43d438d856639326f72aeed4fd33259f84e1246f080375d78fcd98286b21443"
+        }
+      ],
+      "reason": "TraigentSchema#573. x_extensions_meta_schema.json is the annotation vocabulary for x-* keywords, not a wire body: nothing serialises it and no request or response is validated against it, so the conservative bare-resource-name rule applies both request- and response-breaking rule sets to a document neither side ever sends. The widening also removes no accepted value. x-reference was declared \"type\": \"string\" (a $ref-style pointer) while 80 of its 109 shipped sites carry the boolean true, meaning \"references a canonical identifier, target not yet pinned\"; 29 carry the pointer. The declaration, not the usage, was wrong, and #573 made that visible by adding the first test that validates x-* VALUES against this meta-schema. Widening to oneOf [string, const true] makes the declaration describe what ships; tightening it the other way would mean rewriting 80 sites with pointers nobody has chosen yet. The boolean branch is a ratchet, not a second blessed form: tests/data/x_reference_boolean_baseline.txt freezes the 80 sites by file and JSON pointer, and tests/test_x_extensions_governance.py::test_boolean_x_reference_sites_match_the_frozen_baseline fails on any site added AND on any removed without its baseline line being deleted. A per-site inventory rather than a count, because a count reports no change when one site is deleted and another added, and names no file when it does fire. One alternative was weighed and rejected: keep \"type\": \"string\" and exempt the 80 sites in the test instead, which would need no acknowledgement here. It was rejected because it leaves the PUBLISHED meta-schema stating a rule that 73% of its own shipped uses break, moving the contradiction out of the contract and into a test where consumers cannot see it; this package's schemas are the product, and the test is not. Rewriting the 80 sites with real pointers was also rejected: the targets have not been chosen, and inventing them would be fabricated data that no test resolves. Scoped to this one pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#573"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/x-reference",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "string"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "9fabbec9498b7a356b1354d9953168d120d78ee07825aae070a58dec87af4fb4"
+        },
+        {
+          "pointer": "#/properties/x-reference",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "string"
+          ],
+          "new": null,
+          "fingerprint": "2c852b5c5172e4a448785604ffcdca709e298de670fb19d6f1d923248c850cff"
+        }
+      ],
+      "reason": "TraigentSchema#573. x_extensions_meta_schema.json is the annotation vocabulary for x-* keywords, not a wire body: nothing serialises it and no request or response is validated against it, so the conservative bare-resource-name rule applies both request- and response-breaking rule sets to a document neither side ever sends. The widening also removes no accepted value. x-reference was declared \"type\": \"string\" (a $ref-style pointer) while 80 of its 109 shipped sites carry the boolean true, meaning \"references a canonical identifier, target not yet pinned\"; 29 carry the pointer. The declaration, not the usage, was wrong, and #573 made that visible by adding the first test that validates x-* VALUES against this meta-schema. Widening to oneOf [string, const true] makes the declaration describe what ships; tightening it the other way would mean rewriting 80 sites with pointers nobody has chosen yet. The boolean branch is a ratchet, not a second blessed form: tests/data/x_reference_boolean_baseline.txt freezes the 80 sites by file and JSON pointer, and tests/test_x_extensions_governance.py::test_boolean_x_reference_sites_match_the_frozen_baseline fails on any site added AND on any removed without its baseline line being deleted. A per-site inventory rather than a count, because a count reports no change when one site is deleted and another added, and names no file when it does fire. One alternative was weighed and rejected: keep \"type\": \"string\" and exempt the 80 sites in the test instead, which would need no acknowledgement here. It was rejected because it leaves the PUBLISHED meta-schema stating a rule that 73% of its own shipped uses break, moving the contradiction out of the contract and into a test where consumers cannot see it; this package's schemas are the product, and the test is not. Rewriting the 80 sites with real pointers was also rejected: the targets have not been chosen, and inventing them would be fabricated data that no test resolves. Scoped to this one pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#573"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "43b3c93cdd71c7a0810fd9dfbd58d83111d3b1128e7923b5b924e1f7ab681c32"
+        }
+      ],
+      "reason": "TraigentSchema#591 review. The declared 200 for this route matched NO real response and therefore cannot have a working consumer to break. The analytics blueprint handler returns response_handler.success_response(...), so the wire body is {success, message, data} with the dashboard payload under data; the entry declared the bare payload, which requires its five fields at the ROOT with additionalProperties:false. Every successful call failed that schema. The repository's own authoritative record agrees: success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`, not `bare`, and the route is not among the per-operation exceptions in x-wrap-map.mixed. The findings below are the artefacts of moving the declaration from the payload to the envelope that contains it: additionalProperties opens because the canonical envelope is open, `data` appears, and the five payload fields stop being root-level requirements because they are now required one level down, inside data, by the SAME unchanged payload schema (projects/project_scoped_optimization_overview_dashboard_schema.json is not touched). Nothing is loosened in substance: a body that satisfies the new declaration contains exactly the same required payload. No cross-repo coordination is needed for THIS change because its direction is forced, not chosen: making the server return a bare body instead would contradict the repo's own wrap-map and the convention of twelve route files, so there is no second option to coordinate. (The separate residual in TraigentSchema#594 - summary_cards.experiments_in_range is required and emitted by nobody - is deliberately NOT fixed here precisely because its direction IS a choice: either the schema drops the field or the backend emits it, and nothing on record picks one. So this change narrows the contract-vs-wire gap to one field; it does not close it.) One handler serves this v1beta mount and the unscoped /api/v1 mount, so fixing one and leaving the other would have left the two declarations of a single handler disagreeing. Scoped to this one route's 200.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#591"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema/properties/data",
+          "role": "response",
+          "subject": "data",
+          "old": false,
+          "new": true,
+          "fingerprint": "4c885a895a32ed49a13d0ab12ca9bc37a23a8a89a85329e9490d4ce56e7a3f23"
+        }
+      ],
+      "reason": "TraigentSchema#591 review. The declared 200 for this route matched NO real response and therefore cannot have a working consumer to break. The analytics blueprint handler returns response_handler.success_response(...), so the wire body is {success, message, data} with the dashboard payload under data; the entry declared the bare payload, which requires its five fields at the ROOT with additionalProperties:false. Every successful call failed that schema. The repository's own authoritative record agrees: success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`, not `bare`, and the route is not among the per-operation exceptions in x-wrap-map.mixed. The findings below are the artefacts of moving the declaration from the payload to the envelope that contains it: additionalProperties opens because the canonical envelope is open, `data` appears, and the five payload fields stop being root-level requirements because they are now required one level down, inside data, by the SAME unchanged payload schema (projects/project_scoped_optimization_overview_dashboard_schema.json is not touched). Nothing is loosened in substance: a body that satisfies the new declaration contains exactly the same required payload. No cross-repo coordination is needed for THIS change because its direction is forced, not chosen: making the server return a bare body instead would contradict the repo's own wrap-map and the convention of twelve route files, so there is no second option to coordinate. (The separate residual in TraigentSchema#594 - summary_cards.experiments_in_range is required and emitted by nobody - is deliberately NOT fixed here precisely because its direction IS a choice: either the schema drops the field or the backend emits it, and nothing on record picks one. So this change narrows the contract-vs-wire gap to one field; it does not close it.) One handler serves this v1beta mount and the unscoped /api/v1 mount, so fixing one and leaving the other would have left the two declarations of a single handler disagreeing. Scoped to this one route's 200.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#591"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "context",
+          "old": true,
+          "new": false,
+          "fingerprint": "80a177552c9d1d7d7ca149ea6491a61e885e723aa80ec66aa68a2732772884f5"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "cost_source_breakdown",
+          "old": true,
+          "new": false,
+          "fingerprint": "d9391709d1f4e4e3b528386c5750159d9c1e45952f33d455e248ccb8e74af6d4"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "range_days",
+          "old": true,
+          "new": false,
+          "fingerprint": "17165b909226c3f55993482d730e8abafb05c21cb0ed04b99bf3e1032fc40d7b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "recent_experiments",
+          "old": true,
+          "new": false,
+          "fingerprint": "1e97ef9535d7ec9862b56900901ae07b63642e5380d337abeadf0f54e6852f09"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "summary_cards",
+          "old": true,
+          "new": false,
+          "fingerprint": "e7a51c59c46ddbff9e75057f49593d39427e31e442d03269e6164a0acded13da"
+        }
+      ],
+      "reason": "TraigentSchema#591 review. The declared 200 for this route matched NO real response and therefore cannot have a working consumer to break. The analytics blueprint handler returns response_handler.success_response(...), so the wire body is {success, message, data} with the dashboard payload under data; the entry declared the bare payload, which requires its five fields at the ROOT with additionalProperties:false. Every successful call failed that schema. The repository's own authoritative record agrees: success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`, not `bare`, and the route is not among the per-operation exceptions in x-wrap-map.mixed. The findings below are the artefacts of moving the declaration from the payload to the envelope that contains it: additionalProperties opens because the canonical envelope is open, `data` appears, and the five payload fields stop being root-level requirements because they are now required one level down, inside data, by the SAME unchanged payload schema (projects/project_scoped_optimization_overview_dashboard_schema.json is not touched). Nothing is loosened in substance: a body that satisfies the new declaration contains exactly the same required payload. No cross-repo coordination is needed for THIS change because its direction is forced, not chosen: making the server return a bare body instead would contradict the repo's own wrap-map and the convention of twelve route files, so there is no second option to coordinate. (The separate residual in TraigentSchema#594 - summary_cards.experiments_in_range is required and emitted by nobody - is deliberately NOT fixed here precisely because its direction IS a choice: either the schema drops the field or the backend emits it, and nothing on record picks one. So this change narrows the contract-vs-wire gap to one field; it does not close it.) One handler serves this v1beta mount and the unscoped /api/v1 mount, so fixing one and leaving the other would have left the two declarations of a single handler disagreeing. Scoped to this one route's 200.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#591"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "6cd631757b2b0accb7821b40dd6f1c26b47a2bd66bde8aca280252c402cfb3d8"
+        }
+      ],
+      "reason": "TraigentSchema#591 review. The declared 200 for this route matched NO real response and therefore cannot have a working consumer to break. The analytics blueprint handler returns response_handler.success_response(...), so the wire body is {success, message, data} with the dashboard payload under data; the entry declared the bare payload, which requires its five fields at the ROOT with additionalProperties:false. Every successful call failed that schema. The repository's own authoritative record agrees: success_envelope_schema.json's x-wrap-map lists analytics_routes under `wrapped`, not `bare`, and the route is not among the per-operation exceptions in x-wrap-map.mixed. The findings below are the artefacts of moving the declaration from the payload to the envelope that contains it: additionalProperties opens because the canonical envelope is open, `data` appears, and the five payload fields stop being root-level requirements because they are now required one level down, inside data, by the SAME unchanged payload schema (projects/project_scoped_optimization_overview_dashboard_schema.json is not touched). Nothing is loosened in substance: a body that satisfies the new declaration contains exactly the same required payload. No cross-repo coordination is needed for THIS change because its direction is forced, not chosen: making the server return a bare body instead would contradict the repo's own wrap-map and the convention of twelve route files, so there is no second option to coordinate. (The separate residual in TraigentSchema#594 - summary_cards.experiments_in_range is required and emitted by nobody - is deliberately NOT fixed here precisely because its direction IS a choice: either the schema drops the field or the backend emits it, and nothing on record picks one. So this change narrows the contract-vs-wire gap to one field; it does not close it.) One handler serves this v1beta mount and the unscoped /api/v1 mount, so fixing one and leaving the other would have left the two declarations of a single handler disagreeing. Scoped to this one route's 200.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#591"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "a5ecaee0a922bf9eee8023a980e21594f3a7fe0c014b137ecb691b76af6b4544"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "f1a8f1b445d4706b34b74368e8a36c9003005702e8bd6af048a2813ebbb7b4a1"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "8d17e005c0a6c51f87d0362dd4b7b31590fb0a4b51cc9950d3e8272ef8b42dce"
+        },
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "b3db833fa648fc3bdb97e107e4adab69c8d67a2b94dbbc0710bb839787b2eb87"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "f558712cb4cbdf0b6fb94ff4c3b82e82340a4df7ca4528ad24f1ef97d31d9aed"
+        }
+      ],
+      "reason": "When the deployment enables activation confirmation, POST /auth/verify-email answers invalid or expired links with a fixed ACTIVATION_FAILED body and a password-policy failure with WEAK_PASSWORD; neither carries `message`. The 400 is therefore a oneOf of the legacy error envelope (legacy token-only confirmation for accounts registered without activation confirmation) and the two activation error shapes; pending activations always require the password, even when the feature is off. Clients must branch on error_code rather than require `message`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "3b400adb9b2f649e5f16938e90773fdedc697db8e94935012252d061eb3cdaca"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "auth/auth_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/auth/verify-email/post/responses/429/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "7ae57e5f5f5c692a2eb3885862fe77150c9fb84e20d4d427fe8cefa5219e3e68"
+        }
+      ],
+      "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#599"
     }
   ]
 }

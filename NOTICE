@@ -14,6 +14,7 @@ only. It does not modify the applicable license terms.
 This project depends on the following direct runtime third-party libraries
 (not vendored; each retains its own license):
 
+- cryptography (Apache-2.0 OR BSD-3-Clause) - https://github.com/pyca/cryptography
 - jsonschema (MIT License) - https://github.com/python-jsonschema/jsonschema
 - referencing (MIT License) - https://github.com/python-jsonschema/referencing
 - PyYAML (MIT License) - https://github.com/yaml/pyyaml

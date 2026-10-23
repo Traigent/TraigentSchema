@@ -2,22 +2,71 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/mfa/mfa_status_response_schema.json",
   "title": "MFA Status Response",
-  "description": "200 body for GET /api/v1/mfa/status (normal JWT; the enrollment-only token is not accepted).",
+  "description": "200 body for GET /api/v1/mfa/status (normal JWT; the enrollment-only token is not accepted). For a user with no MFA settings row only the five status fields are returned; otherwise the settings row's id, user_id, created_at and updated_at are returned too.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["success", "data"],
+  "required": [
+    "success",
+    "data"
+  ],
   "properties": {
-    "success": { "const": true },
+    "success": {
+      "const": true
+    },
     "data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["is_enabled", "is_setup_complete", "backup_codes_count"],
+      "required": [
+        "is_enabled",
+        "is_setup_complete",
+        "backup_codes_count"
+      ],
       "properties": {
-        "is_enabled": { "type": "boolean" },
-        "is_setup_complete": { "type": "boolean" },
-        "backup_codes_count": { "type": "integer", "minimum": 0 },
-        "last_used_at": { "type": ["string", "null"], "format": "date-time" },
-        "backup_codes_generated_at": { "type": ["string", "null"], "format": "date-time" }
+        "is_enabled": {
+          "type": "boolean"
+        },
+        "is_setup_complete": {
+          "type": "boolean"
+        },
+        "backup_codes_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_used_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "backup_codes_generated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "id": {
+          "type": "string",
+          "description": "MFA settings row id (present once the user has an MFA settings row; absent for a user who never started enrollment)."
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
       }
     }
   }

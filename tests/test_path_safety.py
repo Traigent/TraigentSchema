@@ -28,7 +28,8 @@ import pytest
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 _spec = importlib.util.spec_from_file_location("_path_safety", SCRIPTS / "_path_safety.py")
-assert _spec and _spec.loader
+assert _spec
+assert _spec.loader
 ps = importlib.util.module_from_spec(_spec)
 sys.modules["_path_safety"] = ps
 _spec.loader.exec_module(ps)
@@ -38,7 +39,8 @@ def _load_gate_module():
     spec = importlib.util.spec_from_file_location(
         "breaking_schema_check", SCRIPTS / "breaking_schema_check.py"
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -49,7 +51,8 @@ def _load_refresh_module():
     spec = importlib.util.spec_from_file_location(
         "refresh_consumer_schema_references", SCRIPTS / "refresh_consumer_schema_references.py"
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

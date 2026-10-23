@@ -1531,7 +1531,9 @@ def test_threshold_high_boundary_exact_500000_accepted_500001_rejected() -> None
     _expect(rejected, "THRESHOLD_NOT_MET")
 
 
-def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> None:
+def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """P3-tl-review-1 P3: the measurement-side sweep (_measurement_role_rows,
     owned by S12) had zero coverage -- the existing #458-regression test
     duplicates a role in declared_plan.planned_measurements, which is S3,
@@ -1560,12 +1562,9 @@ def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> 
         }
         for p in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
     ]
-    real_axis_point_value = evq._axis_point_value
-    evq._axis_point_value = lambda *_a, **_kw: 0  # type: ignore[assignment]
-    try:
+    with monkeypatch.context() as patch:
+        patch.setattr(evq, "_axis_point_value", lambda *_a, **_kw: 0)
         bundle = build_bundle(measurements={"reliability": {"probe_results": probes}})
-    finally:
-        evq._axis_point_value = real_axis_point_value
     _expect(bundle, "MEASUREMENT_ROLE_DUPLICATE")
 
 
@@ -2393,10 +2392,11 @@ def test_axis_point_value_fails_closed_on_unrecognised_axis() -> None:
     """P2-4: never a silent 0 for an axis AXIS_POINT_VALUE_ROLE does not
     cover (e.g. 'efficiency', which every real caller filters out before
     calling _axis_point_value, but the function itself must not trust that)."""
+    bundle = build_bundle()
     with pytest.raises(
         evq.EvaluatorQualityVerificationError, match="AGGREGATION_DERIVATION_MISMATCH"
     ):
-        evq._axis_point_value(build_bundle(), "efficiency")
+        evq._axis_point_value(bundle, "efficiency")
 
 
 def test_axis_point_value_fails_closed_on_missing_role() -> None:
@@ -2970,13 +2970,14 @@ def test_context_rejects_malformed_fields() -> None:
     assert caught.value.code == "CONTEXT"
 
     # allow_unchecked_trust_status=True requires trust_anchor=None (and vice versa).
+    trust_anchor = _evq_trust_anchor()
     with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
         evq.EvaluatorQualityVerificationContext(
             expected_project_ref=PROJECT_REF,
             expected_evaluator_commitment_ref=COMMITMENT_REF,
             allow_unchecked_trust_status=True,
             verification_time="2026-09-09T00:00:00Z",
-            trust_anchor=_evq_trust_anchor(),
+            trust_anchor=trust_anchor,
         )
     assert caught.value.code == "CONTEXT"
 
@@ -3070,12 +3071,14 @@ def test_public_entry_point_rejects_non_context_and_non_dict_bundle() -> None:
         verification_time=context.verification_time,
         trust_anchor=context.trust_anchor,
     )
+    bundle = build_bundle()
     with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
-        evq.verify_evaluator_quality_certificate(build_bundle(), context=fake_context)
+        evq.verify_evaluator_quality_certificate(bundle, context=fake_context)
     assert caught.value.code == "CONTEXT"
 
+    public_context = _public_context()
     with pytest.raises(evq.EvaluatorQualityVerificationError) as caught:
-        evq.verify_evaluator_quality_certificate("not-a-dict", context=_public_context())
+        evq.verify_evaluator_quality_certificate("not-a-dict", context=public_context)
     assert caught.value.code == "EVALUATOR_BUNDLE_SHAPE"
 
 

@@ -3065,8 +3065,9 @@ def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> No
     it, so the suppressed exception is not merely suppressed -- it is not
     there."""
     built = _build()
+    exploding = _ExplodingLeafLists()
     with pytest.raises(DatasetRecordVerificationError) as exc_info:
-        _verify(built, leaf_lists=_ExplodingLeafLists())
+        _verify(built, leaf_lists=exploding)
     assert exc_info.value.code == "VERIFICATION_FAILED"
     assert exc_info.value.__context__ is None
     assert exc_info.value.__cause__ is None
@@ -3432,7 +3433,8 @@ def test_a_finding_ref_that_resolves_to_no_signed_corpus_descriptor_fails() -> N
     """
     built = _build()
     smuggled = "cpr:" + SENTINEL[:43].ljust(43, "A")
-    assert smuggled != built.corpus_a_ref and smuggled != built.corpus_b_ref
+    assert smuggled != built.corpus_a_ref
+    assert smuggled != built.corpus_b_ref
     for finding in built.bundle["leakage_report"]["findings"]:
         if finding["finding_kind"] == "near_duplicate_overlap":
             finding["corpus_b_ref"] = smuggled

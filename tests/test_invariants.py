@@ -487,8 +487,10 @@ class _FlaggedStr(str):
         return str.__hash__(self)
 
 
-def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq() -> None:
-    _FlaggedStr.eq_called = False
+def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_FlaggedStr, "eq_called", False)
     decoy = _FlaggedStr("b")
     payload = {"a": 1, decoy: "decoy-value"}
 
@@ -503,7 +505,7 @@ def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq() -> None:
 def test_selector_lookup_never_invokes_a_stored_subclass_keys_eq(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _FlaggedStr.eq_called = False
+    monkeypatch.setattr(_FlaggedStr, "eq_called", False)
     _patch_declarations(monkeypatch, _LOOKUP_DECLARATION)
     decoy = _FlaggedStr("C2")
     payload = {"selected_id": "C1", "per_candidate": {"C1": "selected", decoy: "decoy-value"}}
@@ -626,8 +628,10 @@ def test_nesting_at_100_containers_is_accepted() -> None:
 
 
 def test_nesting_at_101_containers_is_rejected() -> None:
+    too_deep_left = _nest(101)
+    too_deep_right = _nest(101)
     with pytest.raises(InvariantComparisonBoundError):
-        _exact_structural_equal(_nest(101), _nest(101))
+        _exact_structural_equal(too_deep_left, too_deep_right)
 
 
 def test_huge_first_level_container_is_refused_before_children_are_inspected() -> None:
@@ -792,8 +796,9 @@ def test_noncanonical_payload_error_is_content_free() -> None:
     class _Odd:
         pass
 
+    odd_payload = {"k": _Odd()}
     with pytest.raises(InvariantNoncanonicalPayloadError) as excinfo:
-        _exact_structural_equal({"k": _Odd()}, {"k": 1})
+        _exact_structural_equal(odd_payload, {"k": 1})
     assert "_Odd" not in str(excinfo.value)
     assert "Odd" not in str(excinfo.value)
 
@@ -803,8 +808,9 @@ class _SECRET_CANARY_CLASS_NAME:  # noqa: N801 - the unusual name IS the test
 
 
 def test_noncanonical_type_error_never_names_the_offending_class() -> None:
+    canary = _SECRET_CANARY_CLASS_NAME()
     with pytest.raises(InvariantNoncanonicalPayloadError) as excinfo:
-        _exact_structural_equal(_SECRET_CANARY_CLASS_NAME(), 1)
+        _exact_structural_equal(canary, 1)
     assert "SECRET_CANARY_CLASS_NAME" not in str(excinfo.value)
 
 

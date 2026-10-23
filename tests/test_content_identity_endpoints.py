@@ -187,7 +187,8 @@ def test_every_pattern_uses_the_portable_end_anchor() -> None:
 
     for path in [*NEW_SCHEMA_FILES, CATALOG_PATH]:
         for pattern in walk(json.loads(path.read_text(encoding="utf-8"))):
-            assert "(?![\\s\\S])" in pattern and "$" not in pattern, (path.name, pattern)
+            assert "(?![\\s\\S])" in pattern, (path.name, pattern)
+            assert "$" not in pattern, (path.name, pattern)
 
 
 def test_catalog_is_registered_in_the_backend_contract_root() -> None:

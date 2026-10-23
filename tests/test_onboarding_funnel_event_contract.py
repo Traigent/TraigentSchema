@@ -89,9 +89,8 @@ def test_backend_obligations_are_declared_and_non_empty() -> None:
     obligations, so the gap is documented rather than assumed proven."""
     schema = _load_schema()
     obligations = schema.get("x-backend-obligations")
-    assert isinstance(obligations, list) and obligations, (
-        "x-backend-obligations must be a declared, non-empty list"
-    )
+    assert isinstance(obligations, list), "x-backend-obligations must be a declared, non-empty list"
+    assert obligations, "x-backend-obligations must be a declared, non-empty list"
     assert all(isinstance(item, str) and item.strip() for item in obligations)
     assert schema["x-stability"] == "pre-release"
     assert schema["x-asserted-against-backend"] is False
@@ -188,7 +187,13 @@ def test_access_period_linkage_is_declared_as_a_backend_obligation() -> None:
     entry = linkage[0].lower()
     assert "access_restored" in entry
     assert "run_id" in entry, "the obligation must name the correlation the producer must retain"
-    assert "duration" in entry and "deadline" in entry and "policy" in entry, (
+    assert "duration" in entry, (
+        "the obligation must say what this contract deliberately does NOT carry"
+    )
+    assert "deadline" in entry, (
+        "the obligation must say what this contract deliberately does NOT carry"
+    )
+    assert "policy" in entry, (
         "the obligation must say what this contract deliberately does NOT carry"
     )
     assert "server-side" in entry, "and that those are resolved server-side instead"

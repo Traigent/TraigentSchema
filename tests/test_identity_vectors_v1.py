@@ -301,7 +301,8 @@ def test_every_environment_value_is_within_limit():
         value = v["expected"]["environment"]
         assert value is None or len(value) <= ENV_MAX
         if v["expected"]["valid"]:
-            assert value is not None and value == value.strip().lower()
+            assert value is not None
+            assert value == value.strip().lower()
 
 
 def test_required_cases_present():
@@ -381,4 +382,5 @@ def test_packaging_includes_identity_data():
     assert '"traigent_schema/**/*.json"' in pyproject  # sdist include glob
     package_root = ROOT / "traigent_schema"
     for path in (VECTORS_PATH, SCHEMA_PATH):
-        assert package_root in path.parents and path.is_file()
+        assert package_root in path.parents
+        assert path.is_file()

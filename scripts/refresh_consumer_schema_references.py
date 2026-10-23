@@ -97,6 +97,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCHEMAS_DIR = _REPO_ROOT / "traigent_schema" / "schemas"
+_SCAN_ROOT_LABEL = "scan root"
 _OUT_PATH = _REPO_ROOT / "reports" / "schema_reachability" / "consumer_references.json"
 
 _TEXT_EXT = {
@@ -166,7 +167,7 @@ def _schema_basenames() -> list[str]:
 
 
 def _iter_text_files(root: Path):
-    safe_root = _resolve_existing_dir(root, "scan root")
+    safe_root = _resolve_existing_dir(root, _SCAN_ROOT_LABEL)
     for path in safe_root.rglob("*"):
         try:
             resolved_path = path.resolve()
@@ -215,7 +216,7 @@ def _archive_ref(repo_path: Path, ref: str, dest: Path, archive_root: Path) -> s
 def _scan_repo(root: Path, pattern: re.Pattern[str]) -> dict[str, list[str]]:
     """Return basename -> [relpath:line, ...] (capped) for this one repo root."""
     hits: dict[str, list[str]] = {}
-    safe_root = _resolve_existing_dir(root, "scan root")
+    safe_root = _resolve_existing_dir(root, _SCAN_ROOT_LABEL)
     for path in _iter_text_files(safe_root):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
@@ -300,7 +301,7 @@ def main() -> int:
                     sources[name] = {"ref": "(unarchived on-disk path)", "sha": "unknown"}
                 else:
                     source_repo = _resolve_git_repo(path, f"--repo {name}=PATH")
-                    scan_root = _resolve_path_within(tmp_root / name, tmp_root, "scan root")
+                    scan_root = _resolve_path_within(tmp_root / name, tmp_root, _SCAN_ROOT_LABEL)
                     sha = _archive_ref(source_repo, ref, scan_root, tmp_root)
                     sources[name] = {"ref": f"origin/{ref}", "sha": sha}
             except ValueError as exc:

@@ -189,7 +189,8 @@ def test_label_change_keeps_id_and_changes_version() -> None:
     relabelled = ei.ExampleProjection(input={"q": "x"}, expected="b")
     id1, v1 = ei.identify_example(KEYS_A, projection)
     id2, v2 = ei.identify_example(KEYS_A, relabelled)
-    assert id1 == id2 and v1 != v2
+    assert id1 == id2
+    assert v1 != v2
 
 
 def test_conflicting_versions_warn_and_are_reported() -> None:
@@ -338,7 +339,8 @@ def test_vector_file_is_packaged_current_and_nontrivial() -> None:
     spec = importlib.util.spec_from_file_location(
         "gen_vectors", ROOT / "scripts" / "generate_content_identity_v1_vectors.py"
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     generator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(generator)
     committed = (ROOT / "traigent_schema" / "data" / "content_identity_v1_vectors.json").read_text(
@@ -346,7 +348,8 @@ def test_vector_file_is_packaged_current_and_nontrivial() -> None:
     )
     assert committed == generator.render(), "run scripts/generate_content_identity_v1_vectors.py"
     assert VECTORS["spec"] == ei.SCHEME
-    assert len(VECTORS["examples"]) >= 20 and len(VECTORS["rejections"]) >= 10
+    assert len(VECTORS["examples"]) >= 20
+    assert len(VECTORS["rejections"]) >= 10
 
 
 def test_vector_constants_match_the_module_and_schema() -> None:

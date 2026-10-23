@@ -287,7 +287,8 @@ def test_client_key_ref_is_deterministic_and_project_scoped(algorithm: str) -> N
     assert first == verifier_impl.derive_client_key_ref(
         "project_contract001", algorithm, public_key
     )
-    assert first.startswith("ckr:") and len(first) == 47
+    assert first.startswith("ckr:")
+    assert len(first) == 47
     assert first != verifier_impl.derive_client_key_ref(
         "project_contract002", algorithm, public_key
     )

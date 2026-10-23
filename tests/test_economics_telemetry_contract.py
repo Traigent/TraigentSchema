@@ -1681,7 +1681,8 @@ def test_short_label_is_pattern_constrained_not_merely_bounded() -> None:
     assert (
         "pattern" in short_label
     ), "ShortLabel must be pattern-constrained, not free-form"
-    assert short_label["maxLength"] == 128 and short_label["minLength"] == 1
+    assert short_label["maxLength"] == 128
+    assert short_label["minLength"] == 1
 
 
 # --------------------------------------------------------------------------- #

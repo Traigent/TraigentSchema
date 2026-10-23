@@ -3433,7 +3433,8 @@ def test_a_finding_ref_that_resolves_to_no_signed_corpus_descriptor_fails() -> N
     """
     built = _build()
     smuggled = "cpr:" + SENTINEL[:43].ljust(43, "A")
-    assert smuggled != built.corpus_a_ref and smuggled != built.corpus_b_ref
+    assert smuggled != built.corpus_a_ref
+    assert smuggled != built.corpus_b_ref
     for finding in built.bundle["leakage_report"]["findings"]:
         if finding["finding_kind"] == "near_duplicate_overlap":
             finding["corpus_b_ref"] = smuggled

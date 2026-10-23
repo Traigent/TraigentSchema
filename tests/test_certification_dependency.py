@@ -253,7 +253,8 @@ def _agent_quality_test_module():
 
     module_path = _REPO_ROOT / "tests" / "test_agent_quality_verifier.py"
     spec = importlib.util.spec_from_file_location("_gv_wheel_witness_source", module_path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

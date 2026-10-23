@@ -34,7 +34,8 @@ def _load_gate_module():
     a permanent sys.path mutation -- mirrors the stdlib-recommended pattern
     for loading a script-shaped module by file path."""
     spec = importlib.util.spec_from_file_location("schema_reachability_gate", _SCRIPT_PATH)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

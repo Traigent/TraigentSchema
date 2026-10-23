@@ -1327,7 +1327,8 @@ def test_the_all_withheld_vector_pair_does_not_reconstruct_withheld_values() -> 
     no channel, no payback, spend-$0 available."""
     request = _load_fixture("recommendation_request_all_withheld.json")
     response = _load_fixture("recommendation_response_spend_zero.json")
-    assert _ok(request, REQUEST) and _ok(response, RESPONSE)
+    assert _ok(request, REQUEST)
+    assert _ok(response, RESPONSE)
     assert request["sharing_policy"]["allowlist"] == []
     assert not request["characterization"].get(
         "bands"

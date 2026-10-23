@@ -23,7 +23,8 @@ def _load(rel):
 def test_duplicate_array_alias_is_deprecated_and_points_to_canonical():
     for rel, alias, canonical in CASES:
         props = _load(rel)["properties"]
-        assert alias in props and canonical in props, rel
+        assert alias in props, rel
+        assert canonical in props, rel
         assert props[alias].get("deprecated") is True, f"{rel}:{alias} not deprecated"
         assert canonical in props[alias]["description"], f"{rel}:{alias} desc must point to {canonical}"
         # the canonical key is NOT deprecated

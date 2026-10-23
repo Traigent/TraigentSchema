@@ -174,7 +174,8 @@ def test_entitlement_required_error_declares_its_posture():
     assert schema["x-stability"] == "pre-release"
     assert schema["x-asserted-against-backend"] is False
     obligations = schema["x-backend-obligations"]
-    assert isinstance(obligations, list) and obligations
+    assert isinstance(obligations, list)
+    assert obligations
     assert all(isinstance(item, str) and item.strip() for item in obligations)
 
 
@@ -329,7 +330,10 @@ def _schema(rel_path):
 
 def test_validation_error_description_covers_both_statuses():
     description = _schema("validation_error_schema.json")["description"]
-    assert "400" in description and "422" in description, (
+    assert "400" in description, (
+        "the shape is emitted at both statuses; naming only one misdescribes it"
+    )
+    assert "422" in description, (
         "the shape is emitted at both statuses; naming only one misdescribes it"
     )
     assert "VALIDATION_ERROR" in description, (

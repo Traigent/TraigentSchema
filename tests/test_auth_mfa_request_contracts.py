@@ -112,5 +112,6 @@ def test_request_schemas_are_valid_and_typed():
     ):
         spec = _catalog(rel)
         assert spec["type"] == "object"
-        assert "properties" in spec and spec["properties"]
+        assert "properties" in spec
+        assert spec["properties"]
         assert spec["$id"].startswith("https://schemas.traigent.ai/")

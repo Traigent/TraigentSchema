@@ -638,12 +638,6 @@ def _deploy_fixture():
     return yaml.safe_load((FIXTURES / "deploy-write-fails-then-succeeds-on-same-occurrence-retry.yml").read_text(encoding="utf-8"))
 
 
-def _hist(base, extra_by_instant):
-    h = copy.deepcopy(base)
-    h["evaluations"] = [e for e in h["evaluations"] if e["instant"] <= 1] if False else h["evaluations"]
-    return h
-
-
 def test_lapsed_deployment_recovers_via_deploy_result_never_optimization_finished():
     rt = _tvl()
     case = _deploy_fixture()

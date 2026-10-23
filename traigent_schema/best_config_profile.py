@@ -536,7 +536,7 @@ def _parse_int_rejecting_unsafe_magnitude(literal: str) -> int:
     followed by the same exact-value check ``_is_unsafe_integral`` performs
     for an already-parsed value.
     """
-    digits = literal[1:] if literal[:1] == "-" else literal
+    digits = literal[1:] if literal.startswith("-") else literal
     if len(digits) > _SAFE_INTEGER_DIGIT_COUNT:
         raise UnsafeIntegralValueError(
             f"$: integral value outside the IEEE-754 safe integer range (limit {_MAX_SAFE_INTEGER})"

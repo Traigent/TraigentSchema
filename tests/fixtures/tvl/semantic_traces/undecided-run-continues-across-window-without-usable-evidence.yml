@@ -1,0 +1,122 @@
+case_format: tvl-runtime-case/1
+family: semantic_traces
+description: A window without usable evidence neither counts nor ends an undecided
+  run; the span reaches 18 hours on the next counted window.
+spec_refs:
+- formalization/rfc-0004-reactive-outcomes-and-guards.md#2
+- formalization/rfc-0004-reactive-outcomes-and-guards.md#5
+module:
+  tvl:
+    module: conformance.semantic_trace
+  tvl_version: '1.4'
+  environment:
+    snapshot_id: '2026-10-16T00:00:00Z'
+  evaluation_set:
+    dataset: test://runtime
+  tvars:
+  - name: model_choice
+    type: enum[str]
+    domain:
+    - small
+    - large
+  objectives:
+  - name: quality
+    direction: maximize
+  promotion_policy:
+    dominance: epsilon_pareto
+    alpha: 0.05
+    min_effect:
+      quality: 0.02
+  requirements:
+  - name: requirement_main
+    kind: rate_bound
+    unit: invocation
+    violation:
+      metric: wall_clock_latency_ms
+      exceeds: 2000
+    max_rate: 0.05
+  monitors:
+  - name: monitor_main
+    requirement: requirement_main
+    phase: runtime
+    evidence:
+      source: customer_side
+      deployment_environment: production
+      attribution: agent_key_exact_v1
+      resolution: terminal_status_v1
+      sampling:
+        mode: head_sampled_declared
+        rate: 0.5
+    decision:
+      method: clopper_pearson_rational_v2
+      confidence: 0.95
+      false_alarm_budget: 0.05
+      min_samples: 200
+      max_unresolved_fraction: 0.05
+      horizon_days: 30
+      model: iid_bernoulli_within_window_v1
+    applies_to: agent
+    window:
+      tumbling_hours: 6
+      grace_minutes: 0
+    episode:
+      closure_windows: 2
+      closure_max_age_hours: 24
+  - name: monitor_gate
+    requirement: requirement_main
+    phase: promotion
+    evidence:
+      source: evaluation_set
+    decision:
+      method: clopper_pearson_rational_v2
+      confidence: 0.95
+      false_alarm_budget: 0.05
+  responses:
+  - name: repair
+    rules:
+    - id: undecided
+      trigger:
+        monitor: monitor_main
+        event: unknown_for
+        hours: 18
+      do: notify
+input:
+  kind: trace
+  history:
+    agent: agent-1
+    environment: production
+    evaluations:
+    - instant: 6
+      windows:
+      - monitor: monitor_main
+        start: 0
+        end: 6
+        verdict: UNKNOWN
+        usable: true
+    - instant: 12
+      windows:
+      - monitor: monitor_main
+        start: 6
+        end: 12
+        verdict: UNKNOWN
+        usable: false
+    - instant: 18
+      windows:
+      - monitor: monitor_main
+        start: 12
+        end: 18
+        verdict: UNKNOWN
+        usable: true
+    - instant: 24
+      windows:
+      - monitor: monitor_main
+        start: 18
+        end: 24
+        verdict: UNKNOWN
+        usable: false
+expected:
+  notifications:
+  - response: repair
+    rule: undecided
+    event: unknown_for
+    instant: 18

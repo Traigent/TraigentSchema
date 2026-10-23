@@ -90,6 +90,8 @@ _FIXED_REF_PATTERNS = frozenset(
         "^msr1:k[0-9a-f]{16}:[0-9a-f]{64}(?![\\s\\S])",  # multiset root
         "^ex_[a-f0-9]{8,12}_[0-9]+$",  # hex digest prefix + row index
         "^[0-9a-f]{12}$",  # key-version tag (hex)
+        # deploy idempotency key: a server attempt ref and two 64-hex digests, nothing else
+        "^deploy:attemptref_[0-9a-f]{32}:[0-9a-f]{64}:[0-9a-f]{64}$",
     }
 )
 
@@ -195,6 +197,17 @@ EXTRA_ROOT_FILES = (
     "execution/best_config_endpoints.json",
     "execution/best_config_publish_request_schema.json",
     "execution/best_config_rollback_request_schema.json",
+    # TRAIG-101 S1: the deploy publish-result / finalize / idempotency-key contracts are closed.
+    "execution/best_config_deploy_schema.json",
+    "execution/best_config_deploy_endpoints.json",
+)
+# Documents that carry CUSTOMER CONTENT by design and are deliberately NOT lint roots.  This is an
+# explicit allow-list (pinned by tests/test_tvl_reactive_contracts.py), not a silent skip: the pinned
+# agent-head config read returns the stored best-config spec (TRAIG-101 plan 8.4), is outside the
+# closed reactive contract and the Director bridge guarantee, and must never be reached from a root.
+EXPLICIT_CONTENT_EXCEPTIONS = (
+    "execution/best_config_agent_head_config_schema.json",
+    "execution/best_config_agent_head_config_endpoints.json",
 )
 # Closed by design (privacy bridge), not field-audited here.
 EXCLUDED_PREFIXES = ("legend/",)

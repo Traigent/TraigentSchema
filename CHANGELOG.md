@@ -49,6 +49,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
+  `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`
+  (source commit and SHA-256 pinned in `SOURCE.json`). New closed contracts: `optimization/tvl_reactive_{common,facts,
+  stage,authority,notification}_schema.json` plus `tvl_reactive_endpoints.json` (evaluation-batch staging, producer
+  watermarks, human approval grants, reservations, start authorization, effect outcome facts, cancel, attempt and
+  notification read models), and `execution/best_config_deploy_{schema,endpoints}.json` (deploy publish-result,
+  finalize) and `best_config_agent_head_config_schema.json` (exact pinned-version read; customer content, outside the
+  closed contract). Every field is a hosted token, server ref, closed enum, bounded integer, boolean, digest or
+  server timestamp; errors are closed codes that never echo input. Registered as a reviewed closed-contract
+  expansion (GNFR-PRIV-002(f)) in `docs/tvl-reactive-contracts.md`. Additive: new files and two `mep_endpoints.json`
+  entries only. Pinned by `tests/test_tvl_reactive_contracts.py` and `tests/test_tvl_vendored_schemas.py`.
 - **Explicit unmeasured-cost floor on trial results (Traigent#2688).** `session_submit_results_request_schema.json`
   gains an optional top-level `cost_floor_usd` (number, minimum 0): the reported LOWER BOUND, in USD, of a trial's
   spend when its cost was not measured (the trial's `metrics` carry `cost_unmeasured = 1.0`). Lower bound only,

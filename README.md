@@ -204,6 +204,8 @@ For development:
 
 ```bash
 pip install -e ".[dev]"
+# Python >= 3.12, to run the TVL reactive trace tests too (they fail, not skip, without it):
+pip install -e ".[dev,tvl]"
 ```
 
 ## Quick Start
@@ -398,8 +400,9 @@ forms lint and type-check paths CI does not gate, and report errors on a clean
 tree.
 
 ```bash
-# Install with dev dependencies
+# Install with dev dependencies (add the tvl extra on Python >= 3.12 for the TVL trace tests)
 pip install -e ".[dev]"   # or: make install
+pip install -e ".[dev,tvl]"
 
 # mirrors CI / test
 make test        # pytest tests/ -q -p no:cacheprovider
@@ -446,3 +449,12 @@ SPDX: `AGPL-3.0-only OR LicenseRef-Traigent-Commercial`.
 Use it free under AGPL-3.0, or contact **legal@traigent.ai** for a commercial license.
 See [LICENSING.md](LICENSING.md) for a short FAQ, [NOTICE](NOTICE) for third-party
 attributions, and [CONTRIBUTING.md](CONTRIBUTING.md) (contributions require a [CLA](CLA.md)).
+
+## TVL 1.4 reactive contracts
+
+`traigent_schema/data/tvl/` vendors the TVL runtime contract and runtime-local schemas (/1 and /2)
+byte for byte, and the `tvl_reactive_*` documents under `traigent_schema/schemas/optimization/` and
+`execution/best_config_deploy_*` define the closed wire contracts of the reactive layer (facts, grants,
+reservations, notifications, deploy publish-result). They are a reviewed closed-contract expansion
+(GNFR-PRIV-002(f)); see [`docs/tvl-reactive-contracts.md`](docs/tvl-reactive-contracts.md) for the
+field classification, principals and the vendoring record.

@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tvl-lang.org/schemas/tvl-runtime-local.schema.json",
+  "title": "TVL Runtime Local",
+  "description": "Schema for compiled customer-side declarations tvl-runtime-local/1. Evaluation requires an external evaluator; compilation does not install or execute monitors.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "tvl_version",
+    "document",
+    "contract_digest",
+    "source_digest",
+    "token_map_digest",
+    "checker_registry_digest",
+    "declarations",
+    "tokens",
+    "customer_monitors",
+    "harness_monitors",
+    "guards"
+  ],
+  "properties": {
+    "format": { "const": "tvl-runtime-local/1" },
+    "tvl_version": { "const": "1.3" },
+    "document": { "enum": ["module", "pack"] },
+    "contract_digest": { "$ref": "#/$defs/Fingerprint" },
+    "source_digest": { "$ref": "#/$defs/Fingerprint" },
+    "token_map_digest": { "$ref": "#/$defs/Fingerprint" },
+    "checker_registry_digest": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/Fingerprint" }
+      ]
+    },
+    "declarations": { "$ref": "#/$defs/LocalDeclarations" },
+    "tokens": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/TokenEntry" }
+    },
+    "customer_monitors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RuntimeIdent" }
+    },
+    "harness_monitors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RuntimeIdent" }
+    },
+    "guards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["response", "rule_id", "monitor", "action", "on_check_error"],
+        "properties": {
+          "response": { "$ref": "#/$defs/RuntimeIdent" },
+          "rule_id": { "$ref": "#/$defs/RuntimeIdent" },
+          "monitor": { "$ref": "#/$defs/RuntimeIdent" },
+          "action": { "enum": ["block_action", "halt_unit"] },
+          "on_check_error": { "enum": ["block", "allow"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "RuntimeIdent": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "ModuleIdent": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    },
+    "Ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}$"
+    },
+    "Fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "DecimalString": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$"
+    },
+    "CodeIdent": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    },
+    "TokenEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "local", "hosted"],
+      "properties": {
+        "namespace": {
+          "enum": [
+            "module",
+            "requirement",
+            "monitor",
+            "response",
+            "rule",
+            "environment",
+            "selector_ref",
+            "checker",
+            "state"
+          ]
+        },
+        "local": { "type": "string", "minLength": 1 },
+        "hosted": {
+          "oneOf": [
+            { "$ref": "#/$defs/Ref" },
+            { "type": "string", "pattern": "^customer:[0-9a-f]{64}$" }
+          ]
+        }
+      }
+    },
+    "LocalDeclarations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "monitors", "responses"],
+      "oneOf": [
+        { "required": ["tvl"] },
+        { "required": ["pack"] }
+      ],
+      "properties": {
+        "tvl": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module"],
+          "properties": {
+            "module": { "$ref": "#/$defs/ModuleIdent" }
+          }
+        },
+        "pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["module"],
+          "properties": {
+            "module": { "$ref": "#/$defs/ModuleIdent" }
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocalRequirement" }
+        },
+        "monitors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocalMonitor" }
+        },
+        "responses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocalResponse" }
+        }
+      }
+    },
+    "LocalRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "unit"],
+      "properties": {
+        "name": { "$ref": "#/$defs/RuntimeIdent" },
+        "kind": { "enum": ["rate_bound", "zero_tolerance", "recovery_time", "evidence_liveness"] },
+        "unit": { "enum": ["trace", "invocation", "episode", "window"] },
+        "among": { "$ref": "#/$defs/LocalPredicate" },
+        "violation": { "$ref": "#/$defs/LocalPredicate" },
+        "max_rate": { "$ref": "#/$defs/DecimalString" },
+        "of": { "$ref": "#/$defs/RuntimeIdent" },
+        "within_hours": { "type": "integer", "minimum": 1 },
+        "max_stale_windows": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "LocalPredicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "enum": ["wall_clock_latency_ms", "cost_usd", "total_tokens", "tool_calls"] },
+        "exceeds": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "$ref": "#/$defs/DecimalString" }
+          ]
+        },
+        "checker": {
+          "oneOf": [
+            { "const": "traigent.refusal.v1" },
+            { "type": "string", "pattern": "^customer:[A-Za-z_][A-Za-z0-9_]*$" }
+          ]
+        },
+        "label_in": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/RuntimeIdent" }
+        },
+        "pattern": { "enum": ["absence", "bounded_existence", "precedence", "bounded_response", "protocol"] },
+        "a": { "$ref": "#/$defs/LocalSelector" },
+        "b": { "$ref": "#/$defs/LocalSelector" },
+        "max_count": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["single_use", "reusable"] },
+        "correlate_by": { "enum": ["unit", "correlation_id", "tool_call_id"] },
+        "within_ms": { "type": "integer", "minimum": 1 },
+        "alphabet": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocalSelector" }
+        },
+        "states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RuntimeIdent" }
+        },
+        "start": { "$ref": "#/$defs/RuntimeIdent" },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "when", "to"],
+            "properties": {
+              "from": { "$ref": "#/$defs/RuntimeIdent" },
+              "when": { "$ref": "#/$defs/LocalSelector" },
+              "to": { "$ref": "#/$defs/RuntimeIdent" }
+            }
+          }
+        },
+        "accepting": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RuntimeIdent" }
+        },
+        "rejecting": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RuntimeIdent" }
+        },
+        "unlisted": { "enum": ["reject", "ignore"] }
+      }
+    },
+    "LocalSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event"],
+      "properties": {
+        "event": {
+          "enum": [
+            "unit_start",
+            "unit_end",
+            "tool_call",
+            "tool_result",
+            "model_call",
+            "handoff",
+            "error",
+            "authorization_granted",
+            "authorization_revoked"
+          ]
+        },
+        "tool": { "$ref": "#/$defs/CodeIdent" },
+        "status": { "enum": ["running", "completed", "failed", "rejected"] },
+        "ref": { "$ref": "#/$defs/RuntimeIdent" }
+      }
+    },
+    "LocalMonitor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "requirement", "phase", "applies_to", "evidence", "decision"],
+      "properties": {
+        "name": { "$ref": "#/$defs/RuntimeIdent" },
+        "requirement": { "$ref": "#/$defs/RuntimeIdent" },
+        "phase": { "enum": ["promotion", "runtime"] },
+        "profile": { "const": "backend_v1" },
+        "applies_to": { "enum": ["agent", "tenant_floor"] },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source"],
+          "properties": {
+            "source": { "enum": ["backend_trace_metadata", "customer_side", "evaluation_set", "episodes", "windows"] },
+            "deployment_environment": { "type": "string", "minLength": 1 },
+            "attribution": { "const": "agent_key_exact_v1" },
+            "resolution": { "const": "terminal_status_v1" },
+            "sampling": {
+              "oneOf": [
+                { "const": "unverified" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["mode", "rate"],
+                  "properties": {
+                    "mode": { "enum": ["head_sampled_declared", "hash_bernoulli_committed_v1"] },
+                    "rate": { "$ref": "#/$defs/DecimalString" }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tumbling_hours", "grace_minutes"],
+          "properties": {
+            "tumbling_hours": { "enum": [1, 2, 3, 4, 6, 8, 12, 24] },
+            "grace_minutes": { "type": "integer", "minimum": 0, "maximum": 360 }
+          }
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method"],
+          "properties": {
+            "method": { "enum": ["clopper_pearson_exact_v1", "clopper_pearson_rational_v2", "exact_count_v1"] },
+            "model": { "const": "iid_bernoulli_within_window_v1" },
+            "confidence": { "$ref": "#/$defs/DecimalString" },
+            "false_alarm_budget": { "$ref": "#/$defs/DecimalString" },
+            "horizon_days": { "type": "integer", "minimum": 1, "maximum": 365 },
+            "min_samples": { "type": "integer", "minimum": 1, "maximum": 10000000 },
+            "max_unresolved_fraction": { "$ref": "#/$defs/DecimalString" },
+            "threshold_factor": { "$ref": "#/$defs/DecimalString" }
+          }
+        },
+        "episode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["closure_windows", "closure_max_age_hours"],
+          "properties": {
+            "closure_windows": { "type": "integer", "minimum": 1, "maximum": 24 },
+            "closure_max_age_hours": { "type": "integer", "minimum": 1, "maximum": 720 }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_active_obligations": { "type": "integer", "minimum": 1 },
+            "max_tracked_correlations": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "single_producer": { "type": "boolean" }
+      }
+    },
+    "LocalResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "rules"],
+      "properties": {
+        "name": { "$ref": "#/$defs/RuntimeIdent" },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LocalRule" }
+        }
+      }
+    },
+    "LocalRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trigger", "do", "approval"],
+      "properties": {
+        "id": { "$ref": "#/$defs/RuntimeIdent" },
+        "trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monitor", "event"],
+          "properties": {
+            "monitor": { "$ref": "#/$defs/RuntimeIdent" },
+            "event": {
+              "enum": [
+                "episode_opened",
+                "episode_continued",
+                "episode_open_for",
+                "episode_resolved",
+                "episode_withdrawn",
+                "recovery_overdue",
+                "recovery_cancelled",
+                "recovery_recovered",
+                "burn_breached",
+                "stale",
+                "live_again",
+                "unit_violation"
+              ]
+            },
+            "hours": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "do": {
+          "enum": [
+            "notify",
+            "open_next_step",
+            "optimize",
+            "rollback",
+            "throttle",
+            "degrade",
+            "suspend",
+            "block_action",
+            "halt_unit"
+          ]
+        },
+        "approval": { "enum": ["none", "standing", "human"] },
+        "target": {
+          "oneOf": [
+            { "const": "last_certified" },
+            { "$ref": "#/$defs/Fingerprint" }
+          ]
+        },
+        "severity": { "enum": ["info", "warning", "critical"] },
+        "fallback": {
+          "oneOf": [
+            { "enum": ["static_unavailable", "route_to_human"] },
+            { "$ref": "#/$defs/Fingerprint" }
+          ]
+        },
+        "rate_floor": { "$ref": "#/$defs/DecimalString" },
+        "repeat_after_hours": { "type": "integer", "minimum": 1 },
+        "max_repeats": { "type": "integer", "minimum": 1 },
+        "on_check_error": { "enum": ["block", "allow"] },
+        "deploy": { "enum": ["never", "if_promoted"] }
+      },
+      "if": { "properties": { "do": { "const": "optimize" } } },
+      "then": { "required": ["deploy"] },
+      "else": { "not": { "required": ["deploy"] } }
+    }
+  }
+}

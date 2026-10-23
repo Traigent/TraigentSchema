@@ -400,11 +400,13 @@ def test_subclasses_are_rejected_without_invoking_their_overrides() -> None:
         with pytest.raises(bcp.UnsupportedProfileTypeError):
             bcp.config_digest({"k": value})
 
+    sneaky_list = [SneakyStr("safe")]
     with pytest.raises(bcp.UnsupportedProfileTypeError):
-        bcp.config_digest([SneakyStr("safe")])
+        bcp.config_digest(sneaky_list)
 
+    sneaky_key_dict = {SneakyStr("k"): 1}
     with pytest.raises(bcp.NonStringKeyError):
-        bcp.config_digest({SneakyStr("k"): 1})
+        bcp.config_digest(sneaky_key_dict)
 
 
 # --- non-string keys and unsupported types -----------------------------------
@@ -438,8 +440,9 @@ class _SECRET_CANARY_CLASS_NAME:  # noqa: N801 - the unusual name IS the test
 
 
 def test_unsupported_type_error_never_names_the_offending_class() -> None:
+    config = {"k": _SECRET_CANARY_CLASS_NAME()}
     with pytest.raises(bcp.UnsupportedProfileTypeError) as excinfo:
-        bcp.config_digest({"k": _SECRET_CANARY_CLASS_NAME()})
+        bcp.config_digest(config)
     assert "SECRET_CANARY_CLASS_NAME" not in str(excinfo.value)
 
 

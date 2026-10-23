@@ -71,7 +71,8 @@ def _load_gate_module():
     rather than polluting sys.path — lets the placeholder-reason tests call
     reason_rejection() directly instead of only exercising it through the CLI."""
     spec = importlib.util.spec_from_file_location("breaking_schema_check", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     # dataclasses' string-annotation resolution (from __future__ import annotations) looks
     # the module up via sys.modules[cls.__module__] — register it before exec_module runs.

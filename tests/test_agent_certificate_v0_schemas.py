@@ -1400,7 +1400,8 @@ class TestClaimNonClaimUnion:
         assert "RECONCILIATION TABLE" in doc
         assert "Adverse history" in doc.replace("ADVERSE HISTORY", "Adverse history")
         assert "A8" in doc
-        assert "F1" in doc and "REG1" in doc
+        assert "F1" in doc
+        assert "REG1" in doc
 
     def test_payload_claim_id_mismatch_rejected(self) -> None:
         claim = _b1_claim()

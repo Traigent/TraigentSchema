@@ -217,7 +217,8 @@ def test_report_module_status_schema_enumerates_states():
     assert "off" in states
     assert "beta" in states
     assert "ga" in states
-    assert "required" in schema and "state" in schema["required"]
+    assert "required" in schema
+    assert "state" in schema["required"]
 
 
 # ---- Experiment group routes — wrapped success-envelope responses ----

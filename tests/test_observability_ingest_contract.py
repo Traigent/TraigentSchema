@@ -121,7 +121,8 @@ def test_validator_distinguishes_recursion_from_validation_error():
         cur["children"] = [{"id": "o", "type": "span", "name": "n"}]
         cur = cur["children"][0]
     result = v.validate_json(deep, "observation_schema")
-    assert isinstance(result, list) and result
+    assert isinstance(result, list)
+    assert result
     assert any("too deep" in m for m in result)
 
 

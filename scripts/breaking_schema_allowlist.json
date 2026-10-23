@@ -8376,6 +8376,23 @@
       "reason": "POST /auth/verify-email answers rate-limit rejections with the auth rate-limit body ({success:false, error, rate_limit:{limit, current_usage, remaining, reset_time, retry_after}}), not the generic rate_limit_info envelope; the previous 429 reference did not match the body the server returns. The same body is returned with HTTP 503 when the rate limiter fails closed. Clients must read `rate_limit` rather than require `message`, `error_code` or `details`. Scoped to this exact pointer.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema#599"
+    },
+    {
+      "file": "optimization/tvl_reactive_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/start/post/responses/201/content/application/json/schema/properties/lease_expires_at",
+          "role": "response",
+          "subject": "lease_expires_at",
+          "old": false,
+          "new": true,
+          "fingerprint": "4a9fcf635c3963b48523d21913a2ff752f396a18e7d0838913695fc837fdf398"
+        }
+      ],
+      "reason": "pre-release correction: contract merged in #601 has no production consumer; SDK needs the server-vouched post-start lease deadline (TRAIG-101 plan §7.5)",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
     }
   ]
 }

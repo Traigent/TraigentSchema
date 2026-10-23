@@ -567,6 +567,7 @@
         "effect",
         "fact",
         "started_at",
+        "lease_expires_at",
         "replayed"
       ],
       "properties": {
@@ -590,6 +591,10 @@
         },
         "started_at": {
           "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp"
+        },
+        "lease_expires_at": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp",
+          "description": "Server-vouched deadline of the post-start lease of this effect; the SDK uses it until its first heartbeat (which renews it). It replaces the pre-start reservation expiry."
         },
         "replayed": {
           "x-content-class": "closed_enum",

@@ -21,8 +21,10 @@ B = "https://schemas.traigent.ai/"
 REACTIVE_DOCS = sorted(OPT.glob("tvl_reactive_*_schema.json")) + [
     EXE / "best_config_deploy_schema.json"
 ]
+POLICY_CATALOG = SCHEMAS / "production_requirements" / "tvl_reactive_policy_endpoints.json"
 CATALOGS = [
     OPT / "tvl_reactive_endpoints.json",
+    POLICY_CATALOG,
     EXE / "best_config_deploy_endpoints.json",
     EXE / "best_config_agent_head_config_endpoints.json",
 ]
@@ -766,6 +768,7 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
                 (
                     "/api/v1/production-reactive/agents/{agent_ref}",
                     "/api/v1/best-configs/agent-heads/{agent_ref}",
+                    "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy",
                 )
             )
             for _method, o in item.items():
@@ -1232,3 +1235,258 @@ def test_lapsed_optimization_cancel_projects_to_a_valid_trace_and_records_optimi
     transport = _to_transport(h["evaluations"][1], _Tokens())
     assert not FACTS_V(transport["optimizations"][0])
     rt.notification_trace(module, h)  # accepted by the reference checker
+
+
+# ------------------------------------------------------------------ policy read (follow-up)
+POLICY_PATH = "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy"
+
+
+def _notify(**o):
+    rule = {
+        "response": TOK,
+        "rule": TOK2,
+        "position": 0,
+        "trigger": {"monitor": TOK, "event": "episode_opened"},
+        "action": "notify",
+        "approval": "none",
+        "executes": "server",
+        "only_while": [],
+        "unless": [],
+        "severity": "warning",
+    }
+    rule.update(o)
+    return rule
+
+
+def _opt(**o):
+    rule = _notify(action="optimize", approval="human", deploy="if_promoted")
+    rule.pop("severity")
+    rule.update(o)
+    return rule
+
+
+def _policy(**o):
+    pol = {
+        "policy_revision_ref": r("policyrevision"),
+        "contract_digest": H64,
+        "rules": [_notify()],
+        "promotion_gates": [],
+        "control_limits": [],
+    }
+    pol.update(o)
+    return pol
+
+
+def _read(policy="__default__", **o):
+    body = {
+        "schema_version": 1,
+        "agent_ref": r("agent"),
+        "policy": _policy() if policy == "__default__" else policy,
+    }
+    body.update(o)
+    return body
+
+
+POLICY_READ = v("tvl_reactive_policy_schema", "PolicyReadResponse")
+
+
+def test_policy_read_is_registered_and_closed():
+    cat = load(POLICY_CATALOG)
+    assert POLICY_PATH not in load(OPT / "tvl_reactive_endpoints.json")["paths"]
+    get = cat["paths"][POLICY_PATH]["get"]
+    assert all("x-content-class" not in p["schema"] for p in get["parameters"])
+    assert get["operationId"] == "getTvlReactivePolicy"
+    assert set(get["responses"]) == {"200", "400", "401", "403", "404", "429", "500", "503"}
+    assert "P-human only" in get["description"]
+    assert "agent_ref" in get["description"]
+    for code, resp in get["responses"].items():
+        if code != "200":
+            assert resp["content"]["application/json"]["schema"]["$ref"].endswith(
+                "tvl_reactive_common_schema.json#/definitions/Refusal"
+            )
+    assert not POLICY_READ(_read())
+    assert not POLICY_READ(_read(policy=None))
+    assert not POLICY_READ(_read(policy=_policy(rules=[])))
+    assert POLICY_READ(_read(extra=1))
+    assert POLICY_READ(_read(agent_ref="agent-1"))
+    assert POLICY_READ({k: x for k, x in _read().items() if k != "policy"})
+    assert POLICY_READ(_read(policy={**_policy(), "name": "x"}))
+    assert POLICY_READ(_read(policy={k: x for k, x in _policy().items() if k != "contract_digest"}))
+
+
+def test_policy_rules_use_tokens_and_reject_names_and_standing():
+    assert not POLICY_READ(_read(policy=_policy(rules=[_notify(), _notify(position=1)])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify(rule="my_rule")])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify(name="Latency alert")])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify(approval="standing")])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify(action="rollback")])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify(position=64)])))
+    assert POLICY_READ(_read(policy=_policy(rules=[_notify()] * 4097)))
+
+
+def test_policy_rule_conditional_fields_follow_the_action():
+    ok = lambda rule: not POLICY_READ(_read(policy=_policy(rules=[rule])))  # noqa: E731
+    assert ok(_opt())
+    assert ok(_opt(deploy="never"))
+    assert not ok(_opt(deploy="never", approval="none"))
+    # deploy iff optimize
+    assert not ok(_notify(deploy="never"))
+    assert not ok({k: x for k, x in _opt().items() if k != "deploy"})
+    # if_promoted needs human approval
+    assert not ok(_opt(approval="none"))
+    # severity only on notify
+    assert not ok(_opt(severity="info"))
+    # local guards
+    local = _notify(
+        action="block_action",
+        executes="sdk_local",
+        on_check_error="block",
+        trigger={"monitor": TOK, "event": "unit_violation"},
+    )
+    local.pop("severity")
+    assert ok(local)
+    assert ok({**local, "action": "halt_unit", "on_check_error": "allow"})
+    assert not ok({k: x for k, x in local.items() if k != "on_check_error"})
+    assert not ok({**local, "trigger": {"monitor": TOK, "event": "episode_opened"}})
+    assert not ok({**local, "trigger": {"rule": TOK, "event": "optimize_failed"}})
+    assert not ok({**local, "approval": "human"})
+    assert not ok(_notify(trigger={"monitor": TOK, "event": "unit_violation"}))
+    assert not ok(_opt(trigger={"monitor": TOK, "event": "unit_violation"}))
+    # approval ladder: optimize human, every other supported action none
+    assert not ok(_notify(approval="human"))
+    assert not ok(_opt(approval="none"))
+    # repeats: max_repeats needs repeat_after_hours; non-notify repeat must be bounded
+    assert not ok(_notify(max_repeats=2))
+    assert not ok(_opt(repeat_after_hours=2))
+    assert ok(_opt(repeat_after_hours=2, max_repeats=2))
+    assert not ok(_opt(max_repeats=2))
+    assert not ok({**local, "executes": "server"})
+    assert not ok(_notify(executes="sdk_local"))
+    assert not ok(_notify(on_check_error="block"))
+    # trigger hours iff open_for / unknown_for
+    assert ok(_notify(trigger={"monitor": TOK, "event": "episode_open_for", "hours": 4}))
+    assert not ok(_notify(trigger={"monitor": TOK, "event": "episode_open_for"}))
+    assert not ok(_notify(trigger={"monitor": TOK, "event": "episode_opened", "hours": 4}))
+    assert not ok(_notify(trigger={"monitor": TOK, "event": "recovery_overdue"}))
+    # outcome triggers, unknown_for and guards only with notify; no repeats on outcome triggers
+    outcome = {"rule": TOK2, "event": "optimize_failed"}
+    assert ok(_notify(trigger=outcome))
+    assert not ok(_opt(trigger=outcome))
+    assert not ok(_notify(trigger=outcome, repeat_after_hours=2))
+    assert not ok(_notify(trigger=outcome, max_repeats=2))
+    assert ok(_notify(repeat_after_hours=2, max_repeats=3))
+    assert not ok(_opt(trigger={"monitor": TOK, "event": "unknown_for", "hours": 2}))
+    guard = {"monitor": TOK2, "state": "episode_open"}
+    assert ok(_notify(unless=[guard], only_while=[{"rule": TOK2, "state": "attempt_open"}]))
+    assert not ok(_opt(unless=[guard]))
+    assert not ok(_notify(unless=[{"monitor": TOK2, "state": "attempt_open"}]))
+    assert not ok(_notify(unless=[{**guard, "name": "x"}]))
+
+
+def test_policy_gates_and_limits():
+    gate = {
+        "response": TOK,
+        "rule": TOK2,
+        "runtime_monitor": TOK,
+        "promotion_monitors": [{"monitor": TOK2, "requirement": TOK}],
+        "required_result": "Promote",
+    }
+    ok = lambda **o: not POLICY_READ(_read(policy=_policy(**o)))  # noqa: E731
+    assert ok(promotion_gates=[gate])
+    assert not ok(promotion_gates=[{**gate, "required_result": "Hold"}])
+    assert not ok(promotion_gates=[{**gate, "promotion_monitors": []}])
+    assert not ok(promotion_gates=[{**gate, "promotion_monitors": [{"monitor": TOK2}]}])
+    assert not ok(promotion_gates=[{**gate, "verdict": "Promote"}])
+    assert ok(control_limits=[{"monitor": TOK}])
+    both = {"monitor": TOK, "max_active_obligations": 1, "max_tracked_correlations": 5}
+    assert ok(control_limits=[both])
+    assert not ok(control_limits=[{"monitor": TOK, "max_active_obligations": 0}])
+    assert not ok(control_limits=[{"monitor": TOK, "max_tracked_correlations": 0}])
+    assert not ok(control_limits=[{"monitor": TOK, "standing": 1}])
+    assert not ok(control_limits=[{"monitor": TOK}] * 65)
+
+
+def test_flag_off_is_the_closed_404_and_no_unknown_route_promise_remains():
+    refusal = v("tvl_reactive_common_schema", "Refusal")
+    body = {
+        "success": False,
+        "error": "reference_not_found",
+        "error_code": "reference_not_found",
+        "message": "Reference not found.",
+    }
+    assert not refusal(body)
+    for path in [*CATALOGS, *REACTIVE_DOCS]:
+        assert "unknown-route" not in path.read_text(encoding="utf-8"), path.name
+    for cat in (OPT / "tvl_reactive_endpoints.json", POLICY_CATALOG):
+        for entry in load(cat)["paths"].values():
+            for op in entry.values():
+                assert '"error":"reference_not_found"' in op["description"]
+    common = load(OPT / "tvl_reactive_common_schema.json")
+    assert "reference_not_found" in common["definitions"]["Refusal"]["description"]
+
+
+def test_liveness_scope_may_be_established_by_the_first_liveness_fact():
+    common = load(OPT / "tvl_reactive_common_schema.json")["definitions"]["HostedToken"]
+    facts = load(OPT / "tvl_reactive_facts_schema.json")["definitions"]["LivenessFact"]
+    assert "first authenticated" in common["description"]
+    assert "continued" in common["description"]
+    assert "without a preceding `opened` or `fired`" in facts["properties"]["scope"]["description"]
+    assert not v("tvl_reactive_facts_schema", "LivenessFact")(
+        {"monitor": TOK, "event": "stale", "scope": TOK2}
+    )
+
+
+def test_start_receipt_carries_the_post_start_lease_deadline():
+    f = v("tvl_reactive_authority_schema", "StartReceipt")
+    ok = {
+        "schema_version": 1,
+        "attempt_ref": r("attempt"),
+        "effect": "optimize",
+        "fact": "started",
+        "started_at": "2026-10-22T10:00:00Z",
+        "lease_expires_at": "2026-10-22T11:00:00Z",
+        "replayed": False,
+    }
+    assert not f(ok)
+    assert f({k: x for k, x in ok.items() if k != "lease_expires_at"})
+    assert f({**ok, "extra": 1})
+
+
+def test_compiler_valid_local_guard_is_a_valid_declaration():
+    """Compile a local guard with tvl-spec and return its hosted shape as a declaration."""
+    import hashlib  # noqa: PLC0415
+
+    import yaml  # noqa: PLC0415
+
+    _tvl()  # version gate first: tvl-spec needs Python >= 3.12
+    import tvl  # noqa: PLC0415
+    from tvl.runtime_compiler import compile_runtime_document  # noqa: PLC0415
+    from tvl.runtime_projection import token_map_template  # noqa: PLC0415
+
+    case = (
+        Path(tvl.__file__).parent
+        / "conformance/cases/runtime/lints/local-guard-error-policy-required.yml"
+    )
+    module = yaml.safe_load(case.read_text(encoding="utf-8"))["module"]
+    module["responses"][0]["rules"][0]["on_check_error"] = "block"
+    tokens = token_map_template([module])
+    for entry in tokens["tokens"]:
+        digest = hashlib.sha256((entry["namespace"] + entry["local"]).encode()).hexdigest()
+        entry["hosted"] = "t" + digest[:16]
+    hosted, _local, _profiles = compile_runtime_document(module, token_map_doc=tokens)
+    response = hosted["declarations"]["responses"][0]
+    compiled = response["rules"][0]
+    assert compiled["trigger"]["event"] == "unit_violation" and compiled["do"] == "block_action"
+    rule = {
+        "response": response["name"],
+        "rule": compiled["id"],
+        "position": 0,
+        "trigger": compiled["trigger"],
+        "action": compiled["do"],
+        "approval": compiled["approval"],
+        "executes": "sdk_local",
+        "only_while": [],
+        "unless": [],
+        "on_check_error": compiled["on_check_error"],
+    }
+    assert not POLICY_READ(_read(policy=_policy(rules=[rule])))

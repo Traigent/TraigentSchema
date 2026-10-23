@@ -2880,6 +2880,77 @@
       ]
     },
     {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "enum",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): the key_type=\"director\" enum member added by #471 was never intended for this public schema and was never implemented in TraigentBackend (no route/model accepts key_type=director; confirmed by repo-wide grep against TraigentBackend develop). Removing it is correcting an unintended public contract addition, not retiring a shipped capability -- no real client could ever have minted a director key, since the backend would have had nowhere to persist one. The private follow-up for TraigentBackend is filed as a GitHub issue (see PR description) in case the Director-evidence feature still wants a scoped key path later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/REPLACE_WITH_PR_NUMBER",
+      "findings": [
+        {
+          "pointer": "#/properties/key_type",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"director\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"director\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "fingerprint": "3afff5b8b6e99a71399f638a1a76d4299162bfb8df0641c6463788c4de8e77d9"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "minItems",
+      "reason": "Restores the pre-#471 minItems:1 on permissions directly on the top-level property, now that the director-only allOf conditional that used to carry this constraint (in its else branch, for every non-director key_type) is gone along with the director path. Same restoration as the already-allowed scopes minItems entry from #376 (matched automatically above), just for the sibling permissions property, which #471 happened to move into the same conditional. The accepted request set for existing (non-director) clients is unchanged: empty permissions was never meaningful to the route's allowlist check either way. See test_item6_create_empty_permissions_rejected in tests/test_director_evidence_contract.py.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/REPLACE_WITH_PR_NUMBER",
+      "findings": [
+        {
+          "pointer": "#/properties/permissions",
+          "role": "request",
+          "subject": "minItems",
+          "old": null,
+          "new": 1,
+          "fingerprint": "ac9f9f3842a6eb236f27b3b01a8da131a6bf99e2844668fbf4870efdfab890b1"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "property_removed",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): resource_grants was added by #471 solely to carry the director key_type's atomic per-resource grant list; it was never intended as a general-purpose public field and TraigentBackend never implemented it (no route reads a resource_grants key off the create-request body). With key_type=director removed in this same change, resource_grants has no remaining purpose in this schema -- removing an unintended, unimplemented field is correcting the contract, not retiring a shipped one. Private follow-up filed in TraigentBackend as a GitHub issue (linked in the PR description) in case per-resource grants at key-creation time are still wanted later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/REPLACE_WITH_PR_NUMBER",
+      "findings": [
+        {
+          "pointer": "#/properties/resource_grants",
+          "role": "request",
+          "subject": "resource_grants",
+          "old": true,
+          "new": false,
+          "fingerprint": "966f38ea43d009847fd2f3f934b60eb120a096900aaa64f17a095e935336e1da"
+        }
+      ]
+    },
+    {
       "file": "x_extensions_meta_schema.json",
       "rule": "property_added",
       "reason": "Follows the x-disclosure precedent: governance metadata only, not applied as a validator over payloads. Registers the x-restricted-scopes annotation used by the authorization vocabulary to mark director_evidence:read as bound to exactly one restricted endpoint family, never user-requestable, never implied by other scopes (G1 contracts §4).",

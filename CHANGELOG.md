@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+- **Removed the never-implemented `key_type: "director"` and `resource_grants` from the API-key create
+  request contract.** `api_key_create_request_schema.json` gained a `key_type=director` enum member and
+  a `resource_grants` field in #471 (2026-09-15) alongside the Director evidence v2 contract, but neither
+  was ever intended for this public schema and TraigentBackend never implemented either one (no route or
+  model accepts `key_type=director` or reads `resource_grants` off the create-request body). Owner ruling
+  (Nimrod, 2026-10-23): correct the public contract by removing both. `key_type` is back to
+  `["user", "service", "admin", "temporary", "readonly", "system"]`; `resource_grants` and the
+  director-only `allOf` conditional are gone; `scopes`/`permissions` carry their pre-#471 `minItems: 1`
+  directly again instead of through that conditional's `else` branch. `api_key_update_request_schema.json`
+  and `api_key_rotate_request_schema.json` drop the matching director-only `x-backend-obligations` entries.
+  The restricted `director_evidence:read` scope/permission and the Director evidence DTO/envelope/route
+  from the same #471 PR are unaffected — those are a separate, intentionally contract-first feature
+  (`x-asserted-against-backend: false`) and stay as-is. Acknowledged in
+  `scripts/breaking_schema_allowlist.json`; the TraigentBackend-side gap is tracked privately as a
+  GitHub issue in that repo.
+
 ### Changed
 - **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`
   was the declared source of truth for the `x-*` vocabulary, but only key names were checked, so 88 values

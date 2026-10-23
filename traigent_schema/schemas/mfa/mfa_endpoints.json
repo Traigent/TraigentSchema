@@ -38,11 +38,18 @@
             }
           },
           "401": {
-            "description": "MFA_STEP_UP_INVALID (wrong code) or unauthenticated.",
+            "description": "MFA_STEP_UP_INVALID (wrong code), or the normal authentication failure envelope (e.g. TOKEN_EXPIRED / AUTHENTICATION_REQUIRED) when the session credential itself is missing or invalid.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -154,11 +161,18 @@
             }
           },
           "401": {
-            "description": "MFA_STEP_UP_INVALID (wrong code) or unauthenticated.",
+            "description": "MFA_STEP_UP_INVALID (wrong code), or the normal authentication failure envelope (e.g. TOKEN_EXPIRED / AUTHENTICATION_REQUIRED) when the session credential itself is missing or invalid.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./mfa_step_up_error_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./mfa_step_up_error_schema.json"
+                    },
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    }
+                  ]
                 }
               }
             }

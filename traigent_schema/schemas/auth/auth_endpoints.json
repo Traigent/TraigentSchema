@@ -584,11 +584,40 @@
             }
           },
           "403": {
-            "description": "MFA applies: `mfa_setup_required` (enforced admin not enrolled; enrollment-only `access_token`, scope `mfa_enroll`) or `mfa_required` (re-POST with `mfa_token`).",
+            "description": "MFA applies: `mfa_setup_required` (enforced admin not enrolled; enrollment-only `access_token`, scope `mfa_enroll`) or `mfa_required` (re-POST with `mfa_token`). Or `SSO_REQUIRED` (password login is disabled because the tenant enforces SSO; `details.sso` carries the policy).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./login_mfa_response_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./login_mfa_response_schema.json"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "../error_envelope_schema.json"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "error_code",
+                            "details"
+                          ],
+                          "properties": {
+                            "error_code": {
+                              "const": "SSO_REQUIRED"
+                            },
+                            "details": {
+                              "type": "object",
+                              "required": [
+                                "sso"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
                 }
               }
             }

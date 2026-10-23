@@ -65,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents that an audit-persistence failure fails the whole request with 500. The 400/500 responses of disable and backup-codes
   are now `anyOf` the step-up error and the new
   `mfa/mfa_plain_error_schema.json` (`{success:false, error}`), which is what the Backend actually returns there.
+  Second review follow-up: the disable and backup-codes 401 are `anyOf` the step-up error and the normal authentication envelope
+  (TOKEN_EXPIRED / AUTHENTICATION_REQUIRED), and the login 403 is `anyOf` the MFA bodies and the `SSO_REQUIRED` envelope
+  (`details.sso`); both are widenings (no breaking-gate change).
 
 - **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
   `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`

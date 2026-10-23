@@ -117,10 +117,8 @@ def test_login_403_bodies_and_mfa_token():
     )
     _bad(rel, {"success": False, "mfa_required": True, "user_id": "u", "extra": 1})
     login = _load("auth/auth_endpoints.json")["paths"]["/api/v1/auth/login"]["post"]["responses"]
-    assert (
-        login["403"]["content"]["application/json"]["schema"]["$ref"]
-        == "./login_mfa_response_schema.json"
-    )
+    branches = login["403"]["content"]["application/json"]["schema"]["anyOf"]
+    assert branches[0]["$ref"] == "./login_mfa_response_schema.json"
     assert "mfa_token" in _load("auth/login_request_schema.json")["properties"]
 
 
@@ -163,13 +161,13 @@ def test_admin_reset_op():
         assert "./mfa_step_up_error_schema.json" in [o["$ref"] for o in schema["anyOf"]]
 
 
-def _response_schema(path, method, status):
-    op = _load("mfa/mfa_endpoints.json")["paths"][path][method]
+def _response_schema(path, method, status, endpoints="mfa/mfa_endpoints.json"):
+    op = _load(endpoints)["paths"][path][method]
     schema = op["responses"][status]["content"]["application/json"]["schema"]
     return schema
 
 
-def _matches_response(path, method, status, body):
+def _matches_response(path, method, status, body, endpoints="mfa/mfa_endpoints.json"):
     """True when ``body`` satisfies the response schema declared for that status."""
     from referencing import Registry, Resource
     from referencing.jsonschema import DRAFT7
@@ -181,8 +179,8 @@ def _matches_response(path, method, status, body):
             "https://schemas.traigent.ai/" + file.relative_to(S).as_posix(),
             Resource.from_contents(doc, default_specification=DRAFT7),
         )
-    base = "https://schemas.traigent.ai/mfa/mfa_endpoints.json"
-    schema = json.loads(json.dumps(_response_schema(path, method, status)))
+    base = "https://schemas.traigent.ai/" + endpoints
+    schema = json.loads(json.dumps(_response_schema(path, method, status, endpoints)))
 
     def absolutize(node):
         if isinstance(node, dict):
@@ -252,3 +250,42 @@ def test_admin_reset_step_up_and_enroll_required_bodies():
     assert _matches_response(path, method, "400", required)
     assert _matches_response(path, method, "401", invalid)
     assert _matches_response(path, method, "403", enroll)
+
+
+@pytest.mark.parametrize(
+    "path,method",
+    [("/api/v1/mfa/disable", "delete"), ("/api/v1/mfa/backup-codes", "get")],
+)
+def test_401_accepts_step_up_invalid_or_normal_auth_failure(path, method):
+    invalid = {
+        "success": False,
+        "error": "Invalid MFA code",
+        "message": "Invalid MFA code",
+        "error_code": "MFA_STEP_UP_INVALID",
+    }
+    for code in ("TOKEN_EXPIRED", "AUTHENTICATION_REQUIRED"):
+        auth_failure = {
+            "success": False,
+            "error": code,
+            "message": "Sign in again",
+            "error_code": code,
+        }
+        assert _matches_response(path, method, "401", auth_failure)
+    assert _matches_response(path, method, "401", invalid)
+    assert not _matches_response(path, method, "401", {"success": False})
+
+
+def test_login_403_accepts_mfa_bodies_and_sso_required():
+    path, method, doc = "/api/v1/auth/login", "post", "auth/auth_endpoints.json"
+    sso = {
+        "success": False,
+        "error": "Single sign-on is required",
+        "message": "Password login is disabled for this tenant because SSO is enforced",
+        "error_code": "SSO_REQUIRED",
+        "details": {"sso": {"provider": "oidc", "login_url": "https://idp.example.test/login"}},
+    }
+    assert _matches_response(path, method, "403", sso, endpoints=doc)
+    assert not _matches_response(path, method, "403", dict(sso, error_code="OTHER"), endpoints=doc)
+    assert not _matches_response(
+        path, method, "403", {k: v for k, v in sso.items() if k != "details"}, doc
+    )

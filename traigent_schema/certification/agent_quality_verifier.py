@@ -76,6 +76,13 @@ from traigent_schema.certification.relying_party_verifier import (
     _verify_signature,
 )
 
+_FIELD_HOLDOUT = "evaluation_splits.holdout"
+_FIELD_MC_INTERVAL = "measured_claims.interval"
+_FIELD_MC_INTERVAL_PARAMS = "measured_claims.interval_params"
+_FIELD_MC_SUFFICIENT_STATS = "measured_claims.sufficient_statistics"
+_FIELD_MC_OBJECTIVE = "measured_claims.objective"
+_FIELD_MC_SAMPLE_SIZE = "measured_claims.sample_size"
+
 _SCHEMA_RESOURCE = (
     resources.files("traigent_schema")
     .joinpath("schemas")
@@ -671,14 +678,14 @@ AGENT_QUALITY_FIELD_LOCATIONS = frozenset(
         "split_derivation",
         "evaluation_splits",
         "evaluation_splits.selection",
-        "evaluation_splits.holdout",
+        _FIELD_HOLDOUT,
         "split_opening_witness",
         "measured_claims",
-        "measured_claims.interval",
-        "measured_claims.interval_params",
-        "measured_claims.sufficient_statistics",
-        "measured_claims.objective",
-        "measured_claims.sample_size",
+        _FIELD_MC_INTERVAL,
+        _FIELD_MC_INTERVAL_PARAMS,
+        _FIELD_MC_SUFFICIENT_STATS,
+        _FIELD_MC_OBJECTIVE,
+        _FIELD_MC_SAMPLE_SIZE,
         "measured_claims.verification_level",
         "non_certified_selection_estimates",
         "assertion",
@@ -2059,14 +2066,14 @@ def _stage_s5_objective_measurement(
     declared_objective_ids = set(declared_plan.get("objective_ids", ()))
     for claim in claims:
         if claim.get("objective_id") not in declared_objective_ids:
-            _fail("OBJECTIVE_NOT_IN_DECLARED_PLAN", "measured_claims.objective")
+            _fail("OBJECTIVE_NOT_IN_DECLARED_PLAN", _FIELD_MC_OBJECTIVE)
 
     claim_objective_ids = {claim.get("objective_id") for claim in claims}
     if (
         manifest.get("primary_objective_id") != declared_plan.get("primary_objective_id")
         or declared_plan.get("primary_objective_id") not in claim_objective_ids
     ):
-        _fail("PRIMARY_OBJECTIVE_MISSING", "measured_claims.objective")
+        _fail("PRIMARY_OBJECTIVE_MISSING", _FIELD_MC_OBJECTIVE)
 
     _unique_by(
         claims, lambda claim: claim.get("objective_id"), "OBJECTIVE_DUPLICATE", "measured_claims"
@@ -2078,19 +2085,19 @@ def _stage_s5_objective_measurement(
     for claim in claims:
         entry = registry_by_id.get(claim.get("objective_id"))
         if entry is None:
-            _fail("OBJECTIVE_NOT_REGISTERED", "measured_claims.objective")
+            _fail("OBJECTIVE_NOT_REGISTERED", _FIELD_MC_OBJECTIVE)
 
         if (
             claim.get("objective_kind") != entry["objective_kind"]
             or claim.get("direction") != entry["direction"]
         ):
-            _fail("OBJECTIVE_KIND_MISMATCH", "measured_claims.objective")
+            _fail("OBJECTIVE_KIND_MISMATCH", _FIELD_MC_OBJECTIVE)
         if claim.get("unit") != entry["unit"]:
-            _fail("OBJECTIVE_UNIT_MISMATCH", "measured_claims.objective")
+            _fail("OBJECTIVE_UNIT_MISMATCH", _FIELD_MC_OBJECTIVE)
 
         sample_size = claim.get("sample_size")
         if not isinstance(sample_size, int) or sample_size < entry["minimum_sample_size"]:
-            _fail("OBJECTIVE_MINIMUM_SAMPLE_NOT_MET", "measured_claims.sample_size")
+            _fail("OBJECTIVE_MINIMUM_SAMPLE_NOT_MET", _FIELD_MC_SAMPLE_SIZE)
 
         if entry["objective_kind"] == "nonnegative_mean" and (
             entry.get("distribution_assumption") not in _distribution_assumption_values()
@@ -2102,16 +2109,16 @@ def _stage_s5_objective_measurement(
             interval_params.get("interval_method") if isinstance(interval_params, Mapping) else None
         )
         if interval_method not in _emittable_interval_methods():
-            _fail("INTERVAL_METHOD_NOT_EMITTABLE", "measured_claims.interval_params")
+            _fail("INTERVAL_METHOD_NOT_EMITTABLE", _FIELD_MC_INTERVAL_PARAMS)
         if interval_method != _ADMISSIBLE_INTERVAL_METHOD_BY_OBJECTIVE_KIND.get(
             entry["objective_kind"]
         ):
-            _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", "measured_claims.interval_params")
+            _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", _FIELD_MC_INTERVAL_PARAMS)
 
         stats = claim.get("sufficient_statistics")
         stats = stats if isinstance(stats, Mapping) else {}
         if stats.get("stat_kind") != _STAT_KIND_BY_INTERVAL_METHOD.get(interval_method):
-            _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+            _fail("SUFFICIENT_STATISTICS_SHAPE", _FIELD_MC_SUFFICIENT_STATS)
         stat_own_count: object
         if interval_method == "wilson_score_v1":
             success_count = stats.get("success_count")
@@ -2121,7 +2128,7 @@ def _stage_s5_objective_measurement(
                 or not isinstance(trial_count, int)
                 or success_count > trial_count
             ):
-                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+                _fail("SUFFICIENT_STATISTICS_SHAPE", _FIELD_MC_SUFFICIENT_STATS)
             stat_own_count = trial_count
             # P1-V2.4 review P2-1: a Wilson claim's own declared
             # ``continuity_correction`` must be ``none`` -- the only value
@@ -2133,7 +2140,7 @@ def _stage_s5_objective_measurement(
             # recomputation exists, ``yates_v1`` is not an admissible
             # construction for this verifier to certify.
             if interval_params.get("continuity_correction") != "none":
-                _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", "measured_claims.interval_params")
+                _fail("INTERVAL_METHOD_NOT_ADMISSIBLE", _FIELD_MC_INTERVAL_PARAMS)
         else:
             stat_own_count = stats.get("sample_count")
             # P1-V2.4 review P2-1: a Student-t claim's own declared
@@ -2147,9 +2154,9 @@ def _stage_s5_objective_measurement(
                 not isinstance(stat_own_count, int)
                 or interval_params.get("degrees_of_freedom") != stat_own_count - 1
             ):
-                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+                _fail("SUFFICIENT_STATISTICS_SHAPE", _FIELD_MC_SUFFICIENT_STATS)
             if stats.get("unit_scale") != claim.get("unit"):
-                _fail("SUFFICIENT_STATISTICS_SHAPE", "measured_claims.sufficient_statistics")
+                _fail("SUFFICIENT_STATISTICS_SHAPE", _FIELD_MC_SUFFICIENT_STATS)
 
         coverage_ppm = claim.get("nominal_coverage_ppm")
         if coverage_ppm not in _nominal_coverage_values():
@@ -2165,16 +2172,16 @@ def _stage_s5_objective_measurement(
                 or endpoint < entry["minimum"]
                 or endpoint > entry["maximum"]
             ):
-                _fail("INTERVAL_OUT_OF_UNIT_BOUNDS", "measured_claims.interval")
+                _fail("INTERVAL_OUT_OF_UNIT_BOUNDS", _FIELD_MC_INTERVAL)
 
         # Rows 34-35 run BEFORE rows 32-33's recomputation, on the DECLARED
         # endpoints alone: a declared interval that is out of order or
         # degenerate is named as such, never mistaken for a recomputation
         # disagreement.
         if not (low <= point <= high):
-            _fail("INTERVAL_ORDER", "measured_claims.interval")
+            _fail("INTERVAL_ORDER", _FIELD_MC_INTERVAL)
         if not (high > low):
-            _fail("INTERVAL_DEGENERATE", "measured_claims.interval")
+            _fail("INTERVAL_DEGENERATE", _FIELD_MC_INTERVAL)
 
         # Rows 32-33: exact-integer recomputation of the point estimate and
         # both interval endpoints under `exact_integer_rational_v1`, from the
@@ -2194,7 +2201,7 @@ def _stage_s5_objective_measurement(
             wilson_trials = cast(int, trial_count)
             expected_point = _wilson_point(wilson_successes, wilson_trials)
             if point != expected_point:
-                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", "measured_claims.interval")
+                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", _FIELD_MC_INTERVAL)
             expected_low, expected_high = _wilson_bounds(
                 wilson_successes, wilson_trials, coverage_ppm
             )
@@ -2208,7 +2215,7 @@ def _stage_s5_objective_measurement(
             unit_scale = cast(str, stats.get("unit_scale"))
             sample_count = cast(int, stat_own_count)
             if point != mean_fixed:
-                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", "measured_claims.interval")
+                _fail("POINT_ESTIMATE_RECOMPUTATION_MISMATCH", _FIELD_MC_INTERVAL)
             half_width = _student_t_half_width(
                 mean_fixed=mean_fixed,
                 sample_stddev_fixed=sample_stddev_fixed,
@@ -2220,10 +2227,10 @@ def _stage_s5_objective_measurement(
             expected_high = mean_fixed + half_width
 
         if low != expected_low or high != expected_high:
-            _fail("INTERVAL_RECOMPUTATION_MISMATCH", "measured_claims.interval")
+            _fail("INTERVAL_RECOMPUTATION_MISMATCH", _FIELD_MC_INTERVAL)
 
         if sample_size != holdout_item_count or sample_size != stat_own_count:
-            _fail("SAMPLE_SIZE_MISMATCH", "measured_claims.sample_size")
+            _fail("SAMPLE_SIZE_MISMATCH", _FIELD_MC_SAMPLE_SIZE)
 
         if claim.get("verification_level") != "construction_recomputed_v1":
             _fail("VERIFICATION_LEVEL_MISMATCH", "measured_claims.verification_level")
@@ -2355,7 +2362,7 @@ def _stage_s6_splits_held_out(
     selection = splits[0]
     holdout_candidate = splits[1]
     if not isinstance(holdout_candidate, Mapping) or holdout_candidate.get("split_id") != "holdout":
-        _fail("HOLDOUT_MISSING", "evaluation_splits.holdout")
+        _fail("HOLDOUT_MISSING", _FIELD_HOLDOUT)
     holdout = holdout_candidate
     if selection.get("commitment_scheme") != holdout.get("commitment_scheme") or selection.get(
         "canonicalization_profile"
@@ -2379,7 +2386,7 @@ def _stage_s6_splits_held_out(
         if entry is not None:
             minimum_required = max(minimum_required, entry["minimum_sample_size"])
     if not isinstance(holdout_count, int) or holdout_count < minimum_required:
-        _fail("HOLDOUT_TOO_SMALL", "evaluation_splits.holdout")
+        _fail("HOLDOUT_TOO_SMALL", _FIELD_HOLDOUT)
 
     recomputed_split_derivation_digest = _role_digest(
         _AGENT_QUALITY_DIGEST_DOMAINS["split_derivation"],
@@ -2415,10 +2422,10 @@ def _stage_s6_splits_held_out(
 
     holdout_fraction_ppm = split_derivation.get("holdout_fraction_ppm")
     if not isinstance(holdout_fraction_ppm, int) or not isinstance(universe_count, int):
-        _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
+        _fail("SPLIT_SIZE_IMPLAUSIBLE", _FIELD_HOLDOUT)
     round_val, tolerance = _split_size_bound(universe_count, holdout_fraction_ppm)
     if abs(holdout_count - round_val) > tolerance:
-        _fail("SPLIT_SIZE_IMPLAUSIBLE", "evaluation_splits.holdout")
+        _fail("SPLIT_SIZE_IMPLAUSIBLE", _FIELD_HOLDOUT)
 
     if (
         manifest.get("holdout_scored_arm_count") != 1

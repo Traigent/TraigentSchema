@@ -1,4 +1,5 @@
 """TRAIG-101 S1: the vendored TVL runtime contract/local schemas are byte-exact and pinned."""
+
 import hashlib
 import json
 from pathlib import Path
@@ -28,7 +29,9 @@ def test_bytes_match_pinned_digest():
         raw = (DATA / name).read_bytes()
         assert hashlib.sha256(raw).hexdigest() == meta["sha256"], f"{name} drifted from its pin"
         assert len(raw) == meta["bytes"]
-        assert "source_path" not in meta  # a basename citation would trip the shipped-path drift test
+        assert (
+            "source_path" not in meta
+        )  # a basename citation would trip the shipped-path drift test
 
 
 def test_schemas_are_valid_2020_12_and_carry_their_format_and_version():

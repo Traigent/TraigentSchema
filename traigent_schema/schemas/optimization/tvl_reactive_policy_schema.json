@@ -46,7 +46,7 @@
       "description": "One declared guard of a rule: an episode_open guard over a monitor token, or an attempt_open guard over an optimize rule token of the same response. Tokens only."
     },
     "TriggerDeclaration": {
-      "description": "What a rule reacts to. A monitor trigger carries `hours` iff its event is episode_open_for or unknown_for; an outcome trigger names an optimize rule of the same response. Only supported triggers exist here: recovery_*, burn_breached and unit_violation are refused at import.",
+      "description": "What a rule reacts to. A monitor trigger carries `hours` iff its event is episode_open_for or unknown_for; an outcome trigger names an optimize rule of the same response. Only supported triggers exist here: recovery_* and burn_breached are refused at import; unit_violation is accepted only as the trigger of a local action (block_action, halt_unit), which must carry on_check_error.",
       "oneOf": [
         {
           "type": "object",

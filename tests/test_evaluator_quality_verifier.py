@@ -1630,7 +1630,7 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             "plan-sensitivity-pair-set-binding",
             '    if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:\n'
             '        _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
-            '"declared_plan.planned_measurements")',
+            '_FIELD_PLANNED_MEASUREMENTS)',
             '    if sensitivity["pair_set"] != bundle["declared_plan"]["sensitivity_pair_set"]:\n'
             "        pass",
             None,
@@ -1639,7 +1639,7 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             "plan-direction-coupling",
             '        if planned["threshold_comparison"] != expected:\n'
             '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
-            '"declared_plan.planned_measurements")',
+            '_FIELD_PLANNED_MEASUREMENTS)',
             '        if planned["threshold_comparison"] != expected:\n            pass',
             None,
         ),
@@ -1647,7 +1647,7 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             "plan-unplanned-role-rejected",
             "        if role not in planned_roles:\n"
             '            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
-            '"declared_plan.planned_measurements")',
+            '_FIELD_PLANNED_MEASUREMENTS)',
             "        if role not in planned_roles:\n            pass",
             None,
         ),
@@ -1659,7 +1659,7 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             # by code so a future removal of THAT guard too is caught.
             "plan-containment-scope",
             '        ):\n            _fail("DECLARED_PLAN_SCOPE_VIOLATION", '
-            '"declared_plan.planned_measurements")',
+            '_FIELD_PLANNED_MEASUREMENTS)',
             "        ):\n            pass",
             "INTERVAL_MALFORMED",
         ),
@@ -1673,7 +1673,7 @@ def test_ppm_value_unit_width_guard_still_enforces_the_maximum() -> None:
             # Independently rejected by the threshold-comparison guard once
             # the width guard is deleted; pinned by code (see above).
             "interval-width-exceeded",
-            '        _fail("INTERVAL_WIDTH_EXCEEDED", "measurements.interval")',
+            '        _fail("INTERVAL_WIDTH_EXCEEDED", _FIELD_M_INTERVAL)',
             "        pass",
             "THRESHOLD_NOT_MET",
         ),
@@ -1767,7 +1767,7 @@ def test_mutate_the_plan_containment_guard_is_caught(
         (
             "perturbation-digest-reliability",
             '    if reliability is not None and reliability["perturbation_set_digest"] != digest:\n'
-            '        _fail("PERTURBATION_SET_MISMATCH", "measurements.reliability")',
+            '        _fail("PERTURBATION_SET_MISMATCH", _FIELD_M_RELIABILITY)',
             '    if reliability is not None and reliability["perturbation_set_digest"] != digest:\n'
             "        pass",
         ),
@@ -1782,7 +1782,7 @@ def test_mutate_the_plan_containment_guard_is_caught(
             '    if determinism == "deterministic":\n'
             "        if repeat_stability is not None:\n"
             '            _fail("RELIABILITY_DETERMINISM_CONTRADICTION", '
-            '"measurements.reliability")',
+            '_FIELD_M_RELIABILITY)',
             '    if determinism == "deterministic":\n        if repeat_stability is not None:\n'
             "            pass",
         ),

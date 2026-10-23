@@ -487,8 +487,10 @@ class _FlaggedStr(str):
         return str.__hash__(self)
 
 
-def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq() -> None:
-    _FlaggedStr.eq_called = False
+def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_FlaggedStr, "eq_called", False)
     decoy = _FlaggedStr("b")
     payload = {"a": 1, decoy: "decoy-value"}
 
@@ -503,7 +505,7 @@ def test_pointer_traversal_never_invokes_a_stored_subclass_keys_eq() -> None:
 def test_selector_lookup_never_invokes_a_stored_subclass_keys_eq(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _FlaggedStr.eq_called = False
+    monkeypatch.setattr(_FlaggedStr, "eq_called", False)
     _patch_declarations(monkeypatch, _LOOKUP_DECLARATION)
     decoy = _FlaggedStr("C2")
     payload = {"selected_id": "C1", "per_candidate": {"C1": "selected", decoy: "decoy-value"}}

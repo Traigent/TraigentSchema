@@ -1531,7 +1531,9 @@ def test_threshold_high_boundary_exact_500000_accepted_500001_rejected() -> None
     _expect(rejected, "THRESHOLD_NOT_MET")
 
 
-def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> None:
+def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """P3-tl-review-1 P3: the measurement-side sweep (_measurement_role_rows,
     owned by S12) had zero coverage -- the existing #458-regression test
     duplicates a role in declared_plan.planned_measurements, which is S3,
@@ -1560,12 +1562,9 @@ def test_measurement_side_role_duplicate_distinct_from_plan_side_duplicate() -> 
         }
         for p in ("constant_output", "verbosity", "position", "self_preference", "one_token_fool")
     ]
-    real_axis_point_value = evq._axis_point_value
-    evq._axis_point_value = lambda *_a, **_kw: 0  # type: ignore[assignment]
-    try:
+    with monkeypatch.context() as patch:
+        patch.setattr(evq, "_axis_point_value", lambda *_a, **_kw: 0)
         bundle = build_bundle(measurements={"reliability": {"probe_results": probes}})
-    finally:
-        evq._axis_point_value = real_axis_point_value
     _expect(bundle, "MEASUREMENT_ROLE_DUPLICATE")
 
 

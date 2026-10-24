@@ -301,6 +301,7 @@ def _detail_payload() -> dict[str, Any]:
                     },
                     "identity_snapshot_state": "RECORDED",
                     "metric_configuration_run_id": "config-1",
+                    "metric_configuration_source": "selected",
                     "reported_example_evaluations": 0,
                     "reported_metrics": [
                         {
@@ -340,6 +341,7 @@ def _detail_payload() -> dict[str, Any]:
             "evaluator_version_ref": {"kind": "evaluator_version", "id": "eval-v1"},
             "identity_snapshot_state": "RECORDED",
             "metric_configuration_run_id": "config-1",
+            "metric_configuration_source": "sole_trial",
             "reported_example_evaluations": 1,
             "reported_metrics": [],
             "record_observation_basis": "backend_observed",
@@ -705,6 +707,30 @@ def test_journey_metric_and_identity_implications_are_closed() -> None:
     assert (
         validator.validate_json(detail, "agent_readiness_detail_response_schema") == []
     )
+
+
+def test_metric_configuration_source_is_optional_closed_and_nullable() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+
+    for value in ("selected", "sole_trial", None):
+        detail = _detail_payload()
+        detail["journey"]["items"][0]["metric_configuration_source"] = value
+        detail["anchor_summary"]["metric_configuration_source"] = value
+        assert validator.validate_json(detail, name) == []
+
+    detail = _detail_payload()
+    for item in (*detail["journey"]["items"], detail["anchor_summary"]):
+        item.pop("metric_configuration_source", None)
+    assert validator.validate_json(detail, name) == []
+
+    for bad in ("latest", "", "SELECTED", 1):
+        detail = _detail_payload()
+        detail["journey"]["items"][0]["metric_configuration_source"] = bad
+        assert validator.validate_json(detail, name)
+        detail = _detail_payload()
+        detail["anchor_summary"]["metric_configuration_source"] = bad
+        assert validator.validate_json(detail, name)
 
 
 def test_readiness_error_envelope_rejects_private_sentinels_and_details() -> None:

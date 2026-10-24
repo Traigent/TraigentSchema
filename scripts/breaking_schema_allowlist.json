@@ -8393,6 +8393,48 @@
       "reason": "pre-release correction: contract merged in #601 has no production consumer; SDK needs the server-vouched post-start lease deadline (TRAIG-101 plan §7.5)",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+    },
+    {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse",
+          "role": "response",
+          "subject": "environments",
+          "old": false,
+          "new": true,
+          "fingerprint": "c59e3a4533487fc61f5828b78a0135ad5b5230f263706101a0cbf620e9e569f3"
+        },
+        {
+          "pointer": "#/definitions/ReactivePolicy",
+          "role": "response",
+          "subject": "monitors",
+          "old": false,
+          "new": true,
+          "fingerprint": "e2faa5c806e06a49146159e275f1391917fd6dadaad76f67ba55dcf4d4277061"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; TRAIG-101 env-scope amendment replaces the single required policy with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+    },
+    {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse/properties/policy",
+          "role": "response",
+          "subject": "policy",
+          "old": true,
+          "new": false,
+          "fingerprint": "be72a0443f3ab9c4465677ce8a0700a7d27351d3832b1c3a492ef83bff33b8ae"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; TRAIG-101 env-scope amendment replaces the single required policy with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
     }
   ]
 }

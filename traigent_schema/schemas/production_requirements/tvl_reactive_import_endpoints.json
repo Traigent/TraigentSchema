@@ -3,13 +3,13 @@
   "info": {
     "title": "Traigent TVL Reactive Import Route",
     "version": "1.0.0",
-    "description": "Import of a compiled TVL runtime contract; zero-native contracts return a closed ReactiveImportReceipt (TRAIG-101). Portal catalog outside the optimization lint roots; the receipt schema stays closed and content-class checked."
+    "description": "Import of a compiled TVL runtime contract; this contract models only the zero-native ReactiveImportReceipt response (TRAIG-101). The legacy native response and the request body are outside this contract. Portal catalog outside the optimization lint roots; the receipt schema stays closed and content-class checked."
   },
   "paths": {
     "/api/v1/projects/{project_id}/production-requirements/tvl-import": {
       "post": {
         "summary": "Import a compiled TVL runtime contract",
-        "description": "Existing create-only import route (Backend: POST /production-requirements/tvl-import). Contracts with exactly one native monitor return the unchanged legacy requirement view. A zero-native contract creates no production requirement and returns ReactiveImportReceipt: 201 first import, new digest with the same semantics, or policy edit; 200 exact replay; 409 genuine native conflict or environment rebinding. P-human only. Tenant and project come from the authenticated request context only. Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 reference_not_found. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
+        "description": "Existing create-only import route (Backend: POST /production-requirements/tvl-import). This contract models only the reactive receipt response; the legacy native response and the import request body are outside this contract (no schema for them exists in this repo). A zero-native contract creates no production requirement and returns ReactiveImportReceipt: 201 first import, new digest with the same semantics, or policy edit; 200 exact replay; 409 genuine native conflict or environment rebinding. P-human only. Tenant and project come from the authenticated request context only. Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 reference_not_found. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
         "operationId": "importTvlReactiveContract",
         "x-asserted-against-backend": false,
         "parameters": [
@@ -26,49 +26,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Exact replay of an existing import (receipt.created false) or the unchanged legacy response.",
+            "description": "Exact replay of an existing import (receipt.created false). ReactiveImportReceipt.",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "not": {
-                        "required": [
-                          "receipt_kind"
-                        ]
-                      },
-                      "description": "The unchanged legacy native response: the ProductionRequirement view the Backend returns today, modelled by the Backend. It never carries receipt_kind."
-                    },
-                    {
-                      "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
-                    }
-                  ],
-                  "description": "oneOf(legacy native requirement view, ReactiveImportReceipt), discriminated by receipt_kind == reactive_import (present only on the receipt)."
+                  "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
                 }
               }
             }
           },
           "201": {
-            "description": "New import (receipt.created true) or the unchanged legacy response.",
+            "description": "New import (receipt.created true). ReactiveImportReceipt.",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "not": {
-                        "required": [
-                          "receipt_kind"
-                        ]
-                      },
-                      "description": "The unchanged legacy native response: the ProductionRequirement view the Backend returns today, modelled by the Backend. It never carries receipt_kind."
-                    },
-                    {
-                      "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
-                    }
-                  ],
-                  "description": "oneOf(legacy native requirement view, ReactiveImportReceipt), discriminated by receipt_kind == reactive_import (present only on the receipt)."
+                  "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
                 }
               }
             }
@@ -161,17 +133,6 @@
                 "schema": {
                   "$ref": "../optimization/tvl_reactive_common_schema.json#/definitions/Refusal"
                 }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "description": "Unchanged legacy import body {agent_id, contract, environment_binding}; modelled by the Backend."
               }
             }
           }

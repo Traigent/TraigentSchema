@@ -12,7 +12,7 @@
         "schema_version",
         "contract_digest",
         "policy_revision_ref",
-        "environment",
+        "environment_ref",
         "created",
         "monitors"
       ],
@@ -33,8 +33,9 @@
         "policy_revision_ref": {
           "$ref": "./tvl_reactive_common_schema.json#/definitions/PolicyRevisionRef"
         },
-        "environment": {
-          "$ref": "./tvl_reactive_common_schema.json#/definitions/EnvironmentLabel"
+        "environment_ref": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/HostedToken",
+          "description": "Opaque environment token (hosted token). The customer-chosen environment name never crosses this contract; the portal resolves the name through the existing production-requirements API."
         },
         "created": {
           "x-content-class": "closed_enum",

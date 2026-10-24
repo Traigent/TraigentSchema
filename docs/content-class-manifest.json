@@ -1174,7 +1174,6 @@
   "optimization/tvl_reactive_common_schema.json#/definitions/CandidateMonitorVerdict": "closed_enum",
   "optimization/tvl_reactive_common_schema.json#/definitions/Digest": "digest",
   "optimization/tvl_reactive_common_schema.json#/definitions/Effect": "closed_enum",
-  "optimization/tvl_reactive_common_schema.json#/definitions/EnvironmentLabel": "key_material",
   "optimization/tvl_reactive_common_schema.json#/definitions/Generation": "number",
   "optimization/tvl_reactive_common_schema.json#/definitions/GrantRef": "opaque_ref",
   "optimization/tvl_reactive_common_schema.json#/definitions/HostedToken": "key_material",

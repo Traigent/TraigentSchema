@@ -17,7 +17,7 @@ echo input. Observability is NOT privacy-preserving and must carry none of these
 
 | Class (`x-content-class`) | Fields | Constraint that proves it |
 |---|---|---|
-| hosted token (`key_material`) | `response`, `rule`, `scope`, `monitor`, `environment`, `target`, `runtime_monitor`, `requirement` | exactly `^t[A-Za-z0-9_-]{16}$` (the SDK mints `t` + 16 random base64url characters, never a hash or name); Backend ownership check against the stored policy revision or a previously announced scope (a first authenticated liveness fact may establish its own scope, see Decisions 13) |
+| hosted token (`key_material`) | `response`, `rule`, `scope`, `monitor`, `environment` (`environment_ref`), `target`, `runtime_monitor`, `requirement` | exactly `^t[A-Za-z0-9_-]{16}$` (the SDK mints `t` + 16 random base64url characters, never a hash or name); Backend ownership check against the stored policy revision or a previously announced scope (a first authenticated liveness fact may establish its own scope, see Decisions 13) |
 | server ref (`opaque_ref`) | `policy_revision_ref` (also in the policy read), `attempt_ref`, `grant_ref`, `reservation_ref`, `notification_ref`, `agent_ref`, `decided_by` (UUID) | `<kind>ref_<32 lowercase hex>` or UUID |
 | closed enum (`closed_enum`) | policy-read declaration enums (`action`, `approval`, `deploy`, `executes`, `severity`, `on_check_error`, trigger and guard events and states, `required_result`), verdicts, episode/liveness events, fact kinds, completion, approval and authority states, checks/write outcomes, effects, decisions, attempt and outcome states, evidence source, refusal codes and messages, `duration_hours` (1, 4, 24) | `enum` / `const` |
 | bounded integer (`number`) | rule `position` (0..63), trigger `hours`, `repeat_after_hours`, `max_repeats`, control limits (1..1e9), instants and window bounds (hours, 0..1e9), occurrence and repeat indices, generations (0..2^53-1), ceilings (`max_trials`, `max_cost_micro_usd`), counts | `minimum`/`maximum` |
@@ -36,7 +36,9 @@ walks the `optimization/` documents (the manifest `docs/content-class-manifest.j
 (response `optimization/tvl_reactive_policy_schema.json`; route in the portal catalog `production_requirements/tvl_reactive_policy_endpoints.json`, registered in `mep_endpoints.json`) is the
 authoritative read of the declared policy: P-human portal read, tenant and project from the
 authenticated context, project and agent authorized before anything is returned. It returns
-`{schema_version, agent_ref, policy: null | {policy_revision_ref, contract_digest, rules, promotion_gates, control_limits}}`.
+`{schema_version, agent_ref, environments: [{environment_ref, policy: null | {policy_revision_ref, contract_digest, rules, promotion_gates, control_limits, monitors}}]}`.
+`environment_ref` is an opaque hosted token, never the customer-chosen environment name; the portal resolves the name through the existing production-requirements API. Each environment has its own policy (activation is scoped per tenant, project, agent and environment). `monitors` lists every monitor as `{monitor, role}` with `role` one of `native`, `customer`, `liveness`, `promotion` (a zero-native contract has no `native`).
+The import route (`production_requirements/tvl_reactive_import_endpoints.json`) models only the zero-native `ReactiveImportReceipt` (`receipt_kind`, `schema_version`, `contract_digest`, `policy_revision_ref`, `environment_ref`, `created`, `monitors`); the legacy native response and the request body are outside this contract.
 The `agent_ref` is the server-issued opaque ref the portal then uses unchanged on every reactive route. The plain
 `project_id`/`agent_id` path ids exist only at this authorized human edge. Like the other portal catalogs (agent readiness)
 the route lives outside the optimization-channel content-class lint roots and its path parameters are unannotated; the

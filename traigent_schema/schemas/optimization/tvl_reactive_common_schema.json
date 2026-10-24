@@ -708,19 +708,6 @@
         }
       ]
     },
-    "EnvironmentLabel": {
-      "x-content-class": "key_material",
-      "type": "string",
-      "pattern": "^[A-Za-z0-9_-]+$",
-      "minLength": 1,
-      "maxLength": 64,
-      "allOf": [
-        {
-          "pattern": "^[a-z0-9_-]+$"
-        }
-      ],
-      "description": "Normalised environment label of a reactive policy or import: lowercase, 1..64 characters, restricted to a-z, 0-9, underscore and hyphen. Mirrors the Backend ck_*_environment rule (environment = lower(environment), length 1..64). A portal-edge label the tenant already holds, supplied by an authorized editor through environment_binding; never a free sentence."
-    },
     "MonitorRole": {
       "x-content-class": "closed_enum",
       "type": "string",

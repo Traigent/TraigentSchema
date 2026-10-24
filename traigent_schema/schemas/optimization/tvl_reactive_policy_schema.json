@@ -721,21 +721,22 @@
           "items": {
             "$ref": "#/definitions/EnvironmentPolicy"
           },
-          "description": "One entry per environment that has been imported or declared for the agent; each environment label appears at most once (not expressible in JSON Schema, enforced by the Backend). Empty when the agent has no environment."
+          "description": "One entry per environment that has been imported or declared for the agent; each environment_ref appears at most once (not expressible in JSON Schema, enforced by the Backend). Empty when the agent has no environment."
         }
       },
-      "description": "Closed response of the authoritative policy read (TRAIG-101): the declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of an agent's current reactive policy in each environment. Declarations only: no human-readable names, no occurrence-specific records, no verdicts. Per-environment: a list of {environment, policy|null} (TRAIG-101 env-scope amendment 2026-10-24)."
+      "description": "Closed response of the authoritative policy read (TRAIG-101): the declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of an agent's current reactive policy in each environment. Declarations only: no human-readable names, no occurrence-specific records, no verdicts. Per-environment: a list of {environment_ref, policy|null} (TRAIG-101 env-scope amendment 2026-10-24)."
     },
     "EnvironmentPolicy": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "environment",
+        "environment_ref",
         "policy"
       ],
       "properties": {
-        "environment": {
-          "$ref": "./tvl_reactive_common_schema.json#/definitions/EnvironmentLabel"
+        "environment_ref": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/HostedToken",
+          "description": "Opaque environment token (hosted token). The customer-chosen environment name never crosses this contract; the portal resolves the name through the existing production-requirements API."
         },
         "policy": {
           "oneOf": [

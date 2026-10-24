@@ -1286,7 +1286,7 @@ def _read(policy="__default__", **o):
         "schema_version": 1,
         "agent_ref": r("agent"),
         "environments": [
-            {"environment": "production", "policy": _policy() if policy == "__default__" else policy}
+            {"environment_ref": TOK, "policy": _policy() if policy == "__default__" else policy}
         ],
     }
     body.update(o)
@@ -1500,12 +1500,12 @@ def test_compiler_valid_local_guard_is_a_valid_declaration():
 
 
 # ------------------------------------------------------- env-scope / monitor-roles amendment
-def _env(environment="production", policy="__default__"):
-    return {"environment": environment, "policy": _policy() if policy == "__default__" else policy}
+def _env(environment=TOK, policy="__default__"):
+    return {"environment_ref": environment, "policy": _policy() if policy == "__default__" else policy}
 
 
 def test_policy_read_is_per_environment_with_explicit_monitor_roles():
-    two = _read(environments=[_env("production"), _env("staging", None)])
+    two = _read(environments=[_env(TOK), _env(TOK2, None)])
     assert not POLICY_READ(two)
     assert not POLICY_READ(_read(environments=[]))
     for role in ("native", "customer", "liveness", "promotion"):
@@ -1516,13 +1516,12 @@ def test_policy_read_is_per_environment_with_explicit_monitor_roles():
     assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK}])))
     assert POLICY_READ(_read(policy={k: x for k, x in _policy().items() if k != "monitors"}))
     assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK, "role": "native"}] * 65)))
-    # environment label: lowercase, 1..64, closed alphabet
-    assert POLICY_READ(_read(environments=[_env("Production")]))
+    # environment_ref: an opaque hosted token, never a customer-chosen name
+    assert POLICY_READ(_read(environments=[_env("production")]))
     assert POLICY_READ(_read(environments=[_env("")]))
-    assert POLICY_READ(_read(environments=[_env("a" * 65)]))
-    assert not POLICY_READ(_read(environments=[_env("a" * 64)]))
-    assert POLICY_READ(_read(environments=[_env("prod env")]))
-    assert POLICY_READ(_read(environments=[{"environment": "production"}]))
+    assert POLICY_READ(_read(environments=[_env("t" + "a" * 17)]))
+    assert POLICY_READ(_read(environments=[{"environment": "production", "policy": None}]))
+    assert POLICY_READ(_read(environments=[{"environment_ref": TOK}]))
     assert POLICY_READ(_read(environments=[{**_env(), "extra": 1}]))
     assert POLICY_READ(_read(environments=[_env()] * 65))
     assert POLICY_READ(_read(schema_version=2))
@@ -1570,7 +1569,7 @@ def _receipt(**o):
         "schema_version": 1,
         "contract_digest": H64,
         "policy_revision_ref": r("policyrevision"),
-        "environment": "production",
+        "environment_ref": TOK,
         "created": True,
         "monitors": [{"monitor": TOK, "role": "customer"}, {"monitor": TOK2, "role": "liveness"}],
     }
@@ -1578,7 +1577,7 @@ def _receipt(**o):
     return body
 
 
-def test_reactive_import_receipt_is_closed_and_discriminated_from_legacy():
+def test_reactive_import_receipt_is_closed_and_the_only_modelled_response():
     post = load(IMPORT_CATALOG)["paths"][IMPORT_PATH]["post"]
     assert post["operationId"] == "importTvlReactiveContract"
     assert {"200", "201", "409"} <= set(post["responses"])
@@ -1588,7 +1587,8 @@ def test_reactive_import_receipt_is_closed_and_discriminated_from_legacy():
     assert RECEIPT(_receipt(name="Latency alert"))
     assert RECEIPT(_receipt(created="true"))
     assert RECEIPT(_receipt(schema_version=1.5))
-    assert RECEIPT(_receipt(environment="Production"))
+    assert RECEIPT(_receipt(environment_ref="production"))
+    assert RECEIPT(_receipt(environment="production"))
     assert RECEIPT(_receipt(contract_digest="abc"))
     assert RECEIPT(_receipt(policy_revision_ref="rev-1"))
     assert RECEIPT(_receipt(monitors=[{"monitor": TOK, "role": "primary"}]))
@@ -1597,20 +1597,11 @@ def test_reactive_import_receipt_is_closed_and_discriminated_from_legacy():
     assert RECEIPT(_receipt(receipt_kind="other"))
     for k in _receipt():
         assert RECEIPT({x: y for x, y in _receipt().items() if x != k})
-    # oneOf(legacy, receipt): the receipt is not also a legacy response, and vice versa
-    from jsonschema import Draft7Validator
-
+    # the endpoint models ONLY the receipt: no vacuous legacy branch, no open request body
+    assert "requestBody" not in post
     for status in ("200", "201"):
         schema = post["responses"][status]["content"]["application/json"]["schema"]
-        resp = lambda inst: ref_errors(  # noqa: E731
-            REGISTRY, f"{B}optimization/_import_resp.json", inst
-        ) if False else list(
-            Draft7Validator(
-                schema | {"$id": f"{B}production_requirements/_i.json"}, registry=REGISTRY
-            ).iter_errors(inst)
-        )
-        assert len(schema["oneOf"]) == 2
-        assert not resp(_receipt())
-        assert not resp({"head_id": "x", "revision_id": "y", "kind": "latency"})
-        assert resp(_receipt(extra=1))
-        assert resp([])
+        assert schema == {
+            "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
+        }
+    assert "outside this contract" in post["description"]

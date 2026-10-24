@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`POST /api/v1/sessions` gains optional `evaluator_code_digest`: identity for an unregistered user-code evaluator (identified, never validated).** Pattern `^sha256:[0-9a-f]{64}$`, `x-content-class: digest`, `x-privacy-classification: sdk_runtime_metadata`. It is accepted only in the `identity_version` 2 typed shape and only instead of `evaluator_id`, `evaluator_definition_id` and `evaluator_ref`; `evaluator_id_source` must be absent or `unknown`; it is refused when `capabilities` contains `content_less_v1`. Additive and optional, so existing bodies validate unchanged. Content-class manifest and parity manifest regenerated. Downstream pins: not released yet; the SDK and Backend pin the commit/tag that carries this entry (package version stays 7.0.0 until a release is cut).
+
 ### Changed
 - **Agent-readiness `JourneyItem` gains optional `metric_configuration_source`.** Producers already emit it on journey items and `anchor_summary`; the closed shape rejected it. Enum `selected` | `sole_trial` | null, not required, so existing bodies still validate. Acknowledged in the breaking-change allowlist because the response object is closed.
 - **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`

@@ -367,3 +367,104 @@ def _session_create_response_properties(document: dict[str, Any]) -> dict[str, A
     """Locate the session-create 201 response properties block."""
     node = document["paths"]["/api/v1/sessions"]["post"]["responses"]["201"]["content"]
     return node["application/json"]["schema"]["properties"]
+
+
+# ---------------------------------------------------------------------------
+# evaluator_code_digest: identity of an unregistered user-code evaluator
+# (identified, never validated). Legal only in the identity_version 2 typed
+# shape, only instead of every evaluator alias, never in the content-less shape.
+# ---------------------------------------------------------------------------
+
+_CODE_DIGEST = "sha256:" + "ab12" * 16
+
+
+def _v2_code_payload(**overrides: Any) -> dict[str, Any]:
+    """A v2 typed create body that omits every evaluator alias."""
+    payload = _payload(
+        identity_version=2,
+        agent_id="ticket-classifier",
+        agent_id_source="declared",
+        dataset_id="refunds-golden",
+        dataset_id_source="declared",
+        artifact_versions={
+            "agent": {"schema": "fp1", "digest": "sha256:" + "1" * 64, "state": "verified"},
+            "dataset": {"schema": "fp1", "digest": "sha256:" + "2" * 64, "state": "verified"},
+            "evaluator": {"schema": "fp1", "digest": "sha256:" + "3" * 64, "state": "verified"},
+            "config_space": {"schema": "fp1", "digest": "sha256:" + "4" * 64, "state": "verified"},
+        },
+        evaluator_code_digest=_CODE_DIGEST,
+    )
+    payload.update(overrides)
+    return payload
+
+
+def _errors(payload: dict[str, Any]) -> list[Any]:
+    return _validator().validate_request("/api/v1/sessions", "POST", payload)
+
+
+def test_code_digest_accepted_alone_in_v2_shape() -> None:
+    # The fixture omits evaluator_id (null is rejected, so it must be absent).
+    payload = _v2_code_payload()
+    assert "evaluator_id" not in payload
+    assert _errors(payload) == []
+
+
+def test_code_digest_accepted_with_unknown_evaluator_source() -> None:
+    assert _errors(_v2_code_payload(evaluator_id_source="unknown")) == []
+
+
+def test_code_digest_rejected_with_each_alias() -> None:
+    for alias in ("evaluator_id", "evaluator_definition_id", "evaluator_ref"):
+        value: Any = "exact-match-v3"
+        if alias == "evaluator_ref":
+            value = "evaluator_" + "0" * 64
+        errs = _errors(_v2_code_payload(**{alias: value}))
+        assert errs, f"{alias} next to evaluator_code_digest must be rejected"
+
+
+def test_code_digest_rejected_with_declared_or_registered_source() -> None:
+    for source in ("declared", "registered"):
+        assert _errors(_v2_code_payload(evaluator_id_source=source)), source
+
+
+def test_code_digest_rejected_in_content_less_shape() -> None:
+    assert _errors(_v2_code_payload(capabilities=["content_less_v1"]))
+
+
+def test_code_digest_rejected_unless_identity_version_is_2() -> None:
+    legacy = _v2_code_payload()
+    del legacy["identity_version"]
+    assert _errors(legacy), "absent identity_version (legacy shape) must be rejected"
+    assert _errors(_v2_code_payload(identity_version=1)), "identity_version 1 must be rejected"
+    assert _errors(_v2_code_payload(identity_version=None)), "null identity_version"
+    assert _errors(_v2_code_payload(identity_version=3)), "identity_version 3 is not in the enum"
+
+
+def test_code_digest_malformed_values_rejected() -> None:
+    bad_values: list[Any] = [
+        "sha256:" + "AB12" * 16,  # uppercase hex
+        "sha256:" + "ab12" * 15,  # too short
+        "sha256:" + "ab12" * 16 + "0",  # too long
+        "sha512:" + "ab12" * 16,  # wrong prefix
+        "fp1:" + "ab12" * 16,  # legacy prefix
+        "ab12" * 16,  # no prefix
+        "sha256:" + "zz" * 32,  # not hex
+        "",
+        None,  # null never counts as absent for this field
+        123,
+    ]
+    for bad in bad_values:
+        assert _errors(_v2_code_payload(evaluator_code_digest=bad)), repr(bad)
+
+
+def test_code_digest_null_does_not_bypass_alias_exclusion() -> None:
+    assert _errors(_v2_code_payload(evaluator_code_digest=None, evaluator_id="x"))
+
+
+def test_code_digest_is_classed_as_digest_in_manifest() -> None:
+    manifest = json.loads(
+        (get_schemas_dir().parent.parent / "docs" / "content-class-manifest.json").read_text()
+    )
+    suffix = "/properties/evaluator_code_digest"
+    classes = [v for k, v in manifest["classes"].items() if k.endswith(suffix)]
+    assert classes and set(classes) == {"digest"}, classes

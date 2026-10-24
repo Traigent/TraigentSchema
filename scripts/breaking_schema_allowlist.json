@@ -8577,6 +8577,23 @@
       "reason": "Additive optional field metric_configuration_source (selected | sole_trial | null) on JourneyItem, which also backs anchor_summary. Producers emit this field and the contract now declares it. Optional and nullable, in no required array, so existing bodies still validate. Flagged BREAKING only because the response object is closed: strict consumers that reject unknown fields must accept this field. Scoped to these exact pointers.",
       "version": "Unreleased",
       "pr": "pending"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "c142ba828f362264d65a8b603d0a94993041c113aa565590d43b623cfc1d913a"
+        }
+      ],
+      "reason": "Adds one conditional allOf branch whose `if` requires the NEW optional field evaluator_code_digest. A request that omits the field never triggers it, so every existing body validates exactly as before; the branch only constrains bodies that opt in.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "#610"
     }
   ]
 }

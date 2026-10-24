@@ -838,3 +838,7 @@ both SDKs. Each slot accepts only its own subset.
 
 Both are inside the vocabulary. The content-derived slots (`dataset`, `evaluated`,
 `observed_provider_versions`) are byte-identical across SDKs for the same rows and grant.
+
+## Code evaluator identity (`evaluator_code_digest`)
+
+A run scored by unregistered user code may send `evaluator_code_digest` (`sha256:<64 lowercase hex>`, class `digest`) on session create. It identifies the code and never validates it. The contract admits it only under `identity_version` 2, only in place of `evaluator_id`, `evaluator_definition_id` and `evaluator_ref`, and never in the content-less shape. It is a different value from `artifact_versions.evaluator`.

@@ -1,0 +1,203 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_schema.json",
+  "title": "Agent Decision",
+  "description": "A host-prompt decision request: the backend issues a closed question about an agent, the customer's coding agent asks the human in its own UI and posts back a closed answer. This is a closed channel: no customer content crosses it in either direction. Every id is server-issued, and the agent id is never echoed in the object. Question and option text is backend-authored fixed template text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "kind",
+    "prompt",
+    "options_version",
+    "policy_version",
+    "basis_digest",
+    "status",
+    "answer",
+    "answered_at",
+    "answered_via",
+    "answered_principal_type",
+    "human_responder",
+    "execution_status",
+    "execution_ref",
+    "next_action",
+    "issued_at",
+    "expires_at",
+    "retry_nonce"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "pattern": "^dr_[0-9a-f]{32}$",
+      "description": "Server-issued decision id.",
+      "maxLength": 35
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "PREPARE_BASELINE_EVALUATION"
+      ]
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "options"
+      ],
+      "description": "Backend-authored fixed template text. It never contains customer content.",
+      "properties": {
+        "question": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "label"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "YES",
+                  "NOT_NOW"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 40
+              }
+            }
+          }
+        }
+      }
+    },
+    "options_version": {
+      "type": "string",
+      "pattern": "^[0-9]{1,4}$",
+      "description": "Version of the option set; echoed in the answer.",
+      "maxLength": 4
+    },
+    "policy_version": {
+      "type": "string",
+      "pattern": "^[0-9]{1,4}$",
+      "description": "Version of the policy that issued the decision; echoed in the answer.",
+      "maxLength": 4
+    },
+    "basis_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest of the server-side basis the decision was issued for; echoed in the answer.",
+      "maxLength": 71
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "ANSWERED",
+        "EXPIRED",
+        "SUPERSEDED"
+      ]
+    },
+    "answer": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "YES",
+        "NOT_NOW",
+        null
+      ]
+    },
+    "answered_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "answered_via": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "AGENT_HOST_PROMPT",
+        null
+      ]
+    },
+    "answered_principal_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "API_KEY",
+        "USER_SESSION",
+        null
+      ]
+    },
+    "human_responder": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "UNKNOWN",
+        "VERIFIED_SESSION_USER",
+        null
+      ],
+      "description": "Agent-submitted answers are always UNKNOWN: no local mechanism proves a person answered."
+    },
+    "execution_status": {
+      "type": "string",
+      "enum": [
+        "NOT_APPLICABLE",
+        "AWAITING_PREFLIGHT",
+        "STARTED",
+        "COMPLETED",
+        "FAILED"
+      ]
+    },
+    "execution_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^xr_[0-9a-f]{32}$",
+      "description": "One-use reference issued on a YES. The run registration carries it (decision_execution_ref) so the backend can link the run.",
+      "maxLength": 35
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "ASK_BUILDER",
+        "RUN_PREFLIGHT",
+        "NONE"
+      ],
+      "description": "RUN_PREFLIGHT means: do the dry-run and cost estimate and get explicit paid-run approval. A YES never authorises spend by itself."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retry_nonce": {
+      "type": "string",
+      "pattern": "^rn_[0-9a-f]{32}$",
+      "description": "Server-issued; the client echoes it in the answer for idempotent retries.",
+      "maxLength": 35
+    }
+  }
+}

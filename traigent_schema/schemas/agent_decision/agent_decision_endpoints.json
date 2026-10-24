@@ -1,0 +1,262 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Agent Decision (host-prompt) Routes",
+    "version": "1.0.0",
+    "description": "Closed host-prompt decision requests: the backend issues a closed question about an agent; the customer's coding agent asks the human in its own UI and posts back a closed answer. No customer content crosses this channel."
+  },
+  "paths": {
+    "/api/v1beta/agent-decisions/{agent_id}/ensure": {
+      "post": {
+        "summary": "Ensure an open decision for an agent",
+        "description": "Idempotent: returns the existing OPEN decision for the same basis. Requires project role editor.",
+        "operationId": "ensureAgentDecision",
+        "x-asserted-against-backend": false,
+        "x-required-permission": "experiment.write",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "description": "Server-issued agent id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./agent_decision_ensure_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The open decision for this basis, or null when none applies now.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent or decision not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Basis changed or decision superseded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request or not eligible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Policy unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/agent-decisions/{agent_id}/latest": {
+      "get": {
+        "summary": "Get the latest decision for an agent",
+        "description": "Read-only. Returns the latest decision in any status, or null. Requires project role viewer.",
+        "operationId": "getLatestAgentDecision",
+        "x-asserted-against-backend": false,
+        "x-required-permission": "experiment.read",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "description": "Server-issued agent id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The latest decision in any status, or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/agent-decisions/{decision_id}/answer": {
+      "post": {
+        "summary": "Answer a decision",
+        "description": "Requires project role editor. Idempotent on retry_nonce.",
+        "operationId": "answerAgentDecision",
+        "x-asserted-against-backend": false,
+        "x-required-permission": "experiment.write",
+        "parameters": [
+          {
+            "name": "decision_id",
+            "in": "path",
+            "required": true,
+            "description": "Server-issued decision id (dr_<32 hex>).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./agent_decision_answer_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The answered decision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Decision not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already answered, stale basis, or replay mismatch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Decision expired or superseded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request or version mismatch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Policy unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_decision_error_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

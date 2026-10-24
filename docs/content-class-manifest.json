@@ -583,6 +583,7 @@
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/dataset_id_source": "closed_enum",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/dataset_metadata": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/dataset_metadata [keys]": "legacy_content",
+  "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/decision_execution_ref": "opaque_ref",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/default_config": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/default_config [keys]": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/evaluator_code_digest": "digest",

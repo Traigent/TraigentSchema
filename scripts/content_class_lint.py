@@ -92,6 +92,8 @@ _FIXED_REF_PATTERNS = frozenset(
         "^[0-9a-f]{12}$",  # key-version tag (hex)
         # deploy idempotency key: a server attempt ref and two 64-hex digests, nothing else
         "^deploy:attemptref_[0-9a-f]{32}:[0-9a-f]{64}:[0-9a-f]{64}$",
+        # one-use execution reference a host-prompt decision issues on a YES (agent_decision)
+        "^xr_[0-9a-f]{32}$",
     }
 )
 

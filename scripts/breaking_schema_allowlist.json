@@ -8415,9 +8415,9 @@
           "fingerprint": "e2faa5c806e06a49146159e275f1391917fd6dadaad76f67ba55dcf4d4277061"
         }
       ],
-      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; TRAIG-101 env-scope amendment replaces the single required policy with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
       "version": "Unreleased",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
     },
     {
       "file": "optimization/tvl_reactive_policy_schema.json",
@@ -8432,9 +8432,9 @@
           "fingerprint": "be72a0443f3ab9c4465677ce8a0700a7d27351d3832b1c3a492ef83bff33b8ae"
         }
       ],
-      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; TRAIG-101 env-scope amendment replaces the single required policy with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
       "version": "Unreleased",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
     },
     {
       "file": "production_requirements/tvl_reactive_policy_endpoints.json",
@@ -8449,9 +8449,9 @@
           "fingerprint": "aa43aee19e2de6baef137d1f8208df8eaa176a81bdeab73ae4303b7b01355131"
         }
       ],
-      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (TRAIG-101 env-scope amendment): the response adds environments[{environment_ref, policy|null}] in place of the single policy property. The contract merged in #603 has no shipped consumer.",
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): the response adds environments[{environment_ref, policy|null}] in place of the single policy property. The contract merged in #603 has no shipped consumer.",
       "version": "Unreleased",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
     },
     {
       "file": "production_requirements/tvl_reactive_policy_endpoints.json",
@@ -8466,7 +8466,7 @@
           "fingerprint": "530e5ac89e1f691fe85d534fbc3b52f9bda5faeb14be919abf34d0a9b1eae8e2"
         }
       ],
-      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (TRAIG-101 env-scope amendment): policy is no longer a required top-level property; it is per environment inside environments. The contract merged in #603 has no shipped consumer.",
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): policy is no longer a required top-level property; it is per environment inside environments. The contract merged in #603 has no shipped consumer.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
     },

@@ -249,6 +249,14 @@
                     "maxLength": 200,
                     "description": "Optional identity of an evaluator definition already registered with the backend. This is not synthesized from a callable fingerprint."
                   },
+                  "evaluator_code_digest": {
+                    "x-content-class": "digest",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "maxLength": 71,
+                    "description": "Optional identity of an unregistered, user-code evaluator: a domain-separated SHA-256 over the source of the scorer that actually runs (wire form sha256:<64 lowercase hex>). It identifies the code; it never validates it. It is legal only in the identity_version 2 typed shape, and only INSTEAD of evaluator_id, evaluator_definition_id and evaluator_ref (any of them could carry a customer label next to a code identity); evaluator_id_source must then be absent or 'unknown'. It is never sent in the content-less shape. Absent means no code identity. It is not the same value as artifact_versions.evaluator or artifact_fingerprints.evaluator."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
@@ -529,6 +537,27 @@
                       "required": ["evaluator_id_source"]
                     },
                     "then": { "not": { "required": ["evaluator_id"] } }
+                  },
+                  {
+                    "description": "A code evaluator identity (evaluator_code_digest) stands alone. It is refused together with evaluator_id, evaluator_definition_id or evaluator_ref, because any of those could carry a customer label next to a code identity; evaluator_id_source must be absent or 'unknown'; it is legal only under identity_version 2; and it is refused when the session declares the content_less_v1 capability. Presence is tested with `required` inside the `if`, so a null value does not slip past it.",
+                    "if": { "required": ["evaluator_code_digest"] },
+                    "then": {
+                      "required": ["identity_version"],
+                      "properties": {
+                        "identity_version": { "const": 2 },
+                        "evaluator_id_source": { "const": "unknown" },
+                        "capabilities": {
+                          "not": { "contains": { "const": "content_less_v1" } }
+                        }
+                      },
+                      "not": {
+                        "anyOf": [
+                          { "required": ["evaluator_id"] },
+                          { "required": ["evaluator_definition_id"] },
+                          { "required": ["evaluator_ref"] }
+                        ]
+                      }
+                    }
                   },
                   {
                     "description": "Legacy execution selectors removed (Traigent#2271): execution_mode and the flat hybrid_api_* keys are no longer accepted request selectors. Use algorithm/offline for execution behavior and the nested hybrid_api_options object for external evaluator configuration.",

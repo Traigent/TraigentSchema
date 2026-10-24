@@ -8409,7 +8409,7 @@
       ],
       "reason": "Deliberate widening: POST /auth/login 429 now documents two bodies (generic RATE_LIMIT_EXCEEDED and the new MFA_RATE_LIMITED) as oneOf instead of the single rate_limit_info allOf. Portal MFA flow needs to branch on the distinct throttle code.",
       "version": "Unreleased",
-      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/604"
     },
     {
       "file": "mfa/mfa_endpoints.json",
@@ -8426,7 +8426,7 @@
       ],
       "reason": "The route already rejects a missing setup_token with 400; the contract never declared the query parameter. Documenting it as required matches shipped behaviour (TraigentBackend src/routes/mfa_routes.py get_qr_code). No consumer exists in generated clients (FE has no mfa entries).",
       "version": "Unreleased",
-      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/604"
     },
     {
       "file": "mfa/mfa_endpoints.json",
@@ -8467,7 +8467,7 @@
       ],
       "reason": "Placeholder `default` responses ('Response shape pending') replaced by typed 200/4xx/5xx responses traced to the handlers. Pre-release authoring completion; the generated FE client has no MFA entries.",
       "version": "Unreleased",
-      "pr": "pending: branch feature/portal-mfa-flow, PR not yet opened"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/604"
     }
   ]
 }

@@ -8610,7 +8610,7 @@
       ],
       "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
       "version": "7.0.0 (unreleased; next release)",
-      "pr": "pending"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
     },
     {
       "file": "observability/evaluator_definition_schema.json",
@@ -8627,7 +8627,7 @@
       ],
       "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
       "version": "7.0.0 (unreleased; next release)",
-      "pr": "pending"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
     },
     {
       "file": "observability/evaluator_update_request_schema.json",
@@ -8644,7 +8644,7 @@
       ],
       "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
       "version": "7.0.0 (unreleased; next release)",
-      "pr": "pending"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
     }
   ]
 }

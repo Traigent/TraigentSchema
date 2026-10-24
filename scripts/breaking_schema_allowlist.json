@@ -8395,6 +8395,82 @@
       "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
     },
     {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse",
+          "role": "response",
+          "subject": "environments",
+          "old": false,
+          "new": true,
+          "fingerprint": "c59e3a4533487fc61f5828b78a0135ad5b5230f263706101a0cbf620e9e569f3"
+        },
+        {
+          "pointer": "#/definitions/ReactivePolicy",
+          "role": "response",
+          "subject": "monitors",
+          "old": false,
+          "new": true,
+          "fingerprint": "e2faa5c806e06a49146159e275f1391917fd6dadaad76f67ba55dcf4d4277061"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse/properties/policy",
+          "role": "response",
+          "subject": "policy",
+          "old": true,
+          "new": false,
+          "fingerprint": "be72a0443f3ab9c4465677ce8a0700a7d27351d3832b1c3a492ef83bff33b8ae"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get/responses/200/content/application/json/schema/properties/environments",
+          "role": "response",
+          "subject": "environments",
+          "old": false,
+          "new": true,
+          "fingerprint": "aa43aee19e2de6baef137d1f8208df8eaa176a81bdeab73ae4303b7b01355131"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): the response adds environments[{environment_ref, policy|null}] in place of the single policy property. The contract merged in #603 has no shipped consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "policy",
+          "old": true,
+          "new": false,
+          "fingerprint": "530e5ac89e1f691fe85d534fbc3b52f9bda5faeb14be919abf34d0a9b1eae8e2"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): policy is no longer a required top-level property; it is per environment inside environments. The contract merged in #603 has no shipped consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
       "file": "auth/auth_endpoints.json",
       "rule": "allOf_removed",
       "findings": [

@@ -22,9 +22,11 @@ REACTIVE_DOCS = sorted(OPT.glob("tvl_reactive_*_schema.json")) + [
     EXE / "best_config_deploy_schema.json"
 ]
 POLICY_CATALOG = SCHEMAS / "production_requirements" / "tvl_reactive_policy_endpoints.json"
+IMPORT_CATALOG = SCHEMAS / "production_requirements" / "tvl_reactive_import_endpoints.json"
 CATALOGS = [
     OPT / "tvl_reactive_endpoints.json",
     POLICY_CATALOG,
+    IMPORT_CATALOG,
     EXE / "best_config_deploy_endpoints.json",
     EXE / "best_config_agent_head_config_endpoints.json",
 ]
@@ -769,12 +771,13 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
                     "/api/v1/production-reactive/agents/{agent_ref}",
                     "/api/v1/best-configs/agent-heads/{agent_ref}",
                     "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy",
+                    "/api/v1/projects/{project_id}/production-requirements/tvl-import",
                 )
             )
             for _method, o in item.items():
                 assert o["x-asserted-against-backend"] is False and o["operationId"]
                 for status, resp in o["responses"].items():
-                    ref_ = resp["content"]["application/json"]["schema"]["$ref"]
+                    ref_ = resp["content"]["application/json"]["schema"].get("$ref", "")
                     if int(status) >= 400:
                         assert ref_.endswith(
                             "tvl_reactive_common_schema.json#/definitions/Refusal"
@@ -1272,6 +1275,7 @@ def _policy(**o):
         "rules": [_notify()],
         "promotion_gates": [],
         "control_limits": [],
+        "monitors": [{"monitor": TOK, "role": "customer"}],
     }
     pol.update(o)
     return pol
@@ -1281,7 +1285,9 @@ def _read(policy="__default__", **o):
     body = {
         "schema_version": 1,
         "agent_ref": r("agent"),
-        "policy": _policy() if policy == "__default__" else policy,
+        "environments": [
+            {"environment_ref": TOK, "policy": _policy() if policy == "__default__" else policy}
+        ],
     }
     body.update(o)
     return body
@@ -1309,7 +1315,8 @@ def test_policy_read_is_registered_and_closed():
     assert not POLICY_READ(_read(policy=_policy(rules=[])))
     assert POLICY_READ(_read(extra=1))
     assert POLICY_READ(_read(agent_ref="agent-1"))
-    assert POLICY_READ({k: x for k, x in _read().items() if k != "policy"})
+    assert POLICY_READ({k: x for k, x in _read().items() if k != "environments"})
+    assert POLICY_READ({**_read(), "policy": None})  # the pre-amendment top-level shape
     assert POLICY_READ(_read(policy={**_policy(), "name": "x"}))
     assert POLICY_READ(_read(policy={k: x for k, x in _policy().items() if k != "contract_digest"}))
 
@@ -1490,3 +1497,111 @@ def test_compiler_valid_local_guard_is_a_valid_declaration():
         "on_check_error": compiled["on_check_error"],
     }
     assert not POLICY_READ(_read(policy=_policy(rules=[rule])))
+
+
+# ------------------------------------------------------- env-scope / monitor-roles amendment
+def _env(environment=TOK, policy="__default__"):
+    return {"environment_ref": environment, "policy": _policy() if policy == "__default__" else policy}
+
+
+def test_policy_read_is_per_environment_with_explicit_monitor_roles():
+    two = _read(environments=[_env(TOK), _env(TOK2, None)])
+    assert not POLICY_READ(two)
+    assert not POLICY_READ(_read(environments=[]))
+    for role in ("native", "customer", "liveness", "promotion"):
+        assert not POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK, "role": role}])))
+    assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK, "role": "primary"}])))
+    assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK, "role": "native", "x": 1}])))
+    assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": "latency", "role": "native"}])))
+    assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK}])))
+    assert POLICY_READ(_read(policy={k: x for k, x in _policy().items() if k != "monitors"}))
+    assert POLICY_READ(_read(policy=_policy(monitors=[{"monitor": TOK, "role": "native"}] * 65)))
+    # environment_ref: an opaque hosted token, never a customer-chosen name
+    assert POLICY_READ(_read(environments=[_env("production")]))
+    assert POLICY_READ(_read(environments=[_env("")]))
+    assert POLICY_READ(_read(environments=[_env("t" + "a" * 17)]))
+    assert POLICY_READ(_read(environments=[{"environment": "production", "policy": None}]))
+    assert POLICY_READ(_read(environments=[{"environment_ref": TOK}]))
+    assert POLICY_READ(_read(environments=[{**_env(), "extra": 1}]))
+    assert POLICY_READ(_read(environments=[_env()] * 65))
+    assert POLICY_READ(_read(schema_version=2))
+    assert POLICY_READ(_read(schema_version=1.5))
+    assert POLICY_READ(_read(schema_version=True))
+
+
+PUBLISH_REQ = vx("best_config_deploy_schema", "DeployPublishRequest")
+PUBLISH_PATH = "/api/v1/best-configs/agent-heads/{agent_ref}/publish-results/{key}"
+
+
+def _pub(**o):
+    body = {"schema_version": 1, "best_config_id": "bc_AbC-123", "version": 3}
+    body.update(o)
+    return body
+
+
+def test_deploy_publish_request_is_closed_and_integer_typed():
+    post = load(EXE / "best_config_deploy_endpoints.json")["paths"][PUBLISH_PATH]["post"]
+    assert post["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "best_config_deploy_schema.json#/definitions/DeployPublishRequest"
+    )
+    assert post["operationId"] == "publishTvlDeployResult"
+    assert not PUBLISH_REQ(_pub())
+    assert PUBLISH_REQ(_pub(extra=1))
+    assert PUBLISH_REQ(_pub(schema_version=2))
+    assert PUBLISH_REQ(_pub(schema_version=1.5))
+    assert PUBLISH_REQ(_pub(schema_version=True))
+    assert PUBLISH_REQ(_pub(schema_version="1"))
+    assert PUBLISH_REQ(_pub(version=1.5))
+    assert PUBLISH_REQ(_pub(version=True))
+    assert PUBLISH_REQ(_pub(version=0))
+    assert PUBLISH_REQ(_pub(best_config_id="has space"))
+    for k in ("schema_version", "best_config_id", "version"):
+        assert PUBLISH_REQ({x: y for x, y in _pub().items() if x != k})
+
+
+IMPORT_PATH = "/api/v1/projects/{project_id}/production-requirements/tvl-import"
+RECEIPT = v("tvl_reactive_import_schema", "ReactiveImportReceipt")
+
+
+def _receipt(**o):
+    body = {
+        "receipt_kind": "reactive_import",
+        "schema_version": 1,
+        "contract_digest": H64,
+        "policy_revision_ref": r("policyrevision"),
+        "environment_ref": TOK,
+        "created": True,
+        "monitors": [{"monitor": TOK, "role": "customer"}, {"monitor": TOK2, "role": "liveness"}],
+    }
+    body.update(o)
+    return body
+
+
+def test_reactive_import_receipt_is_closed_and_the_only_modelled_response():
+    post = load(IMPORT_CATALOG)["paths"][IMPORT_PATH]["post"]
+    assert post["operationId"] == "importTvlReactiveContract"
+    assert {"200", "201", "409"} <= set(post["responses"])
+    assert not RECEIPT(_receipt())
+    assert not RECEIPT(_receipt(created=False, monitors=[]))
+    assert RECEIPT(_receipt(extra=1))
+    assert RECEIPT(_receipt(name="Latency alert"))
+    assert RECEIPT(_receipt(created="true"))
+    assert RECEIPT(_receipt(schema_version=1.5))
+    assert RECEIPT(_receipt(environment_ref="production"))
+    assert RECEIPT(_receipt(environment="production"))
+    assert RECEIPT(_receipt(contract_digest="abc"))
+    assert RECEIPT(_receipt(policy_revision_ref="rev-1"))
+    assert RECEIPT(_receipt(monitors=[{"monitor": TOK, "role": "primary"}]))
+    assert RECEIPT(_receipt(monitors=[{"monitor": "my monitor", "role": "native"}]))
+    assert RECEIPT(_receipt(monitors=[{"monitor": TOK, "role": "native", "name": "x"}]))
+    assert RECEIPT(_receipt(receipt_kind="other"))
+    for k in _receipt():
+        assert RECEIPT({x: y for x, y in _receipt().items() if x != k})
+    # the endpoint models ONLY the receipt: no vacuous legacy branch, no open request body
+    assert "requestBody" not in post
+    for status in ("200", "201"):
+        schema = post["responses"][status]["content"]["application/json"]["schema"]
+        assert schema == {
+            "$ref": "../optimization/tvl_reactive_import_schema.json#/definitions/ReactiveImportReceipt"
+        }
+    assert "outside this contract" in post["description"]

@@ -9,7 +9,7 @@
     "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy": {
       "get": {
         "summary": "Read the declared reactive policy of an agent",
-        "description": "Authoritative policy read: declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of the agent's current reactive policy; policy is null when the authorized agent has none. P-human only (portal/API session of a user with agent read access); an SDK API key is 403 forbidden. The agent is addressed by the plain agent_id the portal already holds, a portal-edge identifier that never reaches the Director bridge or observability; the project and agent are authorized first (a reference grants no access itself), then the response returns the server-issued agent_ref, which the portal uses unchanged for every other reactive route. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
+        "description": "Authoritative policy read: declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of the agent's current reactive policy in each environment. The response returns environments[{environment_ref, policy|null}], one entry per environment of the agent; policy is null for an environment that has no declared policy, and environments is empty when the agent has no environment. P-human only (portal/API session of a user with agent read access); an SDK API key is 403 forbidden. The agent is addressed by the plain agent_id the portal already holds, a portal-edge identifier that never reaches the Director bridge or observability; the project and agent are authorized first (a reference grants no access itself), then the response returns the server-issued agent_ref, which the portal uses unchanged for every other reactive route. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
         "operationId": "getTvlReactivePolicy",
         "x-asserted-against-backend": false,
         "parameters": [
@@ -36,7 +36,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The declared policy, or policy null.",
+            "description": "environments[{environment_ref, policy|null}]: one entry per environment of the agent, with that environment's declared policy or null.",
             "content": {
               "application/json": {
                 "schema": {

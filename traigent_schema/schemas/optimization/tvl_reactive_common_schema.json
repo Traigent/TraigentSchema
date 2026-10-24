@@ -707,6 +707,34 @@
           }
         }
       ]
+    },
+    "MonitorRole": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": [
+        "native",
+        "customer",
+        "liveness",
+        "promotion"
+      ],
+      "description": "Role of a monitor in a contract. native: Backend backend_v1 latency monitor. customer: customer-recorded window/episode facts on a real schedule. liveness: observes a primary monitor and inherits its environment. promotion: a promotion-gate declaration (phase promotion / evaluation_set); it has no producer, schedule, window or grace and never ingests facts."
+    },
+    "MonitorRoleEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "monitor",
+        "role"
+      ],
+      "properties": {
+        "monitor": {
+          "$ref": "#/definitions/HostedToken"
+        },
+        "role": {
+          "$ref": "#/definitions/MonitorRole"
+        }
+      },
+      "description": "One monitor of a contract: its hosted token and closed role."
     }
   }
 }

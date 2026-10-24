@@ -17,7 +17,8 @@
         {
           "properties": {
             "status": {
-              "const": "ANSWERED"
+              "const": "ANSWERED",
+              "x-content-class": "closed_enum"
             }
           }
         }

@@ -31,13 +31,16 @@
             "POLICY_UNAVAILABLE",
             "UNAUTHENTICATED",
             "FORBIDDEN",
-            "RATE_LIMITED"
-          ]
+            "RATE_LIMITED",
+            "AGENT_NOT_FOUND"
+          ],
+          "x-content-class": "closed_enum"
         },
         "retry_after_seconds": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 86400
+          "maximum": 86400,
+          "x-content-class": "number"
         }
       },
       "allOf": [

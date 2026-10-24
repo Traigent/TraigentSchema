@@ -9,7 +9,7 @@
     "/api/v1beta/agent-decisions/{agent_id}/ensure": {
       "post": {
         "summary": "Ensure an open decision for an agent",
-        "description": "Requires project role editor. Idempotent per (agent, kind, basis): concurrent ensures return the same OPEN decision. Once that basis has been answered YES or NOT_NOW no new decision is created and the response is `decision: null`. Status mapping: 404 DECISION_NOT_FOUND, 409 STALE_BASIS / NOT_ELIGIBLE, 422 INVALID_REQUEST, 503 POLICY_UNAVAILABLE.",
+        "description": "Requires project role editor. Idempotent per (agent, kind, basis): concurrent ensures return the same OPEN decision. 200 `decision: null` means no question applies for the current basis (already answered for this basis, or nothing to ask right now); no new decision is created after a YES or NOT_NOW for the same basis. Exception for recovery: if the latest decision for the current basis is ANSWERED YES with execution_status FAILED, ensure may issue a new OPEN decision. To resume after an answer (execution_ref, next_action), call latest. Status mapping: 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 AGENT_NOT_FOUND, 409 NOT_ELIGIBLE (the agent is not eligible for this kind at all), 422 INVALID_REQUEST, 429 RATE_LIMITED, 503 POLICY_UNAVAILABLE.",
         "operationId": "ensureAgentDecision",
         "x-asserted-against-backend": false,
         "x-required-permission": "experiment.write",
@@ -18,11 +18,9 @@
             "name": "agent_id",
             "in": "path",
             "required": true,
-            "description": "Server-issued agent id.",
+            "description": "Server-issued opaque agent ref.",
             "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           }
         ],
@@ -68,7 +66,7 @@
             }
           },
           "404": {
-            "description": "Agent not found (DECISION_NOT_FOUND).",
+            "description": "AGENT_NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -78,7 +76,7 @@
             }
           },
           "409": {
-            "description": "STALE_BASIS or NOT_ELIGIBLE.",
+            "description": "NOT_ELIGIBLE: the agent is not eligible for this kind at all.",
             "content": {
               "application/json": {
                 "schema": {
@@ -123,7 +121,7 @@
     "/api/v1beta/agent-decisions/{agent_id}/latest": {
       "get": {
         "summary": "Get the latest decision for an agent",
-        "description": "Read-only. Returns the latest decision in any status, or null. Requires project role viewer.",
+        "description": "Read-only. Returns the latest decision in any status, or null. Requires project role viewer. 404 AGENT_NOT_FOUND. Use it to resume after an answer: it carries execution_ref and next_action.",
         "operationId": "getLatestAgentDecision",
         "x-asserted-against-backend": false,
         "x-required-permission": "experiment.read",
@@ -132,11 +130,9 @@
             "name": "agent_id",
             "in": "path",
             "required": true,
-            "description": "Server-issued agent id.",
+            "description": "Server-issued opaque agent ref.",
             "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           }
         ],
@@ -172,7 +168,7 @@
             }
           },
           "404": {
-            "description": "Agent not found (DECISION_NOT_FOUND).",
+            "description": "AGENT_NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -197,7 +193,7 @@
     "/api/v1beta/agent-decisions/{decision_id}/answer": {
       "post": {
         "summary": "Answer a decision",
-        "description": "Requires project role editor. Status mapping: 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 DECISION_NOT_FOUND, 409 (DECISION_ALREADY_ANSWERED, REPLAY_MISMATCH, DECISION_SUPERSEDED, STALE_BASIS, VERSION_MISMATCH, NOT_ELIGIBLE), 410 DECISION_EXPIRED, 422 INVALID_REQUEST, 429 RATE_LIMITED, 503 POLICY_UNAVAILABLE. Retry semantics. Scope: the authenticated tenant + project + decision. Order: (1) authenticate and authorize (401/403); (2) if the decision is already ANSWERED with the same retry_nonce and the same request body: 200 replay of the current object, also after expiry or after execution started; (3) same retry_nonce with a different body: 409 REPLAY_MISMATCH; (4) otherwise state checks: EXPIRED 410 DECISION_EXPIRED; SUPERSEDED 409 DECISION_SUPERSEDED; answered with a different nonce 409 DECISION_ALREADY_ANSWERED; basis or version mismatch 409 STALE_BASIS / VERSION_MISMATCH; no longer eligible 409 NOT_ELIGIBLE; policy evidence unavailable 503 POLICY_UNAVAILABLE. Malformed or out-of-domain bodies are 422 INVALID_REQUEST. Recording the answer is atomic.",
+        "description": "Requires project role editor. Status mapping: 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 DECISION_NOT_FOUND, 409 (DECISION_ALREADY_ANSWERED, REPLAY_MISMATCH, DECISION_SUPERSEDED, STALE_BASIS, VERSION_MISMATCH, NOT_ELIGIBLE), 410 DECISION_EXPIRED, 422 INVALID_REQUEST, 429 RATE_LIMITED, 503 POLICY_UNAVAILABLE. Retry semantics. retry_nonce is client-generated, fresh per answer attempt, reused only to retry that same attempt; the server stores only a keyed digest of it. Scope: the authenticated tenant + project + decision. Order: (1) authenticate and authorize (401/403); (2) if the decision is ANSWERED and the stored attempt matches (same principal AND same nonce AND same body): 200 replay of the current object, also after expiry or after execution started; (3) same principal + same nonce + different body: 409 REPLAY_MISMATCH; (4) decision ANSWERED by any other attempt: 409 DECISION_ALREADY_ANSWERED; (5) then state checks: EXPIRED 410 DECISION_EXPIRED; SUPERSEDED 409 DECISION_SUPERSEDED; basis or version mismatch 409 STALE_BASIS / VERSION_MISMATCH; no longer eligible 409 NOT_ELIGIBLE; policy evidence unavailable 503 POLICY_UNAVAILABLE. Malformed or out-of-domain bodies are 422 INVALID_REQUEST. Recording the answer is atomic.",
         "operationId": "answerAgentDecision",
         "x-asserted-against-backend": false,
         "x-required-permission": "experiment.write",
@@ -209,8 +205,9 @@
             "description": "Server-issued decision id (dr_<32 hex>).",
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "maxLength": 35,
+              "pattern": "^dr_[0-9a-f]{32}$",
+              "x-content-class": "opaque_ref"
             }
           }
         ],

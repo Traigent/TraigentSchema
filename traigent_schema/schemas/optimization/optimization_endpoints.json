@@ -263,7 +263,7 @@
                     "type": ["string", "null"],
                     "pattern": "^xr_[0-9a-f]{32}$",
                     "maxLength": 35,
-                    "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent."
+                    "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent. Session creation is never blocked by this field: the backend links the run only when the ref is a live, unused ref issued for the same tenant, project and agent; otherwise it links nothing and records nothing. The ref is never echoed and never appears in errors."
                   },
                   "artifact_fingerprints": {
                     "type": "object",

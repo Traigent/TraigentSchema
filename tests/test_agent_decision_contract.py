@@ -75,7 +75,6 @@ def _decision():
         "next_action": "RUN_PREFLIGHT",
         "issued_at": "2026-10-25T09:00:00Z",
         "expires_at": "2026-10-26T09:00:00Z",
-        "retry_nonce": "rn_" + "2" * 32,
     }
 
 
@@ -115,7 +114,7 @@ def test_unknown_keys_rejected_top_and_nested():
         lambda d: d["prompt"]["options"][0].__setitem__("code", "MAYBE"),
         lambda d: d.__setitem__("next_action", "GO"),
         lambda d: d.__setitem__("execution_status", "RUNNING"),
-        lambda d: d.__setitem__("human_responder", "HUMAN"),
+        lambda d: d.__setitem__("human_responder", "VERIFIED_SESSION_USER"),
         lambda d: d.__setitem__("answered_via", "EMAIL"),
         lambda d: d.__setitem__("answered_principal_type", "ADMIN"),
     ],
@@ -131,7 +130,6 @@ def test_out_of_domain_enums_rejected(mutate):
     [
         ("decision_id", "dr_xyz"),
         ("decision_id", "DR_" + "0" * 32),
-        ("retry_nonce", "rn_" + "0" * 31),
         ("execution_ref", "xr_" + "g" * 32),
         ("basis_digest", "sha256:" + "a" * 63),
         ("basis_digest", "md5:" + "a" * 64),
@@ -166,7 +164,7 @@ def test_ensure_request():
 
 def test_answer_request():
     good = {
-        "answer": "NOT_NOW", "options_version": "1", "policy_version": "2",
+        "answer": "NOT_NOW", "options_version": "1", "policy_version": "1",
         "basis_digest": DIGEST, "retry_nonce": "rn_" + "2" * 32,
     }
     _ok(ANSWER, good)
@@ -264,6 +262,11 @@ def test_valid_lifecycle_states():
         lambda: _decision() | {"answered_at": None},
         lambda: _decision() | {"human_responder": None},
         lambda: _decision() | {"human_responder": "VERIFIED_SESSION_USER"},
+        lambda: _decision() | {"retry_nonce": "rn_" + "2" * 32},
+        lambda: _decision() | {"issued_at": "Alice_has_diabetes"},
+        lambda: _decision() | {"expires_at": "2026-10-25 10:00:00"},
+        lambda: _decision() | {"expires_at": "2026-10-25T10:00:00+02:00"},
+        lambda: _decision() | {"answered_at": "Alice_has_diabetes"},
     ],
 )
 def test_lifecycle_invariants_rejected(mutate):
@@ -340,3 +343,65 @@ def test_session_create_carries_optional_execution_ref():
     assert "decision_execution_ref" not in schema["required"]
     assert prop["pattern"] == "^xr_[0-9a-f]{32}$"
     assert "null" in prop["type"]
+
+
+def test_answer_nonce_pattern_and_bounds():
+    good = {
+        "answer": "YES", "options_version": "1", "policy_version": "1",
+        "basis_digest": DIGEST, "retry_nonce": "rn_" + "2" * 32,
+    }
+    _ok(ANSWER, good)
+    for bad in ("rn_" + "2" * 31, "rn_" + "G" * 32, "xx_" + "2" * 32, "rn_" + "2" * 33):
+        _bad(ANSWER, {**good, "retry_nonce": bad})
+    assert _load(ANSWER)["properties"]["retry_nonce"]["maxLength"] == 35
+    assert "CLIENT-generated" in _load(ANSWER)["properties"]["retry_nonce"]["description"]
+
+
+def test_timestamps_accept_rfc3339_utc():
+    _ok(DECISION, _decision() | {"issued_at": "2026-10-25T09:00:00.123456Z"})
+
+
+def test_error_reasons_include_agent_not_found():
+    _ok(ERROR, {"error": {"reason": "AGENT_NOT_FOUND"}})
+
+
+def test_endpoint_semantics_text_and_params():
+    cat = _load("agent_decision/agent_decision_endpoints.json")
+    base = "/api/v1beta/agent-decisions/"
+    ens = cat["paths"][base + "{agent_id}/ensure"]["post"]
+    lat = cat["paths"][base + "{agent_id}/latest"]["get"]
+    ans = cat["paths"][base + "{decision_id}/answer"]["post"]
+    assert "AGENT_NOT_FOUND" in ens["responses"]["404"]["description"]
+    assert "AGENT_NOT_FOUND" in lat["responses"]["404"]["description"]
+    assert ans["responses"]["404"]["description"] == "DECISION_NOT_FOUND."
+    assert "STALE_BASIS" not in ens["description"]
+    assert "STALE_BASIS" not in ens["responses"]["409"]["description"]
+    assert "call latest" in ens["description"]
+    assert "FAILED" in ens["description"]
+    for text in (
+        "same principal AND same nonce AND same body",
+        "keyed digest",
+        "DECISION_ALREADY_ANSWERED",
+    ):
+        assert text in ans["description"]
+    pid = ans["parameters"][0]["schema"]
+    assert pid["pattern"] == "^dr_[0-9a-f]{32}$"
+
+
+def test_session_ref_description_states_linking_rules():
+    cat = _load("optimization/optimization_endpoints.json")
+    schema = cat["paths"]["/api/v1/sessions"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    desc = schema["properties"]["decision_execution_ref"]["description"]
+    for text in ("never blocked", "same tenant, project and agent", "never echoed"):
+        assert text in desc
+
+
+def test_decision_domain_is_a_content_class_lint_root():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    text = (root / "scripts" / "content_class_lint.py").read_text(encoding="utf-8")
+    for f in sorted(DOMAIN.glob("*.json")):
+        assert f'"agent_decision/{f.name}"' in text

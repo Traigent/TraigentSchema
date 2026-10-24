@@ -22,21 +22,22 @@
     "execution_ref",
     "next_action",
     "issued_at",
-    "expires_at",
-    "retry_nonce"
+    "expires_at"
   ],
   "properties": {
     "decision_id": {
       "type": "string",
       "pattern": "^dr_[0-9a-f]{32}$",
       "description": "Server-issued decision id.",
-      "maxLength": 35
+      "maxLength": 35,
+      "x-content-class": "opaque_ref"
     },
     "kind": {
       "type": "string",
       "enum": [
         "PREPARE_BASELINE_EVALUATION"
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "prompt": {
       "type": "object",
@@ -49,7 +50,11 @@
       "properties": {
         "question": {
           "type": "string",
-          "maxLength": 200
+          "maxLength": 200,
+          "x-content-class": "closed_enum",
+          "enum": [
+            "Prepare the baseline evaluation for this agent now?"
+          ]
         },
         "options": {
           "type": "array",
@@ -68,11 +73,17 @@
                 "enum": [
                   "YES",
                   "NOT_NOW"
-                ]
+                ],
+                "x-content-class": "closed_enum"
               },
               "label": {
                 "type": "string",
-                "maxLength": 40
+                "maxLength": 40,
+                "x-content-class": "closed_enum",
+                "enum": [
+                  "Yes, prepare it",
+                  "Not now"
+                ]
               }
             }
           }
@@ -83,19 +94,28 @@
       "type": "string",
       "pattern": "^[0-9]{1,4}$",
       "description": "Version of the option set; echoed in the answer.",
-      "maxLength": 4
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
     },
     "policy_version": {
       "type": "string",
       "pattern": "^[0-9]{1,4}$",
       "description": "Version of the policy that issued the decision; echoed in the answer.",
-      "maxLength": 4
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
     },
     "basis_digest": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
       "description": "Digest of the server-side basis the decision was issued for; echoed in the answer.",
-      "maxLength": 71
+      "maxLength": 71,
+      "x-content-class": "digest"
     },
     "status": {
       "type": "string",
@@ -104,7 +124,8 @@
         "ANSWERED",
         "EXPIRED",
         "SUPERSEDED"
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "answer": {
       "type": [
@@ -115,14 +136,18 @@
         "YES",
         "NOT_NOW",
         null
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "answered_at": {
       "type": [
         "string",
         "null"
       ],
-      "format": "date-time"
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
     },
     "answered_via": {
       "type": [
@@ -132,7 +157,8 @@
       "enum": [
         "AGENT_HOST_PROMPT",
         null
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "answered_principal_type": {
       "type": [
@@ -143,7 +169,8 @@
         "API_KEY",
         "USER_SESSION",
         null
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "human_responder": {
       "type": [
@@ -152,10 +179,10 @@
       ],
       "enum": [
         "UNKNOWN",
-        "VERIFIED_SESSION_USER",
         null
       ],
-      "description": "Agent-submitted answers are always UNKNOWN: no local mechanism proves a person answered."
+      "description": "Agent-submitted answers are always UNKNOWN: no local mechanism proves a person answered. Verified portal approvals are a later contract.",
+      "x-content-class": "closed_enum"
     },
     "execution_status": {
       "type": "string",
@@ -165,7 +192,8 @@
         "STARTED",
         "COMPLETED",
         "FAILED"
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "execution_ref": {
       "type": [
@@ -174,7 +202,8 @@
       ],
       "pattern": "^xr_[0-9a-f]{32}$",
       "description": "One-use reference issued on a YES. The run registration carries it (decision_execution_ref) so the backend can link the run.",
-      "maxLength": 35
+      "maxLength": 35,
+      "x-content-class": "opaque_ref"
     },
     "next_action": {
       "type": "string",
@@ -183,21 +212,22 @@
         "RUN_PREFLIGHT",
         "NONE"
       ],
-      "description": "RUN_PREFLIGHT means: do the dry-run and cost estimate and get explicit paid-run approval. A YES never authorises spend by itself."
+      "description": "RUN_PREFLIGHT means: do the dry-run and cost estimate and get explicit paid-run approval. A YES never authorises spend by itself.",
+      "x-content-class": "closed_enum"
     },
     "issued_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
     },
     "expires_at": {
       "type": "string",
-      "format": "date-time"
-    },
-    "retry_nonce": {
-      "type": "string",
-      "pattern": "^rn_[0-9a-f]{32}$",
-      "description": "Server-issued; the client echoes it in the answer for idempotent retries.",
-      "maxLength": 35
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
     }
   },
   "allOf": [

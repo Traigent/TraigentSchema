@@ -18,12 +18,14 @@
       ],
       "properties": {
         "reason": {
-          "const": "RATE_LIMITED"
+          "const": "RATE_LIMITED",
+          "x-content-class": "closed_enum"
         },
         "retry_after_seconds": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 86400
+          "maximum": 86400,
+          "x-content-class": "number"
         }
       }
     }

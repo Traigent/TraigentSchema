@@ -18,27 +18,39 @@
       "enum": [
         "YES",
         "NOT_NOW"
-      ]
+      ],
+      "x-content-class": "closed_enum"
     },
     "options_version": {
       "type": "string",
       "pattern": "^[0-9]{1,4}$",
-      "maxLength": 4
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
     },
     "policy_version": {
       "type": "string",
       "pattern": "^[0-9]{1,4}$",
-      "maxLength": 4
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
     },
     "basis_digest": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "maxLength": 71
+      "maxLength": 71,
+      "x-content-class": "digest"
     },
     "retry_nonce": {
       "type": "string",
       "pattern": "^rn_[0-9a-f]{32}$",
-      "maxLength": 35
+      "maxLength": 35,
+      "x-content-class": "opaque_ref",
+      "description": "CLIENT-generated, fresh for each answer attempt, and reused only to retry that same attempt. The server stores only a keyed digest of it."
     }
   }
 }

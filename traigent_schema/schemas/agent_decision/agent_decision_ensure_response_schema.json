@@ -19,7 +19,8 @@
             {
               "properties": {
                 "status": {
-                  "const": "OPEN"
+                  "const": "OPEN",
+                  "x-content-class": "closed_enum"
                 }
               }
             }

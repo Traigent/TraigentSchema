@@ -94,6 +94,8 @@ _FIXED_REF_PATTERNS = frozenset(
         "^deploy:attemptref_[0-9a-f]{32}:[0-9a-f]{64}:[0-9a-f]{64}$",
         # one-use execution reference a host-prompt decision issues on a YES (agent_decision)
         "^xr_[0-9a-f]{32}$",
+        "^dr_[0-9a-f]{32}$",  # host-prompt decision id
+        "^rn_[0-9a-f]{32}$",  # client retry nonce for one answer attempt
     }
 )
 
@@ -202,6 +204,16 @@ EXTRA_ROOT_FILES = (
     # TRAIG-101 S1: the deploy publish-result / finalize / idempotency-key contracts are closed.
     "execution/best_config_deploy_schema.json",
     "execution/best_config_deploy_endpoints.json",
+    # TRAIG-109: host-prompt decision contracts are closed (fixed text, enums, ids, digests).
+    "agent_decision/agent_decision_schema.json",
+    "agent_decision/agent_decision_ensure_request_schema.json",
+    "agent_decision/agent_decision_answer_request_schema.json",
+    "agent_decision/agent_decision_ensure_response_schema.json",
+    "agent_decision/agent_decision_answer_response_schema.json",
+    "agent_decision/agent_decision_latest_response_schema.json",
+    "agent_decision/agent_decision_error_schema.json",
+    "agent_decision/agent_decision_rate_limited_error_schema.json",
+    "agent_decision/agent_decision_endpoints.json",
 )
 # Documents that carry CUSTOMER CONTENT by design and are deliberately NOT lint roots.  This is an
 # explicit allow-list (pinned by tests/test_tvl_reactive_contracts.py), not a silent skip: the pinned

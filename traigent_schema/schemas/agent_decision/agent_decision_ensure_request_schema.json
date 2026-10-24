@@ -13,7 +13,8 @@
       "type": "string",
       "enum": [
         "PREPARE_BASELINE_EVALUATION"
-      ]
+      ],
+      "x-content-class": "closed_enum"
     }
   }
 }

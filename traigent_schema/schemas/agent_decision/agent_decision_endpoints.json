@@ -9,7 +9,7 @@
     "/api/v1beta/agent-decisions/{agent_id}/ensure": {
       "post": {
         "summary": "Ensure an open decision for an agent",
-        "description": "Requires project role editor. Idempotent per (agent, kind, basis): concurrent ensures return the same OPEN decision. Once that basis has been answered YES or NOT_NOW no new decision is created and the response is `decision: null`.",
+        "description": "Requires project role editor. Idempotent per (agent, kind, basis): concurrent ensures return the same OPEN decision. Once that basis has been answered YES or NOT_NOW no new decision is created and the response is `decision: null`. Status mapping: 404 DECISION_NOT_FOUND, 409 STALE_BASIS / NOT_ELIGIBLE, 422 INVALID_REQUEST, 503 POLICY_UNAVAILABLE.",
         "operationId": "ensureAgentDecision",
         "x-asserted-against-backend": false,
         "x-required-permission": "experiment.write",
@@ -68,7 +68,7 @@
             }
           },
           "404": {
-            "description": "Agent or decision not found.",
+            "description": "Agent not found (DECISION_NOT_FOUND).",
             "content": {
               "application/json": {
                 "schema": {
@@ -78,7 +78,7 @@
             }
           },
           "409": {
-            "description": "Basis changed or decision superseded.",
+            "description": "STALE_BASIS or NOT_ELIGIBLE.",
             "content": {
               "application/json": {
                 "schema": {
@@ -88,7 +88,7 @@
             }
           },
           "422": {
-            "description": "Invalid request or not eligible.",
+            "description": "INVALID_REQUEST (malformed body, unknown fields, out-of-domain values).",
             "content": {
               "application/json": {
                 "schema": {
@@ -102,13 +102,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_decision_error_schema.json"
+                  "$ref": "./agent_decision_rate_limited_error_schema.json"
                 }
               }
             }
           },
           "503": {
-            "description": "Policy unavailable.",
+            "description": "POLICY_UNAVAILABLE.",
             "content": {
               "application/json": {
                 "schema": {
@@ -172,7 +172,7 @@
             }
           },
           "404": {
-            "description": "Agent not found.",
+            "description": "Agent not found (DECISION_NOT_FOUND).",
             "content": {
               "application/json": {
                 "schema": {
@@ -186,7 +186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_decision_error_schema.json"
+                  "$ref": "./agent_decision_rate_limited_error_schema.json"
                 }
               }
             }
@@ -197,7 +197,7 @@
     "/api/v1beta/agent-decisions/{decision_id}/answer": {
       "post": {
         "summary": "Answer a decision",
-        "description": "Requires project role editor. Retry semantics. Scope: the authenticated tenant + project + decision. Order: (1) authenticate and authorize (401/403); (2) if the decision is already ANSWERED with the same retry_nonce and the same request body: 200 replay of the current object, also after expiry or after execution started; (3) same retry_nonce with a different body: 409 REPLAY_MISMATCH; (4) otherwise state checks: EXPIRED 410 DECISION_EXPIRED; SUPERSEDED 409 DECISION_SUPERSEDED; answered with a different nonce 409 DECISION_ALREADY_ANSWERED; basis or version mismatch 409 STALE_BASIS / VERSION_MISMATCH; no longer eligible 409 NOT_ELIGIBLE; policy evidence unavailable 503 POLICY_UNAVAILABLE. Recording the answer is atomic.",
+        "description": "Requires project role editor. Status mapping: 401 UNAUTHENTICATED, 403 FORBIDDEN, 404 DECISION_NOT_FOUND, 409 (DECISION_ALREADY_ANSWERED, REPLAY_MISMATCH, DECISION_SUPERSEDED, STALE_BASIS, VERSION_MISMATCH, NOT_ELIGIBLE), 410 DECISION_EXPIRED, 422 INVALID_REQUEST, 429 RATE_LIMITED, 503 POLICY_UNAVAILABLE. Retry semantics. Scope: the authenticated tenant + project + decision. Order: (1) authenticate and authorize (401/403); (2) if the decision is already ANSWERED with the same retry_nonce and the same request body: 200 replay of the current object, also after expiry or after execution started; (3) same retry_nonce with a different body: 409 REPLAY_MISMATCH; (4) otherwise state checks: EXPIRED 410 DECISION_EXPIRED; SUPERSEDED 409 DECISION_SUPERSEDED; answered with a different nonce 409 DECISION_ALREADY_ANSWERED; basis or version mismatch 409 STALE_BASIS / VERSION_MISMATCH; no longer eligible 409 NOT_ELIGIBLE; policy evidence unavailable 503 POLICY_UNAVAILABLE. Malformed or out-of-domain bodies are 422 INVALID_REQUEST. Recording the answer is atomic.",
         "operationId": "answerAgentDecision",
         "x-asserted-against-backend": false,
         "x-required-permission": "experiment.write",
@@ -256,7 +256,7 @@
             }
           },
           "404": {
-            "description": "Decision not found.",
+            "description": "DECISION_NOT_FOUND.",
             "content": {
               "application/json": {
                 "schema": {
@@ -266,7 +266,7 @@
             }
           },
           "409": {
-            "description": "Already answered, stale basis, or replay mismatch.",
+            "description": "DECISION_ALREADY_ANSWERED, REPLAY_MISMATCH, DECISION_SUPERSEDED, STALE_BASIS, VERSION_MISMATCH or NOT_ELIGIBLE.",
             "content": {
               "application/json": {
                 "schema": {
@@ -276,7 +276,7 @@
             }
           },
           "410": {
-            "description": "Decision expired or superseded.",
+            "description": "DECISION_EXPIRED.",
             "content": {
               "application/json": {
                 "schema": {
@@ -286,7 +286,7 @@
             }
           },
           "422": {
-            "description": "Invalid request or version mismatch.",
+            "description": "INVALID_REQUEST (malformed body, unknown fields, out-of-domain values).",
             "content": {
               "application/json": {
                 "schema": {
@@ -300,13 +300,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_decision_error_schema.json"
+                  "$ref": "./agent_decision_rate_limited_error_schema.json"
                 }
               }
             }
           },
           "503": {
-            "description": "Policy unavailable.",
+            "description": "POLICY_UNAVAILABLE.",
             "content": {
               "application/json": {
                 "schema": {

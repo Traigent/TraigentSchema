@@ -195,15 +195,27 @@ def test_response_envelopes():
 
 def test_error_body():
     _ok(ERROR, {"error": {"reason": "STALE_BASIS"}})
-    for r in ("UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"):
+    for r in ("UNAUTHENTICATED", "FORBIDDEN"):
         _ok(ERROR, {"error": {"reason": r}})
     _ok(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 30}})
     _bad(ERROR, {"error": {"reason": "FORBIDDEN", "retry_after_seconds": 30}})
     _bad(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 86401}})
     _bad(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": -1}})
+    _bad(ERROR, {"error": {"reason": "RATE_LIMITED"}})
     _bad(ERROR, {"error": {"reason": "SOMETHING_ELSE"}})
     _bad(ERROR, {"error": {"reason": "STALE_BASIS", "detail": "echo"}})
     _bad(ERROR, {"error": {"reason": "STALE_BASIS"}, "extra": 1})
+
+
+RATE_LIMITED = "agent_decision/agent_decision_rate_limited_error_schema.json"
+
+
+def test_rate_limited_body_is_closed_and_requires_retry_after():
+    _ok(RATE_LIMITED, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 5}})
+    _bad(RATE_LIMITED, {"error": {"reason": "RATE_LIMITED"}})
+    _bad(RATE_LIMITED, {"error": {"reason": "FORBIDDEN", "retry_after_seconds": 5}})
+    _bad(RATE_LIMITED, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 86401}})
+    _bad(RATE_LIMITED, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 1, "x": 1}})
 
 
 def _state(status, **kw):
@@ -290,7 +302,7 @@ def _walk(node, path=""):
 
 def test_every_object_in_domain_is_closed():
     files = sorted(DOMAIN.glob("*_schema.json"))
-    assert len(files) == 7
+    assert len(files) == 8
     for f in files:
         for path, node in _walk(json.loads(f.read_text(encoding="utf-8"))):
             assert node.get("additionalProperties") is False, f"{f.name}{path}"
@@ -314,6 +326,9 @@ def test_endpoints_wire_schemas():
                 "response_schema.json" if code == "200" else "error_schema.json"
             )
         assert {"401", "403", "429"} <= set(op["responses"])
+        assert op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"] == (
+            "./agent_decision_rate_limited_error_schema.json"
+        )
 
 
 def test_session_create_carries_optional_execution_ref():

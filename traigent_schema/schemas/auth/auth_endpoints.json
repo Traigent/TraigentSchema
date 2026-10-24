@@ -574,7 +574,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized — invalid credentials/token.",
+            "description": "Unauthorized — invalid credentials, or (second leg) a wrong `mfa_token`; in the latter case `details` carries `mfa_required: true` and `user_id`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -583,12 +583,58 @@
               }
             }
           },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
+          "403": {
+            "description": "MFA applies: `mfa_setup_required` (enforced admin not enrolled; enrollment-only `access_token`, scope `mfa_enroll`) or `mfa_required` (re-POST with `mfa_token`). Or `SSO_REQUIRED` (password login is disabled because the tenant enforces SSO; `details.sso` carries the policy).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "anyOf": [
+                    {
+                      "$ref": "./login_mfa_response_schema.json"
+                    },
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "../error_envelope_schema.json"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "error_code",
+                            "details"
+                          ],
+                          "properties": {
+                            "error_code": {
+                              "const": "SSO_REQUIRED"
+                            },
+                            "details": {
+                              "type": "object",
+                              "required": [
+                                "sso"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests. The generic rate-limit envelope, or — when the per-user MFA attempt budget (5 per 300 s) is exhausted on the `mfa_token` leg — the MFA_RATE_LIMITED variant, both with a Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "../mfa/mfa_rate_limited_response_schema.json"
+                    }
+                  ]
                 }
               }
             }
@@ -977,6 +1023,25 @@
               }
             }
           },
+          "202": {
+            "description": "Accepted. Returned for non-invite self-registration when the deployment enables activation confirmation. The body is identical whether or not the email is already registered; Cache-Control: no-store. Activation completes through POST /api/v1/auth/verify-email.",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./register_accepted_response_schema.json"
+                }
+              }
+            }
+          },
           "200": {
             "description": "Deprecated 5.x compatibility contract. Current TraigentBackend producers return HTTP 201 with register_created_response_schema.json; this legacy flat response is retained until the next major version.",
             "x-deprecated": "Use the HTTP 201 register_created_response_schema.json contract instead. The legacy HTTP 200 response contract will be removed in the next major release (6.0.0).",
@@ -1143,7 +1208,7 @@
     },
     "/api/v1/auth/verify-email": {
       "post": {
-        "summary": "Verify an email address via the emailed token",
+        "summary": "Verify an email address via the emailed token (optionally setting a password to activate)",
         "requestBody": {
           "required": true,
           "content": {
@@ -1156,14 +1221,41 @@
         },
         "responses": {
           "200": {
-            "description": "Email verified."
-          },
-          "400": {
-            "description": "Bad request — malformed or missing fields.",
+            "description": "Email verified. Session tokens, or an activation-only acknowledgement when single sign-on is enforced.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./verify_email_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request. Legacy token-only confirmation (accounts registered without activation confirmation): standard error envelope. Pending activations always require the password, even when the feature is off: uniform ACTIVATION_FAILED, or WEAK_PASSWORD when the password is rejected; neither carries `message`, so clients must branch on error_code. Activation error bodies carry Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "../error_envelope_schema.json"
+                    },
+                    {
+                      "$ref": "./activation_failed_response_schema.json"
+                    },
+                    {
+                      "$ref": "./activation_weak_password_response_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Multi-factor authentication applies after activation: enrollment required or challenge required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./verify_email_mfa_response_schema.json"
                 }
               }
             }
@@ -1179,11 +1271,11 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests — rate limit exceeded (email_verification category).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./auth_rate_limit_response_schema.json"
                 }
               }
             }
@@ -1194,6 +1286,92 @@
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable — the rate limiter failed closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./auth_rate_limit_response_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-email/preview": {
+      "post": {
+        "summary": "Preview the address an activation link targets without consuming the token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./verify_email_preview_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Masked address for a valid activation link; Cache-Control: no-store.",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./verify_email_preview_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Uniform response for an invalid, expired or consumed link, or a malformed request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./activation_failed_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded (email_verification category).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./auth_rate_limit_response_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable — the rate limiter failed closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./auth_rate_limit_response_schema.json"
                 }
               }
             }

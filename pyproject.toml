@@ -41,6 +41,12 @@ dev = [
     "ruff==0.16.9",  # Exact lint pin keeps local and CI checks reproducible.
     "mypy>=1.0,<3",
 ]
+# Reference trace checker for the TVL reactive trace tests (tests/test_tvl_reactive_contracts.py). Heavy
+# (numpy/scipy/ortools/pandas wheels) and Python >= 3.12 only, so it is NOT in `dev`; the test job installs
+# `.[dev,tvl]`, and on Python >= 3.12 a missing package fails those tests (no skip).
+tvl = [
+    "tvl-spec==1.4.0; python_version >= '3.12'",
+]
 
 [project.urls]
 Homepage = "https://github.com/Traigent/TraigentSchema"

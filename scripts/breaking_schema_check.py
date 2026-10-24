@@ -97,6 +97,7 @@ _safe_git_ref = _ps.safe_git_ref
 Role = Literal["request", "response", "conservative"]
 Severity = Literal["BREAKING", "INFO"]
 
+_JSON_SUFFIX = ".json"
 _MAX_KEYS = ("maxLength", "maximum", "maxItems", "maxProperties")
 _MIN_KEYS = ("minLength", "minimum", "minItems", "minProperties")
 
@@ -428,7 +429,7 @@ def deref(
         try:
             doc = registry.contents(doc_uri)
             target = _json_pointer_get(doc, pointer)
-        except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a finding, not a crash
+        except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a finding instead of a crash
             raise UnresolvedRef(f"{node['$ref']} (resolved to {doc_uri}#{pointer}): {exc}") from exc
         visited = visited | {key}
         node, base_uri = target, doc_uri
@@ -518,7 +519,7 @@ class _NodeScope:
         )
 
 
-def compare_node(  # noqa: PLR0913 - internal recursive worker, not a public API
+def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API)
     old_raw: Any,
     new_raw: Any,
     *,
@@ -1624,17 +1625,17 @@ def changed_schema_files(
         status = parts[0]
         if status.startswith("R") or status.startswith("C"):
             old_path, new_path = parts[1], parts[2]
-            if old_path.endswith(".json"):
+            if old_path.endswith(_JSON_SUFFIX):
                 rel = _relative_to_schemas_dir(old_path)
                 if rel:
                     result.append(("D", rel))
-            if new_path.endswith(".json"):
+            if new_path.endswith(_JSON_SUFFIX):
                 rel = _relative_to_schemas_dir(new_path)
                 if rel:
                     result.append(("A", rel))
             continue
         path = parts[1]
-        if path.endswith(".json"):
+        if path.endswith(_JSON_SUFFIX):
             rel = _relative_to_schemas_dir(path)
             if rel:
                 result.append((status[0], rel))
@@ -1658,12 +1659,12 @@ def changed_schema_files(
 # security review; see PR #333 for the audit trail", is fine).
 _PLACEHOLDER_REASON_PATTERNS = [
     re.compile(
-        r"^\s*(todo|tbd|tba|n/?a|wip|pending|placeholder|reason|approved)\s*[:.]?\s*$",
+        r"^\s*(todo|tbd|tba|n/?a|wip|pending|placeholder|reason|approved)(?:\s*[:.])?\s*$",
         re.IGNORECASE,
     ),
-    re.compile(r"^\s*see\s+(pr|above|below|issue|ticket)\b\s*[:.#0-9]*\s*$", re.IGNORECASE),
-    re.compile(r"^\s*(#|pr\s*#?|issue\s*#?)\s*\d+\s*$", re.IGNORECASE),
-    re.compile(r"^\s*(intentional|breaking change|because)\s*[:.]?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*see\s+(pr|above|below|issue|ticket)\b(?:\s*[:.#0-9]+)?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*(#|pr(?:\s*#)?|issue(?:\s*#)?)\s*\d+\s*$", re.IGNORECASE),
+    re.compile(r"^\s*(intentional|breaking change|because)(?:\s*[:.])?\s*$", re.IGNORECASE),
 ]
 _MIN_REASON_LENGTH = 20
 

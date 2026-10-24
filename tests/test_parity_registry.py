@@ -20,7 +20,8 @@ FIXTURE_REL = "optimizer/grid-enumeration.v1.json"
 FID = "optimizer.grid-enumeration.v1"
 
 _spec = importlib.util.spec_from_file_location("check_parity_registry", SCRIPT)
-assert _spec and _spec.loader
+assert _spec
+assert _spec.loader
 checker = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(checker)
 
@@ -75,7 +76,8 @@ def test_happy_path_copy(tree: Path):
 def test_planned_row_may_list_fixtures(tree: Path):
     _registry(tree, lambda c, d: _set_planned(c))
     row = json.loads((tree / "capabilities" / "registry.v1.json").read_text())["capabilities"][0]
-    assert row["disposition"] == "planned" and row["fixtures"]
+    assert row["disposition"] == "planned"
+    assert row["fixtures"]
     assert _errors(tree) == []
 
 

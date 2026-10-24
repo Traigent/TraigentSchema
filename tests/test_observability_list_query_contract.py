@@ -87,7 +87,8 @@ def test_list_query_parameters_match_the_backend_query_model(path: str) -> None:
 def test_tags_is_one_literal_tag_per_occurrence_with_repeated_keys_for_many(path: str) -> None:
     tags = _params(path)["tags"]
     assert tags["schema"] == {"type": "string", "maxLength": 4096}
-    assert "style" not in tags and "explode" not in tags
+    assert "style" not in tags
+    assert "explode" not in tags
     validator = Draft7Validator(tags["schema"])
     assert validator.is_valid("vip")
     assert validator.is_valid("vip,beta")  # one literal tag that contains a comma

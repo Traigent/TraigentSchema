@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_setup_response_schema.json",
+  "title": "MFA Setup Response",
+  "description": "200 body for POST /api/v1/mfa/setup. Returned only to the authenticated, enrolling user (enrollment-only or normal JWT). `secret` and `otpauth_uri` carry the same TOTP secret the QR image from GET /api/v1/mfa/setup/qr encodes (identical issuer and account label), so a client can offer manual key entry. The response is credential material: clients MUST NOT log, persist or cache it, and the server sends it with no-store semantics and never logs it. Each call overwrites any pending secret and returns a fresh setup_token.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "data"],
+  "properties": {
+    "success": { "const": true },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setup_token", "message", "secret", "otpauth_uri"],
+      "properties": {
+        "setup_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Server-issued enrollment token (UUID, 30-minute TTL). Passed to GET /mfa/setup/qr and POST /mfa/setup/verify."
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "secret": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128,
+          "pattern": "^[A-Z2-7]+=*$",
+          "x-privacy-classification": "secret",
+          "description": "Base32 TOTP shared secret for manual entry into an authenticator app."
+        },
+        "otpauth_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^otpauth://totp/",
+          "x-privacy-classification": "secret",
+          "description": "otpauth://totp/ provisioning URI (issuer \"Traigent\", label = the account email) embedding `secret`; identical to the URI the QR image encodes."
+        }
+      }
+    }
+  }
+}

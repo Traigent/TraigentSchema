@@ -189,7 +189,8 @@ def test_label_change_keeps_id_and_changes_version() -> None:
     relabelled = ei.ExampleProjection(input={"q": "x"}, expected="b")
     id1, v1 = ei.identify_example(KEYS_A, projection)
     id2, v2 = ei.identify_example(KEYS_A, relabelled)
-    assert id1 == id2 and v1 != v2
+    assert id1 == id2
+    assert v1 != v2
 
 
 def test_conflicting_versions_warn_and_are_reported() -> None:
@@ -243,8 +244,9 @@ def test_errors_never_echo_user_content() -> None:
     with pytest.raises(ei.ContentIdentityError) as info:
         ei.compute_example_id(KEYS_A, {"q": secret, "n": float("nan")})
     assert secret not in str(info.value)
+    duplicate_key_text = json.dumps({secret: 1})[:-1] + f', "{secret}": 2}}'
     with pytest.raises(ei.ContentIdentityError) as info:
-        ei.parse_strict_json(json.dumps({secret: 1})[:-1] + f', "{secret}": 2}}')
+        ei.parse_strict_json(duplicate_key_text)
     assert secret not in str(info.value)
 
 
@@ -337,7 +339,8 @@ def test_vector_file_is_packaged_current_and_nontrivial() -> None:
     spec = importlib.util.spec_from_file_location(
         "gen_vectors", ROOT / "scripts" / "generate_content_identity_v1_vectors.py"
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     generator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(generator)
     committed = (ROOT / "traigent_schema" / "data" / "content_identity_v1_vectors.json").read_text(
@@ -345,7 +348,8 @@ def test_vector_file_is_packaged_current_and_nontrivial() -> None:
     )
     assert committed == generator.render(), "run scripts/generate_content_identity_v1_vectors.py"
     assert VECTORS["spec"] == ei.SCHEME
-    assert len(VECTORS["examples"]) >= 20 and len(VECTORS["rejections"]) >= 10
+    assert len(VECTORS["examples"]) >= 20
+    assert len(VECTORS["rejections"]) >= 10
 
 
 def test_vector_constants_match_the_module_and_schema() -> None:
@@ -476,27 +480,31 @@ def test_decimal_range_check_is_independent_of_the_decimal_context() -> None:
 @pytest.mark.parametrize("case", VECTORS["rejections"], ids=lambda c: c["name"])
 def test_rejection_vectors(case: dict[str, Any]) -> None:
     with pytest.raises(ei.ContentIdentityError):
-        kind = case["kind"]
-        if kind == "json_text":
-            ei.compute_example_id(KEYS_A, ei.parse_strict_json(case["json_text"])["input"])
-        elif kind == "example_version":
-            ei.compute_example_version(
-                KEYS_A, case["example_id"], expected=case["expected"], metadata=case["metadata"]
-            )
-        elif kind == "multiset":
-            ei.compute_multiset_root([tuple(item) for item in case["items"]])
-        elif kind == "key_derivation":
-            ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]), case["tenant_id"])
-        elif kind == "example_input":
-            ei.compute_example_id(KEYS_A, case["input"])
-        elif kind == "agent_build":
-            ei.compute_agent_build_digest(case["manifest"])
-        elif kind == "agent_build_certifiable":
-            ei.compute_agent_build_digest(case["manifest"], certifiable=True)
-        elif kind == "evaluator_version":
-            ei.compute_evaluator_version_digest(case["manifest"])
-        else:  # pragma: no cover - a new kind must be wired here
-            pytest.fail(f"unknown rejection kind {kind}")
+        _run_rejection_case(case)
+
+
+def _run_rejection_case(case: dict[str, Any]) -> None:
+    kind = case["kind"]
+    if kind == "json_text":
+        ei.compute_example_id(KEYS_A, ei.parse_strict_json(case["json_text"])["input"])
+    elif kind == "example_version":
+        ei.compute_example_version(
+            KEYS_A, case["example_id"], expected=case["expected"], metadata=case["metadata"]
+        )
+    elif kind == "multiset":
+        ei.compute_multiset_root([tuple(item) for item in case["items"]])
+    elif kind == "key_derivation":
+        ei.derive_tenant_keys(bytes.fromhex(case["tenant_master_hex"]), case["tenant_id"])
+    elif kind == "example_input":
+        ei.compute_example_id(KEYS_A, case["input"])
+    elif kind == "agent_build":
+        ei.compute_agent_build_digest(case["manifest"])
+    elif kind == "agent_build_certifiable":
+        ei.compute_agent_build_digest(case["manifest"], certifiable=True)
+    elif kind == "evaluator_version":
+        ei.compute_evaluator_version_digest(case["manifest"])
+    else:  # pragma: no cover - a new kind must be wired here
+        pytest.fail(f"unknown rejection kind {kind}")
 
 
 @pytest.mark.parametrize("case", VECTORS["agent_builds"], ids=lambda c: c["name"])
@@ -850,8 +858,9 @@ def test_nesting_limit_boundary() -> None:
         return value
 
     ei.compute_example_id(KEYS_A, nested(99))
+    too_deep = nested(100)
     with pytest.raises(ei.ContentIdentityError):
-        ei.compute_example_id(KEYS_A, nested(100))
+        ei.compute_example_id(KEYS_A, too_deep)
 
 
 @pytest.mark.parametrize(

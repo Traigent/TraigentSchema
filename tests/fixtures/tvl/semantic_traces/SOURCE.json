@@ -1,0 +1,21 @@
+{
+  "source_repo": "tvl",
+  "source_commit": "098bcdfba0b7347eda9cdbad2e351aad39d25f95",
+  "source_dir": "conformance/cases/runtime/semantic_traces/",
+  "note": "Byte-exact copies of the 13 TVL semantic-trace conformance cases; used by tests/test_tvl_reactive_contracts.py only to check the trace-shape schema and the transport->trace projection.",
+  "files": {
+    "attempt-closed-by-episode-closure-records-no-outcome.yml": "bf8782c41fa76393e98a2de2b03c96b472f28e3e31c6906bc0f802af2fe08ae1",
+    "attempt-closed-by-response-revision-awaiting-deploy-approval.yml": "83ad0443f59a0bdbed49db418d94c9244be1f1ac73e1182204e7ebe16a8a2e87",
+    "attempt-open-visible-to-rule-fired-by-same-evaluation.yml": "8826e4fd53ac5add0b8e4482a08b380de54ac7cd2745c3e77e8d5adbc5251ae3",
+    "deploy-approval-declined-before-start-closes-without-outcome.yml": "78cf3bb65fee52aa5d1ae4d655776e0889b202ee13a402d232ebec7401346763",
+    "deploy-write-fails-then-succeeds-on-same-occurrence-retry.yml": "d3a25cb53ddbddaeebd9b78a4179702081cbdce71ee8a5867866c971a7a93dda",
+    "initial-counted-window-followed-by-met-fires-unknown-for.yml": "7645ec3c75c6cba0b4e630abbf7c5ca24fbf6c355078af03a591ba616859e328",
+    "invalid-promotion-evidence-gives-optimize-failed.yml": "939c85e1ee4224805e5c387147b2986cb4bb469054b5e5ff5824ae8b19b9e682",
+    "one-promoted-and-one-invalid-candidate-give-no-failure.yml": "420732ce593fb8ad7740313ddf6421be9f7fc13914f84aae44b4b1ed99691d51",
+    "optimization-approval-expires-after-start-still-records-outcome.yml": "2ecfcce3ccd441aef85ca1d3fcd1c2d48c50b19ee04d145cad613311e2dcabe0",
+    "undecided-guard-does-not-suppress.yml": "aeeff920c9000deaa6c7cab3344c4f8bf745f03573fa7a6ccc7123c4e003617d",
+    "undecided-run-continues-across-window-without-usable-evidence.yml": "9648d1aad706415fa0989d0f85887fdb9a5081774064d77fe83e05e1f5d47e38",
+    "unknown-for-and-stale-both-fire-on-intermittent-evidence.yml": "4f14e6afdb2bf2295c4dfc9649fd1ce26d6d61f70ab7f6d7a03a7de9c8109f37",
+    "unreachable-authority-gives-no-outcome.yml": "3fc9c8c08adf6742e9096f1dd0746e6f955de6b40cdf158e3b3bcff4789dc523"
+  }
+}

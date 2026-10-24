@@ -146,7 +146,10 @@ def test_span_type_is_free_string_and_status_is_enum_bound():
     span_bad_status = {**_valid_span(), "status": "WEIRD_BUT_VALID"}
     payload_bad = {"spans": {**_span_batch(), "spans": [span_bad_status]}}
     errors = v.validate_json(payload_bad, SCHEMA)
-    assert len(errors) == 1 and "WEIRD_BUT_VALID" in errors[0], (
+    assert len(errors) == 1, (
+        f"non-canonical span status should be rejected (TraigentSchema#175): {errors}"
+    )
+    assert "WEIRD_BUT_VALID" in errors[0], (
         f"non-canonical span status should be rejected (TraigentSchema#175): {errors}"
     )
 
@@ -172,11 +175,13 @@ def test_span_payload_description_matches_status_enum_binding():
         spec = json.load(handle)
 
     description = spec["definitions"]["SpanPayload"]["description"]
-    assert "status" in description and "enum-enforced" in description
+    assert "status" in description
+    assert "enum-enforced" in description
     assert "not enum-enforced" not in description.split("`status`")[-1], (
         "description must not claim status is not enum-enforced"
     )
-    assert "span_type" in description and "free" in description
+    assert "span_type" in description
+    assert "free" in description
 
 
 def test_span_status_field_description_not_falsely_otel_compatible():

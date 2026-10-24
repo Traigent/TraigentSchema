@@ -3396,8 +3396,9 @@ def test_golden_bundle_issuer_signature_rejects_a_flipped_manifest_byte() -> Non
         "utf-8"
     )
     material = _GV_DOMAINS["issuer_signature"].encode("utf-8") + b"\x00" + flipped
+    signature = base64.b64decode(bundle["signature"]["signature"])
     with pytest.raises(InvalidSignature):
-        _GV_PUBLIC_KEY.verify(base64.b64decode(bundle["signature"]["signature"]), material)
+        _GV_PUBLIC_KEY.verify(signature, material)
 
 
 def test_golden_declared_plan_digests_and_signature() -> None:
@@ -3948,8 +3949,9 @@ def test_resign_restores_consistency_after_each_signed_array_mutation(
         + b"\x00"
         + fp2.canonicalize(patched_manifest).encode("utf-8")
     )
+    mutated_signature = base64.b64decode(mutated["signature"]["signature"])
     with pytest.raises(InvalidSignature):
-        _GV_PUBLIC_KEY.verify(base64.b64decode(mutated["signature"]["signature"]), material)
+        _GV_PUBLIC_KEY.verify(mutated_signature, material)
 
     resigned = resign_agent_quality_bundle(mutated)
     assert resigned["unsigned_manifest"][manifest_field] == v._role_digest(

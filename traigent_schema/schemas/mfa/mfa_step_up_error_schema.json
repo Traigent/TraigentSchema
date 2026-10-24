@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_step_up_error_schema.json",
+  "title": "MFA Step-Up Error",
+  "description": "Error envelope for a failed step-up check on DELETE /api/v1/mfa/disable and GET /api/v1/mfa/backup-codes. Messages are generic and never echo the supplied code.",
+  "allOf": [
+    { "$ref": "../error_envelope_schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "error_code": {
+          "enum": ["MFA_STEP_UP_REQUIRED", "MFA_STEP_UP_INVALID", "MFA_STEP_UP_ERROR"],
+          "description": "MFA_STEP_UP_REQUIRED = HTTP 400 (no/malformed code); MFA_STEP_UP_INVALID = HTTP 401 (wrong code); MFA_STEP_UP_ERROR = HTTP 500 (verification failed internally)."
+        }
+      },
+      "required": ["error_code"]
+    }
+  ]
+}

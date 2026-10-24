@@ -23,7 +23,6 @@ WRITE_METHODS = {"post", "put", "patch", "delete"}
 BODYLESS = {
     ("/api/v1/auth/logout", "post"),
     ("/api/v1/mfa/setup", "post"),
-    ("/api/v1/mfa/disable", "delete"),
 }
 WRITE_CATALOGS = ("auth/auth_endpoints.json", "mfa/mfa_endpoints.json")
 
@@ -112,5 +111,6 @@ def test_request_schemas_are_valid_and_typed():
     ):
         spec = _catalog(rel)
         assert spec["type"] == "object"
-        assert "properties" in spec and spec["properties"]
+        assert "properties" in spec
+        assert spec["properties"]
         assert spec["$id"].startswith("https://schemas.traigent.ai/")

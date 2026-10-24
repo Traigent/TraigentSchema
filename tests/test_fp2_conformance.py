@@ -198,10 +198,11 @@ def test_a_hostile_key_cannot_choose_the_object_ordering() -> None:
         def encode(self, *args: Any, **kwargs: Any) -> bytes:
             return b"\x00\x00"  # sorts before everything
 
+    hostile_ordering = {HostileKey("z"): 1, "a": 2}
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize({HostileKey("z"): 1, "a": 2})
+        canonicalize(hostile_ordering)
     with pytest.raises(Fp2UnsupportedValue):
-        digest({HostileKey("z"): 1, "a": 2})
+        digest(hostile_ordering)
 
     # The honest ordering, for contrast.
     assert canonicalize({"z": 1, "a": 2}) == '{"a":2,"z":1}'
@@ -227,8 +228,9 @@ def test_tuples_are_rejected_rather_than_flattened_into_arrays() -> None:
             canonicalize({"k": value})
 
     Row = collections.namedtuple("Row", ["input", "expected"])
+    row_payload = {"k": Row(1, 2)}
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize({"k": Row(1, 2)})
+        canonicalize(row_payload)
 
     # The builder's normalization is what produces a digest, and it is explicit.
     assert canonicalize({"k": list(("safe",))}) == '{"k":["safe"]}'
@@ -255,8 +257,9 @@ def test_error_messages_never_echo_caller_content() -> None:
         def __iter__(self) -> Any:
             raise ValueError(secret)  # a foreign error whose message is content
 
+    hostile_payload = {"outer": Hostile()}
     with pytest.raises(Fp2UnsupportedValue) as caught:
-        canonicalize({"outer": Hostile()})
+        canonicalize(hostile_payload)
     assert secret not in str(caught.value), f"leaked a chained message: {caught.value}"
 
 
@@ -274,8 +277,9 @@ def test_numeric_subclass_cannot_reach_the_digest_through_repr() -> None:
         def __repr__(self) -> str:
             return "PWNED"
 
+    sneaky_payload = {"n": Sneaky(1.5)}
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize({"n": Sneaky(1.5)})
+        canonicalize(sneaky_payload)
 
 
 def test_negative_zero_normalizes_to_zero() -> None:
@@ -304,8 +308,9 @@ def test_non_plain_objects_are_unsupported_not_stringified() -> None:
         def __repr__(self) -> str:
             return "<thing>"
 
+    thing_payload = {"o": Thing()}
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize({"o": Thing()})
+        canonicalize(thing_payload)
 
 
 def test_lone_surrogate_degrades_to_unknown_rather_than_crashing() -> None:
@@ -343,12 +348,14 @@ def test_nesting_beyond_the_depth_limit_degrades_to_unknown() -> None:
     recursion limit -- as an exception type the contract never mentions, so the
     run crashed instead of recording state="unknown".
     """
+    too_deep = _nest(MAX_DEPTH + 1)
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize(_nest(MAX_DEPTH + 1))
+        canonicalize(too_deep)
     with pytest.raises(Fp2UnsupportedValue):
-        digest(_nest(MAX_DEPTH + 1))
+        digest(too_deep)
+    rows_payload = {"rows": [_nest(MAX_DEPTH)]}  # limit counts from the root
     with pytest.raises(Fp2UnsupportedValue):
-        canonicalize({"rows": [_nest(MAX_DEPTH)]})  # limit counts from the root
+        canonicalize(rows_payload)
 
 
 def _stack_depth() -> int:
@@ -400,9 +407,10 @@ def test_entry_points_raise_only_the_documented_type() -> None:
         def __iter__(self) -> Any:
             raise ZeroDivisionError("not a TypeError, not anticipated")
 
+    hostile_payload = {"outer": Hostile()}
     for entry_point in (canonicalize, digest):
         with pytest.raises(Fp2UnsupportedValue):
-            entry_point({"outer": Hostile()})
+            entry_point(hostile_payload)
 
 
 def test_circular_reference_is_unsupported() -> None:

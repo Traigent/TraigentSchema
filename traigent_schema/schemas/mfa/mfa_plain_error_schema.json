@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_plain_error_schema.json",
+  "title": "MFA Plain Error",
+  "description": "Legacy body several /api/v1/mfa/* routes return for failures that do not go through the canonical error envelope: `{success:false, error}` with NO `message` and NO `error_code` (for example 500 `Failed to disable MFA`, 500 `Failed to generate backup codes`, 400 `MFA was not enabled for this user`, 401 `Invalid recovery code`). Documented as-is so the contract matches the wire; new routes should use error_envelope_schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false,
+      "x-content-class": "closed_enum",
+      "description": "Always false."
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "x-content-class": "legacy_content",
+      "x-content-note": "fixed server-side strings; never echoes client input",
+      "description": "Fixed, human-readable failure text."
+    }
+  },
+  "required": [
+    "success",
+    "error"
+  ]
+}

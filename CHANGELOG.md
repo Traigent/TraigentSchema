@@ -8,11 +8,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`
+  was the declared source of truth for the `x-*` vocabulary, but only key names were checked, so 88 values
+  across the tree did not conform to their own declaration. `tests/test_x_extensions_governance.py` now
+  validates every `x-*` value against its meta-schema entry. Three consequences in the contracts:
+  the seven `POST /api/v1/sessions` fields that carried the off-vocabulary
+  `x-privacy-classification: "metadata"` (`agent_id_source`, `dataset_id_source`, `evaluator_id_source`,
+  `artifact_versions`, `code_revision`, `identity_version`, `hosted_dataset_ref`) now carry the existing
+  enum member `sdk_runtime_metadata`, so redaction and export tooling has a defined rule for them;
+  `x-reference` is declared as `oneOf [string, const true]`, documenting the boolean "canonical identifier,
+  target not yet pinned" form that 80 of its 109 sites already used, under a shrink-only baseline so new
+  sites must use the pointer form (acknowledged in `scripts/breaking_schema_allowlist.json`); and the
+  free-text note inside `timing_metric_vocabulary_schema.json`'s `x-non-canonical-pending-migration` map
+  moved to a sibling `$comment`, since the meta-schema declares every entry in that map an object.
+  The README's privacy-classification table now lists all twelve enum values (it listed six, omitting
+  `secret`, which five shipped fields use) and a test keeps it equal to the enum.
+- **Contributor docs match what CI runs (#571).** The README's Development block pointed at
+  `ruff check .` and `mypy traigent_schema`, which report 171 and 10 errors on a clean tree at this base and which CI
+  does not gate; it now points at the `make` targets that mirror CI. `docs/LOCAL_CI_GATE.md` attributed
+  linting and type-checking to the `test` job (they run in `lint-type`), put the pytest gate at "~5s"
+  (measured runs ranging from about 5 min idle to about 13 min under load), and described a `SonarQube Quality Gate` required check on pull requests
+  that no workflow produces — `sonarqube-local.yml` runs only on push to `main` and
+  `workflow_dispatch`. `SonarCloud Code Analysis` is the required static-analysis check on a PR
+  into `main`; a PR into `develop`, which is where ordinary work lands, has none. Both rulesets
+  are now quoted in the doc. `scripts/local_gate.sh`, which is what `make local-gate` runs,
+  repeated the same retracted claim in three places and is corrected with it.
+- **The README says which version PyPI actually serves (#576, partially addressed).** The README named
+  7.0.0 as the current release line and told consumers to install from PyPI, which serves **5.8.0**:
+  6.0.0, 6.1.0 and 7.0.0 are dated in this file and live on `main` but were never tagged or published,
+  so a consumer silently validates against a contract two breaking releases behind. The README now says
+  that and points at `publish.yml`. Tagging and publishing are owner actions under the release freeze
+  and are NOT done here, so #576 stays open.
+- **Stale corpus paths and a missing third-party notice (#578).** The fp2 corpora moved into the package
+  in #439; six comments, notes and one `sonar-project.properties` comment still cited `tests/data/...`
+  (the `sonar.cpd.exclusions=tests/data/**` setting itself is unchanged — its own comment records it
+  as retained and unused). `NOTICE` now lists
+  `cryptography`, a base runtime dependency it omitted.
 - **Python 3.10 support dropped; `requires-python = ">=3.11"`.** The certification verifiers import
   `importlib.resources.abc.Traversable`, which exists only on 3.11+. The nightly CI matrix, the Sonar
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Portal MFA flow contract (owner card security-policy-2026-10-23-portal-mfa-scope = A).** `POST /api/v1/mfa/setup` gets a
+  typed 200 (`mfa/mfa_setup_response_schema.json`: `setup_token`, `message`, plus NEW `secret` base32 and `otpauth_uri`, both
+  `x-privacy-classification: secret`); the QR stays the separate `GET /mfa/setup/qr` PNG. `mfa_endpoints.json` replaces the
+  `default` placeholders on status, backup-codes, setup/qr and disable with typed 200/4xx/5xx responses, documents the step-up
+  (`X-MFA-Code` header or `{code}` body, errors MFA_STEP_UP_REQUIRED / MFA_STEP_UP_INVALID / MFA_STEP_UP_ERROR) and notes that
+  `GET /mfa/backup-codes` regenerates codes. `POST /api/v1/auth/login` documents the 403 `mfa_setup_required` (enroll-only
+  `access_token`, scope `mfa_enroll`) and `mfa_required` bodies (`auth/login_mfa_response_schema.json`), and a distinct 429
+  `MFA_RATE_LIMITED` with `Retry-After` for an exhausted per-user MFA attempt budget. NEW `POST /api/v1/admin/users/{user_id}/mfa/reset`
+  (platform-admin only; body `reason`; response `{success, data:{ok:true}}`). Three breaking-gate acknowledgements are in
+  `scripts/breaking_schema_allowlist.json` (default responses replaced, `setup_token` query parameter declared, login 429 widened to
+  oneOf); the MFA catalog moves into `FULLY_COVERED` in the 429 coverage test. Pinned by `tests/test_mfa_portal_contract.py`.
+  Review follow-up: the admin reset now requires the ACTING admin's own step-up (`X-MFA-Code` header or `code` in the body; new
+  400 `MFA_STEP_UP_REQUIRED`, 401 `MFA_STEP_UP_INVALID`, 403 `MFA_STEP_UP_ENROLL_REQUIRED` for an admin with no MFA enrolled) and
+  documents that an audit-persistence failure fails the whole request with 500. The 400/500 responses of disable and backup-codes
+  are now `anyOf` the step-up error and the new
+  `mfa/mfa_plain_error_schema.json` (`{success:false, error}`), which is what the Backend actually returns there.
+  Second review follow-up: the disable and backup-codes 401 are `anyOf` the step-up error and the normal authentication envelope
+  (TOKEN_EXPIRED / AUTHENTICATION_REQUIRED), and the login 403 is `anyOf` the MFA bodies and the `SSO_REQUIRED` envelope
+  (`details.sso`); both are widenings (no breaking-gate change).
+
+- **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
+  `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`
+  (source commit and SHA-256 pinned in `SOURCE.json`). New closed contracts: `optimization/tvl_reactive_{common,facts,
+  stage,authority,notification}_schema.json` plus `tvl_reactive_endpoints.json` (evaluation-batch staging, producer
+  watermarks, human approval grants, reservations, start authorization, effect outcome facts, cancel, attempt and
+  notification read models), and `execution/best_config_deploy_{schema,endpoints}.json` (deploy publish-result,
+  finalize) and `best_config_agent_head_config_schema.json` (exact pinned-version read; customer content, outside the
+  closed contract). Every field is a hosted token, server ref, closed enum, bounded integer, boolean, digest or
+  server timestamp; errors are closed codes that never echo input. Registered as a reviewed closed-contract
+  expansion (GNFR-PRIV-002(f)) in `docs/tvl-reactive-contracts.md`. Additive: new files and two `mep_endpoints.json`
+  entries only. Pinned by `tests/test_tvl_reactive_contracts.py` and `tests/test_tvl_vendored_schemas.py`.
 - **Explicit unmeasured-cost floor on trial results (Traigent#2688).** `session_submit_results_request_schema.json`
   gains an optional top-level `cost_floor_usd` (number, minimum 0): the reported LOWER BOUND, in USD, of a trial's
   spend when its cost was not measured (the trial's `metrics` carry `cost_unmeasured = 1.0`). Lower bound only,
@@ -23,6 +90,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   literal, including `safety_constraint_insufficient_evidence`). `POST /api/v1/sessions/{id}/finalize`
   accepts an optional `stop_reason`. The response `stop_reason` stays string or null until the backend
   maps its own reasons (it still emits e.g. `finalized`, `search_complete`, `smart_prune`). Pinned by `tests/test_stop_reason_schema.py`.
+- **`GET /api/v1/analytics/dashboards/optimization-overview` is contracted (#581).** Both SDKs call this
+  route and the backend's `analytics_bp` serves it under `/api/v1`, but only the project-scoped
+  `/api/v1beta/projects/{project_id}/...` twin was declared, so `SchemaValidator` answered
+  `UNVALIDATED_ENDPOINT` for the path the SDKs actually use. The `backend` catalog's analytics module now
+  declares it, reusing the same response definition as the v1beta entry (one backend handler serves both
+  mounts), the `days` / `limit` bounds the backend enforces, and the error responses its contracted
+  siblings declare - including 404, reachable here because an unknown `X-Project-Id` raises
+  `PROJECT_NOT_FOUND`. Additive; the v1beta entry is unchanged.
+  The 200 declares the **success envelope** `{success, message, data}` with the dashboard payload under
+  `data`, which is what the handler returns. An earlier revision of this branch declared the bare
+  payload instead, reasoning from sibling entries and from the fact that both SDK clients unwrap. That
+  was wrong on the point that decides it: an OpenAPI 200 describes the wire body, and the repository
+  already records the answer in machine-readable form - `success_envelope_schema.json`'s `x-wrap-map`
+  lists `analytics_routes` under `wrapped`. Against the bare declaration every successful response
+  failed validation. The v1beta twin is corrected with it, because one handler serves both mounts;
+  that correction registers as BREAKING against a declaration no response ever satisfied and is
+  acknowledged in `scripts/breaking_schema_allowlist.json`. The payload schema is untouched.
+  This narrows the contract-vs-wire gap rather than closing it: `summary_cards.experiments_in_range`
+  is still required and emitted by nobody, so a genuine response now fails on exactly that one field
+  (#594). The sibling example-scoring mismatches, and the `x-wrap-map` entry that calls
+  `example_scoring_routes` wholly wrapped when one of its operations is bare, are filed as #592.
 - **Commitment-linkage sidecar contract and reader v1 (C1 step 1; contract and reader only, no issuer yet).**
   New `commitment_linkage_v1_schema.json` for a separately signed sidecar bound to an unchanged
   process-record digest (`unsigned_manifest_digest`); `process_record_v1` and the certificate envelope are

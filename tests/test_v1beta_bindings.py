@@ -38,7 +38,8 @@ def test_evaluator_execute_backfill_are_202():
     for path in ("/api/v1beta/evaluators/{evaluator_id}/execute",
                  "/api/v1beta/evaluators/{evaluator_id}/backfill"):
         codes = set(cat["paths"][path]["post"]["responses"])
-        assert "202" in codes and "201" not in codes, f"{path} should be 202, not 201"
+        assert "202" in codes, f"{path} should be 202, not 201"
+        assert "201" not in codes, f"{path} should be 202, not 201"
 
 
 def test_evaluator_create_omits_server_managed_fields():

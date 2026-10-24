@@ -514,7 +514,8 @@ def test_fleet_posture_search_param_is_a_bounded_singleton_string() -> None:
     parameter = _fleet_param("search")
     assert parameter["in"] == "query"
     assert parameter["required"] is False
-    assert "style" not in parameter and "explode" not in parameter
+    assert "style" not in parameter
+    assert "explode" not in parameter
     assert parameter["schema"] == {"type": "string", "maxLength": 200}
     for phrase in (
         "trim", "casefold", "literal", "wildcard", "AND", "pagination", "400",

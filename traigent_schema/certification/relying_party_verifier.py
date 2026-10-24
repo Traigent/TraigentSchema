@@ -43,6 +43,8 @@ from referencing.jsonschema import UnknownDialect
 import traigent_schema.fp2 as fp2
 from traigent_schema.validator import _FORMAT_CHECKER, SchemaDependencyError, SchemaValidator
 
+_JSON_GLOB = "*.json"
+
 _CERT_DIR = Path(__file__).resolve().parent.parent / "schemas" / "certification"
 _SCHEMAS_DIR = _CERT_DIR.parent
 _CERTIFICATE_ENDPOINTS_ID = (
@@ -471,7 +473,7 @@ def _render_g1_text(params: dict[str, Any]) -> str:
 @lru_cache(maxsize=1)
 def _certificate_validator() -> Draft7Validator:
     resources: list[tuple[str, Resource]] = []
-    for path in _SCHEMAS_DIR.rglob("*.json"):
+    for path in _SCHEMAS_DIR.rglob(_JSON_GLOB):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
             resources.append((document["$id"], Resource.from_contents(document)))
@@ -492,7 +494,7 @@ def _certificate_preparation_validator() -> Draft7Validator:
     canonical endpoint component rather than an ad-hoc partial validator.
     """
     resources: list[tuple[str, Resource]] = []
-    for path in _SCHEMAS_DIR.rglob("*.json"):
+    for path in _SCHEMAS_DIR.rglob(_JSON_GLOB):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
             try:
@@ -816,7 +818,7 @@ def _certificate_retrieval_validator() -> Draft7Validator:
     silently drift into a hand-maintained duplicate wrapper schema.
     """
     resources: list[tuple[str, Resource]] = []
-    for path in _SCHEMAS_DIR.rglob("*.json"):
+    for path in _SCHEMAS_DIR.rglob(_JSON_GLOB):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
             resources.append((document["$id"], Resource.from_contents(document)))
@@ -890,7 +892,7 @@ def _manifest_bytes(manifest: dict[str, Any]) -> bytes:
 @lru_cache(maxsize=1)
 def _unsigned_manifest_validator() -> Draft7Validator:
     resources: list[tuple[str, Resource]] = []
-    for path in _SCHEMAS_DIR.rglob("*.json"):
+    for path in _SCHEMAS_DIR.rglob(_JSON_GLOB):
         document = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(document, dict) and "$id" in document:
             resources.append((document["$id"], Resource.from_contents(document)))
@@ -917,7 +919,7 @@ def _material_public_key(projection: dict[str, Any], digest_domain: bytes) -> ob
             serialization.Encoding.DER,
             serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-    except (UnicodeEncodeError, ValueError, TypeError, IndexError, UnsupportedAlgorithm):
+    except (ValueError, TypeError, IndexError, UnsupportedAlgorithm):
         _fail("MATERIALS_KEY")
     if canonical != der:
         _fail("MATERIALS_KEY")
@@ -1673,7 +1675,7 @@ def _verify(
     context: VerificationContext,
     policy: RelyingPartyPolicy,
 ) -> None:
-    document, signatures, unsigned, manifest_bytes, manifest_digest, _ = _validated_document(
+    document, signatures, unsigned, manifest_bytes, _, _ = _validated_document(
         certificate, policy
     )
     _check_context(unsigned, signatures, context)

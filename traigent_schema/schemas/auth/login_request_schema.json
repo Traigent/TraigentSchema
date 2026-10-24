@@ -21,8 +21,9 @@
     },
     "mfa_token": {
       "type": "string",
-      "description": "MFA challenge token, supplied on the second leg of an MFA-gated login.",
-      "maxLength": 2048
+      "description": "MFA challenge code, supplied on the second leg of an MFA-gated login (after a 403 `mfa_required`): a 6-digit TOTP code or an unused recovery code (XXXX-XXXX). Re-send the same email and password.",
+      "maxLength": 2048,
+      "x-privacy-classification": "secret"
     }
   },
   "required": [

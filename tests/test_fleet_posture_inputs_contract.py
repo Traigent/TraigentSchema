@@ -63,7 +63,8 @@ def _readiness_fixtures() -> Any:
         "_agent_readiness_contract_fixtures",
         Path(__file__).parent / "test_agent_readiness_contract.py",
     )
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -372,7 +373,8 @@ def test_e4_posture_write_follows_the_target_revision_convention() -> None:
     assert conflict["properties"]["error_code"] == {"const": "revision_conflict"}
     forbidden = operation["responses"]["403"]["description"].lower()
     assert "human session" in forbidden
-    assert "owner" in forbidden and "admin" in forbidden
+    assert "owner" in forbidden
+    assert "admin" in forbidden
     assert "api-key" in forbidden
 
     root = _load(SCHEMAS / "mep_endpoints.json")

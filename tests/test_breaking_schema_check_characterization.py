@@ -42,7 +42,8 @@ ENDPOINTS_URI = "https://schemas.traigent.ai/main/main_endpoints.json"
 
 def _load_gate_module():
     spec = importlib.util.spec_from_file_location("breaking_schema_check", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

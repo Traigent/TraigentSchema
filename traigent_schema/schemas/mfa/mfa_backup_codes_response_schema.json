@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_backup_codes_response_schema.json",
+  "title": "MFA Backup Codes Response",
+  "description": "200 body for GET /api/v1/mfa/backup-codes. NOTE: despite the GET verb this operation REGENERATES the recovery codes (the previous set is invalidated) and requires a step-up code (X-MFA-Code header or {code} body). Moving it to POST is a deferred, breaking change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "data"],
+  "properties": {
+    "success": { "const": true },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["recovery_codes"],
+      "properties": {
+        "recovery_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4}-[0-9A-F]{4}$",
+            "x-privacy-classification": "secret"
+          }
+        },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1246,12 +1246,14 @@ def test_strict_error_public_fields_are_finite_fixed_enums() -> None:
 
     for field in ("message", "error", "error_code"):
         spec = props[field]
-        assert isinstance(spec.get("enum"), list) and spec["enum"], field
+        assert isinstance(spec.get("enum"), list), field
+        assert spec["enum"], field
         # A closed enum leaves no character-set / token-grammar escape hatch.
         assert "pattern" not in spec, field
         # Every enumerated value is a non-empty string (generic-envelope minLength 1).
         for value in spec["enum"]:
-            assert isinstance(value, str) and value, (field, value)
+            assert isinstance(value, str), (field, value)
+            assert value, (field, value)
 
     # The enums are exactly the intended closed vocabularies.
     assert set(props["error"]["enum"]) == {
@@ -1516,10 +1518,12 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
         assert "run_id nulls-first does not establish" in haystack
         # (4) The tie-break is a secondary tie after the primary sort, and is
         #     fixed independent of the requested primary direction.
-        assert "independent of" in haystack and "direction" in haystack
+        assert "independent of" in haystack
+        assert "direction" in haystack
         # (5) group_id is explicitly rejected as the tie-break key, with the
         #     load-bearing reason (non-reversible / not range-bounded).
-        assert "group_id is" in haystack and "not the" in haystack
+        assert "group_id is" in haystack
+        assert "not the" in haystack
         assert "range-bounded" in haystack or "range-orderable" in haystack
 
     # (6) The old mandate 'group_id ascending' as the tie-break must be gone.
@@ -1579,7 +1583,8 @@ def test_contract_documents_auth_non_disclosure_and_pagination_invariants() -> N
     # Non-disclosure: forbidden must be indistinguishable from not-found.
     assert "indistinguishable" in description
     # Deterministic ordering.
-    assert "deterministic" in description and "tie-breaker" in description
+    assert "deterministic" in description
+    assert "tie-breaker" in description
     # No auto cross-page column discovery.
     assert "never by walking pages" in description
 

@@ -46,7 +46,9 @@ TENANTS = {
     "tenant_c_reused_master": ("tenant_0c0c0c0c", bytes(range(32)).hex()),
 }
 
-_Q = {"question": "What is 2+2?", "lang": "en"}
+_SHA256_PREFIX = "sha256:"
+_QUESTION = "What is 2+2?"
+_Q = {"question": _QUESTION, "lang": "en"}
 # Replaced at build time by the id of a typo'd earlier version of _Q's input.
 _SUPERSEDED_MARKER = "@@SUPERSEDED@@"
 
@@ -66,7 +68,7 @@ EXAMPLES: list[tuple[str, str, str, dict[str, Any]]] = [
      {"input": dict(_Q), "expected": "4"}),
     ("key_order_permuted", "Same as baseline with input keys inserted in the other order; "
      "must equal baseline (jcs_v1 sorts keys).", "tenant_a",
-     {"input": {"lang": "en", "question": "What is 2+2?"}, "expected": "4"}),
+     {"input": {"lang": "en", "question": _QUESTION}, "expected": "4"}),
     ("expected_changed", "Same input as baseline, different expected output: SAME example_id, "
      "DIFFERENT example_version.", "tenant_a",
      {"input": dict(_Q), "expected": "four"}),
@@ -87,9 +89,9 @@ EXAMPLES: list[tuple[str, str, str, dict[str, Any]]] = [
     ("context_empty_object", "context: {} is a value, NOT absent; must differ from baseline.",
      "tenant_a", {"input": dict(_Q), "context": {}, "expected": "4"}),
     ("string_input", "Bare string input (Backend input_text shape).", "tenant_a",
-     {"input": "What is 2+2?", "expected": "4"}),
+     {"input": _QUESTION, "expected": "4"}),
     ("list_input", "Multi-turn list input (Backend input_text list shape).", "tenant_a",
-     {"input": ["Hi", "What is 2+2?"], "expected": "4"}),
+     {"input": ["Hi", _QUESTION], "expected": "4"}),
     ("unicode_nfc", "U+00E9 precomposed. No Unicode normalization: differs from unicode_nfd.",
      "tenant_a", {"input": {"q": "caf\u00e9"}}),
     ("unicode_nfd", "e + U+0301 combining acute. Must differ from unicode_nfc.", "tenant_a",
@@ -178,14 +180,14 @@ _BUILD = {
     "label": "v1.3",
     "code_revision": {"vcs": "git", "commit": "0123456789abcdef0123456789abcdef01234567",
                       "dirty": False},
-    "source_digest": "sha256:" + "11" * 32,
-    "dependency_lock_digest": "sha256:" + "22" * 32,
+    "source_digest": _SHA256_PREFIX + "11" * 32,
+    "dependency_lock_digest": _SHA256_PREFIX + "22" * 32,
     "asset_digests": {
-        "prompts": {"system.txt": "sha256:" + "33" * 32},
-        "helper_modules": {"app/retrieval.py": "sha256:" + "55" * 32},
-        "tool_definitions": {"search": "sha256:" + "66" * 32},
+        "prompts": {"system.txt": _SHA256_PREFIX + "33" * 32},
+        "helper_modules": {"app/retrieval.py": _SHA256_PREFIX + "55" * 32},
+        "tool_definitions": {"search": _SHA256_PREFIX + "66" * 32},
     },
-    "applied_config_digest": "sha256:" + "44" * 32,
+    "applied_config_digest": _SHA256_PREFIX + "44" * 32,
     "coverage": "complete",
     "runtime": {"language": "python", "language_version": "3.12", "sdk_version": "0.28.0"},
 }
@@ -201,13 +203,13 @@ AGENT_BUILDS: list[tuple[str, str, dict[str, Any]]] = [
     ("full_reordered", "Same manifest, keys in reverse order; must equal full.",
      dict(reversed(list(_BUILD.items())))),
     ("config_changed", "Same build, different candidate configuration: a different version.",
-     {**_BUILD, "applied_config_digest": "sha256:" + "77" * 32}),
+     {**_BUILD, "applied_config_digest": _SHA256_PREFIX + "77" * 32}),
     ("helper_changed", "Only a helper module changed: a different version.",
-     _with_asset("helper_modules", "app/retrieval.py", "sha256:" + "88" * 32)),
+     _with_asset("helper_modules", "app/retrieval.py", _SHA256_PREFIX + "88" * 32)),
     ("prompt_changed", "Only a prompt changed: a different version.",
-     _with_asset("prompts", "system.txt", "sha256:" + "99" * 32)),
+     _with_asset("prompts", "system.txt", _SHA256_PREFIX + "99" * 32)),
     ("tool_changed", "Only a tool definition changed: a different version.",
-     _with_asset("tool_definitions", "search", "sha256:" + "aa" * 32)),
+     _with_asset("tool_definitions", "search", _SHA256_PREFIX + "aa" * 32)),
     ("partial_coverage", "coverage='partial' still yields a build_digest (history), but "
      "is rejected for certifiable use (see rejections).", {**_BUILD, "coverage": "partial"}),
     ("relabelled", "Same bits, different label: a different version by design.",
@@ -217,11 +219,11 @@ AGENT_BUILDS: list[tuple[str, str, dict[str, Any]]] = [
 _EVALUATOR = {
     "manifest_version": 1,
     "evaluator_id": "ev_accuracy_judge",
-    "code_digest": "sha256:" + "e1" * 32,
-    "config_digest": "sha256:" + "e5" * 32,
-    "helper_digests": {"eval/normalize.py": "sha256:" + "e6" * 32},
+    "code_digest": _SHA256_PREFIX + "e1" * 32,
+    "config_digest": _SHA256_PREFIX + "e5" * 32,
+    "helper_digests": {"eval/normalize.py": _SHA256_PREFIX + "e6" * 32},
     "judge": {"provider": "openai", "model": "gpt-4o-2024-08-06",
-              "config_digest": "sha256:" + "e2" * 32},
+              "config_digest": _SHA256_PREFIX + "e2" * 32},
     "objectives": [
         {"name": "accuracy", "orientation": "maximize", "weight": 0.7},
         {"name": "cost", "orientation": "minimize", "weight": 0.3},
@@ -247,19 +249,19 @@ EVALUATORS: list[tuple[str, str, dict[str, Any]]] = [
     ("judge_model_changed", "Judge model changed: a different version.",
      {**_EVALUATOR, "judge": {**_EVALUATOR["judge"], "model": "gpt-4o-2024-11-20"}}),
     ("judge_config_changed", "Judge configuration changed: a different version.",
-     {**_EVALUATOR, "judge": {**_EVALUATOR["judge"], "config_digest": "sha256:" + "e3" * 32}}),
+     {**_EVALUATOR, "judge": {**_EVALUATOR["judge"], "config_digest": _SHA256_PREFIX + "e3" * 32}}),
     ("dependency_changed", "A behaviour-affecting dependency version changed.",
      {**_EVALUATOR, "dependency_versions": {"rapidfuzz": "3.10.0"}}),
     ("code_changed", "Evaluator code (efp2) changed.",
-     {**_EVALUATOR, "code_digest": "sha256:" + "e4" * 32}),
+     {**_EVALUATOR, "code_digest": _SHA256_PREFIX + "e4" * 32}),
     ("model_free", "judge: null for a model-free evaluator (explicit, never omitted).",
      {**_EVALUATOR, "judge": None}),
     ("model_free_threshold_changed", "Model-free evaluator: only its bound configuration "
      "(e.g. a pass threshold) changed -- efp2 would not see this; config_digest does.",
-     {**_EVALUATOR, "judge": None, "config_digest": "sha256:" + "e7" * 32}),
+     {**_EVALUATOR, "judge": None, "config_digest": _SHA256_PREFIX + "e7" * 32}),
     ("model_free_helper_changed", "Model-free evaluator: only a local helper file changed.",
      {**_EVALUATOR, "judge": None,
-      "helper_digests": {"eval/normalize.py": "sha256:" + "e8" * 32}}),
+      "helper_digests": {"eval/normalize.py": _SHA256_PREFIX + "e8" * 32}}),
     ("no_helpers", "helper_digests {} asserts the evaluator has no local helpers.",
      {**_EVALUATOR, "helper_digests": {}}),
 ]

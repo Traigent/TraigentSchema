@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/auth/verify_email_request_schema.json",
   "title": "Verify Email Request",
-  "description": "POST /api/v1/auth/verify-email body. additionalProperties:true — the backend reads the documented keys and ignores unknown ones (never 422s on extras).",
+  "description": "POST /api/v1/auth/verify-email body. Two shapes: {verification_token} (legacy token-only confirmation, for accounts registered without activation confirmation) and {verification_token, password} (activation confirmation, where the mailbox owner sets the password; password 1..128 characters). Accounts in a pending-activation state always require the password, even when the feature is off. `password` is optional in this schema so the token-only shape stays valid. The server rejects unknown properties: the legacy path with a 400 validation error, the activation path with the uniform ACTIVATION_FAILED response; the legacy path also rejects `password`. additionalProperties stays true here only because closing it would be a breaking change to this published schema.",
   "type": "object",
   "additionalProperties": true,
   "properties": {
@@ -11,6 +11,12 @@
       "minLength": 1,
       "maxLength": 2048,
       "description": "Email-verification token from the emailed link."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Password chosen by the mailbox owner. Required when activation confirmation is in effect."
     }
   },
   "required": [

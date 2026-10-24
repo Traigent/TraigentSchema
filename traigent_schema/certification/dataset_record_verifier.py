@@ -96,6 +96,11 @@ from traigent_schema.certification.relying_party_verifier import (
 )
 from traigent_schema.validator import _FORMAT_CHECKER
 
+_PTR_LEAF_CORPORA = "/leaf_generation_attestation/corpora"
+_PTR_LEAF_LIST_DIGESTS = "/leakage_report/leaf_list_digests"
+_PTR_COMPOSITION_CELLS = "/composition/cells"
+_PTR_PREREG_EVIDENCE_GRADE = "/preregistration_envelope/preregistration/evidence_grade"
+
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent / "schemas"
 _CERT_DIR = _SCHEMAS_DIR / "certification"
 _DATASET_RECORD_SCHEMA_PATH = _CERT_DIR / "dataset_record_v1_schema.json"
@@ -105,7 +110,7 @@ _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
 _PROJECT_REF_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 _REF_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}:[A-Za-z0-9_-]{8,128}$")
 _LEAKAGE_SCOPE_REF_RE = re.compile(r"^lsr:[A-Za-z0-9_-]{43}$")
-_UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
+_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$", re.ASCII)
 _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 
 # Every role-digest domain this module uses, and NOTHING ELSE: each constant
@@ -843,7 +848,6 @@ def _walk_strict_integers(value: Any, location: str) -> None:
     if type(value) is list:
         for index, item in enumerate(value):
             _walk_strict_integers(item, f"{location}/{index}")
-        return
 
 
 def _check_strict_integers(bundle: dict[str, Any]) -> None:
@@ -960,7 +964,7 @@ def _check_derived_refs(
         for corpus in attestation["corpora"]:
             expected_corpus = _derive_corpus_ref(corpus["leaf_root"], leakage_scope_ref)
             if corpus["corpus_ref"] != expected_corpus:
-                _fail("REF_NOT_DERIVED", "/leaf_generation_attestation/corpora")
+                _fail("REF_NOT_DERIVED", _PTR_LEAF_CORPORA)
 
     if leaf_lists:
         dataset_ref = identity["dataset_ref"]
@@ -973,7 +977,7 @@ def _check_derived_refs(
             corpus_leaf_root = _leaf_list_digest(leaves)
             expected_corpus = _derive_corpus_ref(corpus_leaf_root, leakage_scope_ref)
             if corpus_ref != expected_corpus:
-                _fail("REF_NOT_DERIVED", "/leakage_report/leaf_list_digests")
+                _fail("REF_NOT_DERIVED", _PTR_LEAF_LIST_DIGESTS)
 
 
 def _leaf_list_projection_error(definition_name: str, projection: dict[str, Any]) -> bool:
@@ -1144,7 +1148,7 @@ def _check_composition_digest(unsigned: dict[str, Any], composition: dict[str, A
 def _check_declared_partition(identity: dict[str, Any], composition: dict[str, Any]) -> None:
     cells = composition["cells"]
     if len(cells) > _MAX_CELLS:
-        _fail("STRATUM_PARTITION_MISMATCH", "/composition/cells")
+        _fail("STRATUM_PARTITION_MISMATCH", _PTR_COMPOSITION_CELLS)
     seen: set[tuple[str, str]] = set()
     total = 0
     for index, cell in enumerate(cells):
@@ -1156,7 +1160,7 @@ def _check_declared_partition(identity: dict[str, Any], composition: dict[str, A
             _fail("STRATUM_PARTITION_MISMATCH", f"/composition/cells/{index}/item_count")
         total += cell["item_count"]
     if total != identity["item_count"]:
-        _fail("STRATUM_PARTITION_MISMATCH", "/composition/cells")
+        _fail("STRATUM_PARTITION_MISMATCH", _PTR_COMPOSITION_CELLS)
     if composition["populated_cell_count"] != len(cells):
         _fail("STRATUM_PARTITION_MISMATCH", "/composition/populated_cell_count")
 
@@ -1206,16 +1210,16 @@ def _check_cell_roots(
         key = (cell["category_id"], cell["difficulty_stratum"])
         leaves = by_cell.get(key, [])
         if len(leaves) != cell["item_count"]:
-            _fail("COMPOSITION_CELL_COUNT_MISMATCH", "/composition/cells")
+            _fail("COMPOSITION_CELL_COUNT_MISMATCH", _PTR_COMPOSITION_CELLS)
         recomputed = _role_digest(_CELL_ROOT_DOMAIN, sorted(leaves))
         if recomputed != cell["cell_leaf_root"]:
-            _fail("COMPOSITION_CELL_ROOT_MISMATCH", "/composition/cells")
+            _fail("COMPOSITION_CELL_ROOT_MISMATCH", _PTR_COMPOSITION_CELLS)
 
     declared_keys = {
         (cell["category_id"], cell["difficulty_stratum"]) for cell in composition["cells"]
     }
     if set(by_cell) - declared_keys:
-        _fail("COMPOSITION_CELL_ROOT_MISMATCH", "/composition/cells")
+        _fail("COMPOSITION_CELL_ROOT_MISMATCH", _PTR_COMPOSITION_CELLS)
 
     reconstructed_root = _role_digest(_ITEM_SET_ROOT_DOMAIN, sorted(all_leaves))
     if reconstructed_root != identity["item_set_root"]:
@@ -1285,7 +1289,7 @@ def _check_leakage_scope(
             if corpus_ref == dataset_ref:
                 continue
             if corpus_ref not in supplied_corpora:
-                _fail("LEAKAGE_SCOPE_MISMATCH", "/leakage_report/leaf_list_digests")
+                _fail("LEAKAGE_SCOPE_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
 
 
 def _check_leaf_list_digests(
@@ -1311,12 +1315,12 @@ def _check_leaf_list_digests(
             continue
         declared = declared_by_ref.get(corpus_ref)
         if declared is None:
-            _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
         leaves = sorted(entry["leaf"] for entry in entries)
         if len(leaves) != declared["leaf_count"]:
-            _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
         if _leaf_list_digest(leaves) != declared["leaf_list_digest"]:
-            _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
         recomputed[corpus_ref] = leaves
     return recomputed
 
@@ -1562,7 +1566,7 @@ def _check_corpus_ref_descriptors(
             # one corpus_ref the verifier cannot tell which is forged, so it
             # must not point at either as though it alone were at fault
             # (T3 round 6 P3-1).
-            _fail("LEAF_LIST_DIGEST_MISMATCH", "/leakage_report/leaf_list_digests")
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
         known.add(entry["corpus_ref"])
         leaf_counts_by_ref[entry["corpus_ref"]] = entry["leaf_count"]
     if attestation is not None:
@@ -1582,7 +1586,7 @@ def _check_corpus_ref_descriptors(
         for corpus in attestation["corpora"]:
             ref = corpus["corpus_ref"]
             if ref in seen_attestation_refs:
-                _fail("LEAF_LIST_DIGEST_MISMATCH", "/leaf_generation_attestation/corpora")
+                _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_CORPORA)
             seen_attestation_refs.add(ref)
             known.add(ref)
             attestation_leaf_counts_by_ref[ref] = corpus["leaf_count"]
@@ -1666,7 +1670,7 @@ def _check_leaf_generation_attestation(
     scope_blind_commitment = attestation["scope_blind_commitment"]
     for corpus in attestation["corpora"]:
         if corpus["scope_blind_commitment"] != scope_blind_commitment:
-            _fail("LEAF_SCOPE_BLIND_MISMATCH", "/leaf_generation_attestation/corpora")
+            _fail("LEAF_SCOPE_BLIND_MISMATCH", _PTR_LEAF_CORPORA)
 
     for corpus in attestation["corpora"]:
         corpus_ref = corpus["corpus_ref"]
@@ -1674,15 +1678,13 @@ def _check_leaf_generation_attestation(
         if leaves is None:
             continue
         if corpus["leaf_count"] != len(leaves):
-            _fail("LEAF_COMPLETENESS_MISMATCH", "/leaf_generation_attestation/corpora")
+            _fail("LEAF_COMPLETENESS_MISMATCH", _PTR_LEAF_CORPORA)
         if corpus["leaf_root"] != _leaf_list_digest(leaves):
-            _fail("LEAF_COMPLETENESS_MISMATCH", "/leaf_generation_attestation/corpora")
+            _fail("LEAF_COMPLETENESS_MISMATCH", _PTR_LEAF_CORPORA)
     return True
 
 
-def _check_ds4_method(
-    unsigned: dict[str, Any], leakage_report: dict[str, Any], prereg: dict[str, Any]
-) -> None:
+def _check_ds4_method(leakage_report: dict[str, Any], prereg: dict[str, Any]) -> None:
     for index, finding in enumerate(leakage_report["findings"]):
         if finding["finding_kind"] != "near_duplicate_overlap":
             continue
@@ -1944,7 +1946,7 @@ def _check_evidence_grade(
     if declared == "log_inclusion_proof":
         _fail(
             "PREREGISTRATION_GRADE_UNSUPPORTED",
-            "/preregistration_envelope/preregistration/evidence_grade",
+            _PTR_PREREG_EVIDENCE_GRADE,
         )
     if declared == "caller_pinned_before_results":
         if (
@@ -1953,13 +1955,13 @@ def _check_evidence_grade(
         ):
             _fail(
                 "PREREGISTRATION_GRADE_MISMATCH",
-                "/preregistration_envelope/preregistration/evidence_grade",
+                _PTR_PREREG_EVIDENCE_GRADE,
             )
         return "caller_pinned_before_results"
     if declared != "digest_bound_attestation":
         _fail(
             "PREREGISTRATION_GRADE_MISMATCH",
-            "/preregistration_envelope/preregistration/evidence_grade",
+            _PTR_PREREG_EVIDENCE_GRADE,
         )
     # Astra P1: the issuer could bypass the caller's registered-policy pin by
     # declaring a WEAKER grade. The pin was consulted only inside the
@@ -2436,7 +2438,7 @@ def _verify(
     _check_inert_fraction(identity, efficiency_report)
     _check_decisive_subset(identity, efficiency_report)
     _check_cost_and_latency(efficiency_report)
-    _check_ds4_method(unsigned, leakage_report, prereg)
+    _check_ds4_method(leakage_report, prereg)
     ds4_available = any(
         f["finding_kind"] == "near_duplicate_overlap" for f in leakage_report["findings"]
     )

@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/verify_email_mfa_response_schema.json",
+  "title": "Verify Email MFA Response DTO",
+  "description": "HTTP 403 bodies for POST /api/v1/auth/verify-email in the activation-confirmation flow when multi-factor authentication applies: either enrollment is required (an enrollment-only access token is returned for /api/v1/mfa/setup) or a challenge must be completed through the normal login MFA flow.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "MFA enrollment required",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "mfa_setup_required",
+        "user_id",
+        "access_token",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "mfa_setup_required": {
+          "const": true
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Enrollment-only credential."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "title": "MFA challenge required",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "error",
+        "mfa_required",
+        "user_id"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mfa_required": {
+          "const": true
+        },
+        "user_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  ]
+}

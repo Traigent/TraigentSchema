@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_rate_limited_response_schema.json",
+  "title": "MFA Login Rate-Limited Response",
+  "description": "HTTP 429 body for POST /api/v1/auth/login (second leg, `mfa_token` supplied) when the per-user MFA login attempt budget (5 attempts per 300 seconds, counted across IPs and workers) is exhausted. Same envelope shape as rate_limit_info_schema.json but with its own error_code, so clients can branch on it; distinct from a wrong code (HTTP 401). The `Retry-After` response header carries the seconds until the window resets. If the limiter store is unavailable the server fails closed and keeps answering the generic 401 invalid-MFA response; it does NOT emit this body.",
+  "allOf": [
+    {
+      "$ref": "../error_envelope_schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "error_code": {
+          "const": "MFA_RATE_LIMITED"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "const": "mfa_login"
+            },
+            "retry_after": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds until the window resets (mirrors the Retry-After header)."
+            }
+          },
+          "required": [
+            "scope",
+            "retry_after"
+          ]
+        }
+      },
+      "required": [
+        "error_code",
+        "details"
+      ]
+    }
+  ],
+  "x-response-headers": {
+    "Retry-After": {
+      "description": "Seconds until the MFA login attempt window resets.",
+      "schema": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  }
+}

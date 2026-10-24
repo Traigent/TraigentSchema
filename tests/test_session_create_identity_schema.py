@@ -143,9 +143,9 @@ def test_every_new_identity_field_declares_a_privacy_classification() -> None:
         "evaluator_id_source",
     ):
         assert field in properties, f"{field} missing from session-create"
-        assert (
-            "x-privacy-classification" in properties[field]
-        ), f"{field} has no x-privacy-classification"
+        assert "x-privacy-classification" in properties[field], (
+            f"{field} has no x-privacy-classification"
+        )
 
 
 def _v2(**overrides: Any) -> dict[str, Any]:
@@ -171,9 +171,7 @@ def test_declaring_v2_and_sending_no_identity_is_rejected() -> None:
     """v2 means 'I speak declared identity'; saying it and sending nothing
     leaves the server to fall back on function_name/agent_key derivation,
     which is the inference this whole contract exists to remove."""
-    errors = _validator().validate_request(
-        "/api/v1/sessions", "POST", _payload(identity_version=2)
-    )
+    errors = _validator().validate_request("/api/v1/sessions", "POST", _payload(identity_version=2))
 
     assert errors, "identity_version 2 with no declared identity must be rejected"
 
@@ -338,9 +336,9 @@ def test_response_agent_id_is_additive_and_optional() -> None:
     schema_path = get_schemas_dir() / "optimization" / "optimization_endpoints.json"
     document = json.loads(schema_path.read_text(encoding="utf-8"))
 
-    response_schema = document["paths"]["/api/v1/sessions"]["post"]["responses"]["201"][
-        "content"
-    ]["application/json"]["schema"]
+    response_schema = document["paths"]["/api/v1/sessions"]["post"]["responses"]["201"]["content"][
+        "application/json"
+    ]["schema"]
 
     assert "required" not in response_schema
     assert response_schema["additionalProperties"] is True
@@ -413,29 +411,54 @@ def test_code_digest_accepted_with_unknown_evaluator_source() -> None:
     assert _errors(_v2_code_payload(evaluator_id_source="unknown")) == []
 
 
+def _assert_only_the_digest_rule_rejects(payload: dict[str, Any], label: str) -> list[Any]:
+    """The payload is invalid WITH evaluator_code_digest and valid WITHOUT it.
+
+    That proves the new allOf branch is the only failing constraint, so the test
+    cannot pass because of some unrelated, pre-existing rule.
+    """
+    with_digest = _errors(payload)
+    assert with_digest, f"{label}: must be rejected next to evaluator_code_digest"
+    without_digest = {k: v for k, v in payload.items() if k != "evaluator_code_digest"}
+    assert _errors(without_digest) == [], f"{label}: masked, fails without the digest too"
+    return with_digest
+
+
 def test_code_digest_rejected_with_each_alias() -> None:
-    for alias in ("evaluator_id", "evaluator_definition_id", "evaluator_ref"):
-        value: Any = "exact-match-v3"
-        if alias == "evaluator_ref":
-            value = "evaluator_" + "0" * 64
-        errs = _errors(_v2_code_payload(**{alias: value}))
-        assert errs, f"{alias} next to evaluator_code_digest must be rejected"
+    aliases: dict[str, Any] = {
+        "evaluator_id": "exact-match-v3",
+        "evaluator_definition_id": "exact-match-v3",
+        "evaluator_ref": "evaluatorref_" + "0" * 32,  # valid per label_common_schema
+    }
+    for alias, value in aliases.items():
+        _assert_only_the_digest_rule_rejects(_v2_code_payload(**{alias: value}), alias)
 
 
 def test_code_digest_rejected_with_declared_or_registered_source() -> None:
+    # A declared/registered source needs evaluator_id under the pre-existing rule,
+    # so evaluator_id is supplied; the payload is valid without the digest. The
+    # source restriction cannot be isolated from the alias exclusion here, so also
+    # assert the error is attributed to evaluator_id_source (the new branch).
     for source in ("declared", "registered"):
-        assert _errors(_v2_code_payload(evaluator_id_source=source)), source
+        errs = _assert_only_the_digest_rule_rejects(
+            _v2_code_payload(evaluator_id_source=source, evaluator_id="exact-match-v3"), source
+        )
+        assert any(str(e).startswith("evaluator_id_source:") for e in errs), (source, errs)
 
 
 def test_code_digest_rejected_in_content_less_shape() -> None:
-    assert _errors(_v2_code_payload(capabilities=["content_less_v1"]))
+    _assert_only_the_digest_rule_rejects(
+        _v2_code_payload(capabilities=["content_less_v1"]), "content_less_v1"
+    )
 
 
 def test_code_digest_rejected_unless_identity_version_is_2() -> None:
     legacy = _v2_code_payload()
     del legacy["identity_version"]
-    assert _errors(legacy), "absent identity_version (legacy shape) must be rejected"
-    assert _errors(_v2_code_payload(identity_version=1)), "identity_version 1 must be rejected"
+    _assert_only_the_digest_rule_rejects(legacy, "absent identity_version")
+    _assert_only_the_digest_rule_rejects(_v2_code_payload(identity_version=1), "version 1")
+    # identity_version null / 3 also fail the pre-existing enum without the digest,
+    # so they are not new-branch proofs; kept as plain rejection checks.
     assert _errors(_v2_code_payload(identity_version=None)), "null identity_version"
     assert _errors(_v2_code_payload(identity_version=3)), "identity_version 3 is not in the enum"
 
@@ -457,8 +480,11 @@ def test_code_digest_malformed_values_rejected() -> None:
         assert _errors(_v2_code_payload(evaluator_code_digest=bad)), repr(bad)
 
 
-def test_code_digest_null_does_not_bypass_alias_exclusion() -> None:
-    assert _errors(_v2_code_payload(evaluator_code_digest=None, evaluator_id="x"))
+def test_code_digest_null_still_triggers_alias_exclusion() -> None:
+    # Presence is tested with `required`, so a null digest still fires the branch.
+    # The type error also rejects null, so assert the branch's own error is reported.
+    errs = _errors(_v2_code_payload(evaluator_code_digest=None, evaluator_id="x"))
+    assert any("should not be valid under" in str(e) for e in errs), errs
 
 
 def test_code_digest_is_classed_as_digest_in_manifest() -> None:

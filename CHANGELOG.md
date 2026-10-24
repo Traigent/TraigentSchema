@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Agent-readiness `JourneyItem` gains optional `metric_configuration_source`.** Producers already emit it on journey items and `anchor_summary`; the closed shape rejected it. Enum `selected` | `sole_trial` | null, not required, so existing bodies still validate. Acknowledged in the breaking-change allowlist because the response object is closed.
 - **`x-*` extension VALUES are now governed, not just their keys (#573).** `x_extensions_meta_schema.json`
   was the declared source of truth for the `x-*` vocabulary, but only key names were checked, so 88 values
   across the tree did not conform to their own declaration. `tests/test_x_extensions_governance.py` now

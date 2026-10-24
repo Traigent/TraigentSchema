@@ -8544,6 +8544,39 @@
       "reason": "Placeholder `default` responses ('Response shape pending') replaced by typed 200/4xx/5xx responses traced to the handlers. Pre-release authoring completion; the generated FE client has no MFA entries.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/604"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/1/oneOf/1/properties/anchor_summary/allOf/0/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "65c2dc06da91ef7f1235a282e64fcb2ee12e7954cb263a73143f6e890416e44d"
+        },
+        {
+          "pointer": "#/properties/anchor_summary/oneOf/0/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "7c29e1bcf6fc897f76061bb7c9aad428d335ed710434fdb6678102084fd68cde"
+        },
+        {
+          "pointer": "#/properties/journey/properties/items/items/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "8a1320ff12b7832d1fbdd14d1accc30a243c9dec18f8042744f9a486b8b68f4d"
+        }
+      ],
+      "reason": "Additive optional field metric_configuration_source (selected | sole_trial | null) on JourneyItem, which also backs anchor_summary. Producers emit this field and the contract now declares it. Optional and nullable, in no required array, so existing bodies still validate. Flagged BREAKING only because the response object is closed: strict consumers that reject unknown fields must accept this field. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "pending"
     }
   ]
 }

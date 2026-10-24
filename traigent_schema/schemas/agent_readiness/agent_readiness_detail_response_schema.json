@@ -653,6 +653,10 @@
             {"type": "null"}
           ]
         },
+        "metric_configuration_source": {
+          "description": "Which rule selected the configuration run behind metric_configuration_run_id: selected (the run's recorded best-trial selection) or sole_trial (no recorded selection and exactly one eligible trial). Null when no configuration run was resolved. Optional for rollout so bodies from producer revisions that predate it keep validating; closed and validated whenever present.",
+          "enum": ["selected", "sole_trial", null]
+        },
         "reported_example_evaluations": {"type": ["integer", "null"], "minimum": 0},
         "reported_metrics": {
           "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReportedMetrics"

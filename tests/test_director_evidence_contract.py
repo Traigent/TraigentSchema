@@ -24,9 +24,13 @@ SCHEMAS_DIR = get_schemas_dir()
 ANALYTICS_DIR = SCHEMAS_DIR / "analytics"
 DATA_DIR = Path(__file__).parent / "test_data" / "analytics"
 
-DTO = json.loads((ANALYTICS_DIR / "director_evidence_schema.json").read_text(encoding="utf-8"))
+DTO = json.loads(
+    (ANALYTICS_DIR / "director_evidence_schema.json").read_text(encoding="utf-8")
+)
 ENVELOPE = json.loads(
-    (ANALYTICS_DIR / "director_evidence_response_schema.json").read_text(encoding="utf-8")
+    (ANALYTICS_DIR / "director_evidence_response_schema.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 REGISTRY = Registry().with_resources(
@@ -36,13 +40,25 @@ REGISTRY = Registry().with_resources(
     ]
 )
 
-A = json.loads((DATA_DIR / "director_evidence_available_valid.json").read_text(encoding="utf-8"))
-B = json.loads((DATA_DIR / "director_evidence_abstain_valid.json").read_text(encoding="utf-8"))
+A = json.loads(
+    (DATA_DIR / "director_evidence_available_valid.json").read_text(encoding="utf-8")
+)
+B = json.loads(
+    (DATA_DIR / "director_evidence_abstain_valid.json").read_text(encoding="utf-8")
+)
 C = json.loads(
-    (DATA_DIR / "director_evidence_privacy_abstain_valid.json").read_text(encoding="utf-8")
+    (DATA_DIR / "director_evidence_privacy_abstain_valid.json").read_text(
+        encoding="utf-8"
+    )
 )
 
-SUPPRESSED = ["completed_trials", "recorded_observations", "mean_quality", "nonzero_cost", "age"]
+SUPPRESSED = [
+    "completed_trials",
+    "recorded_observations",
+    "mean_quality",
+    "nonzero_cost",
+    "age",
+]
 
 # Pinned independently of the schema under test (G1 v1.0.1 §2.2 precedence order).
 # Do not derive this from DTO["definitions"]["ordinary_abstain_reason"]["enum"]: the
@@ -162,9 +178,18 @@ def test_item3_evidence_available_false_with_mean_quality_rejected() -> None:
 
 @pytest.mark.parametrize(
     "value,ok",
-    [("3-9", True), ("10+", True), ("0", False), ("1-2", False), (3, False), ("3-10", False)],
+    [
+        ("3-9", True),
+        ("10+", True),
+        ("0", False),
+        ("1-2", False),
+        (3, False),
+        ("3-10", False),
+    ],
 )
-def test_item3_completed_trials_enum_is_exactly_3_9_and_10_plus(value, ok: bool) -> None:
+def test_item3_completed_trials_enum_is_exactly_3_9_and_10_plus(
+    value, ok: bool
+) -> None:
     errors = dto_errors({**A, "completed_trials": value})
     assert (errors == []) is ok
 
@@ -193,14 +218,24 @@ def test_item3_pct_bucket_is_multiple_of_five_in_0_to_100(value, ok: bool) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item4_envelope_accepts_bare_success_and_data(fixture) -> None:
     assert envelope_errors({"success": True, "data": fixture}) == []
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item4_envelope_accepts_message_meta_and_warnings(fixture) -> None:
-    payload = {"success": True, "message": "ok", "data": fixture, "meta": {}, "warnings": []}
+    payload = {
+        "success": True,
+        "message": "ok",
+        "data": fixture,
+        "meta": {},
+        "warnings": [],
+    }
     assert envelope_errors(payload) == []
 
 
@@ -230,9 +265,9 @@ VOCAB_SCHEMA_NAME = "api_key_authorization_vocabulary_schema"
 
 def test_item5_scope_maps_to_permission() -> None:
     schema = load_schema(VOCAB_SCHEMA_NAME)
-    assert schema["x-scope-permission-map"]["director_evidence:read"]["permissions"] == [
-        "director_evidence.read"
-    ]
+    assert schema["x-scope-permission-map"]["director_evidence:read"][
+        "permissions"
+    ] == ["director_evidence.read"]
 
 
 def test_item5_scope_listed_in_restricted_scopes() -> None:
@@ -256,9 +291,10 @@ def test_item5_scope_not_user_requestable() -> None:
 
 def test_item5_scope_token_pattern_still_equals_convention_pattern() -> None:
     schema = load_schema(VOCAB_SCHEMA_NAME)
-    assert schema["definitions"]["ApiKeyScopeToken"]["pattern"] == schema["x-scope-convention"][
-        "pattern"
-    ]
+    assert (
+        schema["definitions"]["ApiKeyScopeToken"]["pattern"]
+        == schema["x-scope-convention"]["pattern"]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -279,17 +315,23 @@ ROTATE_SCHEMA_NAME = "api_key_rotate_request_schema"
 
 def create_errors(payload: dict) -> list:
     schema = load_schema(CREATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def update_errors(payload: dict) -> list:
     schema = load_schema(UPDATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def rotate_errors(payload: dict) -> list:
     schema = load_schema(ROTATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def _error_signal(errors: list) -> str:
@@ -332,7 +374,9 @@ def test_item6_create_rejects_resource_grants_field() -> None:
             }
         ],
     }
-    _assert_error_names(create_errors(payload), "resource_grants", "create_resource_grants_rejected")
+    _assert_error_names(
+        create_errors(payload), "resource_grants", "create_resource_grants_rejected"
+    )
 
 
 ALL_KEY_TYPES = ["user", "service", "admin", "temporary", "readonly", "system", None]
@@ -385,7 +429,9 @@ def test_item6_update_rejects_resource_grants_field() -> None:
             }
         ]
     }
-    _assert_error_names(update_errors(payload), "resource_grants", "update_resource_grants_rejected")
+    _assert_error_names(
+        update_errors(payload), "resource_grants", "update_resource_grants_rejected"
+    )
 
 
 def test_item6_update_has_backend_obligations() -> None:
@@ -398,7 +444,9 @@ def test_item6_rotate_strategy_immediate_validates() -> None:
 
 
 def test_item6_rotate_rejects_key_type_field() -> None:
-    _assert_error_names(rotate_errors({"key_type": "director"}), "key_type", "rotate_key_type_rejected")
+    _assert_error_names(
+        rotate_errors({"key_type": "director"}), "key_type", "rotate_key_type_rejected"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +455,12 @@ def test_item6_rotate_rejects_key_type_field() -> None:
 
 
 def test_item7_director_evidence_route_is_contract_first() -> None:
-    endpoints = json.loads((ANALYTICS_DIR / "analytics_endpoints.json").read_text(encoding="utf-8"))
-    operation = endpoints["paths"]["/api/v1/analytics/runs/{run_id}/director-evidence"]["get"]
+    endpoints = json.loads(
+        (ANALYTICS_DIR / "analytics_endpoints.json").read_text(encoding="utf-8")
+    )
+    operation = endpoints["paths"]["/api/v1/analytics/runs/{run_id}/director-evidence"][
+        "get"
+    ]
     assert operation.get("x-asserted-against-backend") is False
 
 
@@ -432,7 +484,9 @@ VENDORED_ENVELOPE = {
     "properties": {
         "success": {"type": "boolean", "const": True},
         "message": {"type": "string", "maxLength": 240},
-        "data": {"$ref": "https://schemas.traigent.ai/analytics/director_evidence_schema.json"},
+        "data": {
+            "$ref": "https://schemas.traigent.ai/analytics/director_evidence_schema.json"
+        },
         "meta": {"type": "object", "additionalProperties": True},
         "warnings": {"type": "array", "items": {"type": "object"}},
     },
@@ -440,15 +494,21 @@ VENDORED_ENVELOPE = {
 
 
 def vendored_envelope_errors(payload: dict) -> list:
-    return list(Draft7Validator(VENDORED_ENVELOPE, registry=REGISTRY).iter_errors(payload))
+    return list(
+        Draft7Validator(VENDORED_ENVELOPE, registry=REGISTRY).iter_errors(payload)
+    )
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item8_fixture_validates_against_repo_envelope(fixture) -> None:
     assert envelope_errors({"success": True, "data": fixture}) == []
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item8_fixture_validates_against_vendored_envelope(fixture) -> None:
     assert vendored_envelope_errors({"success": True, "data": fixture}) == []
 
@@ -462,6 +522,6 @@ def _normalize_envelope_for_comparison(schema: dict) -> dict:
 
 
 def test_item8_repo_and_vendored_envelope_equal_apart_from_ref_id_description() -> None:
-    assert _normalize_envelope_for_comparison(ENVELOPE) == _normalize_envelope_for_comparison(
-        VENDORED_ENVELOPE
-    )
+    assert _normalize_envelope_for_comparison(
+        ENVELOPE
+    ) == _normalize_envelope_for_comparison(VENDORED_ENVELOPE)

@@ -73,6 +73,11 @@
       "paths_file": "./production_requirements/tvl_reactive_policy_endpoints.json"
     },
     {
+      "name": "TVL Reactive Import",
+      "description": "Import of a compiled TVL runtime contract; zero-native contracts return a closed reactive import receipt (TRAIG-101; /api/v1/projects/{project_id}/production-requirements/tvl-import; flag-gated).",
+      "paths_file": "./production_requirements/tvl_reactive_import_endpoints.json"
+    },
+    {
       "name": "Best Config Deploy Target",
       "description": "Agent-head deploy publish-result lookup, finalize and exact pinned-version config read (TRAIG-101 plan 8; /api/v1/best-configs/agent-heads/{agent_ref}/...).",
       "paths_file": "./execution/best_config_deploy_endpoints.json"

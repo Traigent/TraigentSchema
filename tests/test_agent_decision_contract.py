@@ -42,7 +42,9 @@ def _bad(rel, body):
 DECISION = "agent_decision/agent_decision_schema.json"
 ENSURE = "agent_decision/agent_decision_ensure_request_schema.json"
 ANSWER = "agent_decision/agent_decision_answer_request_schema.json"
-RESPONSE = "agent_decision/agent_decision_response_schema.json"
+ENSURE_RESP = "agent_decision/agent_decision_ensure_response_schema.json"
+ANSWER_RESP = "agent_decision/agent_decision_answer_response_schema.json"
+LATEST_RESP = "agent_decision/agent_decision_latest_response_schema.json"
 ERROR = "agent_decision/agent_decision_error_schema.json"
 
 DIGEST = "sha256:" + "a" * 64
@@ -53,7 +55,7 @@ def _decision():
         "decision_id": "dr_" + "0" * 32,
         "kind": "PREPARE_BASELINE_EVALUATION",
         "prompt": {
-            "question": "Prepare a baseline evaluation for this agent?",
+            "question": "Prepare the baseline evaluation for this agent now?",
             "options": [
                 {"code": "YES", "label": "Yes, prepare it"},
                 {"code": "NOT_NOW", "label": "Not now"},
@@ -176,19 +178,101 @@ def test_answer_request():
     _bad(ANSWER, {**good, "answer": "MAYBE"})
 
 
-def test_response_envelope():
-    _ok(RESPONSE, {"decision": _decision()})
-    _ok(RESPONSE, {"decision": None})
-    _bad(RESPONSE, {})
-    _bad(RESPONSE, {"decision": None, "extra": 1})
-    _bad(RESPONSE, {"decision": {**_decision(), "extra": 1}})
+def test_response_envelopes():
+    for rel in (ENSURE_RESP, ANSWER_RESP, LATEST_RESP):
+        _bad(rel, {})
+        _bad(rel, {"decision": _decision(), "extra": 1})
+        _bad(rel, {"decision": {**_decision(), "extra": 1}})
+    _ok(ENSURE_RESP, {"decision": _open_decision()})
+    _ok(ENSURE_RESP, {"decision": None})
+    _bad(ENSURE_RESP, {"decision": _decision()})
+    _ok(ANSWER_RESP, {"decision": _decision()})
+    _bad(ANSWER_RESP, {"decision": _open_decision()})
+    _bad(ANSWER_RESP, {"decision": None})
+    for d in (_decision(), _open_decision(), None):
+        _ok(LATEST_RESP, {"decision": d})
 
 
 def test_error_body():
     _ok(ERROR, {"error": {"reason": "STALE_BASIS"}})
+    for r in ("UNAUTHENTICATED", "FORBIDDEN", "RATE_LIMITED"):
+        _ok(ERROR, {"error": {"reason": r}})
+    _ok(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 30}})
+    _bad(ERROR, {"error": {"reason": "FORBIDDEN", "retry_after_seconds": 30}})
+    _bad(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": 86401}})
+    _bad(ERROR, {"error": {"reason": "RATE_LIMITED", "retry_after_seconds": -1}})
     _bad(ERROR, {"error": {"reason": "SOMETHING_ELSE"}})
     _bad(ERROR, {"error": {"reason": "STALE_BASIS", "detail": "echo"}})
     _bad(ERROR, {"error": {"reason": "STALE_BASIS"}, "extra": 1})
+
+
+def _state(status, **kw):
+    d = _open_decision()
+    d["status"] = status
+    d.update(kw)
+    return d
+
+
+def _not_now():
+    return _decision() | {
+        "answer": "NOT_NOW", "execution_status": "NOT_APPLICABLE",
+        "execution_ref": None, "next_action": "NONE",
+    }
+
+
+def test_valid_lifecycle_states():
+    _ok(DECISION, _open_decision())
+    _ok(DECISION, _state("EXPIRED", next_action="NONE"))
+    _ok(DECISION, _state("SUPERSEDED", next_action="NONE"))
+    _ok(DECISION, _not_now())
+    _ok(DECISION, _decision())
+    for es in ("STARTED", "COMPLETED", "FAILED"):
+        _ok(DECISION, _decision() | {"execution_status": es, "next_action": "NONE"})
+    _ok(DECISION, _decision() | {"answered_principal_type": "USER_SESSION",
+                                 "answered_via": "AGENT_HOST_PROMPT"})
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda: _open_decision() | {"answer": "YES"},
+        lambda: _open_decision() | {"execution_ref": "xr_" + "1" * 32},
+        lambda: _open_decision() | {"next_action": "NONE"},
+        lambda: _state("EXPIRED", next_action="NONE") | {"answer": "YES"},
+        lambda: _state("SUPERSEDED", next_action="NONE") | {"answered_at": "2026-10-25T10:00:00Z"},
+        lambda: _state("EXPIRED"),  # next_action must be NONE
+        lambda: _not_now() | {"next_action": "RUN_PREFLIGHT"},
+        lambda: _not_now() | {"execution_ref": "xr_" + "1" * 32},
+        lambda: _not_now() | {"execution_status": "STARTED"},
+        lambda: _decision() | {"execution_ref": None},
+        lambda: _decision() | {"execution_status": "NOT_APPLICABLE"},
+        lambda: _decision() | {"next_action": "NONE"},
+        lambda: _decision() | {"execution_status": "STARTED"},  # RUN_PREFLIGHT only awaiting
+        lambda: _decision() | {"answer": None},
+        lambda: _decision() | {"answered_at": None},
+        lambda: _decision() | {"human_responder": None},
+        lambda: _decision() | {"human_responder": "VERIFIED_SESSION_USER"},
+    ],
+)
+def test_lifecycle_invariants_rejected(mutate):
+    _bad(DECISION, mutate())
+
+
+def test_prompt_and_versions_are_pinned():
+    d = _decision()
+    d["prompt"]["options"][1] = {"code": "YES", "label": "Not now"}
+    _bad(DECISION, d)
+    d = _decision()
+    d["prompt"]["options"][1] = {"code": "YES", "label": "Yes, prepare it"}
+    _bad(DECISION, d)
+    d = _decision()
+    d["prompt"]["question"] = "Prepare the baseline evaluation for Alice's agent?"
+    _bad(DECISION, d)
+    d = _decision()
+    d["prompt"]["options"].reverse()
+    _bad(DECISION, d)
+    _bad(DECISION, _decision() | {"options_version": "2"})
+    _bad(DECISION, _decision() | {"policy_version": "2"})
 
 
 def _walk(node, path=""):
@@ -206,7 +290,7 @@ def _walk(node, path=""):
 
 def test_every_object_in_domain_is_closed():
     files = sorted(DOMAIN.glob("*_schema.json"))
-    assert len(files) == 5
+    assert len(files) == 7
     for f in files:
         for path, node in _walk(json.loads(f.read_text(encoding="utf-8"))):
             assert node.get("additionalProperties") is False, f"{f.name}{path}"
@@ -221,17 +305,15 @@ def test_endpoints_wire_schemas():
     )
     assert "get" in cat["paths"][base + "{agent_id}/latest"]
     ans = cat["paths"][base + "{decision_id}/answer"]["post"]
-    assert set(ans["responses"]) == {"200", "404", "409", "410", "422", "429", "503"}
+    assert set(ans["responses"]) == {"200", "401", "403", "404", "409", "410", "422", "429", "503"}
     for op in (ens, ans):
         assert op["x-required-permission"] == "experiment.write"
         for code, resp in op["responses"].items():
             ref = resp["content"]["application/json"]["schema"]["$ref"]
-            if code == "429":
-                assert ref == "../rate_limit_info_schema.json"
-                continue
             assert ref.endswith(
                 "response_schema.json" if code == "200" else "error_schema.json"
             )
+        assert {"401", "403", "429"} <= set(op["responses"])
 
 
 def test_session_create_carries_optional_execution_ref():

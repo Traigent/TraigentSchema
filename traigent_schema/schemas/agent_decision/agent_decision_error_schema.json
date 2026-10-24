@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_error_schema.json",
   "title": "Agent Decision Error",
-  "description": "Closed error body. Errors never echo client-supplied keys or values.",
+  "description": "Closed error body. Errors never echo client-supplied keys or values. retry_after_seconds is present only for RATE_LIMITED.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,10 +28,34 @@
             "NOT_ELIGIBLE",
             "REPLAY_MISMATCH",
             "INVALID_REQUEST",
-            "POLICY_UNAVAILABLE"
+            "POLICY_UNAVAILABLE",
+            "UNAUTHENTICATED",
+            "FORBIDDEN",
+            "RATE_LIMITED"
           ]
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "retry_after_seconds"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "RATE_LIMITED"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

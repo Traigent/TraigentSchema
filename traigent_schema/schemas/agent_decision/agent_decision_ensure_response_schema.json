@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_ensure_response_schema.json",
+  "title": "Agent Decision Ensure Response",
+  "description": "Response of ensure: the OPEN decision for this basis, or null when none applies now (including after a YES or NOT_NOW for the same basis).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision"
+  ],
+  "properties": {
+    "decision": {
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "./agent_decision_schema.json"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "OPEN"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

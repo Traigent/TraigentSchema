@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_schema.json",
   "title": "Agent Decision",
-  "description": "A host-prompt decision request: the backend issues a closed question about an agent, the customer's coding agent asks the human in its own UI and posts back a closed answer. This is a closed channel: no customer content crosses it in either direction. Every id is server-issued, and the agent id is never echoed in the object. Question and option text is backend-authored fixed template text.",
+  "description": "A host-prompt decision request: the backend issues a closed question about an agent, the customer's coding agent asks the human in its own UI and posts back a closed answer. This is a closed channel: no customer content crosses it in either direction. Every id is server-issued, and the agent id is never echoed in the object. Question and option text is backend-authored fixed template text. Lifecycle invariants are enforced in-schema: OPEN, EXPIRED and SUPERSEDED decisions carry no answer (an answered decision is never expired or superseded; it stays ANSWERED); an ANSWERED decision carries every answer field; YES issues execution_ref, NOT_NOW never does; an answer submitted by the agent host prompt always has human_responder UNKNOWN.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -45,7 +45,7 @@
         "question",
         "options"
       ],
-      "description": "Backend-authored fixed template text. It never contains customer content.",
+      "description": "Backend-authored fixed template text, pinned per kind and options_version by the allOf below. It never contains customer content.",
       "properties": {
         "question": {
           "type": "string",
@@ -199,5 +199,312 @@
       "description": "Server-issued; the client echoes it in the answer for idempotent retries.",
       "maxLength": 35
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "PREPARE_BASELINE_EVALUATION at options_version 1: exact fixed prompt text, options order fixed, policy_version 1.",
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "PREPARE_BASELINE_EVALUATION"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "options_version": {
+            "const": "1"
+          },
+          "policy_version": {
+            "const": "1"
+          },
+          "prompt": {
+            "const": {
+              "question": "Prepare the baseline evaluation for this agent now?",
+              "options": [
+                {
+                  "code": "YES",
+                  "label": "Yes, prepare it"
+                },
+                {
+                  "code": "NOT_NOW",
+                  "label": "Not now"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "OPEN: nothing answered, nothing executing; the builder is asked.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "OPEN"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "type": "null"
+          },
+          "answered_at": {
+            "type": "null"
+          },
+          "answered_via": {
+            "type": "null"
+          },
+          "answered_principal_type": {
+            "type": "null"
+          },
+          "human_responder": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "execution_ref": {
+            "type": "null"
+          },
+          "next_action": {
+            "const": "ASK_BUILDER"
+          }
+        }
+      }
+    },
+    {
+      "description": "EXPIRED or SUPERSEDED: same as OPEN but nothing is asked. An answered decision is never expired or superseded; it stays ANSWERED.",
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "EXPIRED",
+              "SUPERSEDED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "type": "null"
+          },
+          "answered_at": {
+            "type": "null"
+          },
+          "answered_via": {
+            "type": "null"
+          },
+          "answered_principal_type": {
+            "type": "null"
+          },
+          "human_responder": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "execution_ref": {
+            "type": "null"
+          },
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED: every answer field is set.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_at": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_via": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_principal_type": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "human_responder": {
+            "not": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED with YES: execution_ref issued; execution started or pending; RUN_PREFLIGHT only while awaiting preflight.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          }
+        },
+        "required": [
+          "status",
+          "answer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution_ref": {
+            "type": "string"
+          },
+          "execution_status": {
+            "enum": [
+              "AWAITING_PREFLIGHT",
+              "STARTED",
+              "COMPLETED",
+              "FAILED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          },
+          "execution_status": {
+            "const": "AWAITING_PREFLIGHT"
+          }
+        },
+        "required": [
+          "status",
+          "answer",
+          "execution_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_action": {
+            "const": "RUN_PREFLIGHT"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          },
+          "execution_status": {
+            "enum": [
+              "STARTED",
+              "COMPLETED",
+              "FAILED"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "answer",
+          "execution_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED with NOT_NOW: no execution, no reference, nothing further.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "NOT_NOW"
+          }
+        },
+        "required": [
+          "status",
+          "answer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution_ref": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "An answer submitted through the agent host prompt is never attributed to a verified person.",
+      "if": {
+        "properties": {
+          "answered_via": {
+            "const": "AGENT_HOST_PROMPT"
+          }
+        },
+        "required": [
+          "answered_via"
+        ]
+      },
+      "then": {
+        "properties": {
+          "human_responder": {
+            "const": "UNKNOWN"
+          }
+        }
+      }
+    }
+  ]
 }

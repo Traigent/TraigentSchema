@@ -23,7 +23,6 @@ WRITE_METHODS = {"post", "put", "patch", "delete"}
 BODYLESS = {
     ("/api/v1/auth/logout", "post"),
     ("/api/v1/mfa/setup", "post"),
-    ("/api/v1/mfa/disable", "delete"),
 }
 WRITE_CATALOGS = ("auth/auth_endpoints.json", "mfa/mfa_endpoints.json")
 

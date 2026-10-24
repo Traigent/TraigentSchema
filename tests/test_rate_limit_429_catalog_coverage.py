@@ -38,6 +38,7 @@ FULLY_COVERED = (
     "execution/best_config_endpoints.json",
     "execution/execution_endpoints.json",
     "measures/measures_endpoints.json",
+    "mfa/mfa_endpoints.json",
     "observability/observability_endpoints.json",
     "planned_projects_endpoints.json",
     "planner/planner_endpoints.json",
@@ -117,7 +118,6 @@ KNOWN_UNCOVERED = {
     "datasets/content_identity_endpoints.json": 3,
     "economics/economics_endpoints.json": 2,
     "evaluation_system_validation/evaluation_system_validation_endpoints.json": 6,
-    "mfa/mfa_endpoints.json": 4,
     "smartops_v2/smartops_v2_endpoints.json": 8,
 }
 

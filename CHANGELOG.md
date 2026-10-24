@@ -49,6 +49,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Python versions and the `uv.lock` resolution markers now cover 3.11-3.12. Ruff and mypy targets are unchanged.
 
 ### Added
+- **Portal MFA flow contract (owner card security-policy-2026-10-23-portal-mfa-scope = A).** `POST /api/v1/mfa/setup` gets a
+  typed 200 (`mfa/mfa_setup_response_schema.json`: `setup_token`, `message`, plus NEW `secret` base32 and `otpauth_uri`, both
+  `x-privacy-classification: secret`); the QR stays the separate `GET /mfa/setup/qr` PNG. `mfa_endpoints.json` replaces the
+  `default` placeholders on status, backup-codes, setup/qr and disable with typed 200/4xx/5xx responses, documents the step-up
+  (`X-MFA-Code` header or `{code}` body, errors MFA_STEP_UP_REQUIRED / MFA_STEP_UP_INVALID / MFA_STEP_UP_ERROR) and notes that
+  `GET /mfa/backup-codes` regenerates codes. `POST /api/v1/auth/login` documents the 403 `mfa_setup_required` (enroll-only
+  `access_token`, scope `mfa_enroll`) and `mfa_required` bodies (`auth/login_mfa_response_schema.json`), and a distinct 429
+  `MFA_RATE_LIMITED` with `Retry-After` for an exhausted per-user MFA attempt budget. NEW `POST /api/v1/admin/users/{user_id}/mfa/reset`
+  (platform-admin only; body `reason`; response `{success, data:{ok:true}}`). Three breaking-gate acknowledgements are in
+  `scripts/breaking_schema_allowlist.json` (default responses replaced, `setup_token` query parameter declared, login 429 widened to
+  oneOf); the MFA catalog moves into `FULLY_COVERED` in the 429 coverage test. Pinned by `tests/test_mfa_portal_contract.py`.
+  Review follow-up: the admin reset now requires the ACTING admin's own step-up (`X-MFA-Code` header or `code` in the body; new
+  400 `MFA_STEP_UP_REQUIRED`, 401 `MFA_STEP_UP_INVALID`, 403 `MFA_STEP_UP_ENROLL_REQUIRED` for an admin with no MFA enrolled) and
+  documents that an audit-persistence failure fails the whole request with 500. The 400/500 responses of disable and backup-codes
+  are now `anyOf` the step-up error and the new
+  `mfa/mfa_plain_error_schema.json` (`{success:false, error}`), which is what the Backend actually returns there.
+  Second review follow-up: the disable and backup-codes 401 are `anyOf` the step-up error and the normal authentication envelope
+  (TOKEN_EXPIRED / AUTHENTICATION_REQUIRED), and the login 403 is `anyOf` the MFA bodies and the `SSO_REQUIRED` envelope
+  (`details.sso`); both are widenings (no breaking-gate change).
+
 - **TVL 1.4 reactive contracts (TRAIG-101, S1; contract-only, no behaviour change).** Vendored byte-exact
   `tvl-runtime-contract/1` and `/2` and `tvl-runtime-local/1` and `/2` JSON Schemas under `traigent_schema/data/tvl/`
   (source commit and SHA-256 pinned in `SOURCE.json`). New closed contracts: `optimization/tvl_reactive_{common,facts,

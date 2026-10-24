@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/auth/login_mfa_response_schema.json",
+  "title": "Login MFA 403 Response",
+  "description": "HTTP 403 bodies for POST /api/v1/auth/login when multi-factor authentication applies. `mfa_setup_required`: an enforced platform admin has not enrolled; `access_token` is an ENROLLMENT-ONLY credential (scope `mfa_enroll`, 1 hour, no refresh token) accepted only by /mfa/setup, /mfa/setup/qr, /mfa/setup/verify, /auth/me and logout; it is not a session, so after enrolling the user must log in again with a code. Hold it in memory only. `mfa_required`: the user is enrolled; re-POST the same email and password with `mfa_token` (6-digit TOTP or recovery code). A wrong `mfa_token` yields HTTP 401 (see the 401 response) and an exhausted attempt budget yields HTTP 429 MFA_RATE_LIMITED.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "MFA enrollment required",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "mfa_setup_required", "user_id", "access_token", "message"],
+      "properties": {
+        "success": { "const": false },
+        "mfa_setup_required": { "const": true },
+        "user_id": { "type": "string", "minLength": 1 },
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "x-privacy-classification": "secret",
+          "description": "Enrollment-only credential, scope `mfa_enroll`."
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    {
+      "title": "MFA challenge required",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "error", "mfa_required", "user_id"],
+      "properties": {
+        "success": { "const": false },
+        "error": { "type": "string", "minLength": 1 },
+        "mfa_required": { "const": true },
+        "user_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  ]
+}

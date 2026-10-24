@@ -8468,7 +8468,7 @@
       ],
       "reason": "Unreleased pre-release reshape of the production-reactive-policy read (TRAIG-101 env-scope amendment): policy is no longer a required top-level property; it is per environment inside environments. The contract merged in #603 has no shipped consumer.",
       "version": "Unreleased",
-      "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
     },
     {
       "file": "auth/auth_endpoints.json",

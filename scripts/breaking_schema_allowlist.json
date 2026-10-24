@@ -8594,6 +8594,57 @@
       "reason": "Adds one conditional allOf branch whose `if` requires the NEW optional field evaluator_code_digest. A request that omits the field never triggers it, so every existing body validates exactly as before; the branch only constrains bodies that opt in.",
       "version": "7.0.0 (unreleased; next release)",
       "pr": "#610"
+    },
+    {
+      "file": "observability/evaluator_definition_create_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "ae5e818bdc99aaea24893a4e054efce2fc05ec19e8835ff7b7ab1a697757c70d"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; only unknown keys (e.g. status) are newly rejected. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "pending"
+    },
+    {
+      "file": "observability/evaluator_definition_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "conservative",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "b4812ce142f80b2be36b8c5434670fcfa086f7cef9f5117ee3670e85ba45548b"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; only unknown keys (e.g. status) are newly rejected. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "pending"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "9d7de70930ee1d7dbdee278795e449ceb26087e8b5c41b166cd3be0a9a80b0d2"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; only unknown keys (e.g. status) are newly rejected. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "pending"
     }
   ]
 }

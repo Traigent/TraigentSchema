@@ -5,6 +5,61 @@
   "type": "object",
   "additionalProperties": true,
   "definitions": {
+    "TargetFilters": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed filter selecting which observability traces an evaluator samples. Applies only when target_type is observability_trace; every other target_type must use {}. Keys are optional and combine with AND; {} means no filtering. Matched against trace metadata columns only, never trace input or output. Status is deliberately not a key because traces are often still running when sampled.",
+      "properties": {
+        "environment": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": "Trace matches if its environment equals any listed value (any-of)."
+        },
+        "release": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Trace matches if its release equals any listed value (any-of)."
+        },
+        "name": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": "Trace matches if its name equals any listed value (any-of)."
+        },
+        "tags": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": "Trace matches only if it carries ALL listed tags (all-of)."
+        }
+      }
+    },
     "JudgeModelParameters": {
       "type": "object",
       "additionalProperties": false,
@@ -67,7 +122,7 @@
       "$ref": "#/definitions/JudgeConfig"
     },
     "sampling_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-    "target_filters": { "type": "object", "additionalProperties": true },
+    "target_filters": { "$ref": "#/definitions/TargetFilters" },
     "is_active": { "type": "boolean" },
     "measure": { "$ref": "./review_measure_summary_schema.json" },
     "created_by": { "type": ["string", "null"] },

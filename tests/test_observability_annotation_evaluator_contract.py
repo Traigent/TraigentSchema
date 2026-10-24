@@ -294,3 +294,61 @@ def test_correlation_ids_is_closed_and_all_optional():
     assert set(schema["properties"]) == {
         "otel_trace_id", "otel_span_id", "otel_parent_span_id",
     }
+
+
+# ---------------------------------------------------------------------------
+# Evaluator target_filters: closed contract (environment, release, name, tags)
+# ---------------------------------------------------------------------------
+
+_CREATE_BODY = {
+    "name": "e", "measure_id": "m", "target_type": "observability_trace",
+    "judge_config": {"instructions": "score it", "model_id": "gpt-4o", "context_type": "output"},
+}
+
+
+def _filters_errors(v, filters):
+    return v.validate_request("/api/v1beta/evaluators", "POST", {**_CREATE_BODY, "target_filters": filters})
+
+
+@pytest.mark.parametrize("filters", [
+    {},
+    {"environment": ["prod"]},
+    {"release": ["v1", "v2"]},
+    {"name": ["checkout"]},
+    {"tags": ["a", "b"]},
+    {"environment": ["prod"], "release": ["v1"], "name": ["n"], "tags": ["t"]},
+])
+def test_target_filters_valid(v, filters):
+    assert _filters_errors(v, filters) == []
+
+
+@pytest.mark.parametrize("filters", [
+    {"status": ["running"]},
+    {"environment": "prod"},
+    {"environment": []},
+    {"environment": [""]},
+    {"environment": ["x" * 65]},
+    {"release": ["x" * 129]},
+    {"name": ["x" * 256]},
+    {"tags": ["a"] * 21},
+    {"tags": ["a", "a"]},
+    {"tags": [1]},
+])
+def test_target_filters_invalid(v, filters):
+    assert _filters_errors(v, filters)
+
+
+def test_target_filters_update_and_response_share_contract(v):
+    route = "/api/v1beta/evaluators/{evaluator_id}"
+    for m in ("PATCH", "PUT"):
+        if f"{m}:{route}" in v._endpoint_schemas:
+            assert v.validate_request(route, m, {"target_filters": {"tags": ["a"]}}) == []
+            assert v.validate_request(route, m, {"target_filters": {"status": ["x"]}})
+    upd = _load("evaluator_update_request_schema.json")["properties"]["target_filters"]
+    resp = _load("evaluator_definition_schema.json")["properties"]["target_filters"]
+    create = _load("evaluator_definition_create_request_schema.json")["properties"]["target_filters"]
+    assert resp == {"$ref": "#/definitions/TargetFilters"}
+    assert upd == create == {"$ref": "./evaluator_definition_schema.json#/definitions/TargetFilters"}
+    tf = _load("evaluator_definition_schema.json")["definitions"]["TargetFilters"]
+    assert tf["additionalProperties"] is False
+    assert set(tf["properties"]) == {"environment", "release", "name", "tags"}

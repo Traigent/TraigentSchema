@@ -50,8 +50,7 @@
       "default": 1.0
     },
     "target_filters": {
-      "type": "object",
-      "additionalProperties": true
+      "$ref": "./evaluator_definition_schema.json#/definitions/TargetFilters"
     },
     "is_active": {
       "type": "boolean",

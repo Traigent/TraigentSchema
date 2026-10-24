@@ -7,7 +7,6 @@
   "agent_decision/agent_decision_answer_request_schema.json#/properties/policy_version": "closed_enum",
   "agent_decision/agent_decision_answer_request_schema.json#/properties/retry_nonce": "opaque_ref",
   "agent_decision/agent_decision_answer_response_schema.json#/properties/decision/allOf/1/properties/status": "closed_enum",
-  "agent_decision/agent_decision_endpoints.json#/paths/~1api~1v1beta~1agent-decisions~1{decision_id}~1answer/post/parameters/0/schema": "opaque_ref",
   "agent_decision/agent_decision_ensure_request_schema.json#/properties/kind": "closed_enum",
   "agent_decision/agent_decision_ensure_response_schema.json#/properties/decision/oneOf/0/allOf/1/properties/status": "closed_enum",
   "agent_decision/agent_decision_error_schema.json#/properties/error/properties/reason": "closed_enum",

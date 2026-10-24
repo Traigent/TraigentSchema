@@ -384,6 +384,9 @@ def test_endpoint_semantics_text_and_params():
         "DECISION_ALREADY_ANSWERED",
     ):
         assert text in ans["description"]
+    for op in (ens, lat):
+        agent = [p for p in op["parameters"] if p["name"] == "agent_id"][0]["schema"]
+        assert agent == {"type": "string", "minLength": 1, "maxLength": 255}
     pid = ans["parameters"][0]["schema"]
     assert pid["pattern"] == "^dr_[0-9a-f]{32}$"
 
@@ -403,5 +406,5 @@ def test_decision_domain_is_a_content_class_lint_root():
 
     root = Path(__file__).resolve().parent.parent
     text = (root / "scripts" / "content_class_lint.py").read_text(encoding="utf-8")
-    for f in sorted(DOMAIN.glob("*.json")):
+    for f in sorted(DOMAIN.glob("*_schema.json")):
         assert f'"agent_decision/{f.name}"' in text

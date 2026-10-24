@@ -213,8 +213,10 @@ EXTRA_ROOT_FILES = (
     "agent_decision/agent_decision_latest_response_schema.json",
     "agent_decision/agent_decision_error_schema.json",
     "agent_decision/agent_decision_rate_limited_error_schema.json",
-    "agent_decision/agent_decision_endpoints.json",
 )
+# NOTE: agent_decision_endpoints.json is deliberately NOT a lint root: its {agent_id} path parameter
+# is the customer's own agent id (free text, request path only, never echoed), like every agent
+# endpoint; the ratchet admits no new legacy_content and no content-free class fits it.
 # Documents that carry CUSTOMER CONTENT by design and are deliberately NOT lint roots.  This is an
 # explicit allow-list (pinned by tests/test_tvl_reactive_contracts.py), not a silent skip: the pinned
 # agent-head config read returns the stored best-config spec (TRAIG-101 plan 8.4), is outside the

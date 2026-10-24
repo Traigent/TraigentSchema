@@ -18,9 +18,11 @@
             "name": "agent_id",
             "in": "path",
             "required": true,
-            "description": "Server-issued opaque agent ref.",
+            "description": "The customer's own agent id, sent only in the request path as every agent endpoint does. It is never echoed in any response or error and never stored outside the agent foreign key.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
             }
           }
         ],
@@ -130,9 +132,11 @@
             "name": "agent_id",
             "in": "path",
             "required": true,
-            "description": "Server-issued opaque agent ref.",
+            "description": "The customer's own agent id, sent only in the request path as every agent endpoint does. It is never echoed in any response or error and never stored outside the agent foreign key.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
             }
           }
         ],

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/mfa/mfa_setup_verify_response_schema.json",
+  "title": "MFA Setup Verify Response",
+  "description": "200 body for POST /api/v1/mfa/setup/verify. The recovery codes are shown exactly once.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "data"],
+  "properties": {
+    "success": { "const": true },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recovery_codes", "message"],
+      "properties": {
+        "recovery_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-F]{4}-[0-9A-F]{4}$",
+            "x-privacy-classification": "secret"
+          },
+          "description": "One-time recovery codes (format XXXX-XXXX)."
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

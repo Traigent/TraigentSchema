@@ -201,6 +201,11 @@
       "name": "Agent Readiness Fleet Posture",
       "description": "The server-computed fleet debt/verdict view (per-agent debt items, verdict, validate-first ranking, fleet summary) for a project.",
       "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
+    },
+    {
+      "name": "Agent Decisions",
+      "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
+      "paths_file": "./agent_decision/agent_decision_endpoints.json"
     }
   ]
 }

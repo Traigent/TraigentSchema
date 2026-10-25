@@ -257,6 +257,14 @@
                     "maxLength": 71,
                     "description": "Optional identity of an unregistered, user-code evaluator: a domain-separated SHA-256 over the source of the scorer that actually runs (wire form sha256:<64 lowercase hex>). It identifies the code; it never validates it. It is legal only in the identity_version 2 typed shape, and only INSTEAD of evaluator_id, evaluator_definition_id and evaluator_ref (any of them could carry a customer label next to a code identity); evaluator_id_source must then be absent or 'unknown'. It is never sent in the content-less shape. Absent means no code identity. It is not the same value as artifact_versions.evaluator or artifact_fingerprints.evaluator."
                   },
+                  "decision_execution_ref": {
+                    "x-content-class": "opaque_ref",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": ["string", "null"],
+                    "pattern": "^xr_[0-9a-f]{32}$",
+                    "maxLength": 35,
+                    "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent. Session creation is never blocked by this field: the backend links the run only when the ref is a live, unused ref issued for the same tenant, project and agent; otherwise it links nothing and records nothing. The ref is never echoed and never appears in errors."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",

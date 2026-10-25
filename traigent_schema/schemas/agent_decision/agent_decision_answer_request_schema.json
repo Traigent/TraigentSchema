@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_answer_request_schema.json",
   "title": "Agent Decision Answer Request",
-  "description": "Body of POST /api/v1beta/agent-decisions/{decision_id}/answer. Closed answer plus the server-issued versions, digest and nonce echoed back; no free text.",
+  "description": "Body of POST /api/v1beta/agent-decisions/{decision_id}/answer. Closed answer plus the server-issued versions and basis digest echoed back, and a client-generated retry_nonce (fresh per answer attempt, reused only to retry that attempt); no free text.",
   "type": "object",
   "additionalProperties": false,
   "required": [

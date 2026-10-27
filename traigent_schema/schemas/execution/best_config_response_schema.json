@@ -21,6 +21,14 @@
       "minLength": 1,
       "maxLength": 128
     },
+    "best_config_id": {
+      "x-content-class": "key_material",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Server-issued best-config id (base64url token) of the parent best-config; the value DeployPublishRequest.best_config_id requires. Optional so mixed-version responses validate; updated backends always populate it. GET, list, create and unchanged-publish replay return the parent best-config id; version responses carry it as version.best_config_id (never the version-row id)."
+    },
     "environment": {
       "$ref": "../optimization/best_config_schema.json#/definitions/best_config_environment"
     },

@@ -145,3 +145,7 @@ from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`
 15. `StartReceipt.lease_expires_at` (required timestamp) is the server-vouched post-start lease deadline, so the SDK knows the
     started lease before its first heartbeat (plan 7.5). Adding a required field to this unreleased response is
     contract-only; consumers must read it.
+
+## Shared promotion-digest conformance vectors (TRAIG-101)
+
+`tests/data/promotion_digest_vectors.json` holds the candidate-fingerprint and gate-result-digest vectors shared by the Backend and both SDKs. It is a byte-identical copy of `tests/fixtures/runtime/promotion_digest_vectors.json` in the Python SDK repository (Traigent/Traigent), sha256 `2db38aaeb42b0fa8dc4cbfb960bd2a695a2d8b06b30c462b785d5c18540555f9`; each consumer vendors it and checks its own implementation against the full expected digests. The candidate fingerprint is the TVL canonical-JSON sha256 of the configuration, not the best-config storage `config_hash`.

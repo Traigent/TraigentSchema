@@ -8645,6 +8645,23 @@
       "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
       "version": "7.0.0 (unreleased; next release)",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
+    },
+    {
+      "file": "execution/best_config_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/best_config_id",
+          "role": "response",
+          "subject": "best_config_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "4d873611284b3b36c7e4659c594a4954aaa310e0862549db428f6be4eb01a7c6"
+        }
+      ],
+      "reason": "TRAIG-101: the best-config response gains the optional server-issued parent best_config_id so a client can obtain the id DeployPublishRequest requires before pinning. Optional, so old producers still validate; the Backend emits it only after consumers are coordinated (strict response consumers are called out in the changelog).",
+      "version": "unreleased",
+      "pr": "TRAIG-101"
     }
   ]
 }

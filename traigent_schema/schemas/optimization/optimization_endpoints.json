@@ -265,6 +265,20 @@
                     "maxLength": 35,
                     "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent. Session creation is never blocked by this field: the backend links the run only when the ref is a live, unused ref issued for the same tenant, project and agent; otherwise it links nothing and records nothing. The ref is never echoed and never appears in errors."
                   },
+                  "snapshot_g1_required": {
+                    "x-content-class": "closed_enum",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "boolean",
+                    "description": "Optional closed client declaration that this run will be co-signed (G1). When true the server defers B1 issuance and records the G1 intent atomically with the run, or refuses the create closed when G1 issuance is unavailable. No other snapshot data crosses. Absent or false changes nothing."
+                  },
+                  "snapshot_g1_deadline_days": {
+                    "x-content-class": "number",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30,
+                    "description": "Optional closed co-sign deadline in days for the G1 intent declared by snapshot_g1_required. Valid only together with snapshot_g1_required true: present without it, or with any other value, the request is invalid. Absent means the server default of 7 days."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
@@ -462,6 +476,14 @@
                   {
                     "description": "dataset_id and hosted_dataset_ref are mutually exclusive, modelled exactly as the existing evaluator_id/evaluator_definition_id exclusion above. One states a logical identity the caller owns; the other points at a server-side object the server resolves. Accepting both would force the server to pick a winner, and picking a winner between two identities the caller supplied is inference by another name.",
                     "not": { "required": ["dataset_id", "hosted_dataset_ref"] }
+                  },
+                  {
+                    "description": "snapshot_g1_deadline_days configures the co-sign deadline of the G1 intent, so it is meaningful only together with snapshot_g1_required true. Presence is tested with `required` inside the `if`; the `then` demands snapshot_g1_required be present and exactly true, so a deadline beside an absent or false flag is invalid.",
+                    "if": { "required": ["snapshot_g1_deadline_days"] },
+                    "then": {
+                      "required": ["snapshot_g1_required"],
+                      "properties": { "snapshot_g1_required": { "const": true } }
+                    }
                   },
                   {
                     "description": "identity_version 2 means 'I speak declared identity'. A caller that says so and then sends nothing leaves the server to fall back on function_name/agent_key derivation - the exact inference this contract exists to remove. Under 2 the sources are mandatory AND non-null: requiring only the key would be no requirement at all, because the source type admits null, so a null source would satisfy the requirement while firing none of the value-correlation rules below - handing the caller a legal way back to inference and a way to pair a null source with a real id. 'unknown' is how a caller says it does not know; null is not.",

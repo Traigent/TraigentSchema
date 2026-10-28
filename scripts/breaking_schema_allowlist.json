@@ -8662,6 +8662,23 @@
       "reason": "TRAIG-101: the best-config response gains the optional server-issued parent best_config_id so a client can obtain the id DeployPublishRequest requires before pinning. Optional, so old producers still validate; the Backend emits it only after consumers are coordinated (strict response consumers are called out in the changelog).",
       "version": "unreleased",
       "pr": "TRAIG-101"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 11,
+          "new": 12,
+          "fingerprint": "236b2cc4fa22ba5621ec2a13e2226d626889cc9dbfceb14325e3162497dc937e"
+        }
+      ],
+      "reason": "G1 co-sign deadline (owner card feature-pick-2026-10-28-g1-cosign-deadline-config, A). The new allOf branch is an if/then: a request that sends snapshot_g1_deadline_days without snapshot_g1_required exactly true becomes invalid; requests that omit the deadline behave as before, and the existing allOf branches are unchanged. Both fields are introduced in this same unreleased change, and the Backend refuses the same pairing closed, so the schema states the server's rule.",
+      "version": "unreleased",
+      "pr": "G1 snapshot binding (Spine-Trail st_0c84a1f417f0)"
     }
   ]
 }

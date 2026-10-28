@@ -478,6 +478,14 @@
                     "not": { "required": ["dataset_id", "hosted_dataset_ref"] }
                   },
                   {
+                    "description": "snapshot_g1_deadline_days configures the co-sign deadline of the G1 intent, so it is meaningful only together with snapshot_g1_required true. Presence is tested with `required` inside the `if`; the `then` demands snapshot_g1_required be present and exactly true, so a deadline beside an absent or false flag is invalid.",
+                    "if": { "required": ["snapshot_g1_deadline_days"] },
+                    "then": {
+                      "required": ["snapshot_g1_required"],
+                      "properties": { "snapshot_g1_required": { "const": true } }
+                    }
+                  },
+                  {
                     "description": "identity_version 2 means 'I speak declared identity'. A caller that says so and then sends nothing leaves the server to fall back on function_name/agent_key derivation - the exact inference this contract exists to remove. Under 2 the sources are mandatory AND non-null: requiring only the key would be no requirement at all, because the source type admits null, so a null source would satisfy the requirement while firing none of the value-correlation rules below - handing the caller a legal way back to inference and a way to pair a null source with a real id. 'unknown' is how a caller says it does not know; null is not.",
                     "if": {
                       "properties": { "identity_version": { "const": 2 } },

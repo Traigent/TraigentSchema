@@ -62,3 +62,24 @@ def test_property_is_closed_optional_and_documents_the_pairing() -> None:
     assert prop["x-content-class"] == "number"
     assert "snapshot_g1_required" in prop["description"]
     assert "7" in prop["description"]
+
+
+@pytest.mark.parametrize("flag", ["absent", False, None])
+def test_deadline_without_a_true_required_flag_is_rejected(flag: Any) -> None:
+    payload = _payload(snapshot_g1_deadline_days=12)
+    if flag != "absent":
+        payload["snapshot_g1_required"] = flag
+    assert _errors(payload), repr(flag)
+
+
+def test_deadline_with_required_true_is_valid() -> None:
+    payload = _payload(snapshot_g1_required=True, snapshot_g1_deadline_days=12)
+    assert _errors(payload) == []
+
+
+@pytest.mark.parametrize("flag", ["absent", True, False])
+def test_neither_deadline_nor_a_required_flag_constraint_is_valid(flag: Any) -> None:
+    payload = _payload()
+    if flag != "absent":
+        payload["snapshot_g1_required"] = flag
+    assert _errors(payload) == []

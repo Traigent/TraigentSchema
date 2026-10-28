@@ -636,6 +636,7 @@
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/optimization_strategy/anyOf/1 [keys]": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/run_description": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/run_title": "legacy_content",
+  "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/snapshot_g1_required": "closed_enum",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/task_type": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/trial_sequencing": "closed_enum",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions/post/requestBody/content/application~1json/schema/properties/user_id": "legacy_content",

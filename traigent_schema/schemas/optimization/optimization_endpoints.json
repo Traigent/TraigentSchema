@@ -265,6 +265,12 @@
                     "maxLength": 35,
                     "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent. Session creation is never blocked by this field: the backend links the run only when the ref is a live, unused ref issued for the same tenant, project and agent; otherwise it links nothing and records nothing. The ref is never echoed and never appears in errors."
                   },
+                  "snapshot_g1_required": {
+                    "x-content-class": "closed_enum",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "boolean",
+                    "description": "Optional closed client declaration that this run will be co-signed (G1). When true the server defers B1 issuance and records the G1 intent atomically with the run, or refuses the create closed when G1 issuance is unavailable. No other snapshot data crosses. Absent or false changes nothing."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",

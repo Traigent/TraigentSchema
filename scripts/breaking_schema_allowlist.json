@@ -8693,7 +8693,7 @@
           "fingerprint": "1ce5f369826a110a7a74e620a70d865342c1c157b6e148a82f5a1dca4c04c626"
         }
       ],
-      "reason": "TraigentSchema#616: one new conditional branch (if capabilities contains content_less_v1 then agent_key and agent_id must be null) so a content-less request cannot carry a customer-chosen agent name (GNFR-PRIV-003). Appended as the 12th of 13 branches ahead of the legacy-selector branch; no existing branch changed. Legacy requests (no content_less_v1) validate unchanged. The Backend already refuses every content_less_v1 create before any write (CAPABILITY_NOT_SUPPORTED, TraigentBackend#4447), so no accepted request is newly refused in practice.",
+      "reason": "TraigentSchema#616: one new conditional branch (if capabilities contains content_less_v1 then agent_key, agent_id, run_title, run_description must be null and function_name and the metadata locator fields must be code identifiers) so a content-less request cannot carry a customer-chosen label (GNFR-PRIV-003); the branch also holds the locator-field and function_name constraints, so nothing is constrained outside content_less_v1 (legacy metadata keeps its open shape; pinned by test_legacy_metadata_keeps_its_old_open_shape). Appended as the 12th of 13 branches ahead of the legacy-selector branch; no existing branch changed. Legacy requests (no content_less_v1) validate unchanged. The Backend already refuses every content_less_v1 create before any write (CAPABILITY_NOT_SUPPORTED, TraigentBackend#4447), so no accepted request is newly refused in practice.",
       "version": "unreleased (next minor after 7.0.0)",
       "pr": "TraigentSchema#616"
     }

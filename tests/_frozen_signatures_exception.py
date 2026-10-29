@@ -296,11 +296,16 @@ def assert_private_online_exception(anchor_ref: str, repo_root: Path) -> None:
     than fails) if ``anchor_ref`` is unreachable, e.g. a shallow CI checkout.
     """
 
+    # Pass 1: every file's pin, unconditionally (never skipped).
+    current_by_rel: dict[str, bytes] = {}
     for rel, digest in PRIVATE_ONLINE_SHA256.items():
-        current_bytes = (repo_root / rel).read_bytes()
-        assert hashlib.sha256(current_bytes).hexdigest() == digest, (
+        current_by_rel[rel] = (repo_root / rel).read_bytes()
+        assert hashlib.sha256(current_by_rel[rel]).hexdigest() == digest, (
             f"{rel} no longer matches the disclosed exception's pin"
         )
+
+    # Pass 2: structural comparison against the anchor (skipped if unreachable).
+    for rel, current_bytes in current_by_rel.items():
         anchor_bytes = _git_show(anchor_ref, rel, repo_root)
         if anchor_bytes is None:
             pytest.skip(f"anchor {anchor_ref} is not in this clone (shallow checkout)")

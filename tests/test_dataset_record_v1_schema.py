@@ -416,6 +416,29 @@ def test_private_online_v0_disclosed_exception() -> None:
     assert_private_online_exception(_FROZEN_REF, ROOT)
 
 
+@pytest.mark.parametrize("tampered_index", [0, 1, 2])
+def test_private_online_pins_are_checked_without_the_anchor(
+    tampered_index: int, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Every private_online file keeps an unconditional sha256 pin: a tampered
+    file fails even when the anchor is unavailable (shallow clone)."""
+
+    import tests._frozen_signatures_exception as exc
+
+    monkeypatch.setattr(exc, "_git_show", lambda *_args, **_kwargs: None)
+    for rel in exc.PRIVATE_ONLINE_RELS:
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / rel).read_bytes())
+    tampered = tmp_path / exc.PRIVATE_ONLINE_RELS[tampered_index]
+    tampered.write_bytes(tampered.read_bytes() + b" ")
+    with pytest.raises(AssertionError, match="no longer matches"):
+        exc.assert_private_online_exception(_FROZEN_REF, tmp_path)
+    tampered.write_bytes((ROOT / exc.PRIVATE_ONLINE_RELS[tampered_index]).read_bytes())
+    with pytest.raises(pytest.skip.Exception):
+        exc.assert_private_online_exception(_FROZEN_REF, tmp_path)
+
+
 def test_the_attestation_basis_restriction_is_not_a_sibling_of_a_ref() -> None:
     """Astra P2 (F7). Under draft-07 a keyword sitting BESIDE ``$ref`` is
     ignored, so the attestation corpus entry's ``const: backend_observed``

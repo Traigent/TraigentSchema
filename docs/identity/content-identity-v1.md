@@ -318,17 +318,20 @@ Identity still comes from content, never from them.
   target is unique per `(tenant, project, agent_key)`. That is a Backend change.
   - Identity is never derived from code, knobs or objectives.
   - **The code locator is a resolution input, not the durable identity (TraigentSchema#616).**
-    Before any write the Backend first does the exact legacy lookup (`agent_key`, or the name
-    derived from `function_name`); a hit is reused, except that when both the request and that
-    agent carry a code locator and they differ, the name hit is not reused and, if no agent
-    matches the request's own locator, the create is refused with a 409 `agent_identity_conflict`.
-    Only when no `agent_key` was sent and that lookup finds nothing does the Backend use the
+    Before any write the Backend first does the exact legacy lookup (agent id, then `agent_key`
+    or the name derived from `function_name`). With an explicit `agent_key`, that lookup is the
+    whole resolution: a hit is returned with no locator comparison (a differing locator never
+    blocks it) and a miss creates. Without one, a name hit is reused, except that when both the
+    request and that agent carry a code locator and they differ, the name hit is not reused and,
+    if no agent matches the request's own locator, the create is refused with a 409
+    `agent_identity_conflict`.
+    Only when no `agent_key` was sent and that lookup finds nothing (or only a name hit with a differing locator) does the Backend use the
     locator: `metadata.function_module` plus the qualname (exact `metadata.function_qualname`, or
     the flattened one recovered from `metadata.function_name`). One match is reused, none creates a
     new agent, several is a 409 `agent_identity_ambiguous` with `candidate_agent_ids`; nothing is
     created in either 409. `function_relative_path` is a hint the Backend never compares, so a
-    path-only move changes nothing. A renamed unnamed function (new module or qualname) matches no
-    locator and gets a new agent; a named agent keeps its agent. The durable identity stays the
+    path-only move changes nothing. A renamed unnamed function (new module or qualname) gets a new
+    agent unless an exact name hit or another matching locator is found; a named agent keeps its agent. The durable identity stays the
     Backend-minted, project-scoped agent id, returned at `metadata.agent_id` of the 201 body (null
     for a JWT caller). Display names, objectives, knobs and the run or privacy mode are never
     identity. A user-chosen agent name is customer content (GNFR-PRIV-003). The content-less

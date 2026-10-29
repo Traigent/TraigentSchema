@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/agent_identity_resolution_schema.json",
   "title": "AgentIdentityResolution",
-  "description": "Agent identity resolution on POST /api/v1/sessions (TraigentSchema#616): the refusal bodies the Backend returns when it cannot resolve a request to exactly one agent, and the response shape of a read-only duplicate-agents report. No request field is added or constrained: the code locator travels in the existing open `metadata` object (`function_module`, `function_qualname`, `function_relative_path`, `function_name`) and is documented here, not typed. The canonical identity of an agent is the Backend-minted, project-scoped agent id; what a client declares (agent_key, agent_id, function_name) is a resolution input, never the identity. The resolved id is returned in the 201 body at `metadata.agent_id` (null for a JWT caller, who gets no session-agent binding); the top-level `agent_id` of the 201 schema is not populated by the Backend today. Resolution order, before any write: (1) the exact legacy lookup by `agent_key`, or by the name derived from `function_name`; a hit is reused, EXCEPT that when both the request and that agent carry a code locator and the two differ (module or qualname), the name hit is not reused: if no agent matches the request's own locator the result is `agent_identity_conflict` (nothing created). (2) Only when no `agent_key` was sent and step 1 found nothing: the code locator, module from `metadata.function_module` plus the qualname from `metadata.function_qualname` (exact) or the flattened qualname recovered from `metadata.function_name` (not the top-level `function_name`). Exactly one match is reused, none creates a new agent, several is `agent_identity_ambiguous` (nothing created). `function_relative_path` is read as a hint and never compared, so a path-only move changes nothing. Whether renaming or moving a function yields a new agent therefore depends on the case: an unnamed function whose module or qualname changes matches no locator and gets a new agent; a named agent (`agent_key`) keeps its agent; a path-only move keeps its agent. Display names, objectives, knobs and the run or privacy mode are never identity. `agent_ref` is accepted by the request schema but RESERVED: the Backend does not yet use it. The content-less identity shape (server-issued `agent_ref` only, no customer-chosen label) is DEFERRED to a later slice with the SDK: today the Backend refuses every request that declares `content_less_v1` with 400 CAPABILITY_NOT_SUPPORTED before any write.",
+  "description": "Agent identity resolution on POST /api/v1/sessions (TraigentSchema#616): the refusal bodies the Backend returns when it cannot resolve a request to exactly one agent, and the response shape of a read-only duplicate-agents report. No request field is added or constrained: the code locator travels in the existing open `metadata` object (`function_module`, `function_qualname`, `function_relative_path`, `function_name`) and is documented here, not typed. The canonical identity of an agent is the Backend-minted, project-scoped agent id; what a client declares (agent_key, agent_id, function_name) is a resolution input, never the identity. The resolved id is returned in the 201 body at `metadata.agent_id` (null for a JWT caller, who gets no session-agent binding); the top-level `agent_id` of the 201 schema is not populated by the Backend today. Resolution order, before any write: (1) the exact legacy lookup, by agent id then by `agent_key` or the name derived from `function_name`. When an explicit `agent_key` was sent, that lookup is the whole resolution: a hit is returned and no code locator is compared (a differing locator never blocks it), and a miss creates. When no `agent_key` was sent, a name hit is reused, EXCEPT that when both the request and that agent carry a code locator and the two differ (module or qualname), the name hit is not reused: if no agent matches the request's own locator the result is `agent_identity_conflict` (nothing created). (2) Only when no `agent_key` was sent and step 1 found nothing (or found a name hit whose locator differs): the code locator, module from `metadata.function_module` plus the qualname from `metadata.function_qualname` (exact) or the flattened qualname recovered from `metadata.function_name` (not the top-level `function_name`). Exactly one match is reused, none creates a new agent, several is `agent_identity_ambiguous` (nothing created). `function_relative_path` is read as a hint and never compared, so a path-only move changes nothing. Whether renaming or moving a function yields a new agent therefore depends on the case: an unnamed function whose module or qualname changes gets a new agent unless an exact name hit or another agent with a matching locator is found; a named agent (`agent_key`) keeps its agent; a path-only move keeps its agent. Display names, objectives, knobs and the run or privacy mode are never identity. `agent_ref` is accepted by the request schema but RESERVED: the Backend does not yet use it. The content-less identity shape (server-issued `agent_ref` only, no customer-chosen label) is DEFERRED to a later slice with the SDK: today the Backend refuses every request that declares `content_less_v1` with 400 CAPABILITY_NOT_SUPPORTED before any write.",
   "definitions": {
     "AgentIdentityAmbiguousResponse": {
       "type": "object",
@@ -24,7 +24,7 @@
               "minItems": 2,
               "uniqueItems": true,
               "items": {"$ref": "#/definitions/AgentId"},
-              "description": "Server-issued ids of the agents that match, in no order of preference (the Backend never picks a survivor)."
+              "description": "Backend agent ids of the agents that match (existing ids, which may be caller-supplied legacy strings and are potentially customer content), in no order of preference (the Backend never picks a survivor)."
             }
           }
         }
@@ -70,7 +70,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["project_id", "agents_examined", "groups", "read_only", "notes"],
-      "description": "Response of the read-only 'possible duplicate agents' report for one project. NOT YET SERVED: the Backend implements the report as a service function only and exposes no route, so no path in optimization_endpoints.json references this shape yet. It lists candidate groups and never merges, relinks, reparents, rewrites a key or picks a survivor. Names, keys and descriptions are customer content and are never returned: only server-issued ids, timestamps and counts.",
+      "description": "Response of the read-only 'possible duplicate agents' report for one project. NOT YET SERVED: the Backend implements the report as a service function only and exposes no route, so no path in optimization_endpoints.json references this shape yet. It lists candidate groups and never merges, relinks, reparents, rewrites a key or picks a survivor. Names, keys and descriptions are customer content and are never returned: only the Backend's existing agent ids (which may be caller-supplied legacy strings and are potentially customer content), timestamps and counts. The report applies no caps on agents examined, groups, candidates or run counts.",
       "properties": {
         "project_id": {
           "anyOf": [
@@ -87,7 +87,7 @@
           ],
           "description": "Server-issued id of the project the report covers: a UUID, or the default project's `project_<32 hex>` id."
         },
-        "agents_examined": {"x-content-class": "number", "type": "integer", "minimum": 0, "maximum": 1000000},
+        "agents_examined": {"x-content-class": "number", "type": "integer", "minimum": 0},
         "read_only": {"x-content-class": "closed_enum", "type": "boolean", "const": true},
         "notes": {
           "type": "array",
@@ -99,8 +99,7 @@
         },
         "groups": {
           "type": "array",
-          "maxItems": 10000,
-          "items": {"$ref": "#/definitions/DuplicateAgentGroup"}
+                    "items": {"$ref": "#/definitions/DuplicateAgentGroup"}
         }
       }
     },
@@ -123,8 +122,7 @@
         "candidates": {
           "type": "array",
           "minItems": 2,
-          "maxItems": 1000,
-          "items": {"$ref": "#/definitions/DuplicateAgentCandidate"}
+                    "items": {"$ref": "#/definitions/DuplicateAgentCandidate"}
         }
       }
     },
@@ -135,7 +133,7 @@
       "properties": {
         "agent_id": {"$ref": "#/definitions/AgentId"},
         "created_at": {"x-content-class": "timestamp", "type": ["string", "null"], "format": "date-time"},
-        "run_count": {"x-content-class": "number", "type": "integer", "minimum": 0, "maximum": 1000000000, "description": "Number of experiments (runs) filed under this agent, in the same tenant, project and owner scope as the report."}
+        "run_count": {"x-content-class": "number", "type": "integer", "minimum": 0, "description": "Number of experiments (runs) filed under this agent, in the same tenant, project and owner scope as the report."}
       }
     }
   }

@@ -124,8 +124,8 @@ def test_resolved_id_is_returned_in_response_metadata() -> None:
     assert "JWT" in meta_agent_id["description"]
 
 
-# Concrete scenarios, each a request plus the response the Backend produces for it. Requests
-# are validated against the request schema, responses against the refusal definitions.
+# Schema-only checks: each request validates against the request schema and each hand-built
+# body against the refusal definitions. They do not prove Backend resolution behaviour.
 def _envelope(code: str, text: str, details: dict[str, Any] | None = None) -> dict[str, Any]:
     body: dict[str, Any] = {"success": False, "message": text, "error": text, "error_code": code}
     if details is not None:
@@ -133,7 +133,7 @@ def _envelope(code: str, text: str, details: dict[str, Any] | None = None) -> di
     return body
 
 
-def test_scenario_flattened_only_request_two_agents_match_is_ambiguous() -> None:
+def test_ambiguous_body_validates_for_flattened_only_request() -> None:
     request = _payload(
         function_name="app/agents/router.py_app.agents.router_Router_route",
         metadata={
@@ -149,23 +149,26 @@ def test_scenario_flattened_only_request_two_agents_match_is_ambiguous() -> None
     assert _valid("AgentIdentityAmbiguousResponse", refusal)
 
 
-def test_scenario_exact_key_hit_with_differing_locator_is_a_conflict() -> None:
-    request = _payload(agent_key="support-router", metadata=dict(LOCATOR))
+def test_conflict_body_validates_against_schema() -> None:
+    # Schema-only check: the body shape validates. It does not prove when the Backend sends it;
+    # per the schema description an explicit agent_key hit is returned without a locator
+    # comparison, so a conflict arises only from a name hit with a differing locator.
+    request = _payload(metadata=dict(LOCATOR))
     assert _errors(request) == []
     refusal = _envelope("agent_identity_conflict", CONFLICT_TEXT, {"conflicting_agent_id": A1})
     assert _valid("AgentIdentityConflictResponse", refusal)
 
 
-def test_scenario_path_only_move_is_a_valid_request_and_no_refusal_shape() -> None:
+def test_refusal_bodies_carry_no_path_field() -> None:
+    # Schema-only check: neither refusal body can carry function_relative_path.
     moved = dict(LOCATOR, function_relative_path="app/agents/moved/router.py")
     assert _errors(_payload(metadata=moved)) == []
-    # a path-only move is never a refusal: neither refusal body can carry a path
     for name in ("AgentIdentityAmbiguousResponse", "AgentIdentityConflictResponse"):
         props = RESOLUTION["definitions"][name]["properties"]["details"]["properties"]
         assert "function_relative_path" not in props
 
 
-def test_scenario_declared_content_less_is_refused_with_a_closed_400() -> None:
+def test_content_less_request_and_400_body_validate_against_schema() -> None:
     request = _payload(capabilities=CONTENT_LESS, metadata=dict(LOCATOR))
     assert _errors(request) == []  # the schema allows it; the Backend refuses it
     refusal = _envelope("CAPABILITY_NOT_SUPPORTED", CAPABILITY_TEXT)

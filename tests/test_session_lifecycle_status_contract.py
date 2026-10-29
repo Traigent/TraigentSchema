@@ -158,6 +158,13 @@ def test_has_next_false_cannot_carry_a_trial_or_remaining_work() -> None:
     )
 
 
+def test_classic_trial_without_a_subset_stays_valid() -> None:
+    # session_service_refactored.get_next_trial serves dataset_subset_indices: None unless the
+    # request sent subset_size; the has_next:true rule must accept that real reply.
+    trial = {**deepcopy(TRIAL), "dataset_subset_indices": None}
+    assert _errors(NEXT_TRIAL, _next(trial=trial, remaining_trials=0)) == []
+
+
 def test_has_next_true_requires_a_trial_object() -> None:
     assert _errors(NEXT_TRIAL, _next(trial=None))
     assert _errors(NEXT_TRIAL, {"has_next": True, "remaining_trials": 1})

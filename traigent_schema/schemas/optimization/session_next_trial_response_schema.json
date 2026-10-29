@@ -68,9 +68,9 @@
           "x-content-key-class": "legacy_content",
           "x-content-class": "legacy_content",
           "x-content-note": "INV-GAP S2: not inventoried (free object/array): dataset_subset_indices",
-          "type": "object",
+          "type": ["object", "null"],
           "additionalProperties": true,
-          "description": "Which dataset examples this trial is evaluated against.",
+          "description": "Which dataset examples this trial is evaluated against. Null when the request sent no subset_size (the classic handler then evaluates the full dataset).",
           "properties": {
             "indices": {
               "type": "array",

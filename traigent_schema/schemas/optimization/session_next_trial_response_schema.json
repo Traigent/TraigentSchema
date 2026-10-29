@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/session_next_trial_response_schema.json",
   "title": "Session Next-Trial Response",
-  "description": "200 response of POST /api/v1/sessions/{session_id}/next-trial. Mirrors the backend handler (traigent_session_routes.get_next_trial -> _normalize_session_payload, which only canonicalizes session_status). A read response: additionalProperties:true so server-added fields validate. When the trial queue is exhausted, has_next is false and trial is null.",
+  "description": "200 response of POST /api/v1/sessions/{session_id}/next-trial. Mirrors the backend handler (traigent_session_routes.get_next_trial -> _normalize_session_payload, which only canonicalizes session_status). A read response: additionalProperties:true so server-added fields validate. When the trial queue is exhausted, has_next is false and trial is null. Two producers share this schema: the classic handler (has_next, trial, remaining_trials, session_status) and the typed handler, which serves the same fields plus suggestion, should_continue, reason and stop_reason; the SDK reads should_continue and suggestion from the typed reply. Cross-field consistency is enforced: a terminal session_status never offers work (has_next false), has_next false carries trial null and no remaining work, and has_next true carries a concrete trial object (remaining_trials may be 0 for the final allocated trial).",
   "type": "object",
   "x-content-class": "legacy_content",
   "x-content-key-class": "legacy_content",
@@ -100,10 +100,73 @@
       "description": "Number of trials remaining in the session queue after this suggestion."
     },
     "session_status": {
-      "x-content-class": "legacy_content",
-      "x-content-note": "INV-GAP: was closed_enum; contract has no enum/const, so the value is not provably content-free",
-      "type": "string",
-      "description": "Canonical session lifecycle status (normalized server-side)."
+      "$ref": "./session_lifecycle_status_schema.json",
+      "description": "Canonical session lifecycle status (normalized server-side, lowercase). Terminal values never coexist with has_next true."
+    },
+    "suggestion": {
+      "$ref": "#/properties/trial",
+      "description": "Typed-handler alias of trial: the same suggestion object, or null when no trial is offered. Absent on the classic handler."
+    },
+    "should_continue": {
+      "x-content-class": "closed_enum",
+      "type": "boolean",
+      "description": "Typed-handler flag; always equal to has_next. The Python SDK reads it as required on the typed reply. Absent on the classic handler."
+    },
+    "reason": {
+      "x-content-class": "closed_enum",
+      "type": ["string", "null"],
+      "enum": ["max_trials_reached", "max_samples_reached", "timeout", "cost_limit", "execution_budget", "metric_limit", "optimizer", "plateau", "convergence", "semantic_saturation", "safety_constraint", "safety_constraint_insufficient_evidence", "no_usage_captured", "user_cancelled", "condition", "error", "vendor_error", "network_error", "budget_exhausted", "max_wallclock_reached", "smart_prune", "search_complete", "finalized", null],
+      "description": "Typed-handler stop reason (equal to stop_reason); null while the search continues. The SDK-sendable reasons of stop_reason_schema.json plus the Backend-originated budget_exhausted, max_wallclock_reached, smart_prune, search_complete and finalized."
+    },
+    "stop_reason": {
+      "x-content-class": "closed_enum",
+      "type": ["string", "null"],
+      "enum": ["max_trials_reached", "max_samples_reached", "timeout", "cost_limit", "execution_budget", "metric_limit", "optimizer", "plateau", "convergence", "semantic_saturation", "safety_constraint", "safety_constraint_insufficient_evidence", "no_usage_captured", "user_cancelled", "condition", "error", "vendor_error", "network_error", "budget_exhausted", "max_wallclock_reached", "smart_prune", "search_complete", "finalized", null],
+      "description": "Why the search stopped; null while it continues. Typed handler only. Same closed set as reason."
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "A terminal session_status never offers work: has_next is false.",
+      "if": {
+        "required": ["session_status"],
+        "properties": {
+          "session_status": { "enum": ["completed", "complete", "failed", "cancelled", "aborted", "expired"] }
+        }
+      },
+      "then": {
+        "properties": { "has_next": { "const": false } }
+      }
+    },
+    {
+      "description": "has_next false: no trial, no queued work, and (typed handler) no suggestion and should_continue false.",
+      "if": {
+        "required": ["has_next"],
+        "properties": { "has_next": { "const": false } }
+      },
+      "then": {
+        "required": ["trial"],
+        "properties": {
+          "trial": { "type": "null" },
+          "suggestion": { "type": "null" },
+          "remaining_trials": { "const": 0 },
+          "should_continue": { "const": false }
+        }
+      }
+    },
+    {
+      "description": "has_next true: a concrete trial object. remaining_trials may be 0 (the final allocated trial) and is deliberately not constrained.",
+      "if": {
+        "required": ["has_next"],
+        "properties": { "has_next": { "const": true } }
+      },
+      "then": {
+        "required": ["trial"],
+        "properties": {
+          "trial": { "type": "object" },
+          "should_continue": { "const": true }
+        }
+      }
+    }
+  ]
 }

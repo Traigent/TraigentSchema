@@ -395,8 +395,8 @@
     "observabilitySpanResult": "Manifest Python pin advanced from 21e65c41 to d56e4353 (origin/develop) to cover one root export: SpanResult (traigent.observability.agent_spans), which became public in the SDK 0.26.0 release. Verified the pin advance is minimal -- across the 66 commits between the two SHAs, SpanResult is the ONLY addition to traigent.__all__ and nothing was removed (181 -> 182 symbols). traigent-js has no corresponding export (zero occurrences in its api-surface snapshot), so it is classified deferred-backlog, matching the 2026-07-21 Python-only batch (ContractCode, ContractFinding, EVALUATION_CONTRACT_VERSION, EvaluationContractReport, validate_evaluation_contract, ExecutionBudget). Owner may re-bucket. How it was found: the js-public-parity gate could not run between 2026-07-24 and 2026-07-31 -- it died at actions/checkout with a SAML 403 -- so this drift went unflagged for a week. It surfaced on run 30658150144, the first run after the gate moved to a GitHub App installation token (Traigent/Traigent#2066)."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "c1c25e78d97f00b51bff14ffc3ff4344a1715124ab3707f5b40a8b713bb31961",
-    "schemaFileCount": 558,
+    "lastSchemaFileSha": "2725e04301558745f74948a85f35759e5ac367f4afc239a7fd961ec02a431551",
+    "schemaFileCount": 560,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }
 }

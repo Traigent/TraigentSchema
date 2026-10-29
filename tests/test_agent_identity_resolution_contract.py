@@ -182,15 +182,28 @@ def test_capability_not_supported_400_validates_without_details() -> None:
     assert not _valid("CapabilityNotSupportedResponse", {**body, "details": {"c": "x"}})
 
 
-def test_endpoint_declares_the_409_and_widened_400() -> None:
+def test_endpoint_declares_the_409_as_the_canonical_envelope() -> None:
     doc = json.loads((OPT / "optimization_endpoints.json").read_text())
     responses = doc["paths"]["/api/v1/sessions"]["post"]["responses"]
-    refs = json.dumps(responses["409"])
-    assert "AgentIdentityAmbiguousResponse" in refs and "AgentIdentityConflictResponse" in refs
-    assert "CapabilityNotSupportedResponse" in json.dumps(responses["400"])
-    assert "$ref" in json.dumps(responses["400"]) and "error_envelope_schema" in json.dumps(
-        responses["400"]
-    )
+    schema = responses["409"]["content"]["application/json"]["schema"]
+    assert schema == {"$ref": "../error_envelope_schema.json"}
+    text = responses["409"]["description"]
+    for name in ("AgentIdentityAmbiguousResponse", "AgentIdentityConflictResponse"):
+        assert name in text
+
+
+def test_refusal_bodies_are_valid_canonical_envelopes() -> None:
+    envelope = json.loads((get_schemas_dir() / "error_envelope_schema.json").read_text())
+    for body in (
+        _ambiguous([A1, A2]),
+        {
+            "success": False,
+            "message": CAPABILITY_TEXT,
+            "error": CAPABILITY_TEXT,
+            "error_code": "CAPABILITY_NOT_SUPPORTED",
+        },
+    ):
+        assert not list(jsonschema.Draft7Validator(envelope).iter_errors(body))
 
 
 def test_duplicate_candidates_report_shape_and_not_yet_served() -> None:

@@ -1,9 +1,9 @@
-"""Agent identity resolution contract on POST /api/v1/sessions (TraigentSchema#616).
+"""Schema-only checks for agent identity resolution on POST /api/v1/sessions (TraigentSchema#616).
 
-Pins: legacy requests stay valid; the code locator is optional, typed and code-identifier
-only; a content-less request carries no customer-chosen agent label; the 409 / 400 refusal
-bodies match the Backend wire shapes exactly (fixed text, ids only); the duplicate-candidates
-report shape (not yet served) validates and carries no names.
+These validate hand-built requests and bodies against the schemas; they do not prove Backend
+resolution behaviour. Legacy requests stay valid; the 409 / 400 refusal bodies and the
+duplicate-candidates report (not yet served) validate with no names. Typing of the locator
+fields in request metadata and the content-less request shape are deferred to a later slice.
 """
 
 from __future__ import annotations
@@ -237,7 +237,7 @@ def test_refusal_bodies_are_valid_canonical_envelopes() -> None:
 
 def test_duplicate_candidates_report_shape_and_not_yet_served() -> None:
     report = {
-        "project_id": "project_" + "0" * 32,
+        "project_id": "proj_other",
         "agents_examined": 3,
         "read_only": True,
         "notes": ["The relative file path is a hint and is not compared."],
@@ -248,7 +248,7 @@ def test_duplicate_candidates_report_shape_and_not_yet_served() -> None:
                 "uncertainty": "medium",
                 "decisive": False,
                 "candidates": [
-                    {"agent_id": A1, "created_at": "2026-10-01T00:00:00+00:00", "run_count": 4},
+                    {"agent_id": A1, "created_at": "2026-10-01T00:00:00", "run_count": 4},
                     {"agent_id": A2, "created_at": None, "run_count": 0},
                 ],
             },
@@ -264,6 +264,16 @@ def test_duplicate_candidates_report_shape_and_not_yet_served() -> None:
         ],
     }
     assert _valid("DuplicateAgentCandidatesReport", report)
+    # format checking enabled: legacy project id and a timezone-naive timestamp still validate
+    resolver = jsonschema.RefResolver(
+        base_uri=OPT.as_uri() + "/", referrer=_definition("DuplicateAgentCandidatesReport")
+    )
+    strict = jsonschema.Draft7Validator(
+        _definition("DuplicateAgentCandidatesReport"),
+        resolver=resolver,
+        format_checker=jsonschema.FormatChecker(),
+    )
+    assert not list(strict.iter_errors(report))
     assert not _valid("DuplicateAgentCandidatesReport", {**report, "read_only": False})
     named = json.loads(json.dumps(report))
     named["groups"][0]["candidates"][0]["name"] = "Alice_has_diabetes"

@@ -318,8 +318,10 @@ Identity still comes from content, never from them.
   target is unique per `(tenant, project, agent_key)`. That is a Backend change.
   - Identity is never derived from code, knobs or objectives.
   - **The code locator is a resolution input, not the durable identity (TraigentSchema#616).**
-    Before any write the Backend first does the exact legacy lookup (agent id, then `agent_key`
-    or the name derived from `function_name`). With an explicit `agent_key`, that lookup is the
+    Before any write the Backend first does the exact legacy lookup: one value derived from
+    `agent_key` (when non-blank) or else `function_name`, matched as an agent id and then as the
+    project-scoped key or name. The request's own `agent_id` is accepted but not used to select
+    an agent. With an explicit `agent_key`, that lookup is the
     whole resolution: a hit is returned with no locator comparison (a differing locator never
     blocks it) and a miss creates. Without one, a name hit is reused, except that when both the
     request and that agent carry a code locator and they differ, the name hit is not reused and,

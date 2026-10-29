@@ -77,19 +77,6 @@ _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{
 # ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids
 # (enterprise_tenant.py, project.py).
 _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
-# Exact, fully anchored patterns that admit only a dotted Python module name or a dotted
-# qualname (identifier segments, optional ``<locals>``), nothing else. Matched by string
-# equality, never by probing: a regex that merely matches a sample could also admit free text
-# (``^(pkg\.module|Alice_has_diabetes)$``), so an unlisted pattern gets no credit here.
-_CODE_IDENTIFIER_PATTERNS = frozenset(
-    {
-        r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$",  # dotted module
-        r"^[A-Za-z_][A-Za-z0-9_]*(\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$",  # dotted qualname
-        # SDK function_name: <relative path>_<module>_<flattened qualname>; a single token of
-        # identifier characters, path separators and dots, no whitespace or other punctuation.
-        r"^[A-Za-z0-9_./-]+$",
-    }
-)
 # Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
 # than chosen: they carry no customer text because the pattern admits none.
 _FIXED_REF_PATTERNS = frozenset(
@@ -179,8 +166,6 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
             "(uuid, <kind>ref_<32 hex>, tenant_/project_<32 hex>, key id)"
         )
     if cls == "code_identifier":
-        if pattern in _CODE_IDENTIFIER_PATTERNS:
-            return None
         if rx and rx.search("pkg.module:func") or rx and rx.search("src/pkg/module.py"):
             if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
                 return None

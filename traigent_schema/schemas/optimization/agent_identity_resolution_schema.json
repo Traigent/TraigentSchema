@@ -2,33 +2,8 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/agent_identity_resolution_schema.json",
   "title": "AgentIdentityResolution",
-  "description": "Agent identity resolution on POST /api/v1/sessions (TraigentSchema#616). The canonical identity of an agent is the Backend-minted, project-scoped agent id; what a client DECLARES (agent_key, agent_id, function_name) is a resolution input, never the identity. The resolved id is returned in the 201 body at `metadata.agent_id` (null for a JWT caller, who gets no session-agent binding; the top-level `agent_id` of the 201 schema is not populated by the Backend today). Before any write the Backend resolves the agent in this order: (1) the exact legacy lookup by `agent_key` or by the name derived from `function_name`: a hit is reused, unless both the request and that agent carry a code locator and the two differ, which is `agent_identity_conflict` (nothing created) when no agent matches the request's own locator; (2) only when no `agent_key` was sent and step 1 found nothing, the code locator: module + qualname read from `metadata.function_module` and either `metadata.function_qualname` (exact) or the flattened qualname recovered from `metadata.function_name` (NOT the top-level `function_name`). Exactly one match is reused, none creates a new agent, several is `agent_identity_ambiguous` and nothing is created. `metadata.function_relative_path` is read as a hint and is never compared by the Backend. Renaming or moving an unnamed function changes module or qualname and so resolves to a new agent. `agent_ref` is accepted by the request schema but RESERVED: the Backend does not yet use it for resolution. Display names, objectives, knobs and the run or privacy mode are never identity. Every request-side field is optional and additive, and the constraints on the locator fields apply only to a content-less request (`capabilities` contains `content_less_v1`); a user-chosen agent name is customer content (GNFR-PRIV-003) and a content-less request must not carry it, while code identifiers (module, qualname, repo-relative path) are not content.",
+  "description": "Agent identity resolution on POST /api/v1/sessions (TraigentSchema#616): the refusal bodies the Backend returns when it cannot resolve a request to exactly one agent, and the response shape of a read-only duplicate-agents report. No request field is added or constrained: the code locator travels in the existing open `metadata` object (`function_module`, `function_qualname`, `function_relative_path`, `function_name`) and is documented here, not typed. The canonical identity of an agent is the Backend-minted, project-scoped agent id; what a client declares (agent_key, agent_id, function_name) is a resolution input, never the identity. The resolved id is returned in the 201 body at `metadata.agent_id` (null for a JWT caller, who gets no session-agent binding); the top-level `agent_id` of the 201 schema is not populated by the Backend today. Resolution order, before any write: (1) the exact legacy lookup by `agent_key`, or by the name derived from `function_name`; a hit is reused, EXCEPT that when both the request and that agent carry a code locator and the two differ (module or qualname), the name hit is not reused: if no agent matches the request's own locator the result is `agent_identity_conflict` (nothing created). (2) Only when no `agent_key` was sent and step 1 found nothing: the code locator, module from `metadata.function_module` plus the qualname from `metadata.function_qualname` (exact) or the flattened qualname recovered from `metadata.function_name` (not the top-level `function_name`). Exactly one match is reused, none creates a new agent, several is `agent_identity_ambiguous` (nothing created). `function_relative_path` is read as a hint and never compared, so a path-only move changes nothing. Whether renaming or moving a function yields a new agent therefore depends on the case: an unnamed function whose module or qualname changes matches no locator and gets a new agent; a named agent (`agent_key`) keeps its agent; a path-only move keeps its agent. Display names, objectives, knobs and the run or privacy mode are never identity. `agent_ref` is accepted by the request schema but RESERVED: the Backend does not yet use it. The content-less identity shape (server-issued `agent_ref` only, no customer-chosen label) is DEFERRED to a later slice with the SDK: today the Backend refuses every request that declares `content_less_v1` with 400 CAPABILITY_NOT_SUPPORTED before any write.",
   "definitions": {
-    "CodeModule": {
-      "x-content-class": "code_identifier",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 512,
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
-      "description": "Dotted Python module name of the decorated function (`function_module`). A code identifier, not content. Half of the code locator; compared exactly."
-    },
-    "CodeQualname": {
-      "x-content-class": "code_identifier",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 512,
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$",
-      "description": "Exact, unflattened `__qualname__` of the decorated function (`function_qualname`), for example `Router.route` or `build.<locals>.agent`. Optional refinement of the locator: the legacy `function_name` identifier flattens every `.` of the qualname to `_`, so `A.b_c` and `A_b.c` of one module send the same identifier. When BOTH the request and a stored agent carry an exact qualname they must be equal; when either side lacks one the flattened comparison stands."
-    },
-    "CodeRelativePath": {
-      "x-content-class": "code_identifier",
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 512,
-      "pattern": "^[A-Za-z0-9_./-]+\\.py$",
-      "not": {"pattern": "(^/|\\.\\.|//)"},
-      "description": "Repo-relative file path of the decorated function (`function_relative_path`), forward slashes. A code identifier, not content. A HINT only: the Backend reads it but never compares it, so moving a file does not change the resolved agent."
-    },
     "AgentIdentityAmbiguousResponse": {
       "type": "object",
       "additionalProperties": false,
@@ -79,7 +54,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["success", "message", "error", "error_code"],
-      "description": "400 on POST /api/v1/sessions. The request declares a capability this server does not support (today only `content_less_v1`, which the server does not yet answer in the create response; any other capability value is a schema violation, not this refusal). Raised BEFORE any write, so a client fails closed without leaving an agent, run or study behind. Fixed text; the offending value is never echoed and no `details` member is sent. A client that wants to fail even earlier can omit the capability and read the server's advertised `capabilities` from a previous create response.",
+      "description": "400 on POST /api/v1/sessions. The request declares a capability this server does not support (raised for every request that declares `content_less_v1`, which the server does not yet answer in the create response; any other capability value is a schema violation, not this refusal). Raised BEFORE any write, so a client fails closed without leaving an agent, run or study behind. Fixed text; the offending value is never echoed and no `details` member is sent. A client that wants to fail even earlier can omit the capability and read the server's advertised `capabilities` from a previous create response.",
       "properties": {
         "success": {"x-content-class": "closed_enum", "type": "boolean", "const": false},
         "message": {"x-content-class": "closed_enum", "type": "string", "const": "A requested capability is not supported by this server; no session was created"},
@@ -88,10 +63,8 @@
       }
     },
     "AgentId": {
-      "x-content-class": "opaque_ref",
-      "type": "string",
-      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      "description": "Backend-minted agent id (agents.id, UUID4). KNOWN GAP: the Backend can also hold agents whose id a caller supplied at creation (a legacy route accepts `id` / `agent_id`, up to 512 characters), and those ids are customer-chosen content, not opaque. The content-class ratchet admits no new `legacy_content` and no content-free class fits an arbitrary string, so this schema validates UUIDs only. Backend follow-up: disclose in an ambiguous or conflict refusal only ids that are UUIDs (or issue agent_ref values), and say nothing about the others."
+      "$ref": "./session_create_response_schema.json#/properties/agent_id",
+      "description": "Backend agent id (agents.id): the same definition (type and content class) the create response uses for the `agent_id` it returns, (string or null in that schema; the Backend never sends null in a refusal). Minted as a UUID4, but an agent created through a legacy route may carry a caller-supplied id, so no stricter shape is claimed. Because such an id can be customer content, disclosing it in a refusal is a Backend decision (see the Backend follow-ups on TraigentSchema#616)."
     },
     "DuplicateAgentCandidatesReport": {
       "type": "object",

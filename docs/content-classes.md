@@ -39,7 +39,7 @@ a looser class.
 | `key_material` | the base64url pattern `^[A-Za-z0-9_-]+$` and a `maxLength` |
 | `timestamp` | `format: date-time`/`date`, or a timestamp pattern |
 | `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference resolved within tenant/project, distinct from the Backend primary key), key id, or one of the fixed derived-token patterns listed in the lint |
-| `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text; or, for a bare module or qualname, exactly one of the lint's approved anchored patterns (`_CODE_IDENTIFIER_PATTERNS`: dotted module, dotted qualname, and the SDK `function_name` token), matched by string equality, never by probing samples |
+| `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
 | `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
 
 Map-key classes are checked against `propertyNames` the same way.

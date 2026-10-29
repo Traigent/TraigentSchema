@@ -319,21 +319,22 @@ Identity still comes from content, never from them.
   - Identity is never derived from code, knobs or objectives.
   - **The code locator is a resolution input, not the durable identity (TraigentSchema#616).**
     Before any write the Backend first does the exact legacy lookup (`agent_key`, or the name
-    derived from `function_name`); a hit is reused. Only when no `agent_key` was sent and that
-    finds nothing does it use the code locator: `metadata.function_module` plus the qualname
-    (exact `metadata.function_qualname`, or the flattened qualname recovered from
-    `metadata.function_name`). One match is reused, none creates a new agent, several is a 409
-    `agent_identity_ambiguous` with `candidate_agent_ids` and nothing is created; a name hit whose
-    stored locator differs from the request's is a 409 `agent_identity_conflict`.
-    `function_relative_path` is read as a hint and is never compared. The durable identity stays
-    the Backend-minted, project-scoped agent id, returned at `metadata.agent_id` of the 201 body
-    (null for a JWT caller). Renaming or moving an unnamed function changes its module or
-    qualname and so makes a new agent. Display names, objectives, knobs and the run or privacy
-    mode are never identity. A user-chosen agent name is customer content (GNFR-PRIV-003): a
-    content-less request carries none (`agent_key` and `agent_id` null) and `agent_ref` is
-    reserved, not yet used by the Backend for resolution. Module, qualname and repo-relative path
-    are code identifiers, not content. Wire shapes:
-    `optimization/agent_identity_resolution_schema.json`.
+    derived from `function_name`); a hit is reused, except that when both the request and that
+    agent carry a code locator and they differ, the name hit is not reused and, if no agent
+    matches the request's own locator, the create is refused with a 409 `agent_identity_conflict`.
+    Only when no `agent_key` was sent and that lookup finds nothing does the Backend use the
+    locator: `metadata.function_module` plus the qualname (exact `metadata.function_qualname`, or
+    the flattened one recovered from `metadata.function_name`). One match is reused, none creates a
+    new agent, several is a 409 `agent_identity_ambiguous` with `candidate_agent_ids`; nothing is
+    created in either 409. `function_relative_path` is a hint the Backend never compares, so a
+    path-only move changes nothing. A renamed unnamed function (new module or qualname) matches no
+    locator and gets a new agent; a named agent keeps its agent. The durable identity stays the
+    Backend-minted, project-scoped agent id, returned at `metadata.agent_id` of the 201 body (null
+    for a JWT caller). Display names, objectives, knobs and the run or privacy mode are never
+    identity. A user-chosen agent name is customer content (GNFR-PRIV-003). The content-less
+    identity shape (server-issued `agent_ref` only, no customer-chosen label) is deferred to a
+    later slice: `agent_ref` is reserved and the Backend refuses every `content_less_v1` create
+    before any write. Wire shapes: `optimization/agent_identity_resolution_schema.json`.
 - **Version: `build_digest`.** It is `"sha256:" + hex(SHA-256(UTF8("traigent.content_identity.agent_build.v1") || 0x00 || jcs_v1(AgentBuildManifestV1)))`.
   It is unkeyed, because the manifest holds only digests and version strings. The manifest MUST
   commit to the **full behaviour-affecting surface** (relay decision A, section 16):

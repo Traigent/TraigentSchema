@@ -448,12 +448,7 @@ def test_code_digest_rejected_with_declared_or_registered_source() -> None:
 
 def test_code_digest_rejected_in_content_less_shape() -> None:
     _assert_only_the_digest_rule_rejects(
-        # A content-less session carries no customer-chosen agent name (TraigentSchema#616),
-        # so the fixture's declared agent_id is replaced by the 'unknown' identity.
-        _v2_code_payload(
-            capabilities=["content_less_v1"], agent_id=None, agent_id_source="unknown"
-        ),
-        "content_less_v1",
+        _v2_code_payload(capabilities=["content_less_v1"]), "content_less_v1"
     )
 
 

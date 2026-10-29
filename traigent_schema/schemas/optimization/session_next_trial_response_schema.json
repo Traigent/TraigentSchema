@@ -157,7 +157,7 @@
       }
     },
     {
-      "description": "has_next true: a concrete trial object. remaining_trials may be 0 (the final allocated trial) and is deliberately not constrained.",
+      "description": "has_next true: a concrete trial object (and, on the typed handler, the same object as suggestion). remaining_trials may be 0 (the final allocated trial) and is deliberately not constrained.",
       "if": {
         "required": ["has_next"],
         "properties": { "has_next": { "const": true } }
@@ -166,6 +166,7 @@
         "required": ["trial"],
         "properties": {
           "trial": { "type": "object" },
+          "suggestion": { "type": "object" },
           "should_continue": { "const": true }
         }
       }

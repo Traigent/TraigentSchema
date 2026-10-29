@@ -209,6 +209,10 @@ def test_typed_next_trial_reply_validates_and_is_typed() -> None:
     assert _errors(NEXT_TRIAL, _typed_reply(stop_reason="free text from a customer"))
 
 
+def test_typed_suggestion_must_be_an_object_when_work_is_offered() -> None:
+    assert _errors(NEXT_TRIAL, _typed_reply(suggestion=None))
+
+
 def test_typed_fields_must_agree_with_has_next() -> None:
     assert _errors(NEXT_TRIAL, _typed_reply(should_continue=False))
     stopped = _typed_reply(has_next=False, trial=None, remaining_trials=0, session_status="running")

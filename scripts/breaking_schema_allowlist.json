@@ -8867,6 +8867,60 @@
       "reason": "TraigentSchema#621: session_status was an unconstrained string and is now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json), which lists every literal the Backend session-payload normalizer can emit. No real response is rejected; a non-lowercase or unknown status now fails response validation as intended.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "0ba19f14c47fb745be5068ba50927e4a00e95687e719f8eae117d7d87811e7ab"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "5c85a2db6e2dd34a6cfcbd4c15bfe7412653b7a8afbaa593de9702f4908f3a83"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
     }
   ]
 }

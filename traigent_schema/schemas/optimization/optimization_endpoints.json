@@ -452,6 +452,18 @@
                       "strategy_preset": {
                         "$ref": "https://schemas.traigent.ai/optimization/strategy_preset_schema.json",
                         "description": "Optional advisory strategy preset metadata recorded for this session."
+                      },
+                      "function_module": {
+                        "$ref": "./agent_identity_resolution_schema.json#/definitions/CodeModule",
+                        "description": "Code locator, half one: the module of the decorated function. With the qualname (`function_qualname`, or the flattened qualname recovered from `function_name`) it is how the server resolves an UNNAMED agent (no `agent_key`) to the project's existing agent for the same function, before any write. A resolution input, not the durable identity: the identity is the Backend-minted agent id returned as `agent_id`. Optional; absent means no locator resolution (legacy behaviour)."
+                      },
+                      "function_qualname": {
+                        "$ref": "./agent_identity_resolution_schema.json#/definitions/CodeQualname",
+                        "description": "Code locator, exact qualname (unflattened `__qualname__`). Optional refinement of the locator; see CodeQualname."
+                      },
+                      "function_relative_path": {
+                        "$ref": "./agent_identity_resolution_schema.json#/definitions/CodeRelativePath",
+                        "description": "Repo-relative path of the decorated function. A tie-break hint only: it is recorded but never compared, so a moved file keeps its agent. Renaming or moving the FUNCTION (module or qualname) makes a new agent."
                       }
                     },
                     "additionalProperties": true
@@ -590,6 +602,19 @@
                     }
                   },
                   {
+                    "description": "A content-less session (`capabilities` contains `content_less_v1`) carries no customer-chosen agent label: `agent_key` and `agent_id` are user-chosen names and therefore content (GNFR-PRIV-003), so under this capability each must be absent or null. A content-less client names an existing agent only by the server-issued `agent_ref`, and resolves an unnamed agent from the code locator in `metadata` (module, qualname and path are code identifiers, not content). A request that violates this is invalid and the server refuses it closed without echoing the value. Legacy requests (no `content_less_v1`) are unchanged.",
+                    "if": {
+                      "required": ["capabilities"],
+                      "properties": { "capabilities": { "contains": { "const": "content_less_v1" } } }
+                    },
+                    "then": {
+                      "properties": {
+                        "agent_key": { "type": "null" },
+                        "agent_id": { "type": "null" }
+                      }
+                    }
+                  },
+                  {
                     "description": "Legacy execution selectors removed (Traigent#2271): execution_mode and the flat hybrid_api_* keys are no longer accepted request selectors. Use algorithm/offline for execution behavior and the nested hybrid_api_options object for external evaluator configuration.",
                     "not": {
                       "anyOf": [
@@ -701,11 +726,24 @@
             }
           },
           "400": {
-            "description": "Bad request — malformed body or parameters.",
+            "description": "Bad request — malformed body or parameters. `error_code` CAPABILITY_NOT_SUPPORTED: the request declares a capability this server does not support; refused before any write. The body is this error envelope with the fixed text pinned by agent_identity_resolution_schema.json CapabilityNotSupportedResponse (no `details`).",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Agent identity could not be resolved to exactly one agent, so nothing was created. `agent_identity_ambiguous`: several existing agents match the code locator (candidate ids in `details.candidate_agent_ids`). `agent_identity_conflict`: the request's name matches an agent of a different function (`details.conflicting_agent_id`). Ids are sent only to a caller authorized for every listed agent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "./agent_identity_resolution_schema.json#/definitions/AgentIdentityAmbiguousResponse" },
+                    { "$ref": "./agent_identity_resolution_schema.json#/definitions/AgentIdentityConflictResponse" }
+                  ]
                 }
               }
             }

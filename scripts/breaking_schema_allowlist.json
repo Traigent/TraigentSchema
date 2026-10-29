@@ -8679,6 +8679,23 @@
       "reason": "G1 co-sign deadline (owner card feature-pick-2026-10-28-g1-cosign-deadline-config, A). The new allOf branch is an if/then: a request that sends snapshot_g1_deadline_days without snapshot_g1_required exactly true becomes invalid; requests that omit the deadline behave as before, and the existing allOf branches are unchanged. Both fields are introduced in this same unreleased change, and the Backend refuses the same pairing closed, so the schema states the server's rule.",
       "version": "unreleased",
       "pr": "G1 snapshot binding (Spine-Trail st_0c84a1f417f0)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 12,
+          "new": 13,
+          "fingerprint": "1ce5f369826a110a7a74e620a70d865342c1c157b6e148a82f5a1dca4c04c626"
+        }
+      ],
+      "reason": "TraigentSchema#616: one new conditional branch (if capabilities contains content_less_v1 then agent_key and agent_id must be null) so a content-less request cannot carry a customer-chosen agent name (GNFR-PRIV-003). Appended as the 12th of 13 branches ahead of the legacy-selector branch; no existing branch changed. Legacy requests (no content_less_v1) validate unchanged. The Backend already refuses every content_less_v1 create before any write (CAPABILITY_NOT_SUPPORTED, TraigentBackend#4447), so no accepted request is newly refused in practice.",
+      "version": "unreleased (next minor after 7.0.0)",
+      "pr": "TraigentSchema#616"
     }
   ]
 }

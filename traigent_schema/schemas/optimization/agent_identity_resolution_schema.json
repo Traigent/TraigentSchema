@@ -1,0 +1,170 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/agent_identity_resolution_schema.json",
+  "title": "AgentIdentityResolution",
+  "description": "Agent identity resolution on POST /api/v1/sessions (TraigentSchema#616). The canonical identity of an agent is the Backend-minted, project-scoped agent id returned as `agent_id` in the create response; what a client DECLARES (agent_key, agent_id, function_name, agent_ref) is a resolution input, never the identity. Display names, objectives, knobs and the run or privacy mode are never identity. Before any write the Backend resolves the agent: (1) an explicit selector (`agent_key`, or `agent_ref` in content-less mode) names the agent; (2) otherwise, for an unnamed agent, the code locator (module + qualname, with the repo-relative path only as a hint) finds the project's existing agent for the same function. Exactly one match is reused, none creates a new agent, several is `agent_identity_ambiguous` and nothing is created. This document holds the code-locator vocabulary, the three refusal bodies and the response shape of the read-only duplicate-candidates report. Every request-side field is optional and additive. Renaming or moving an unnamed function changes its locator, so it resolves to a new agent. Nothing here carries customer-chosen text: a user-chosen agent name is customer content (GNFR-PRIV-003) and is sent only through the legacy `agent_key`, which a content-less request (`capabilities` contains `content_less_v1`) must not carry; code identifiers (module, qualname, repo-relative path) are not content.",
+  "definitions": {
+    "CodeModule": {
+      "x-content-class": "code_identifier",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$",
+      "description": "Dotted Python module name of the decorated function (`function_module`). A code identifier, not content. Half of the code locator; compared exactly."
+    },
+    "CodeQualname": {
+      "x-content-class": "code_identifier",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.(<locals>|[A-Za-z_][A-Za-z0-9_]*))*$",
+      "description": "Exact, unflattened `__qualname__` of the decorated function (`function_qualname`), for example `Router.route` or `build.<locals>.agent`. Optional refinement of the locator: the legacy `function_name` identifier flattens every `.` of the qualname to `_`, so `A.b_c` and `A_b.c` of one module send the same identifier. When BOTH the request and a stored agent carry an exact qualname they must be equal; when either side lacks one the flattened comparison stands."
+    },
+    "CodeRelativePath": {
+      "x-content-class": "code_identifier",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_./-]+\\.py$",
+      "not": {"pattern": "(^/|\\.\\.|//)"},
+      "description": "Repo-relative file path of the decorated function (`function_relative_path`), forward slashes. A code identifier, not content. A HINT only: it is reported but never compared, so moving a file does not change the resolved agent."
+    },
+    "AgentIdentityAmbiguousResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code", "details"],
+      "description": "409 on POST /api/v1/sessions. More than one existing agent of the project matches the request's code locator. NOTHING was created (no agent, run, study or binding); retry with an explicit selector or after the duplicates are resolved. Fixed text; no request value is echoed. `details.candidate_agent_ids` is returned only to a caller authorized for every listed agent (API key: per-agent write access; JWT user: project editor plus the same per-agent check); any other caller receives the ordinary authorization denial, which carries no candidates.",
+      "properties": {
+        "success": {"x-content-class": "closed_enum", "type": "boolean", "const": false},
+        "message": {"x-content-class": "closed_enum", "type": "string", "const": "More than one existing agent in this project matches this function. No agent was created; resolve the duplicates and retry."},
+        "error": {"x-content-class": "closed_enum", "type": "string", "const": "More than one existing agent in this project matches this function. No agent was created; resolve the duplicates and retry."},
+        "error_code": {"x-content-class": "closed_enum", "type": "string", "const": "agent_identity_ambiguous"},
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidate_agent_ids"],
+          "properties": {
+            "candidate_agent_ids": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": {"$ref": "#/definitions/AgentId"},
+              "description": "Server-issued ids of the agents that match, in no order of preference (the Backend never picks a survivor)."
+            }
+          }
+        }
+      }
+    },
+    "AgentIdentityConflictResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code", "details"],
+      "description": "409 on POST /api/v1/sessions. The request's name (legacy `function_name` identity) matches an existing agent whose stored code locator is a DIFFERENT function, and no agent matches the request's own locator. The name match is never reused and nothing was created. Fixed text; no request value is echoed. `details.conflicting_agent_id` is returned only to a caller authorized for that agent (same rule as the ambiguous refusal).",
+      "properties": {
+        "success": {"x-content-class": "closed_enum", "type": "boolean", "const": false},
+        "message": {"x-content-class": "closed_enum", "type": "string", "const": "An existing agent already uses this identity for a different function. No agent was created."},
+        "error": {"x-content-class": "closed_enum", "type": "string", "const": "An existing agent already uses this identity for a different function. No agent was created."},
+        "error_code": {"x-content-class": "closed_enum", "type": "string", "const": "agent_identity_conflict"},
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conflicting_agent_id"],
+          "properties": {
+            "conflicting_agent_id": {"$ref": "#/definitions/AgentId"}
+          }
+        }
+      }
+    },
+    "CapabilityNotSupportedResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "description": "400 on POST /api/v1/sessions. The request declares a capability this server does not support (today `content_less_v1`, which the server does not yet answer in the create response). Raised BEFORE any write, so a client fails closed without leaving an agent, run or study behind. Fixed text; the offending value is never echoed and no `details` member is sent. A client that wants to fail even earlier can omit the capability and read the server's advertised `capabilities` from a previous create response.",
+      "properties": {
+        "success": {"x-content-class": "closed_enum", "type": "boolean", "const": false},
+        "message": {"x-content-class": "closed_enum", "type": "string", "const": "A requested capability is not supported by this server; no session was created"},
+        "error": {"x-content-class": "closed_enum", "type": "string", "const": "A requested capability is not supported by this server; no session was created"},
+        "error_code": {"x-content-class": "closed_enum", "type": "string", "const": "CAPABILITY_NOT_SUPPORTED"}
+      }
+    },
+    "AgentId": {
+      "x-content-class": "opaque_ref",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "Backend-minted agent id (agents.id), the same value the create response returns as `agent_id`. The Backend mints it as a UUID4; an agent whose id a caller supplied at creation through a legacy route could carry another form and would not validate here, but every agent the session-create path auto-creates (the only agents a locator can match) carries a minted UUID."
+    },
+    "DuplicateAgentCandidatesReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "agents_examined", "groups", "read_only", "notes"],
+      "description": "Response of the read-only 'possible duplicate agents' report for one project. NOT YET SERVED: the Backend implements the report as a service function only and exposes no route, so no path in optimization_endpoints.json references this shape yet. It lists candidate groups and never merges, relinks, reparents, rewrites a key or picks a survivor. Names, keys and descriptions are customer content and are never returned: only server-issued ids, timestamps and counts.",
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            {
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "pattern": "^project_[0-9a-f]{32}$"
+            }
+          ],
+          "description": "Server-issued id of the project the report covers: a UUID, or the default project's `project_<32 hex>` id."
+        },
+        "agents_examined": {"x-content-class": "number", "type": "integer", "minimum": 0, "maximum": 1000000},
+        "read_only": {"x-content-class": "closed_enum", "type": "boolean", "const": true},
+        "notes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {"x-content-class": "closed_enum", "type": "string", "enum": [
+            "The relative file path is a hint and is not compared.",
+            "Residual race window: when no agent existed at check time, creation re-resolves under a PostgreSQL advisory lock; on SQLite there is no lock."
+          ]}
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {"$ref": "#/definitions/DuplicateAgentGroup"}
+        }
+      }
+    },
+    "DuplicateAgentGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_reasons", "uncertainty", "decisive", "candidates"],
+      "description": "One group of agents that may be the same logical agent. `same_module_and_qualname` groups carry `locator_precision` (`exact`: every member has an exact qualname; `flattened`: none has; `mixed`: exact members plus flattened-only members that would resolve to them) and `uncertainty` low for exact, medium otherwise. `shared_hash_suffix_only` groups (older rows with no stored locator that share the `(hash)` suffix of their display name) carry no `locator_precision` and `uncertainty` high: a lead, never a match. `decisive` is always false: whether the members are one agent is the owner's call.",
+      "properties": {
+        "match_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"x-content-class": "closed_enum", "type": "string", "enum": ["same_module_and_qualname", "shared_hash_suffix_only"]}
+        },
+        "locator_precision": {"x-content-class": "closed_enum", "type": "string", "enum": ["exact", "flattened", "mixed"]},
+        "uncertainty": {"x-content-class": "closed_enum", "type": "string", "enum": ["low", "medium", "high"]},
+        "decisive": {"x-content-class": "closed_enum", "type": "boolean", "const": false},
+        "candidates": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 1000,
+          "items": {"$ref": "#/definitions/DuplicateAgentCandidate"}
+        }
+      }
+    },
+    "DuplicateAgentCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "created_at", "run_count"],
+      "properties": {
+        "agent_id": {"$ref": "#/definitions/AgentId"},
+        "created_at": {"x-content-class": "timestamp", "type": ["string", "null"], "format": "date-time"},
+        "run_count": {"x-content-class": "number", "type": "integer", "minimum": 0, "maximum": 1000000000, "description": "Number of experiments (runs) filed under this agent, in the same tenant, project and owner scope as the report."}
+      }
+    }
+  }
+}

@@ -100,8 +100,10 @@
       "description": "Number of trials remaining in the session queue after this suggestion."
     },
     "session_status": {
-      "$ref": "./session_lifecycle_status_schema.json",
-      "description": "Canonical session lifecycle status (normalized server-side, lowercase). Terminal values never coexist with has_next true."
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": ["aborted", "active", "awaiting_results", "cancelled", "cold_start_a", "cold_start_b", "complete", "completed", "created", "elimination_round", "expired", "failed", "not_started", "partially_deleted", "paused", "pending", "pruned", "registered", "running", "starting", "unknown"],
+      "description": "Canonical session lifecycle status (normalized server-side, lowercase). Terminal values never coexist with has_next true. Inlined, not $ref-ed, so this schema stays valid for a standalone validator; kept equal to session_lifecycle_status_schema.json by tests/test_session_lifecycle_status_contract.py."
     },
     "suggestion": {
       "$ref": "#/properties/trial",

@@ -87,6 +87,14 @@ def test_lifecycle_enum_is_the_full_lowercase_wire_set() -> None:
     assert len(enum) == len(set(enum))
 
 
+def test_next_trial_inlines_exactly_the_shared_enum() -> None:
+    shared = load_json(SCHEMAS / "optimization" / "session_lifecycle_status_schema.json")["enum"]
+    inline = load_json(SCHEMAS / "optimization" / "session_next_trial_response_schema.json")[
+        "properties"
+    ]["session_status"]["enum"]
+    assert inline == shared
+
+
 @pytest.mark.parametrize("value", sorted(WIRE_STATUSES))
 def test_every_wire_status_validates_on_both_bound_fields(value: str) -> None:
     assert _errors(LIFECYCLE, value) == []

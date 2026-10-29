@@ -970,6 +970,7 @@
   "optimization/session_next_trial_response_schema.json#/properties/has_next": "closed_enum",
   "optimization/session_next_trial_response_schema.json#/properties/reason": "closed_enum",
   "optimization/session_next_trial_response_schema.json#/properties/remaining_trials": "number",
+  "optimization/session_next_trial_response_schema.json#/properties/session_status": "closed_enum",
   "optimization/session_next_trial_response_schema.json#/properties/should_continue": "closed_enum",
   "optimization/session_next_trial_response_schema.json#/properties/stop_reason": "closed_enum",
   "optimization/session_next_trial_response_schema.json#/properties/trial": "legacy_content",

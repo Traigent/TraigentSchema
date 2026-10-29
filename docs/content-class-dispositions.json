@@ -549,8 +549,8 @@
   {
    "location": "optimization/session_next_trial_response_schema.json#/properties/session_status",
    "from": "legacy_content",
-   "to": "removed",
-   "reason": "bound by $ref to optimization/session_lifecycle_status_schema.json, a closed_enum of the lowercase lifecycle values the session routes serve (TraigentSchema#621); the field is no longer an unclassified free string.",
+   "to": "closed_enum",
+   "reason": "now an inline closed_enum equal to optimization/session_lifecycle_status_schema.json (the lowercase lifecycle values the session routes serve; TraigentSchema#621); the field is no longer an unclassified free string.",
    "reference": "tests/test_session_lifecycle_status_contract.py:1"
   }
  ]

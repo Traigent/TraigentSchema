@@ -166,7 +166,12 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
             "(uuid, <kind>ref_<32 hex>, tenant_/project_<32 hex>, key id)"
         )
     if cls == "code_identifier":
-        if rx and rx.search("pkg.module:func") or rx and rx.search("src/pkg/module.py"):
+        # Witnesses: a function ref, a repo-relative path, a dotted module name or a dotted
+        # qualname. Each is a code identifier (docs/content-classes.md); free text is not.
+        if rx and any(
+            rx.search(w)
+            for w in ("pkg.module:func", "src/pkg/module.py", "pkg.module", "Cls.method")
+        ):
             if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
                 return None
         return "code_identifier needs an identifier or repo-relative path pattern"

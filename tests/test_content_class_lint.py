@@ -375,6 +375,18 @@ def test_code_identifier_requires_an_identifier_pattern(tmp_path: Path) -> None:
     )
 
 
+def test_code_identifier_accepts_dotted_module_and_qualname_but_not_free_text(
+    tmp_path: Path,
+) -> None:
+    dotted = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    _ok(tmp_path, {"type": "string", "pattern": dotted, "x-content-class": "code_identifier"})
+    # Free text, an unanchored pattern and a catch-all stay refused.
+    assert _bad(
+        tmp_path, {"type": "string", "pattern": "^[A-Za-z .,]+$", "x-content-class": "code_identifier"}
+    )
+    assert _bad(tmp_path, {"type": "string", "pattern": "[a-z]", "x-content-class": "code_identifier"})
+
+
 def test_key_material_requires_bounded_base64url(tmp_path: Path) -> None:
     assert _bad(tmp_path, {"type": "string", "x-content-class": "key_material"})
     assert _bad(

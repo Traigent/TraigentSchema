@@ -228,3 +228,94 @@ def assert_workload_class_rename_exception(anchor_ref: str, repo_root: Path) -> 
         f"{CLAIM_PAYLOADS_REL} differs from {anchor_ref} by more than the "
         "disclosed workload_class rename"
     )
+
+
+# Exception 3 (owner decision cards security-policy-2026-10-29-certify-private-runs
+# = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29): the
+# closed data-flow-mode vocabulary gains the additive value ``private_online``
+# so a run made under the server-recorded session privacy policy is certified
+# truthfully. Three frozen-v0 files may differ from a frozen-v0 anchor ONLY at
+# the pointers below: a ``description`` (free text, pinned by the file sha256)
+# or a ``declared_mode`` enum that must equal the anchor's enum plus
+# ``private_online``. ``offline`` stays reserved for the D2 zero-egress
+# witness (unsupported in frozen v0).
+PRIVATE_ONLINE_MEMBER = "private_online"
+_CERT_DIR = "traigent_schema/schemas/certification/"
+#: rel path -> SHA-256 of the file after its sole disclosed edit.
+PRIVATE_ONLINE_SHA256: dict[str, str] = {
+    _CERT_DIR + "certification_common_v0_schema.json": (
+        "cfbf55741d62374c5cd7a3fe242a8f9afbce0ace38f71fd3b5e96bb4108a3ac6"
+    ),
+    _CERT_DIR + "certificate_unsigned_manifest_v0_schema.json": (
+        "cf227c89c097e34830a3bb9969864b1af4655d6890e6dd95542a7ec42b93655a"
+    ),
+    _CERT_DIR + "certification_endpoints_v0.json": (
+        "7cc9f5ddc33a3e6375f2cb5e6152888fbbc87e15da4809649d18d0f85ae1d0c9"
+    ),
+}
+PRIVATE_ONLINE_RELS = tuple(PRIVATE_ONLINE_SHA256)
+#: rel path -> (description-only pointers, enum-gains-private_online pointers),
+#: resolved against the raw file.
+_PRIVATE_ONLINE_POINTERS: dict[
+    str, tuple[tuple[tuple[str | int, ...], ...], tuple[tuple[str | int, ...], ...]]
+] = {
+    _CERT_DIR + "certification_common_v0_schema.json": (
+        (("definitions", "DataFlowModeV0", "description"),),
+        (("definitions", "DataFlowModeV0", "enum"),),
+    ),
+    _CERT_DIR + "certificate_unsigned_manifest_v0_schema.json": (
+        (("definitions", "PrivacyModeSectionV0", "description"),),
+        (),
+    ),
+    _CERT_DIR + "certification_endpoints_v0.json": (
+        (),
+        (
+            (
+                "paths",
+                "/api/v1beta/certificate-build-sessions/bind-g1",
+                "post",
+                "requestBody",
+                "content",
+                "application/json",
+                "schema",
+                "properties",
+                "declared_mode",
+                "enum",
+            ),
+        ),
+    ),
+}
+
+
+def assert_private_online_exception(anchor_ref: str, repo_root: Path) -> None:
+    """Exception 3: each PRIVATE_ONLINE_RELS file may differ from the frozen-v0
+    anchor only at its pinned description / declared_mode-enum pointers. The
+    sha256 pin catches any further edit; the structural comparison (with the
+    pinned pointers removed from both sides) catches drift elsewhere; each enum
+    must be exactly the anchor's enum plus ``private_online``. Skips (rather
+    than fails) if ``anchor_ref`` is unreachable, e.g. a shallow CI checkout.
+    """
+
+    for rel, digest in PRIVATE_ONLINE_SHA256.items():
+        current_bytes = (repo_root / rel).read_bytes()
+        assert hashlib.sha256(current_bytes).hexdigest() == digest, (
+            f"{rel} no longer matches the disclosed exception's pin"
+        )
+        anchor_bytes = _git_show(anchor_ref, rel, repo_root)
+        if anchor_bytes is None:
+            pytest.skip(f"anchor {anchor_ref} is not in this clone (shallow checkout)")
+
+        current = json.loads(current_bytes)
+        anchor = json.loads(anchor_bytes)
+        description_pointers, enum_pointers = _PRIVATE_ONLINE_POINTERS[rel]
+        for pointer in enum_pointers:
+            assert _get_pointer(current, pointer) == [
+                *_get_pointer(anchor, pointer),
+                PRIVATE_ONLINE_MEMBER,
+            ], f"{rel} {pointer} is not the anchor's enum plus {PRIVATE_ONLINE_MEMBER}"
+        for pointer in (*description_pointers, *enum_pointers):
+            current = _without_pointer(current, pointer)
+            anchor = _without_pointer(anchor, pointer)
+        assert current == anchor, (
+            f"{rel} differs from {anchor_ref} by more than the disclosed private_online change"
+        )

@@ -284,3 +284,12 @@ def test_duplicate_candidates_report_shape_and_not_yet_served() -> None:
     assert "not yet served" in RESOLUTION["definitions"][
         "DuplicateAgentCandidatesReport"
     ]["description"].lower()
+
+
+def test_description_does_not_make_request_agent_id_a_resolution_input() -> None:
+    # Schema-only wording check, aligned with the Backend deriving its lookup from
+    # agent_key / function_name only.
+    text = RESOLUTION["description"]
+    assert "(agent_key, function_name) is a resolution input" in text
+    assert "agent_key, agent_id, function_name" not in text
+    assert "`agent_id` field is accepted but NOT used to select an agent" in text

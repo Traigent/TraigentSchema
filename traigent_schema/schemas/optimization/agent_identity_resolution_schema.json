@@ -73,12 +73,8 @@
       "description": "Response of the read-only 'possible duplicate agents' report for one project. NOT YET SERVED: the Backend implements the report as a service function only and exposes no route, so no path in optimization_endpoints.json references this shape yet. It lists candidate groups and never merges, relinks, reparents, rewrites a key or picks a survivor. Names, keys and descriptions are customer content and are never returned: only the Backend's existing agent ids (which may be caller-supplied legacy strings and are potentially customer content), timestamps and counts. The report applies no caps on agents examined, groups, candidates or run counts.",
       "properties": {
         "project_id": {
-          "x-content-class": "key_material",
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]+$",
-          "minLength": 1,
-          "maxLength": 128,
-          "description": "Id of the project the report covers, echoed unchanged from the caller's scope: a UUID, the default project's `project_<32 hex>` id, or another legacy id (the Backend column is String(128)). Restricted to base64url characters (which UUIDs, `project_<hex>` and ids such as `proj_other` satisfy); a legacy id outside that alphabet is not representable. Treat as potentially customer content."
+          "$ref": "./session_create_response_schema.json#/properties/project_id",
+          "description": "Id of the project the report covers, echoed unchanged from the caller's scope (a UUID, the default project's `project_<32 hex>` id, or another legacy id). Same definition as the create response; potentially customer content."
         },
         "agents_examined": {"x-content-class": "number", "type": "integer", "minimum": 0},
         "read_only": {"x-content-class": "closed_enum", "type": "boolean", "const": true},

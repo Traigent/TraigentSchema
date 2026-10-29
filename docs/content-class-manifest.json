@@ -256,7 +256,6 @@
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentCandidate/properties/run_count": "number",
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentCandidatesReport/properties/agents_examined": "number",
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentCandidatesReport/properties/notes/items": "closed_enum",
-  "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentCandidatesReport/properties/project_id": "key_material",
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentCandidatesReport/properties/read_only": "closed_enum",
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentGroup/properties/decisive": "closed_enum",
   "optimization/agent_identity_resolution_schema.json#/definitions/DuplicateAgentGroup/properties/locator_precision": "closed_enum",

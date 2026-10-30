@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_results_response_schema.json",
+  "title": "Session Results Response",
+  "description": "200 response of POST /api/v1/sessions/{session_id}/results, served by both the classic and the typed handler. continue_optimization is the Backend's advice on whether the client should keep requesting trials: false once the session is finalized, stopped, or has reached its trial budget. The Python SDK only logs it. Closed: the three keys below are every key either handler serves; a new key is a contract change made here first.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "continue_optimization"],
+  "properties": {
+    "success": {
+      "x-content-class": "closed_enum",
+      "type": "boolean",
+      "description": "True when the results were accepted (including an idempotent re-submit of an already recorded trial)."
+    },
+    "continue_optimization": {
+      "x-content-class": "closed_enum",
+      "type": "boolean",
+      "description": "Whether the client should keep requesting trials after this submission."
+    },
+    "message": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": ["Results submitted successfully", "Results already submitted"],
+      "description": "Fixed human-readable acknowledgement; the second form is served when the trial was already recorded."
+    }
+  }
+}

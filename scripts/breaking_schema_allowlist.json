@@ -8750,6 +8750,248 @@
       "reason": "G1 co-sign deadline (owner card feature-pick-2026-10-28-g1-cosign-deadline-config, A). The new allOf branch is an if/then: a request that sends snapshot_g1_deadline_days without snapshot_g1_required exactly true becomes invalid; requests that omit the deadline behave as before, and the existing allOf branches are unchanged. Both fields are introduced in this same unreleased change, and the Backend refuses the same pairing closed, so the schema states the server's rule.",
       "version": "unreleased",
       "pr": "G1 snapshot binding (Spine-Trail st_0c84a1f417f0)"
+    },
+    {
+      "file": "execution/hybrid_session_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"aborted\"",
+              "\"awaiting_results\"",
+              "\"cold_start_a\"",
+              "\"cold_start_b\"",
+              "\"complete\"",
+              "\"created\"",
+              "\"elimination_round\"",
+              "\"not_started\"",
+              "\"partially_deleted\"",
+              "\"paused\"",
+              "\"pending\"",
+              "\"pruned\"",
+              "\"registered\"",
+              "\"running\"",
+              "\"starting\"",
+              "\"unknown\""
+            ]
+          },
+          "old": [
+            "\"active\"",
+            "\"cancelled\"",
+            "\"completed\"",
+            "\"expired\"",
+            "\"failed\""
+          ],
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "4d3ea622c31e902a252ed8f2fa48afe3ab8acd278a62536f4011a61f23da394c"
+        }
+      ],
+      "reason": "TraigentSchema#621: the unused hybrid session record status enum (active, expired, completed, failed, cancelled) is replaced by the shared lowercase session lifecycle enum. Every previous value is kept (no member removed), so no previously valid record is rejected; the added members are the values the session routes actually serve (for example the wire value `complete` for a finished hybrid session). No endpoint binds this record schema, so the widening has no consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/status/get/responses/200/content/application/json/schema/properties/status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "21af4acb7cab381548add0fd85cd2a8ba61c09dbda3cdfa72421f33a6bab12f2"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "58c64175b4508860db3e7f9c2a45843a904caba6abbdea3a00c5e4cf27ead118"
+        }
+      ],
+      "reason": "TraigentSchema#621: the hybrid status `status` and next-trial `session_status` response fields were unconstrained strings and are now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json). The enum lists every literal the Backend session-payload normalizer can emit (verified against its producer enums), so no real response is rejected; the tightening makes a drifting or non-lowercase value fail response validation, which is the point of the issue.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "546cf567ba65ce596ec84774455aaa71a865266470540bbf7821aa7d7e45df02"
+        }
+      ],
+      "reason": "TraigentSchema#621: session_status was an unconstrained string and is now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json), which lists every literal the Backend session-payload normalizer can emit. No real response is rejected; a non-lowercase or unknown status now fails response validation as intended.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "0ba19f14c47fb745be5068ba50927e4a00e95687e719f8eae117d7d87811e7ab"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "5c85a2db6e2dd34a6cfcbd4c15bfe7412653b7a8afbaa593de9702f4908f3a83"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
     }
   ]
 }

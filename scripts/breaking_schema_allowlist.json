@@ -2865,7 +2865,7 @@
     {
       "file": "auth/api_key_create_request_schema.json",
       "rule": "allOf_added",
-      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type).",
+      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type). This allOf was itself removed in a later PR (the three entries immediately below, same file) once key_type=director was found to be unintended; the differential proof those tests gave now lives under their post-removal names (test_item6_create_empty_scopes_rejected / ..._permissions_rejected / ..._valid_..._accepted / ..._omitted_..._accepted in the same test file) -- this entry is kept as the historical record of the #471 PR and is not re-evaluated by the fingerprint check now that #/allOf no longer exists.",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2876,6 +2876,77 @@
           "old": 0,
           "new": 1,
           "fingerprint": "88679fc781f05d477e7cd36fcad5580b006950dfcd346da680a156c53cb0f77d"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "enum",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): the key_type=\"director\" enum member added by #471 was never intended for this public schema and was never implemented in TraigentBackend (no route/model accepts key_type=director; confirmed by repo-wide grep against TraigentBackend develop). Removing it is correcting an unintended public contract addition, not retiring a shipped capability -- no real client could ever have minted a director key, since the backend would have had nowhere to persist one. The private follow-up for TraigentBackend is filed as a GitHub issue (see PR description) in case the Director-evidence feature still wants a scoped key path later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/key_type",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"director\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"director\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "fingerprint": "3afff5b8b6e99a71399f638a1a76d4299162bfb8df0641c6463788c4de8e77d9"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "minItems",
+      "reason": "Restores the pre-#471 minItems:1 on permissions directly on the top-level property, now that the director-only allOf conditional that used to carry this constraint (in its else branch, for every non-director key_type) is gone along with the director path. Same restoration as the already-allowed scopes minItems entry from #376 (matched automatically above), just for the sibling permissions property, which #471 happened to move into the same conditional. The accepted request set for existing (non-director) clients is unchanged: empty permissions was never meaningful to the route's allowlist check either way. See test_item6_create_empty_permissions_rejected in tests/test_director_evidence_contract.py.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/permissions",
+          "role": "request",
+          "subject": "minItems",
+          "old": null,
+          "new": 1,
+          "fingerprint": "ac9f9f3842a6eb236f27b3b01a8da131a6bf99e2844668fbf4870efdfab890b1"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "property_removed",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): resource_grants was added by #471 solely to carry the director key_type's atomic per-resource grant list; it was never intended as a general-purpose public field and TraigentBackend never implemented it (no route reads a resource_grants key off the create-request body). With key_type=director removed in this same change, resource_grants has no remaining purpose in this schema -- removing an unintended, unimplemented field is correcting the contract, not retiring a shipped one. Private follow-up filed in TraigentBackend as a GitHub issue (linked in the PR description) in case per-resource grants at key-creation time are still wanted later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/resource_grants",
+          "role": "request",
+          "subject": "resource_grants",
+          "old": true,
+          "new": false,
+          "fingerprint": "966f38ea43d009847fd2f3f934b60eb120a096900aaa64f17a095e935336e1da"
         }
       ]
     },

@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_error_schema.json",
+  "title": "Agent Decision Error",
+  "description": "Closed error body. Errors never echo client-supplied keys or values. retry_after_seconds is required for RATE_LIMITED and allowed only there.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error"
+  ],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": [
+            "DECISION_NOT_FOUND",
+            "DECISION_EXPIRED",
+            "DECISION_SUPERSEDED",
+            "DECISION_ALREADY_ANSWERED",
+            "STALE_BASIS",
+            "VERSION_MISMATCH",
+            "NOT_ELIGIBLE",
+            "REPLAY_MISMATCH",
+            "INVALID_REQUEST",
+            "POLICY_UNAVAILABLE",
+            "UNAUTHENTICATED",
+            "FORBIDDEN",
+            "RATE_LIMITED",
+            "AGENT_NOT_FOUND"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400,
+          "x-content-class": "number"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "retry_after_seconds"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "RATE_LIMITED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reason": {
+                "const": "RATE_LIMITED"
+              }
+            },
+            "required": [
+              "reason"
+            ]
+          },
+          "then": {
+            "required": [
+              "retry_after_seconds"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

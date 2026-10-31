@@ -24,9 +24,13 @@ SCHEMAS_DIR = get_schemas_dir()
 ANALYTICS_DIR = SCHEMAS_DIR / "analytics"
 DATA_DIR = Path(__file__).parent / "test_data" / "analytics"
 
-DTO = json.loads((ANALYTICS_DIR / "director_evidence_schema.json").read_text(encoding="utf-8"))
+DTO = json.loads(
+    (ANALYTICS_DIR / "director_evidence_schema.json").read_text(encoding="utf-8")
+)
 ENVELOPE = json.loads(
-    (ANALYTICS_DIR / "director_evidence_response_schema.json").read_text(encoding="utf-8")
+    (ANALYTICS_DIR / "director_evidence_response_schema.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 REGISTRY = Registry().with_resources(
@@ -36,13 +40,25 @@ REGISTRY = Registry().with_resources(
     ]
 )
 
-A = json.loads((DATA_DIR / "director_evidence_available_valid.json").read_text(encoding="utf-8"))
-B = json.loads((DATA_DIR / "director_evidence_abstain_valid.json").read_text(encoding="utf-8"))
+A = json.loads(
+    (DATA_DIR / "director_evidence_available_valid.json").read_text(encoding="utf-8")
+)
+B = json.loads(
+    (DATA_DIR / "director_evidence_abstain_valid.json").read_text(encoding="utf-8")
+)
 C = json.loads(
-    (DATA_DIR / "director_evidence_privacy_abstain_valid.json").read_text(encoding="utf-8")
+    (DATA_DIR / "director_evidence_privacy_abstain_valid.json").read_text(
+        encoding="utf-8"
+    )
 )
 
-SUPPRESSED = ["completed_trials", "recorded_observations", "mean_quality", "nonzero_cost", "age"]
+SUPPRESSED = [
+    "completed_trials",
+    "recorded_observations",
+    "mean_quality",
+    "nonzero_cost",
+    "age",
+]
 
 # Pinned independently of the schema under test (G1 v1.0.1 §2.2 precedence order).
 # Do not derive this from DTO["definitions"]["ordinary_abstain_reason"]["enum"]: the
@@ -162,9 +178,18 @@ def test_item3_evidence_available_false_with_mean_quality_rejected() -> None:
 
 @pytest.mark.parametrize(
     "value,ok",
-    [("3-9", True), ("10+", True), ("0", False), ("1-2", False), (3, False), ("3-10", False)],
+    [
+        ("3-9", True),
+        ("10+", True),
+        ("0", False),
+        ("1-2", False),
+        (3, False),
+        ("3-10", False),
+    ],
 )
-def test_item3_completed_trials_enum_is_exactly_3_9_and_10_plus(value, ok: bool) -> None:
+def test_item3_completed_trials_enum_is_exactly_3_9_and_10_plus(
+    value, ok: bool
+) -> None:
     errors = dto_errors({**A, "completed_trials": value})
     assert (errors == []) is ok
 
@@ -193,14 +218,24 @@ def test_item3_pct_bucket_is_multiple_of_five_in_0_to_100(value, ok: bool) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item4_envelope_accepts_bare_success_and_data(fixture) -> None:
     assert envelope_errors({"success": True, "data": fixture}) == []
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item4_envelope_accepts_message_meta_and_warnings(fixture) -> None:
-    payload = {"success": True, "message": "ok", "data": fixture, "meta": {}, "warnings": []}
+    payload = {
+        "success": True,
+        "message": "ok",
+        "data": fixture,
+        "meta": {},
+        "warnings": [],
+    }
     assert envelope_errors(payload) == []
 
 
@@ -230,9 +265,9 @@ VOCAB_SCHEMA_NAME = "api_key_authorization_vocabulary_schema"
 
 def test_item5_scope_maps_to_permission() -> None:
     schema = load_schema(VOCAB_SCHEMA_NAME)
-    assert schema["x-scope-permission-map"]["director_evidence:read"]["permissions"] == [
-        "director_evidence.read"
-    ]
+    assert schema["x-scope-permission-map"]["director_evidence:read"][
+        "permissions"
+    ] == ["director_evidence.read"]
 
 
 def test_item5_scope_listed_in_restricted_scopes() -> None:
@@ -256,13 +291,21 @@ def test_item5_scope_not_user_requestable() -> None:
 
 def test_item5_scope_token_pattern_still_equals_convention_pattern() -> None:
     schema = load_schema(VOCAB_SCHEMA_NAME)
-    assert schema["definitions"]["ApiKeyScopeToken"]["pattern"] == schema["x-scope-convention"][
-        "pattern"
-    ]
+    assert (
+        schema["definitions"]["ApiKeyScopeToken"]["pattern"]
+        == schema["x-scope-convention"]["pattern"]
+    )
 
 
 # ---------------------------------------------------------------------------
-# Item 6 — create/update/rotate request schemas: Director key invariants
+# Item 6 — create/update/rotate request schemas: no key_type=director path.
+#
+# The Director key_type and resource_grants field (added alongside the G1
+# contract above) were never intended for this public schema and were
+# removed without ever being implemented in TraigentBackend. These tests
+# pin the removal: no key_type value grants a resource_grants path, and the
+# field itself no longer validates on any of the create/update/rotate
+# request schemas.
 # ---------------------------------------------------------------------------
 
 CREATE_SCHEMA_NAME = "api_key_create_request_schema"
@@ -272,17 +315,23 @@ ROTATE_SCHEMA_NAME = "api_key_rotate_request_schema"
 
 def create_errors(payload: dict) -> list:
     schema = load_schema(CREATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def update_errors(payload: dict) -> list:
     schema = load_schema(UPDATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def rotate_errors(payload: dict) -> list:
     schema = load_schema(ROTATE_SCHEMA_NAME)
-    return list(Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload))
+    return list(
+        Draft7Validator(schema, format_checker=_FORMAT_CHECKER).iter_errors(payload)
+    )
 
 
 def _error_signal(errors: list) -> str:
@@ -300,141 +349,88 @@ def _assert_error_names(errors: list, token: str, case_id: str) -> None:
     assert token in signal, f"{case_id}: expected {token!r} in error signal {signal!r}"
 
 
-def _valid_grant(**overrides) -> dict:
-    grant = {
-        "resource_type": "experiment",
-        "resource_id": "exp-1",
-        "permissions": ["read"],
-        "expires_at": "2026-10-01T00:00:00Z",
-    }
-    grant.update(overrides)
-    return grant
+def test_item6_create_key_type_enum_excludes_director() -> None:
+    schema = load_schema(CREATE_SCHEMA_NAME)
+    assert "director" not in schema["properties"]["key_type"]["enum"]
 
 
-def _base_director_create() -> dict:
-    return {
+def test_item6_create_rejects_key_type_director() -> None:
+    _assert_error_names(
+        create_errors({"key_name": "d", "key_type": "director"}),
+        "key_type",
+        "create_key_type_director_rejected",
+    )
+
+
+def test_item6_create_rejects_resource_grants_field() -> None:
+    payload = {
         "key_name": "d",
-        "key_type": "director",
-        "scopes": ["director_evidence:read"],
-        "permissions": [],
-        "resource_grants": [_valid_grant()],
+        "resource_grants": [
+            {
+                "resource_type": "experiment",
+                "resource_id": "exp-1",
+                "permissions": ["read"],
+                "expires_at": "2026-10-01T00:00:00Z",
+            }
+        ],
     }
+    _assert_error_names(
+        create_errors(payload), "resource_grants", "create_resource_grants_rejected"
+    )
 
 
-def test_item6_create_valid_director_request_validates() -> None:
-    assert create_errors(_base_director_create()) == []
+ALL_KEY_TYPES = ["user", "service", "admin", "temporary", "readonly", "system", None]
 
 
-DIRECTOR_CREATE_MUTATIONS = [
-    ("scopes_missing", lambda p: p.pop("scopes"), "scopes"),
-    ("scopes_not_director_evidence_read", lambda p: p.__setitem__("scopes", ["experiments:read"]), "scopes"),
-    (
-        "scopes_has_extra_token",
-        lambda p: p.__setitem__("scopes", ["director_evidence:read", "experiments:read"]),
-        "scopes",
-    ),
-    ("permissions_missing", lambda p: p.pop("permissions"), "permissions"),
-    ("permissions_nonempty", lambda p: p.__setitem__("permissions", ["read"]), "permissions"),
-    ("resource_grants_missing", lambda p: p.pop("resource_grants"), "resource_grants"),
-    ("resource_grants_empty", lambda p: p.__setitem__("resource_grants", []), "resource_grants"),
-    (
-        "grant_permission_write",
-        lambda p: p["resource_grants"][0].__setitem__("permissions", ["write"]),
-        "permissions",
-    ),
-    (
-        "grant_permission_duplicate_read",
-        lambda p: p["resource_grants"][0].__setitem__("permissions", ["read", "read"]),
-        "permissions",
-    ),
-    (
-        "grant_resource_type_project",
-        lambda p: p["resource_grants"][0].__setitem__("resource_type", "project"),
-        "resource_type",
-    ),
-    ("grant_missing_expires_at", lambda p: p["resource_grants"][0].pop("expires_at"), "expires_at"),
-    (
-        "grant_expires_at_not_a_date",
-        lambda p: p["resource_grants"][0].__setitem__("expires_at", "not-a-date"),
-        "expires_at",
-    ),
-    ("grant_extra_property", lambda p: p["resource_grants"][0].__setitem__("extra", "x"), "extra"),
-    ("scope_preset_present", lambda p: p.__setitem__("scope_preset", "minimal"), "scope_preset"),
-]
-
-
-@pytest.mark.parametrize(
-    "case_id,mutate,expected_token",
-    DIRECTOR_CREATE_MUTATIONS,
-    ids=[c[0] for c in DIRECTOR_CREATE_MUTATIONS],
-)
-def test_item6_create_director_request_rejects(case_id: str, mutate, expected_token: str) -> None:
-    payload = _base_director_create()
-    mutate(payload)
-    _assert_error_names(create_errors(payload), expected_token, case_id)
-
-
-NON_DIRECTOR_KEY_TYPES = ["user", "service", "admin", "temporary", "readonly", "system", None]
-
-
-@pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
-def test_item6f4_non_director_empty_scopes_rejected(key_type) -> None:
+@pytest.mark.parametrize("key_type", ALL_KEY_TYPES, ids=lambda kt: kt or "omitted")
+def test_item6_create_empty_scopes_rejected(key_type) -> None:
     payload = {"key_name": "k", "scopes": []}
     if key_type is not None:
         payload["key_type"] = key_type
     _assert_error_names(create_errors(payload), "scopes", f"key_type={key_type}")
 
 
-@pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
-def test_item6f4_non_director_empty_permissions_rejected(key_type) -> None:
+@pytest.mark.parametrize("key_type", ALL_KEY_TYPES, ids=lambda kt: kt or "omitted")
+def test_item6_create_empty_permissions_rejected(key_type) -> None:
     payload = {"key_name": "k", "permissions": []}
     if key_type is not None:
         payload["key_type"] = key_type
     _assert_error_names(create_errors(payload), "permissions", f"key_type={key_type}")
 
 
-@pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
-def test_item6f4_non_director_valid_scopes_and_permissions_accepted(key_type) -> None:
+@pytest.mark.parametrize("key_type", ALL_KEY_TYPES, ids=lambda kt: kt or "omitted")
+def test_item6_create_valid_scopes_and_permissions_accepted(key_type) -> None:
     payload = {"key_name": "k", "scopes": ["experiments:read"], "permissions": ["read"]}
     if key_type is not None:
         payload["key_type"] = key_type
     assert create_errors(payload) == []
 
 
-@pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
-def test_item6f4_non_director_omitted_scopes_and_permissions_accepted(key_type) -> None:
+@pytest.mark.parametrize("key_type", ALL_KEY_TYPES, ids=lambda kt: kt or "omitted")
+def test_item6_create_omitted_scopes_and_permissions_accepted(key_type) -> None:
     payload = {"key_name": "k"}
     if key_type is not None:
         payload["key_type"] = key_type
     assert create_errors(payload) == []
 
 
-@pytest.mark.parametrize("key_type", NON_DIRECTOR_KEY_TYPES, ids=lambda kt: kt or "omitted")
-def test_item6f4_non_director_resource_grants_rejected(key_type) -> None:
-    payload = {"key_name": "k", "resource_grants": [_valid_grant()]}
-    if key_type is not None:
-        payload["key_type"] = key_type
-    _assert_error_names(create_errors(payload), "resource_grants", f"key_type={key_type}")
-
-
-def test_item6_create_backend_obligations_mention_30_day_grant_bound() -> None:
-    schema = load_schema(CREATE_SCHEMA_NAME)
-    assert any("30 days" in obligation for obligation in schema["x-backend-obligations"])
-
-
 def test_item6_update_key_name_only_validates() -> None:
     assert update_errors({"key_name": "x"}) == []
 
 
-def test_item6_update_key_type_rejected() -> None:
-    _assert_error_names(update_errors({"key_type": "director"}), "key_type", "update_key_type_rejected")
-
-
-def test_item6_update_resource_grants_rejected() -> None:
+def test_item6_update_rejects_resource_grants_field() -> None:
+    payload = {
+        "resource_grants": [
+            {
+                "resource_type": "experiment",
+                "resource_id": "exp-1",
+                "permissions": ["read"],
+                "expires_at": "2026-10-01T00:00:00Z",
+            }
+        ]
+    }
     _assert_error_names(
-        update_errors({"resource_grants": [_valid_grant()]}),
-        "resource_grants",
-        "update_resource_grants_rejected",
+        update_errors(payload), "resource_grants", "update_resource_grants_rejected"
     )
 
 
@@ -447,13 +443,10 @@ def test_item6_rotate_strategy_immediate_validates() -> None:
     assert rotate_errors({"strategy": "immediate"}) == []
 
 
-def test_item6_rotate_key_type_rejected() -> None:
-    _assert_error_names(rotate_errors({"key_type": "director"}), "key_type", "rotate_key_type_rejected")
-
-
-def test_item6_rotate_has_backend_obligations() -> None:
-    schema = load_schema(ROTATE_SCHEMA_NAME)
-    assert schema.get("x-backend-obligations")
+def test_item6_rotate_rejects_key_type_field() -> None:
+    _assert_error_names(
+        rotate_errors({"key_type": "director"}), "key_type", "rotate_key_type_rejected"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -462,8 +455,12 @@ def test_item6_rotate_has_backend_obligations() -> None:
 
 
 def test_item7_director_evidence_route_is_contract_first() -> None:
-    endpoints = json.loads((ANALYTICS_DIR / "analytics_endpoints.json").read_text(encoding="utf-8"))
-    operation = endpoints["paths"]["/api/v1/analytics/runs/{run_id}/director-evidence"]["get"]
+    endpoints = json.loads(
+        (ANALYTICS_DIR / "analytics_endpoints.json").read_text(encoding="utf-8")
+    )
+    operation = endpoints["paths"]["/api/v1/analytics/runs/{run_id}/director-evidence"][
+        "get"
+    ]
     assert operation.get("x-asserted-against-backend") is False
 
 
@@ -487,7 +484,9 @@ VENDORED_ENVELOPE = {
     "properties": {
         "success": {"type": "boolean", "const": True},
         "message": {"type": "string", "maxLength": 240},
-        "data": {"$ref": "https://schemas.traigent.ai/analytics/director_evidence_schema.json"},
+        "data": {
+            "$ref": "https://schemas.traigent.ai/analytics/director_evidence_schema.json"
+        },
         "meta": {"type": "object", "additionalProperties": True},
         "warnings": {"type": "array", "items": {"type": "object"}},
     },
@@ -495,15 +494,21 @@ VENDORED_ENVELOPE = {
 
 
 def vendored_envelope_errors(payload: dict) -> list:
-    return list(Draft7Validator(VENDORED_ENVELOPE, registry=REGISTRY).iter_errors(payload))
+    return list(
+        Draft7Validator(VENDORED_ENVELOPE, registry=REGISTRY).iter_errors(payload)
+    )
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item8_fixture_validates_against_repo_envelope(fixture) -> None:
     assert envelope_errors({"success": True, "data": fixture}) == []
 
 
-@pytest.mark.parametrize("fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"])
+@pytest.mark.parametrize(
+    "fixture", [A, B, C], ids=["available", "ordinary_abstain", "privacy_abstain"]
+)
 def test_item8_fixture_validates_against_vendored_envelope(fixture) -> None:
     assert vendored_envelope_errors({"success": True, "data": fixture}) == []
 
@@ -517,6 +522,6 @@ def _normalize_envelope_for_comparison(schema: dict) -> dict:
 
 
 def test_item8_repo_and_vendored_envelope_equal_apart_from_ref_id_description() -> None:
-    assert _normalize_envelope_for_comparison(ENVELOPE) == _normalize_envelope_for_comparison(
-        VENDORED_ENVELOPE
-    )
+    assert _normalize_envelope_for_comparison(
+        ENVELOPE
+    ) == _normalize_envelope_for_comparison(VENDORED_ENVELOPE)

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_rate_limited_error_schema.json",
+  "title": "Agent Decision Rate-Limited Error",
+  "description": "Closed 429 body: reason RATE_LIMITED with a mandatory retry_after_seconds. Never echoes client-supplied keys or values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error"
+  ],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason",
+        "retry_after_seconds"
+      ],
+      "properties": {
+        "reason": {
+          "const": "RATE_LIMITED",
+          "x-content-class": "closed_enum"
+        },
+        "retry_after_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400,
+          "x-content-class": "number"
+        }
+      }
+    }
+  }
+}

@@ -6,9 +6,8 @@
   "version": "1.0.0",
   "definitions": {
     "SessionStatus": {
-      "type": "string",
-      "enum": ["active", "expired", "completed", "failed", "cancelled"],
-      "description": "Current status of the hybrid session:\n- active: Session is active and accepting metrics\n- expired: Session has exceeded its time limit\n- completed: Session has been successfully finalized\n- failed: Session encountered an error\n- cancelled: Session was cancelled by user"
+      "$ref": "../optimization/session_lifecycle_status_schema.json",
+      "description": "Current status of the hybrid session. One shared lowercase lifecycle vocabulary (the values the session routes serve); a finished hybrid session is `complete` on the wire, a finished classic or typed session `completed`."
     },
     "TokenInfo": {
       "type": "object",

@@ -1,0 +1,540 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_schema.json",
+  "title": "Agent Decision",
+  "description": "A host-prompt decision request: the backend issues a closed question about an agent, the customer's coding agent asks the human in its own UI and posts back a closed answer. This is a closed channel: no customer content crosses it in either direction. Every id is server-issued, and the agent id is never echoed in the object. Question and option text is backend-authored fixed template text. Lifecycle invariants are enforced in-schema: OPEN, EXPIRED and SUPERSEDED decisions carry no answer (an answered decision is never expired or superseded; it stays ANSWERED); an ANSWERED decision carries every answer field; YES issues execution_ref, NOT_NOW never does; an answer submitted by the agent host prompt always has human_responder UNKNOWN.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "kind",
+    "prompt",
+    "options_version",
+    "policy_version",
+    "basis_digest",
+    "status",
+    "answer",
+    "answered_at",
+    "answered_via",
+    "answered_principal_type",
+    "human_responder",
+    "execution_status",
+    "execution_ref",
+    "next_action",
+    "issued_at",
+    "expires_at"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "pattern": "^dr_[0-9a-f]{32}$",
+      "description": "Server-issued decision id.",
+      "maxLength": 35,
+      "x-content-class": "opaque_ref"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "PREPARE_BASELINE_EVALUATION"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "options"
+      ],
+      "description": "Backend-authored fixed template text, pinned per kind and options_version by the allOf below. It never contains customer content.",
+      "properties": {
+        "question": {
+          "type": "string",
+          "maxLength": 200,
+          "x-content-class": "closed_enum",
+          "enum": [
+            "Prepare the baseline evaluation for this agent now?"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "label"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "YES",
+                  "NOT_NOW"
+                ],
+                "x-content-class": "closed_enum"
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 40,
+                "x-content-class": "closed_enum",
+                "enum": [
+                  "Yes, prepare it",
+                  "Not now"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "options_version": {
+      "type": "string",
+      "pattern": "^[0-9]{1,4}$",
+      "description": "Version of the option set; echoed in the answer.",
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
+    },
+    "policy_version": {
+      "type": "string",
+      "pattern": "^[0-9]{1,4}$",
+      "description": "Version of the policy that issued the decision; echoed in the answer.",
+      "maxLength": 4,
+      "x-content-class": "closed_enum",
+      "enum": [
+        "1"
+      ]
+    },
+    "basis_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest of the server-side basis the decision was issued for; echoed in the answer.",
+      "maxLength": 71,
+      "x-content-class": "digest"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "ANSWERED",
+        "EXPIRED",
+        "SUPERSEDED"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "answer": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "YES",
+        "NOT_NOW",
+        null
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "answered_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
+    },
+    "answered_via": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "AGENT_HOST_PROMPT",
+        null
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "answered_principal_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "API_KEY",
+        "USER_SESSION",
+        null
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "human_responder": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "UNKNOWN",
+        null
+      ],
+      "description": "Agent-submitted answers are always UNKNOWN: no local mechanism proves a person answered. Verified portal approvals are a later contract.",
+      "x-content-class": "closed_enum"
+    },
+    "execution_status": {
+      "type": "string",
+      "enum": [
+        "NOT_APPLICABLE",
+        "AWAITING_PREFLIGHT",
+        "STARTED",
+        "COMPLETED",
+        "FAILED"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "execution_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^xr_[0-9a-f]{32}$",
+      "description": "One-use reference issued on a YES. The run registration carries it (decision_execution_ref) so the backend can link the run.",
+      "maxLength": 35,
+      "x-content-class": "opaque_ref"
+    },
+    "next_action": {
+      "type": "string",
+      "enum": [
+        "ASK_BUILDER",
+        "RUN_PREFLIGHT",
+        "NONE"
+      ],
+      "description": "RUN_PREFLIGHT means: do the dry-run and cost estimate and get explicit paid-run approval. A YES never authorises spend by itself.",
+      "x-content-class": "closed_enum"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "x-content-class": "timestamp",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27
+    }
+  },
+  "allOf": [
+    {
+      "description": "PREPARE_BASELINE_EVALUATION at options_version 1: exact fixed prompt text, options order fixed, policy_version 1.",
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "PREPARE_BASELINE_EVALUATION"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "options_version": {
+            "const": "1"
+          },
+          "policy_version": {
+            "const": "1"
+          },
+          "prompt": {
+            "const": {
+              "question": "Prepare the baseline evaluation for this agent now?",
+              "options": [
+                {
+                  "code": "YES",
+                  "label": "Yes, prepare it"
+                },
+                {
+                  "code": "NOT_NOW",
+                  "label": "Not now"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "OPEN: nothing answered, nothing executing; the builder is asked.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "OPEN"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "type": "null"
+          },
+          "answered_at": {
+            "type": "null"
+          },
+          "answered_via": {
+            "type": "null"
+          },
+          "answered_principal_type": {
+            "type": "null"
+          },
+          "human_responder": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "execution_ref": {
+            "type": "null"
+          },
+          "next_action": {
+            "const": "ASK_BUILDER"
+          }
+        }
+      }
+    },
+    {
+      "description": "EXPIRED or SUPERSEDED: same as OPEN but nothing is asked. An answered decision is never expired or superseded; it stays ANSWERED.",
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "EXPIRED",
+              "SUPERSEDED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "type": "null"
+          },
+          "answered_at": {
+            "type": "null"
+          },
+          "answered_via": {
+            "type": "null"
+          },
+          "answered_principal_type": {
+            "type": "null"
+          },
+          "human_responder": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "execution_ref": {
+            "type": "null"
+          },
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED: every answer field is set.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answer": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_at": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_via": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "answered_principal_type": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "human_responder": {
+            "not": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED with YES: execution_ref issued; execution started or pending; RUN_PREFLIGHT only while awaiting preflight.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          }
+        },
+        "required": [
+          "status",
+          "answer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution_ref": {
+            "type": "string"
+          },
+          "execution_status": {
+            "enum": [
+              "AWAITING_PREFLIGHT",
+              "STARTED",
+              "COMPLETED",
+              "FAILED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          },
+          "execution_status": {
+            "const": "AWAITING_PREFLIGHT"
+          }
+        },
+        "required": [
+          "status",
+          "answer",
+          "execution_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_action": {
+            "const": "RUN_PREFLIGHT"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "YES"
+          },
+          "execution_status": {
+            "enum": [
+              "STARTED",
+              "COMPLETED",
+              "FAILED"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "answer",
+          "execution_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "ANSWERED with NOT_NOW: no execution, no reference, nothing further.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ANSWERED"
+          },
+          "answer": {
+            "const": "NOT_NOW"
+          }
+        },
+        "required": [
+          "status",
+          "answer"
+        ]
+      },
+      "then": {
+        "properties": {
+          "execution_ref": {
+            "type": "null"
+          },
+          "execution_status": {
+            "const": "NOT_APPLICABLE"
+          },
+          "next_action": {
+            "const": "NONE"
+          }
+        }
+      }
+    },
+    {
+      "description": "An answer submitted through the agent host prompt is never attributed to a verified person.",
+      "if": {
+        "properties": {
+          "answered_via": {
+            "const": "AGENT_HOST_PROMPT"
+          }
+        },
+        "required": [
+          "answered_via"
+        ]
+      },
+      "then": {
+        "properties": {
+          "human_responder": {
+            "const": "UNKNOWN"
+          }
+        }
+      }
+    }
+  ]
+}

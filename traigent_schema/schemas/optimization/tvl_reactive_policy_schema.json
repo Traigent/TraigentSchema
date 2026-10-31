@@ -655,7 +655,8 @@
         "contract_digest",
         "rules",
         "promotion_gates",
-        "control_limits"
+        "control_limits",
+        "monitors"
       ],
       "properties": {
         "policy_revision_ref": {
@@ -686,6 +687,14 @@
           "items": {
             "$ref": "#/definitions/MonitorControlLimits"
           }
+        },
+        "monitors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "./tvl_reactive_common_schema.json#/definitions/MonitorRoleEntry"
+          },
+          "description": "Every monitor of the contract with its explicit closed role (native | customer | liveness | promotion). A zero-native contract has no native entry."
         }
       },
       "description": "The current reactive policy of an agent: declarations only."
@@ -696,7 +705,7 @@
       "required": [
         "schema_version",
         "agent_ref",
-        "policy"
+        "environments"
       ],
       "properties": {
         "schema_version": {
@@ -705,6 +714,29 @@
         "agent_ref": {
           "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
           "description": "Server-issued opaque reference for the authorized agent, generated from the tenant and project of the authenticated request. The portal uses it unchanged for every reactive route and never constructs it."
+        },
+        "environments": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/definitions/EnvironmentPolicy"
+          },
+          "description": "One entry per environment that has been imported or declared for the agent; each environment_ref appears at most once (not expressible in JSON Schema, enforced by the Backend). Empty when the agent has no environment."
+        }
+      },
+      "description": "Closed response of the authoritative policy read (TRAIG-101): the declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of an agent's current reactive policy in each environment. Declarations only: no human-readable names, no occurrence-specific records, no verdicts. Per-environment: a list of {environment_ref, policy|null} (TRAIG-101 env-scope amendment 2026-10-24)."
+    },
+    "EnvironmentPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_ref",
+        "policy"
+      ],
+      "properties": {
+        "environment_ref": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/HostedToken",
+          "description": "Opaque environment token (hosted token). The customer-chosen environment name never crosses this contract; the portal resolves the name through the existing production-requirements API."
         },
         "policy": {
           "oneOf": [
@@ -715,10 +747,10 @@
               "$ref": "#/definitions/ReactivePolicy"
             }
           ],
-          "description": "null: the authorized agent has no current reactive policy."
+          "description": "null: this environment has no current reactive policy."
         }
       },
-      "description": "Closed response of the authoritative policy read (TRAIG-101): the declared rules (including rules that never fired and local guards), promotion gates and monitor control limits of an agent's current reactive policy. Declarations only: no human-readable names, no occurrence-specific records, no verdicts."
+      "description": "The current reactive policy of one environment of the agent. Policy activation is scoped per (tenant, project, agent, environment); importing for one environment never supersedes another."
     }
   }
 }

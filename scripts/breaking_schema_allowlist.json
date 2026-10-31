@@ -2865,7 +2865,7 @@
     {
       "file": "auth/api_key_create_request_schema.json",
       "rule": "allOf_added",
-      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type).",
+      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type). This allOf was itself removed in a later PR (the three entries immediately below, same file) once key_type=director was found to be unintended; the differential proof those tests gave now lives under their post-removal names (test_item6_create_empty_scopes_rejected / ..._permissions_rejected / ..._valid_..._accepted / ..._omitted_..._accepted in the same test file) -- this entry is kept as the historical record of the #471 PR and is not re-evaluated by the fingerprint check now that #/allOf no longer exists.",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2876,6 +2876,77 @@
           "old": 0,
           "new": 1,
           "fingerprint": "88679fc781f05d477e7cd36fcad5580b006950dfcd346da680a156c53cb0f77d"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "enum",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): the key_type=\"director\" enum member added by #471 was never intended for this public schema and was never implemented in TraigentBackend (no route/model accepts key_type=director; confirmed by repo-wide grep against TraigentBackend develop). Removing it is correcting an unintended public contract addition, not retiring a shipped capability -- no real client could ever have minted a director key, since the backend would have had nowhere to persist one. The private follow-up for TraigentBackend is filed as a GitHub issue (see PR description) in case the Director-evidence feature still wants a scoped key path later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/key_type",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"director\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"director\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "fingerprint": "3afff5b8b6e99a71399f638a1a76d4299162bfb8df0641c6463788c4de8e77d9"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "minItems",
+      "reason": "Restores the pre-#471 minItems:1 on permissions directly on the top-level property, now that the director-only allOf conditional that used to carry this constraint (in its else branch, for every non-director key_type) is gone along with the director path. Same restoration as the already-allowed scopes minItems entry from #376 (matched automatically above), just for the sibling permissions property, which #471 happened to move into the same conditional. The accepted request set for existing (non-director) clients is unchanged: empty permissions was never meaningful to the route's allowlist check either way. See test_item6_create_empty_permissions_rejected in tests/test_director_evidence_contract.py.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/permissions",
+          "role": "request",
+          "subject": "minItems",
+          "old": null,
+          "new": 1,
+          "fingerprint": "ac9f9f3842a6eb236f27b3b01a8da131a6bf99e2844668fbf4870efdfab890b1"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "property_removed",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): resource_grants was added by #471 solely to carry the director key_type's atomic per-resource grant list; it was never intended as a general-purpose public field and TraigentBackend never implemented it (no route reads a resource_grants key off the create-request body). With key_type=director removed in this same change, resource_grants has no remaining purpose in this schema -- removing an unintended, unimplemented field is correcting the contract, not retiring a shipped one. Private follow-up filed in TraigentBackend as a GitHub issue (linked in the PR description) in case per-resource grants at key-creation time are still wanted later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/resource_grants",
+          "role": "request",
+          "subject": "resource_grants",
+          "old": true,
+          "new": false,
+          "fingerprint": "966f38ea43d009847fd2f3f934b60eb120a096900aaa64f17a095e935336e1da"
         }
       ]
     },
@@ -8395,6 +8466,82 @@
       "pr": "https://github.com/Traigent/TraigentSchema/pull/603"
     },
     {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse",
+          "role": "response",
+          "subject": "environments",
+          "old": false,
+          "new": true,
+          "fingerprint": "c59e3a4533487fc61f5828b78a0135ad5b5230f263706101a0cbf620e9e569f3"
+        },
+        {
+          "pointer": "#/definitions/ReactivePolicy",
+          "role": "response",
+          "subject": "monitors",
+          "old": false,
+          "new": true,
+          "fingerprint": "e2faa5c806e06a49146159e275f1391917fd6dadaad76f67ba55dcf4d4277061"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "optimization/tvl_reactive_policy_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/definitions/PolicyReadResponse/properties/policy",
+          "role": "response",
+          "subject": "policy",
+          "old": true,
+          "new": false,
+          "fingerprint": "be72a0443f3ab9c4465677ce8a0700a7d27351d3832b1c3a492ef83bff33b8ae"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the policy read: the contract merged in #603 has no shipped consumer; the TRAIG-101 env-scope amendment introduced by #607 replaces the single-policy shape merged in #603 with per-environment environments[{environment_ref, policy}] and makes monitors (with explicit roles) required in every policy.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get/responses/200/content/application/json/schema/properties/environments",
+          "role": "response",
+          "subject": "environments",
+          "old": false,
+          "new": true,
+          "fingerprint": "aa43aee19e2de6baef137d1f8208df8eaa176a81bdeab73ae4303b7b01355131"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): the response adds environments[{environment_ref, policy|null}] in place of the single policy property. The contract merged in #603 has no shipped consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "policy",
+          "old": true,
+          "new": false,
+          "fingerprint": "530e5ac89e1f691fe85d534fbc3b52f9bda5faeb14be919abf34d0a9b1eae8e2"
+        }
+      ],
+      "reason": "Unreleased pre-release reshape of the production-reactive-policy read (introduced by #607, the TRAIG-101 env-scope amendment, replacing the single-policy shape merged in #603): policy is no longer a required top-level property; it is per environment inside environments. The contract merged in #603 has no shipped consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/607"
+    },
+    {
       "file": "auth/auth_endpoints.json",
       "rule": "allOf_removed",
       "findings": [
@@ -8468,6 +8615,400 @@
       "reason": "Placeholder `default` responses ('Response shape pending') replaced by typed 200/4xx/5xx responses traced to the handlers. Pre-release authoring completion; the generated FE client has no MFA entries.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/604"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/1/oneOf/1/properties/anchor_summary/allOf/0/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "65c2dc06da91ef7f1235a282e64fcb2ee12e7954cb263a73143f6e890416e44d"
+        },
+        {
+          "pointer": "#/properties/anchor_summary/oneOf/0/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "7c29e1bcf6fc897f76061bb7c9aad428d335ed710434fdb6678102084fd68cde"
+        },
+        {
+          "pointer": "#/properties/journey/properties/items/items/properties/metric_configuration_source",
+          "role": "response",
+          "subject": "metric_configuration_source",
+          "old": false,
+          "new": true,
+          "fingerprint": "8a1320ff12b7832d1fbdd14d1accc30a243c9dec18f8042744f9a486b8b68f4d"
+        }
+      ],
+      "reason": "Additive optional field metric_configuration_source (selected | sole_trial | null) on JourneyItem, which also backs anchor_summary. Producers emit this field and the contract now declares it. Optional and nullable, in no required array, so existing bodies still validate. Flagged BREAKING only because the response object is closed: strict consumers that reject unknown fields must accept this field. Scoped to these exact pointers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 11,
+          "fingerprint": "c142ba828f362264d65a8b603d0a94993041c113aa565590d43b623cfc1d913a"
+        }
+      ],
+      "reason": "Adds one conditional allOf branch whose `if` requires the NEW optional field evaluator_code_digest. A request that omits the field never triggers it, so every existing body validates exactly as before; the branch only constrains bodies that opt in.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "#610"
+    },
+    {
+      "file": "observability/evaluator_definition_create_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "ae5e818bdc99aaea24893a4e054efce2fc05ec19e8835ff7b7ab1a697757c70d"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
+    },
+    {
+      "file": "observability/evaluator_definition_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "conservative",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "b4812ce142f80b2be36b8c5434670fcfa086f7cef9f5117ee3670e85ba45548b"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/target_filters",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "9d7de70930ee1d7dbdee278795e449ceb26087e8b5c41b166cd3be0a9a80b0d2"
+        }
+      ],
+      "reason": "Evaluator target_filters was a free-form object (additionalProperties true) and is now the closed TargetFilters contract (environment, release, name, tags; owner ruling, decision card product-2026-10-25-evaluator-target-filters option A). Optional field; {} and omission still validate; newly invalid are unknown keys (e.g. status) and known keys with non-array values, empty arrays, duplicate items, empty or over-length strings, or more than 20 items. Pre-release contract tightening, no known producer sends other keys.",
+      "version": "7.0.0 (unreleased; next release)",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/611"
+    },
+    {
+      "file": "execution/best_config_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/best_config_id",
+          "role": "response",
+          "subject": "best_config_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "4d873611284b3b36c7e4659c594a4954aaa310e0862549db428f6be4eb01a7c6"
+        }
+      ],
+      "reason": "TRAIG-101: the best-config response gains the optional server-issued parent best_config_id so a client can obtain the id DeployPublishRequest requires before pinning. Optional, so old producers still validate; the Backend emits it only after consumers are coordinated (strict response consumers are called out in the changelog).",
+      "version": "unreleased",
+      "pr": "TRAIG-101"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 11,
+          "new": 12,
+          "fingerprint": "236b2cc4fa22ba5621ec2a13e2226d626889cc9dbfceb14325e3162497dc937e"
+        }
+      ],
+      "reason": "G1 co-sign deadline (owner card feature-pick-2026-10-28-g1-cosign-deadline-config, A). The new allOf branch is an if/then: a request that sends snapshot_g1_deadline_days without snapshot_g1_required exactly true becomes invalid; requests that omit the deadline behave as before, and the existing allOf branches are unchanged. Both fields are introduced in this same unreleased change, and the Backend refuses the same pairing closed, so the schema states the server's rule.",
+      "version": "unreleased",
+      "pr": "G1 snapshot binding (Spine-Trail st_0c84a1f417f0)"
+    },
+    {
+      "file": "execution/hybrid_session_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"aborted\"",
+              "\"awaiting_results\"",
+              "\"cold_start_a\"",
+              "\"cold_start_b\"",
+              "\"complete\"",
+              "\"created\"",
+              "\"elimination_round\"",
+              "\"not_started\"",
+              "\"partially_deleted\"",
+              "\"paused\"",
+              "\"pending\"",
+              "\"pruned\"",
+              "\"registered\"",
+              "\"running\"",
+              "\"starting\"",
+              "\"unknown\""
+            ]
+          },
+          "old": [
+            "\"active\"",
+            "\"cancelled\"",
+            "\"completed\"",
+            "\"expired\"",
+            "\"failed\""
+          ],
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "4d3ea622c31e902a252ed8f2fa48afe3ab8acd278a62536f4011a61f23da394c"
+        }
+      ],
+      "reason": "TraigentSchema#621: the unused hybrid session record status enum (active, expired, completed, failed, cancelled) is replaced by the shared lowercase session lifecycle enum. Every previous value is kept (no member removed), so no previously valid record is rejected; the added members are the values the session routes actually serve (for example the wire value `complete` for a finished hybrid session). No endpoint binds this record schema, so the widening has no consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/status/get/responses/200/content/application/json/schema/properties/status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "21af4acb7cab381548add0fd85cd2a8ba61c09dbda3cdfa72421f33a6bab12f2"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "58c64175b4508860db3e7f9c2a45843a904caba6abbdea3a00c5e4cf27ead118"
+        }
+      ],
+      "reason": "TraigentSchema#621: the hybrid status `status` and next-trial `session_status` response fields were unconstrained strings and are now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json). The enum lists every literal the Backend session-payload normalizer can emit (verified against its producer enums), so no real response is rejected; the tightening makes a drifting or non-lowercase value fail response validation, which is the point of the issue.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "546cf567ba65ce596ec84774455aaa71a865266470540bbf7821aa7d7e45df02"
+        }
+      ],
+      "reason": "TraigentSchema#621: session_status was an unconstrained string and is now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json), which lists every literal the Backend session-payload normalizer can emit. No real response is rejected; a non-lowercase or unknown status now fails response validation as intended.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "0ba19f14c47fb745be5068ba50927e4a00e95687e719f8eae117d7d87811e7ab"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "5c85a2db6e2dd34a6cfcbd4c15bfe7412653b7a8afbaa593de9702f4908f3a83"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 12,
+          "fingerprint": "10b14360efd0878cb0cf06fa79eed21414402ae600e0b8f69935b2c03dd81a40"
+        }
+      ],
+      "reason": "Promotion of develop to main: the POST /api/v1/sessions request allOf gains two conditional if/then branches (10 -> 12 against main). TraigentSchema#610 adds the optional evaluator_code_digest, guarded by a branch that fires only when the field is present. TraigentSchema#615 adds the optional snapshot_g1_required and snapshot_g1_deadline_days, guarded by a branch that fires only when snapshot_g1_deadline_days is present. Each branch was already acknowledged individually against develop. Request bodies that omit these fields validate exactly as before, so a client built on the current main contract is not rejected; the published Python SDK 0.31.1 contains none of the three fields. The gate cannot align branches positionally when the count changes, so it flags this conservatively.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/615"
     }
   ]
 }

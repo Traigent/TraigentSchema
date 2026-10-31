@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/session_lifecycle_status_schema.json",
+  "title": "SessionLifecycleStatus",
+  "description": "Lowercase session lifecycle status as it egresses from the session and hybrid-session routes, which normalize every recognized lifecycle literal to lowercase (the Backend unions its SessionStatus, ExperimentStatus, ExperimentRunStatus, ConfigurationRunStatus and HybridSessionPhase literals with the SDK public session set). Bound to the `status` field of GET /api/v1/hybrid/sessions/{session_id}/status and to `session_status` on the next-trial response. Terminal values (a finished session): completed, complete, failed, cancelled, aborted, expired. `complete` is what a finished hybrid session serves today and `completed` what a finished classic or typed session serves; both are listed because both are on the wire, and which one is canonical is a Backend decision this schema does not make. A value the Backend never emits is rejected.",
+  "x-content-class": "closed_enum",
+  "type": "string",
+  "enum": [
+    "aborted",
+    "active",
+    "awaiting_results",
+    "cancelled",
+    "cold_start_a",
+    "cold_start_b",
+    "complete",
+    "completed",
+    "created",
+    "elimination_round",
+    "expired",
+    "failed",
+    "not_started",
+    "partially_deleted",
+    "paused",
+    "pending",
+    "pruned",
+    "registered",
+    "running",
+    "starting",
+    "unknown"
+  ]
+}

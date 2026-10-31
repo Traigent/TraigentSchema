@@ -100,15 +100,6 @@
       ],
       "description": "Status of an evaluation request"
     },
-    "HealthStatus": {
-      "type": "string",
-      "enum": [
-        "ok",
-        "degraded",
-        "failing"
-      ],
-      "description": "Health status options for services and components"
-    },
     "ObservabilityTraceStatus": {
       "type": "string",
       "enum": [

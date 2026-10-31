@@ -249,6 +249,36 @@
                     "maxLength": 200,
                     "description": "Optional identity of an evaluator definition already registered with the backend. This is not synthesized from a callable fingerprint."
                   },
+                  "evaluator_code_digest": {
+                    "x-content-class": "digest",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$",
+                    "maxLength": 71,
+                    "description": "Optional identity of an unregistered, user-code evaluator: a domain-separated SHA-256 over the source of the scorer that actually runs (wire form sha256:<64 lowercase hex>). It identifies the code; it never validates it. It is legal only in the identity_version 2 typed shape, and only INSTEAD of evaluator_id, evaluator_definition_id and evaluator_ref (any of them could carry a customer label next to a code identity); evaluator_id_source must then be absent or 'unknown'. It is never sent in the content-less shape. Absent means no code identity. It is not the same value as artifact_versions.evaluator or artifact_fingerprints.evaluator."
+                  },
+                  "decision_execution_ref": {
+                    "x-content-class": "opaque_ref",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": ["string", "null"],
+                    "pattern": "^xr_[0-9a-f]{32}$",
+                    "maxLength": 35,
+                    "description": "Optional one-use execution reference issued by the backend when a host-prompt decision (agent_decision) was answered YES. Registering the run with it lets the backend link the run to that decision. Server-issued and opaque; a YES never authorises spend by itself. Explicit null means absent. Session creation is never blocked by this field: the backend links the run only when the ref is a live, unused ref issued for the same tenant, project and agent; otherwise it links nothing and records nothing. The ref is never echoed and never appears in errors."
+                  },
+                  "snapshot_g1_required": {
+                    "x-content-class": "closed_enum",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "boolean",
+                    "description": "Optional closed client declaration that this run will be co-signed (G1). When true the server defers B1 issuance and records the G1 intent atomically with the run, or refuses the create closed when G1 issuance is unavailable. No other snapshot data crosses. Absent or false changes nothing."
+                  },
+                  "snapshot_g1_deadline_days": {
+                    "x-content-class": "number",
+                    "x-privacy-classification": "sdk_runtime_metadata",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30,
+                    "description": "Optional closed co-sign deadline in days for the G1 intent declared by snapshot_g1_required. Valid only together with snapshot_g1_required true: present without it, or with any other value, the request is invalid. Absent means the server default of 7 days."
+                  },
                   "artifact_fingerprints": {
                     "type": "object",
                     "description": "Optional opaque content fingerprints for SDK session-create provenance. Values are privacy-safe hashes only and never carry content.",
@@ -448,6 +478,14 @@
                     "not": { "required": ["dataset_id", "hosted_dataset_ref"] }
                   },
                   {
+                    "description": "snapshot_g1_deadline_days configures the co-sign deadline of the G1 intent, so it is meaningful only together with snapshot_g1_required true. Presence is tested with `required` inside the `if`; the `then` demands snapshot_g1_required be present and exactly true, so a deadline beside an absent or false flag is invalid.",
+                    "if": { "required": ["snapshot_g1_deadline_days"] },
+                    "then": {
+                      "required": ["snapshot_g1_required"],
+                      "properties": { "snapshot_g1_required": { "const": true } }
+                    }
+                  },
+                  {
                     "description": "identity_version 2 means 'I speak declared identity'. A caller that says so and then sends nothing leaves the server to fall back on function_name/agent_key derivation - the exact inference this contract exists to remove. Under 2 the sources are mandatory AND non-null: requiring only the key would be no requirement at all, because the source type admits null, so a null source would satisfy the requirement while firing none of the value-correlation rules below - handing the caller a legal way back to inference and a way to pair a null source with a real id. 'unknown' is how a caller says it does not know; null is not.",
                     "if": {
                       "properties": { "identity_version": { "const": 2 } },
@@ -529,6 +567,27 @@
                       "required": ["evaluator_id_source"]
                     },
                     "then": { "not": { "required": ["evaluator_id"] } }
+                  },
+                  {
+                    "description": "A code evaluator identity (evaluator_code_digest) stands alone. It is refused together with evaluator_id, evaluator_definition_id or evaluator_ref, because any of those could carry a customer label next to a code identity; evaluator_id_source must be absent or 'unknown'; it is legal only under identity_version 2; and it is refused when the session declares the content_less_v1 capability. Presence is tested with `required` inside the `if`, so a null value does not slip past it.",
+                    "if": { "required": ["evaluator_code_digest"] },
+                    "then": {
+                      "required": ["identity_version"],
+                      "properties": {
+                        "identity_version": { "const": 2 },
+                        "evaluator_id_source": { "const": "unknown" },
+                        "capabilities": {
+                          "not": { "contains": { "const": "content_less_v1" } }
+                        }
+                      },
+                      "not": {
+                        "anyOf": [
+                          { "required": ["evaluator_id"] },
+                          { "required": ["evaluator_definition_id"] },
+                          { "required": ["evaluator_ref"] }
+                        ]
+                      }
+                    }
                   },
                   {
                     "description": "Legacy execution selectors removed (Traigent#2271): execution_mode and the flat hybrid_api_* keys are no longer accepted request selectors. Use algorithm/offline for execution behavior and the nested hybrid_api_options object for external evaluator configuration.",
@@ -663,6 +722,16 @@
           },
           "403": {
             "description": "Forbidden — caller lacks permission for this session/resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large (PAYLOAD_TOO_LARGE). Returned before the body is parsed when Content-Length exceeds the Backend JSON body limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -808,6 +877,16 @@
               }
             }
           },
+          "413": {
+            "description": "Request body too large (PAYLOAD_TOO_LARGE). Returned before the body is parsed when Content-Length exceeds the Backend JSON body limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
             "content": {
@@ -928,6 +1007,16 @@
               }
             }
           },
+          "413": {
+            "description": "Request body too large (PAYLOAD_TOO_LARGE). Returned before the body is parsed when Content-Length exceeds the Backend JSON body limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
             "content": {
@@ -989,7 +1078,14 @@
         },
         "responses": {
           "200": {
-            "description": "Results submitted successfully"
+            "description": "Results submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "https://schemas.traigent.ai/optimization/session_results_response_schema.json"
+                }
+              }
+            }
           },
           "409": {
             "description": "Session shape is legacy (session_shape_legacy): a content-less client resumed a session created with the legacy shape. Closed refusal envelope; nothing of the request is echoed.",
@@ -1033,6 +1129,16 @@
           },
           "404": {
             "description": "Not found — session or resource does not exist or is not visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large (PAYLOAD_TOO_LARGE). Returned before the body is parsed when Content-Length exceeds the Backend JSON body limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1264,6 +1370,16 @@
               }
             }
           },
+          "413": {
+            "description": "Request body too large (PAYLOAD_TOO_LARGE). Returned before the body is parsed when Content-Length exceeds the Backend JSON body limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
             "content": {
@@ -1410,9 +1526,8 @@
                       "type": "string"
                     },
                     "status": {
-                      "x-content-class": "legacy_content",
-                      "x-content-note": "INV H2-1 (OPEN): status",
-                      "type": "string"
+                      "$ref": "./session_lifecycle_status_schema.json",
+                      "description": "Hybrid session lifecycle status, lowercase. A finished hybrid session is served as `complete`."
                     },
                     "metadata": {
                       "x-content-key-class": "legacy_content",

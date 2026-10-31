@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_decision/agent_decision_answer_response_schema.json",
+  "title": "Agent Decision Answer Response",
+  "description": "Response of answer: always the ANSWERED decision (also on an idempotent replay).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision"
+  ],
+  "properties": {
+    "decision": {
+      "allOf": [
+        {
+          "$ref": "./agent_decision_schema.json"
+        },
+        {
+          "properties": {
+            "status": {
+              "const": "ANSWERED",
+              "x-content-class": "closed_enum"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

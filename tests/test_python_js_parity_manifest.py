@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parents[1] / "parity" / "python-js-sdk.json"
-PYTHON_DEVELOP_SHA = "d56e4353dd3166223591e1f89a5cc32e86f30b36"
+PYTHON_DEVELOP_SHA = "6e8e4a5443d202e9e68d44037a3272cb88b7656a"
 
 PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ADVISORY_SELECTION_NOTICE",
@@ -107,6 +107,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "ResolvedPrompt",
     "RetryConfig",
     "SSOProviderType",
+    "SnapshotBindingError",
     "SatResult",
     "SatStatus",
     "ScoreRecordDTO",
@@ -179,6 +180,7 @@ PYTHON_DEVELOP_UNCONDITIONAL_ROOT_SYMBOLS = {
     "optimize",
     "override_config",
     "require",
+    "requirement",
     "recommend_configuration_space",
     "retry",
     "serialize_trials",
@@ -377,3 +379,16 @@ def test_observability_default_wrappers_are_deferred_out_of_0_2_0() -> None:
         "set_default_observability_client",
     } <= deferred
     assert set(manifest["javascript"]["deferredOutOfRelease"]) <= deferred
+
+
+def test_sdk_032_root_exports_are_classified_honestly() -> None:
+    manifest = load_manifest()
+    classifications = manifest["classifications"]
+    required = set(manifest["javascript"]["requiredRootExports"])
+
+    # traigent-js exports requirement() from its runtime root, so it is matched and required.
+    assert "requirement" in classifications["matched"]
+    assert "requirement" in required
+    # traigent-js has no snapshot store, so its typed error has no JS twin yet.
+    assert "SnapshotBindingError" in classifications["deferred-backlog"]
+    assert "SnapshotBindingError" not in required

@@ -8992,6 +8992,23 @@
       "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 12,
+          "fingerprint": "10b14360efd0878cb0cf06fa79eed21414402ae600e0b8f69935b2c03dd81a40"
+        }
+      ],
+      "reason": "Promotion of develop to main: the POST /api/v1/sessions request allOf gains two conditional if/then branches (10 -> 12 against main). TraigentSchema#610 adds the optional evaluator_code_digest, guarded by a branch that fires only when the field is present. TraigentSchema#615 adds the optional snapshot_g1_required and snapshot_g1_deadline_days, guarded by a branch that fires only when snapshot_g1_deadline_days is present. Each branch was already acknowledged individually against develop. Request bodies that omit these fields validate exactly as before, so a client built on the current main contract is not rejected; the published Python SDK 0.31.1 contains none of the three fields. The gate cannot align branches positionally when the count changes, so it flags this conservatively.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/615"
     }
   ]
 }

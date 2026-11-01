@@ -38,7 +38,7 @@ dev = [
     "tomli>=2.0; python_version < '3.11'",
     "pytest>=9.0.3",  # CVE-2025-71176
     "pytest-cov>=4.0",
-    "ruff==0.16.9",  # Exact lint pin keeps local and CI checks reproducible.
+    "ruff==0.17.3",  # Exact lint pin keeps local and CI checks reproducible.
     "mypy>=1.0,<3",
 ]
 # Reference trace checker for the TVL reactive trace tests (tests/test_tvl_reactive_contracts.py). Heavy

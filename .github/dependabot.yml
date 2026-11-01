@@ -5,8 +5,8 @@ version: 2
 #     single grouped PR per ecosystem is enough.
 #   - target-branch: "develop" so PRs flow through the develop → main
 #     promote cycle.
-#   - open-pull-requests-limit: 1 per ecosystem — at most 2 PRs/month total
-#     (pip + github-actions).
+#   - version-update PRs are off (owner decision 2026-11-01): every
+#     open-pull-requests-limit is 0. Alerts stay on; fixes ship in our own batches.
 #   - groups: single catch-all version-updates group covering
 #     patch+minor+major; security-updates kept distinct so they merge fast.
 #   - Security updates (CVE-driven) still flow via GitHub's separate
@@ -21,7 +21,7 @@ updates:
       interval: "monthly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -56,7 +56,7 @@ updates:
       interval: "monthly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "ci"
       include: "scope"

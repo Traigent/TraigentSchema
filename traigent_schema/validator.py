@@ -351,18 +351,7 @@ class SchemaValidator:
         catalog_path: Path | None = None,
     ) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
-        catalog_dir = ""
-        if catalog_path is not None:
-            try:
-                relative_parent = catalog_path.parent.relative_to(get_schemas_dir())
-                catalog_dir = relative_parent.as_posix()
-                if catalog_dir == ".":
-                    catalog_dir = ""
-            except ValueError:
-                logger.warning(
-                    "Endpoint catalog %s is outside the schema root; inline refs use root base",
-                    catalog_path,
-                )
+        catalog_dir = self._catalog_dir(catalog_path)
         inline_base_id = (
             f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
             if catalog_dir
@@ -375,22 +364,41 @@ class SchemaValidator:
             for method, spec in methods.items():
                 if not isinstance(spec, dict):
                     continue
-                request_body = spec.get("requestBody", {})
-                content = request_body.get("content", {})
-                json_content = content.get("application/json", {})
-                json_schema = json_content.get("schema", {})
-                schema_ref = json_schema.get("$ref", "")
-                key = f"{method.upper()}:{path}"
-                self._known_endpoints.add(key)
+                self._register_operation(f"{method.upper()}:{path}", spec, inline_base_id)
 
-                if schema_ref:
-                    schema_name = schema_ref.split("/")[-1]
-                    if schema_name.endswith(".json"):
-                        schema_name = schema_name[:-5]
-                    self._endpoint_schemas[key] = schema_name
-                elif isinstance(json_schema, dict) and json_schema:
-                    self._inline_request_schemas[key] = json_schema
-                    self._inline_request_schema_base_ids[key] = inline_base_id
+    @staticmethod
+    def _catalog_dir(catalog_path: Path | None) -> str:
+        """Schema-root-relative directory of an endpoint catalog ('' for the root)."""
+        if catalog_path is None:
+            return ""
+        try:
+            relative_parent = catalog_path.parent.relative_to(get_schemas_dir())
+        except ValueError:
+            logger.warning(
+                "Endpoint catalog %s is outside the schema root; inline refs use root base",
+                catalog_path,
+            )
+            return ""
+        catalog_dir = relative_parent.as_posix()
+        return "" if catalog_dir == "." else catalog_dir
+
+    def _register_operation(self, key: str, spec: dict[str, Any], inline_base_id: str) -> None:
+        """Record one OpenAPI operation's request-schema mapping under ``key``."""
+        request_body = spec.get("requestBody", {})
+        content = request_body.get("content", {})
+        json_content = content.get("application/json", {})
+        json_schema = json_content.get("schema", {})
+        schema_ref = json_schema.get("$ref", "")
+        self._known_endpoints.add(key)
+
+        if schema_ref:
+            schema_name = schema_ref.split("/")[-1]
+            if schema_name.endswith(".json"):
+                schema_name = schema_name[:-5]
+            self._endpoint_schemas[key] = schema_name
+        elif isinstance(json_schema, dict) and json_schema:
+            self._inline_request_schemas[key] = json_schema
+            self._inline_request_schema_base_ids[key] = inline_base_id
 
     def validate_request(
         self,

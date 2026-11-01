@@ -367,6 +367,25 @@ def _push_canonical_children(node: Any, depth: int, work: list[tuple[int, Any, i
             work.append((_VALIDATE, item, depth + 1))
 
 
+def _expand_validated_pair(
+    node_left: Any, node_right: Any, work: list[tuple[Any, Any]]
+) -> bool:
+    """Queue the child pairs of two same-type nodes; ``False`` on a structural mismatch."""
+    node_type = type(node_left)
+    if node_type is dict:
+        if node_left.keys() != node_right.keys():
+            return False
+        for key in node_left:
+            work.append((node_left[key], node_right[key]))
+        return True
+    if node_type is list:
+        if len(node_left) != len(node_right):
+            return False
+        work.extend(zip(node_left, node_right, strict=True))
+        return True
+    return not (node_left != node_right)
+
+
 def _compare_validated(left: Any, right: Any) -> bool:
     """Deep structural equality between two subtrees already confirmed canonical.
 
@@ -394,18 +413,7 @@ def _compare_validated(left: Any, right: Any) -> bool:
 
         if type(node_left) is not type(node_right):
             return False
-        node_type = type(node_left)
-
-        if node_type is dict:
-            if node_left.keys() != node_right.keys():
-                return False
-            for key in node_left:
-                work.append((node_left[key], node_right[key]))
-        elif node_type is list:
-            if len(node_left) != len(node_right):
-                return False
-            work.extend(zip(node_left, node_right, strict=True))
-        elif node_left != node_right:
+        if not _expand_validated_pair(node_left, node_right, work):
             return False
 
     return True

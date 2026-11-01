@@ -454,6 +454,16 @@ DATASET_RECORD_ERROR_CODES = frozenset(
 )
 
 
+def _is_pattern_str(value: object, pattern: re.Pattern[str]) -> bool:
+    """``True`` iff ``value`` is exactly a ``str`` fully matching ``pattern``."""
+    return type(value) is str and pattern.fullmatch(value) is not None
+
+
+def _is_optional_pattern_str(value: object, pattern: re.Pattern[str]) -> bool:
+    """``True`` iff ``value`` is ``None`` or a ``str`` fully matching ``pattern``."""
+    return value is None or _is_pattern_str(value, pattern)
+
+
 @dataclass(frozen=True, slots=True)
 class DatasetRecordVerificationContext:
     """Fresh, caller-supplied bindings for one Dataset Record verification.
@@ -504,21 +514,15 @@ class DatasetRecordVerificationContext:
     def __post_init__(self) -> None:
         if not isinstance(self.process_context, ProcessRecordVerificationContext):
             _fail("CONTEXT")
-        if type(self.expected_project_ref) is not str or not _PROJECT_REF_RE.fullmatch(
-            self.expected_project_ref
-        ):
+        if not _is_pattern_str(self.expected_project_ref, _PROJECT_REF_RE):
             _fail("CONTEXT")
-        if type(self.expected_build_session_ref) is not str or not _REF_RE.fullmatch(
-            self.expected_build_session_ref
-        ):
+        if not _is_pattern_str(self.expected_build_session_ref, _REF_RE):
             _fail("CONTEXT")
         if self.expected_project_ref != self.process_context.expected_project_ref:
             _fail("CONTEXT")
         if self.expected_build_session_ref != self.process_context.expected_build_session_ref:
             _fail("CONTEXT")
-        if type(self.expected_dataset_commitment_ref) is not str or not _SHA256_RE.fullmatch(
-            self.expected_dataset_commitment_ref
-        ):
+        if not _is_pattern_str(self.expected_dataset_commitment_ref, _SHA256_RE):
             _fail("CONTEXT")
         # NOT required to equal process_context.expected_dataset_commitment_ref
         # here: row 8 is a runtime THREE-way comparison (the record's own
@@ -527,10 +531,7 @@ class DatasetRecordVerificationContext:
         # and process record is a verification finding
         # (DATASET_COMMITMENT_REF_MISMATCH), not a construction-time
         # contradiction.
-        if self.expected_dataset_identity_root is not None and (
-            type(self.expected_dataset_identity_root) is not str
-            or not _SHA256_RE.fullmatch(self.expected_dataset_identity_root)
-        ):
+        if not _is_optional_pattern_str(self.expected_dataset_identity_root, _SHA256_RE):
             _fail("CONTEXT")
         if (
             type(self.expected_identity_blind_epoch) is not int
@@ -538,14 +539,9 @@ class DatasetRecordVerificationContext:
             or not 0 <= self.expected_identity_blind_epoch <= 65535
         ):
             _fail("CONTEXT")
-        if type(self.expected_leakage_scope_ref) is not str or not _LEAKAGE_SCOPE_REF_RE.fullmatch(
-            self.expected_leakage_scope_ref
-        ):
+        if not _is_pattern_str(self.expected_leakage_scope_ref, _LEAKAGE_SCOPE_REF_RE):
             _fail("CONTEXT")
-        if self.expected_prereg_digest is not None and (
-            type(self.expected_prereg_digest) is not str
-            or not _SHA256_RE.fullmatch(self.expected_prereg_digest)
-        ):
+        if not _is_optional_pattern_str(self.expected_prereg_digest, _SHA256_RE):
             _fail("CONTEXT")
         if type(self.require_leaf_lists) is not bool:
             _fail("CONTEXT")
@@ -690,9 +686,7 @@ def _derive_dataset_ref_from_item_set(item_set_root: str) -> str:
     manifest, under its OWN domain so the two derivations can never be
     interchanged.
     """
-    return _derive_ref(
-        "dsr", _DATASET_REF_ITEM_SET_DOMAIN, item_set_root.encode("utf-8")
-    )
+    return _derive_ref("dsr", _DATASET_REF_ITEM_SET_DOMAIN, item_set_root.encode("utf-8"))
 
 
 def _expected_dataset_ref(identity: dict[str, Any]) -> str:
@@ -950,6 +944,33 @@ def _check_derived_dataset_ref(identity: dict[str, Any]) -> None:
         _fail("REF_NOT_DERIVED", "/unsigned_manifest/identity/dataset_ref")
 
 
+def _check_attestation_derived_refs(attestation: dict[str, Any], leakage_scope_ref: str) -> None:
+    expected_scope = _derive_leakage_scope_ref(attestation["scope_blind_commitment"])
+    if leakage_scope_ref != expected_scope:
+        _fail("REF_NOT_DERIVED", "/unsigned_manifest/identity/leakage_scope_ref")
+    for corpus in attestation["corpora"]:
+        expected_corpus = _derive_corpus_ref(corpus["leaf_root"], leakage_scope_ref)
+        if corpus["corpus_ref"] != expected_corpus:
+            _fail("REF_NOT_DERIVED", _PTR_LEAF_CORPORA)
+
+
+def _check_leaf_list_derived_refs(
+    leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]],
+    dataset_ref: str,
+    leakage_scope_ref: str,
+) -> None:
+    for corpus_ref, entries in leaf_lists.items():
+        if corpus_ref == dataset_ref:
+            # The reserved item-set key (see _check_cell_roots) is never
+            # itself a corpus_ref and carries no derivation of its own.
+            continue
+        leaves = [entry["leaf"] for entry in entries]
+        corpus_leaf_root = _leaf_list_digest(leaves)
+        expected_corpus = _derive_corpus_ref(corpus_leaf_root, leakage_scope_ref)
+        if corpus_ref != expected_corpus:
+            _fail("REF_NOT_DERIVED", _PTR_LEAF_LIST_DIGESTS)
+
+
 def _check_derived_refs(
     unsigned: dict[str, Any],
     leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]] | None,
@@ -958,26 +979,9 @@ def _check_derived_refs(
     identity = unsigned["identity"]
     leakage_scope_ref = identity["leakage_scope_ref"]
     if attestation is not None:
-        expected_scope = _derive_leakage_scope_ref(attestation["scope_blind_commitment"])
-        if leakage_scope_ref != expected_scope:
-            _fail("REF_NOT_DERIVED", "/unsigned_manifest/identity/leakage_scope_ref")
-        for corpus in attestation["corpora"]:
-            expected_corpus = _derive_corpus_ref(corpus["leaf_root"], leakage_scope_ref)
-            if corpus["corpus_ref"] != expected_corpus:
-                _fail("REF_NOT_DERIVED", _PTR_LEAF_CORPORA)
-
+        _check_attestation_derived_refs(attestation, leakage_scope_ref)
     if leaf_lists:
-        dataset_ref = identity["dataset_ref"]
-        for corpus_ref, entries in leaf_lists.items():
-            if corpus_ref == dataset_ref:
-                # The reserved item-set key (see _check_cell_roots) is never
-                # itself a corpus_ref and carries no derivation of its own.
-                continue
-            leaves = [entry["leaf"] for entry in entries]
-            corpus_leaf_root = _leaf_list_digest(leaves)
-            expected_corpus = _derive_corpus_ref(corpus_leaf_root, leakage_scope_ref)
-            if corpus_ref != expected_corpus:
-                _fail("REF_NOT_DERIVED", _PTR_LEAF_LIST_DIGESTS)
+        _check_leaf_list_derived_refs(leaf_lists, identity["dataset_ref"], leakage_scope_ref)
 
 
 def _leaf_list_projection_error(definition_name: str, projection: dict[str, Any]) -> bool:
@@ -997,6 +1001,68 @@ def _leaf_list_projection_error(definition_name: str, projection: dict[str, Any]
     except Unresolvable:
         _fail("SCHEMA_DEPENDENCY")
     return violates
+
+
+def _project_leaf_list_rows(entries: Sequence[Any], is_item_set: bool) -> list[dict[str, Any]]:
+    """Project each supplied entry onto its definition's members, or fail shape."""
+    expected_keys = ("leaf", "category_id", "difficulty_stratum") if is_item_set else ("leaf",)
+    rows: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            _fail("LEAF_LIST_SHAPE")
+        row = {field: entry[field] for field in expected_keys if field in entry}
+        if len(row) != len(expected_keys) or len(row) != len(entry):
+            # Missing a required member, or carrying one this projection
+            # does not define. A leakage corpus list carries the opaque
+            # token ALONE: the category/stratum tag is meaningful only
+            # for the committed item set, and accepting it on a corpus
+            # would imply a per-corpus partition this contract does not
+            # define.
+            _fail("LEAF_LIST_SHAPE")
+        if not _is_pattern_str(row["leaf"], _SHA256_RE):
+            _fail("LEAF_LIST_SHAPE")
+        rows.append(row)
+    return rows
+
+
+def _check_leaf_list_entry(
+    key: Any, entries: Any, identity: dict[str, Any], dataset_ref: str, leakage_scope_ref: str
+) -> None:
+    if type(key) is not str:
+        _fail("LEAF_LIST_SHAPE")
+    if isinstance(entries, (str, bytes)) or not isinstance(entries, Sequence):
+        _fail("LEAF_LIST_SHAPE")
+    is_item_set = key == dataset_ref
+    rows = _project_leaf_list_rows(entries, is_item_set)
+    leaves = [cast(str, row["leaf"]) for row in rows]
+    if len(set(leaves)) != len(leaves):
+        _fail("LEAF_LIST_SHAPE")
+    if len(rows) > _MAX_LEAF_LIST:
+        # Above the cap the projection is deliberately NOT schema-checked:
+        # both definitions bound their arrays at _MAX_LEAF_LIST, so
+        # validating here would turn an oversized list -- which this
+        # contract answers by ABSTAINING DS3 (row 20) -- into a hard
+        # shape failure. The explicit checks above already guarantee
+        # every downstream read is type-safe.
+        return
+    if is_item_set:
+        projection: dict[str, Any] = {
+            "schema_version": "traigent.dataset_record.item_set_leaf_list.v1",
+            "dataset_ref": key,
+            "item_set_root": identity["item_set_root"],
+            "entries": rows,
+        }
+        if _leaf_list_projection_error("DatasetItemSetLeafListV1", projection):
+            _fail("LEAF_LIST_SHAPE")
+        return
+    corpus_projection: dict[str, Any] = {
+        "schema_version": "traigent.dataset_record.leaf_list.v1",
+        "corpus_ref": key,
+        "leakage_scope_ref": leakage_scope_ref,
+        "leaves": sorted(leaves),
+    }
+    if _leaf_list_projection_error("DatasetLeafListV1", corpus_projection):
+        _fail("LEAF_LIST_SHAPE")
 
 
 def _check_leaf_list_input(
@@ -1024,59 +1090,7 @@ def _check_leaf_list_input(
     dataset_ref = identity["dataset_ref"]
     leakage_scope_ref = identity["leakage_scope_ref"]
     for key, entries in leaf_lists.items():
-        if type(key) is not str:
-            _fail("LEAF_LIST_SHAPE")
-        if isinstance(entries, (str, bytes)) or not isinstance(entries, Sequence):
-            _fail("LEAF_LIST_SHAPE")
-        is_item_set = key == dataset_ref
-        expected_keys = (
-            ("leaf", "category_id", "difficulty_stratum") if is_item_set else ("leaf",)
-        )
-        rows: list[dict[str, Any]] = []
-        for entry in entries:
-            if not isinstance(entry, Mapping):
-                _fail("LEAF_LIST_SHAPE")
-            row = {field: entry[field] for field in expected_keys if field in entry}
-            if len(row) != len(expected_keys) or len(row) != len(entry):
-                # Missing a required member, or carrying one this projection
-                # does not define. A leakage corpus list carries the opaque
-                # token ALONE: the category/stratum tag is meaningful only
-                # for the committed item set, and accepting it on a corpus
-                # would imply a per-corpus partition this contract does not
-                # define.
-                _fail("LEAF_LIST_SHAPE")
-            if type(row["leaf"]) is not str or not _SHA256_RE.fullmatch(row["leaf"]):
-                _fail("LEAF_LIST_SHAPE")
-            rows.append(row)
-        leaves = [cast(str, row["leaf"]) for row in rows]
-        if len(set(leaves)) != len(leaves):
-            _fail("LEAF_LIST_SHAPE")
-        if len(rows) > _MAX_LEAF_LIST:
-            # Above the cap the projection is deliberately NOT schema-checked:
-            # both definitions bound their arrays at _MAX_LEAF_LIST, so
-            # validating here would turn an oversized list -- which this
-            # contract answers by ABSTAINING DS3 (row 20) -- into a hard
-            # shape failure. The explicit checks above already guarantee
-            # every downstream read is type-safe.
-            continue
-        if is_item_set:
-            projection: dict[str, Any] = {
-                "schema_version": "traigent.dataset_record.item_set_leaf_list.v1",
-                "dataset_ref": key,
-                "item_set_root": identity["item_set_root"],
-                "entries": rows,
-            }
-            if _leaf_list_projection_error("DatasetItemSetLeafListV1", projection):
-                _fail("LEAF_LIST_SHAPE")
-            continue
-        corpus_projection: dict[str, Any] = {
-            "schema_version": "traigent.dataset_record.leaf_list.v1",
-            "corpus_ref": key,
-            "leakage_scope_ref": leakage_scope_ref,
-            "leaves": sorted(leaves),
-        }
-        if _leaf_list_projection_error("DatasetLeafListV1", corpus_projection):
-            _fail("LEAF_LIST_SHAPE")
+        _check_leaf_list_entry(key, entries, identity, dataset_ref, leakage_scope_ref)
 
 
 def _check_taxonomy_and_registry_pins(unsigned: dict[str, Any]) -> None:
@@ -1425,6 +1439,71 @@ def _ds3_disjointness_established(
     return True
 
 
+def _collect_digest_descriptor_counts(
+    leakage_scope_ref: str, leakage_report: dict[str, Any], known: set[str]
+) -> dict[str, int]:
+    """Re-derive and de-duplicate ``leaf_list_digests``; add refs to ``known``."""
+    leaf_counts_by_ref: dict[str, int] = {}
+    for index, entry in enumerate(leakage_report["leaf_list_digests"]):
+        expected = _derive_corpus_ref(entry["leaf_list_digest"], leakage_scope_ref)
+        if entry["corpus_ref"] != expected:
+            _fail("REF_NOT_DERIVED", f"/leakage_report/leaf_list_digests/{index}/corpus_ref")
+        if entry["corpus_ref"] in known:
+            # Bare container path, not an index: with two signed entries for
+            # one corpus_ref the verifier cannot tell which is forged, so it
+            # must not point at either as though it alone were at fault
+            # (T3 round 6 P3-1).
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
+        known.add(entry["corpus_ref"])
+        leaf_counts_by_ref[entry["corpus_ref"]] = entry["leaf_count"]
+    return leaf_counts_by_ref
+
+
+def _collect_attestation_leaf_counts(
+    attestation: dict[str, Any], known: set[str]
+) -> dict[str, int]:
+    """Uniqueness-check ``attestation.corpora`` (own tracking set); add refs to ``known``.
+
+    T3 round 7: a separate tracking set, over attestation.corpora ONLY -- a
+    corpus_ref that also appears (once) in leaf_list_digests is the normal
+    case and must not trip this. Same bare-container location convention as
+    the sibling check and for the same reason: the verifier cannot tell which
+    of the duplicate pair is forged. This must fully resolve (fail on any
+    in-list duplicate) before the cross-list comparison reads any entry --
+    interleaving the two would let the cross-list check fire on a
+    still-unresolved duplicate's bogus entry first.
+    """
+    seen_attestation_refs: set[str] = set()
+    attestation_leaf_counts_by_ref: dict[str, int] = {}
+    for corpus in attestation["corpora"]:
+        ref = corpus["corpus_ref"]
+        if ref in seen_attestation_refs:
+            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_CORPORA)
+        seen_attestation_refs.add(ref)
+        known.add(ref)
+        attestation_leaf_counts_by_ref[ref] = corpus["leaf_count"]
+    return attestation_leaf_counts_by_ref
+
+
+def _check_cross_list_leaf_counts(
+    leaf_counts_by_ref: dict[str, int], attestation_leaf_counts_by_ref: dict[str, int]
+) -> None:
+    """T3 round 9 (captain-1/astra): compare the two signed lists' ``leaf_count``.
+
+    A corpus_ref legitimately appears in BOTH signed lists, but nothing else
+    compares their signed claims about the SAME corpus_ref. This runs
+    unconditionally over signed material regardless of whether leaf lists
+    were supplied. ``leaf_count`` is the only field both entry shapes declare.
+    """
+    for ref, attested_leaf_count in attestation_leaf_counts_by_ref.items():
+        declared_leaf_count = leaf_counts_by_ref.get(ref)
+        if declared_leaf_count is not None and declared_leaf_count != attested_leaf_count:
+            # Bare bundle-root location, not either container: the verifier
+            # cannot tell which of the two signed statements about this
+            # corpus_ref is forged, so it must not attribute fault to either.
+            _fail("LEAF_LIST_DIGEST_MISMATCH", "")
+
+
 def _check_corpus_ref_descriptors(
     identity: dict[str, Any],
     leakage_report: dict[str, Any],
@@ -1554,96 +1633,35 @@ def _check_corpus_ref_descriptors(
     (``leakage_report.findings``, walked by index, never collapsed by
     key). No unconditional check was added as a result of this sweep.
     """
-    leakage_scope_ref = identity["leakage_scope_ref"]
     known: set[str] = set()
-    leaf_counts_by_ref: dict[str, int] = {}
-    for index, entry in enumerate(leakage_report["leaf_list_digests"]):
-        expected = _derive_corpus_ref(entry["leaf_list_digest"], leakage_scope_ref)
-        if entry["corpus_ref"] != expected:
-            _fail("REF_NOT_DERIVED", f"/leakage_report/leaf_list_digests/{index}/corpus_ref")
-        if entry["corpus_ref"] in known:
-            # Bare container path, not an index: with two signed entries for
-            # one corpus_ref the verifier cannot tell which is forged, so it
-            # must not point at either as though it alone were at fault
-            # (T3 round 6 P3-1).
-            _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_LIST_DIGESTS)
-        known.add(entry["corpus_ref"])
-        leaf_counts_by_ref[entry["corpus_ref"]] = entry["leaf_count"]
+    leaf_counts_by_ref = _collect_digest_descriptor_counts(
+        identity["leakage_scope_ref"], leakage_report, known
+    )
     if attestation is not None:
-        # T3 round 7: a separate tracking set, over attestation.corpora ONLY
-        # -- a corpus_ref that also appears (once) in leaf_list_digests above
-        # is the normal case and must not trip this. Same bare-container
-        # location convention as the sibling check above and for the same
-        # reason: the verifier cannot tell which of the duplicate pair is
-        # forged. This loop only establishes uniqueness within
-        # ``attestation.corpora`` and must fully resolve (fail on any
-        # in-list duplicate) before the cross-list comparison below reads
-        # any of its entries -- interleaving the two would let the
-        # cross-list check fire on a still-unresolved duplicate's bogus
-        # entry before the in-list duplicate check ever reaches the pair.
-        seen_attestation_refs: set[str] = set()
-        attestation_leaf_counts_by_ref: dict[str, int] = {}
-        for corpus in attestation["corpora"]:
-            ref = corpus["corpus_ref"]
-            if ref in seen_attestation_refs:
-                _fail("LEAF_LIST_DIGEST_MISMATCH", _PTR_LEAF_CORPORA)
-            seen_attestation_refs.add(ref)
-            known.add(ref)
-            attestation_leaf_counts_by_ref[ref] = corpus["leaf_count"]
-        # T3 round 9 (captain-1/astra): a corpus_ref legitimately appears in
-        # BOTH signed lists (the ordinary case, per the note above), but
-        # nothing before this point compares the two lists' signed claims
-        # about the SAME corpus_ref to each other -- only their re-derivation
-        # (leaf_list_digests, above) or their internal self-consistency
-        # (leaf_root/leaf_count vs the caller-supplied leaf lists, in
-        # ``_check_leaf_generation_attestation``, which is leaf-list-
-        # dependent and therefore not signed-material-only). This check runs
-        # unconditionally over signed material regardless of whether leaf
-        # lists were supplied, closing the same caller-mode asymmetry this
-        # function's family exists to close, this time across the two lists
-        # rather than within one. ``leaf_count`` is the only field both
-        # entry shapes declare for a corpus_ref (``leaf_list_digests`` also
-        # has ``leaf_list_digest``, ``corpora`` also has
-        # ``leaf_root``/``scope_blind_commitment`` -- neither list declares
-        # the other's remaining fields, so there is nothing else in common
-        # to compare).
-        for ref, attested_leaf_count in attestation_leaf_counts_by_ref.items():
-            declared_leaf_count = leaf_counts_by_ref.get(ref)
-            if declared_leaf_count is not None and declared_leaf_count != attested_leaf_count:
-                # Bare bundle-root location, not either container: the
-                # verifier cannot tell which of the two signed statements
-                # about this corpus_ref is forged, so it must not point at
-                # ``leakage_report`` or ``leaf_generation_attestation`` alone
-                # as though that one were at fault. The bundle root is the
-                # smallest container that holds both signed lists without
-                # attributing fault to either.
-                _fail("LEAF_LIST_DIGEST_MISMATCH", "")
+        attestation_leaf_counts_by_ref = _collect_attestation_leaf_counts(attestation, known)
+        _check_cross_list_leaf_counts(leaf_counts_by_ref, attestation_leaf_counts_by_ref)
     for index, finding in enumerate(leakage_report["findings"]):
         for field in ("corpus_a_ref", "corpus_b_ref"):
             if finding[field] not in known:
                 _fail("REF_NOT_DERIVED", f"/leakage_report/findings/{index}/{field}")
 
 
-def _check_leaf_generation_attestation(
-    unsigned: dict[str, Any],
-    leakage_report: dict[str, Any],
-    attestation: dict[str, Any] | None,
-    corpora_leaves: dict[str, list[str]],
-) -> bool:
-    """Returns ``True`` iff the attestation is present and internally
-    consistent with the supplied leaf lists (i.e. DS3 may upgrade)."""
-    if attestation is None:
-        if unsigned["leaf_generation_attestation_digest"] is not None:
-            _fail(
-                "LEAF_GENERATION_ATTESTATION_MISSING",
-                "/unsigned_manifest/leaf_generation_attestation_digest",
-            )
-        if leakage_report["leaf_generation_attestation_digest"] is not None:
-            _fail(
-                "LEAF_GENERATION_ATTESTATION_MISSING",
-                "/leakage_report/leaf_generation_attestation_digest",
-            )
-        return False
+def _check_attestation_absent(unsigned: dict[str, Any], leakage_report: dict[str, Any]) -> None:
+    if unsigned["leaf_generation_attestation_digest"] is not None:
+        _fail(
+            "LEAF_GENERATION_ATTESTATION_MISSING",
+            "/unsigned_manifest/leaf_generation_attestation_digest",
+        )
+    if leakage_report["leaf_generation_attestation_digest"] is not None:
+        _fail(
+            "LEAF_GENERATION_ATTESTATION_MISSING",
+            "/leakage_report/leaf_generation_attestation_digest",
+        )
+
+
+def _check_attestation_digest_bindings(
+    unsigned: dict[str, Any], leakage_report: dict[str, Any], attestation: dict[str, Any]
+) -> None:
     projection = {k: v for k, v in attestation.items() if k != "attestation_digest"}
     digest = _role_digest(_LEAF_GENERATION_ATTESTATION_DOMAIN, projection)
     if digest != attestation["attestation_digest"]:
@@ -1661,6 +1679,20 @@ def _check_leaf_generation_attestation(
     if attestation["leakage_scope_ref"] != leakage_report["leakage_scope_ref"]:
         _fail("LEAF_SCOPE_BLIND_MISMATCH", "/leaf_generation_attestation/leakage_scope_ref")
 
+
+def _check_leaf_generation_attestation(
+    unsigned: dict[str, Any],
+    leakage_report: dict[str, Any],
+    attestation: dict[str, Any] | None,
+    corpora_leaves: dict[str, list[str]],
+) -> bool:
+    """Returns ``True`` iff the attestation is present and internally
+    consistent with the supplied leaf lists (i.e. DS3 may upgrade)."""
+    if attestation is None:
+        _check_attestation_absent(unsigned, leakage_report)
+        return False
+    _check_attestation_digest_bindings(unsigned, leakage_report, attestation)
+
     # The common-blind premise, checked rather than asserted (sol round 1
     # P2). The first draft built a one-element set from the single top-level
     # field and compared its length to 1 -- a condition that cannot fire.
@@ -1673,8 +1705,7 @@ def _check_leaf_generation_attestation(
             _fail("LEAF_SCOPE_BLIND_MISMATCH", _PTR_LEAF_CORPORA)
 
     for corpus in attestation["corpora"]:
-        corpus_ref = corpus["corpus_ref"]
-        leaves = corpora_leaves.get(corpus_ref)
+        leaves = corpora_leaves.get(corpus["corpus_ref"])
         if leaves is None:
             continue
         if corpus["leaf_count"] != len(leaves):
@@ -1828,6 +1859,41 @@ def _check_applied_policy(prereg: dict[str, Any], efficiency_report: dict[str, A
             )
 
 
+def _check_interval_plan_scope(
+    estimate_name: str, estimate: dict[str, Any], prereg: dict[str, Any]
+) -> None:
+    """An estimate carrying an interval must use the plan's interval settings."""
+    if estimate["interval_method"] != prereg["interval_method"]:
+        _fail(
+            "PREREGISTRATION_SCOPE_VIOLATION",
+            f"/efficiency_report/{estimate_name}/interval_method",
+        )
+    if estimate.get("interval_level_ppm") != prereg["interval_level_ppm"]:
+        _fail(
+            "PREREGISTRATION_SCOPE_VIOLATION",
+            f"/efficiency_report/{estimate_name}/interval_level_ppm",
+        )
+    if estimate["interval_method"] == "bootstrap_percentile_v1":
+        for field in ("resample_count", "bootstrap_unit", "random_seed"):
+            plan_field = "bootstrap_resamples" if field == "resample_count" else field
+            if estimate.get(field) != prereg[plan_field]:
+                _fail(
+                    "PREREGISTRATION_SCOPE_VIOLATION",
+                    f"/efficiency_report/{estimate_name}/{field}",
+                )
+
+
+def _check_near_duplicate_containment(
+    prereg: dict[str, Any], leakage_report: dict[str, Any]
+) -> None:
+    for finding in leakage_report["findings"]:
+        if finding["finding_kind"] == "near_duplicate_overlap":
+            if finding["method"] != prereg["near_duplicate_method"]:
+                _fail("PREREGISTRATION_SCOPE_VIOLATION", "/leakage_report/findings")
+            if finding["threshold_milli"] != prereg["near_duplicate_threshold_milli"]:
+                _fail("PREREGISTRATION_SCOPE_VIOLATION", "/leakage_report/findings")
+
+
 def _check_containment(
     prereg: dict[str, Any], efficiency_report: dict[str, Any], leakage_report: dict[str, Any]
 ) -> None:
@@ -1875,33 +1941,11 @@ def _check_containment(
     for estimate_name in ("mean_item_information", "decisive_subset_upper_bound"):
         estimate = efficiency_report[estimate_name]
         if estimate["interval_method"] != "none":
-            if estimate["interval_method"] != prereg["interval_method"]:
-                _fail(
-                    "PREREGISTRATION_SCOPE_VIOLATION",
-                    f"/efficiency_report/{estimate_name}/interval_method",
-                )
-            if estimate.get("interval_level_ppm") != prereg["interval_level_ppm"]:
-                _fail(
-                    "PREREGISTRATION_SCOPE_VIOLATION",
-                    f"/efficiency_report/{estimate_name}/interval_level_ppm",
-                )
-            if estimate["interval_method"] == "bootstrap_percentile_v1":
-                for field in ("resample_count", "bootstrap_unit", "random_seed"):
-                    plan_field = "bootstrap_resamples" if field == "resample_count" else field
-                    if estimate.get(field) != prereg[plan_field]:
-                        _fail(
-                            "PREREGISTRATION_SCOPE_VIOLATION",
-                            f"/efficiency_report/{estimate_name}/{field}",
-                        )
+            _check_interval_plan_scope(estimate_name, estimate, prereg)
         if estimate["sample_size_n"] < prereg["minimum_sample_size_n"]:
             _fail("SAMPLE_SIZE_INSUFFICIENT", f"/efficiency_report/{estimate_name}/sample_size_n")
 
-    for finding in leakage_report["findings"]:
-        if finding["finding_kind"] == "near_duplicate_overlap":
-            if finding["method"] != prereg["near_duplicate_method"]:
-                _fail("PREREGISTRATION_SCOPE_VIOLATION", "/leakage_report/findings")
-            if finding["threshold_milli"] != prereg["near_duplicate_threshold_milli"]:
-                _fail("PREREGISTRATION_SCOPE_VIOLATION", "/leakage_report/findings")
+    _check_near_duplicate_containment(prereg, leakage_report)
 
 
 def _utc_microseconds(value: str) -> int:
@@ -2115,6 +2159,68 @@ def _expected_evidence_digest(
     return cast(str, unsigned[source])
 
 
+def _check_support_row(
+    unsigned: dict[str, Any],
+    identity: dict[str, Any],
+    index: int,
+    claim_id: str,
+    row: dict[str, Any],
+    expected_basis: str,
+) -> str:
+    """Check one claim-support row; return its (verified-equal) evidence basis."""
+    location = f"/claim_support_rows/{index}"
+    basis = row["evidence_basis"]
+    if basis != expected_basis:
+        # A row claiming MORE than the verifier established is the
+        # headline failure and keeps its own code; every other
+        # disagreement (a declaration where the verifier abstained, an
+        # abstention where it verified) is a row that does not describe
+        # this verification.
+        if basis == "issuer_verified":
+            _fail("CLAIM_NOT_VERIFIED", location)
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+
+    if basis == "abstained":
+        if row["abstention_code"] != _ABSTENTION_CODE:
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+        return cast(str, basis)
+
+    profile = _CLAIM_ROW_PROFILE[claim_id]
+    expected_digest = _expected_evidence_digest(unsigned, identity, claim_id)
+    refs = row["evidence_refs"]
+    if len(refs) != 1:
+        # Defence in depth: the schema pins evidence_refs to maxItems: 1
+        # (F9), so this is unreachable through the wire -- kept in case a
+        # caller reaches into this private helper directly, bypassing
+        # schema validation.
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+    if (
+        expected_digest is None
+        or refs[0]["evidence_kind"] != profile["evidence_kind"]
+        or refs[0]["evidence_digest"] != expected_digest
+        or set(refs[0]) - {"evidence_kind", "evidence_digest"}
+    ):
+        # The last disjunct is sol round 2 P1: a support row's evidence
+        # ref may name the checked kind/digest and nothing else --
+        # EvidenceRefV0's optional third key (``evidence_ref``) is
+        # structurally forbidden here even though the shared v0
+        # definition permits it.
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+    if basis == "issuer_verified":
+        if (
+            row["verifier_id"] != profile["verifier_id"]
+            or row["verifier_version"] != profile["verifier_version"]
+        ):
+            # Sol round 2 P2: the verifier id AND the pinned version it
+            # ran at must both match -- a row naming a different version
+            # of the right verifier is a row for a check that did not
+            # run under this module's implementation.
+            _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+    elif row["attestation_basis"] != _ATTESTATION_BASIS:
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", location)
+    return cast(str, basis)
+
+
 def _check_support_rows(
     unsigned: dict[str, Any],
     identity: dict[str, Any],
@@ -2174,58 +2280,9 @@ def _check_support_rows(
         "abstained": [],
     }
     for index, claim_id in enumerate(_CLAIM_IDS):
-        row = by_id[claim_id]
-        basis = row["evidence_basis"]
-        expected_basis = claim_bases[claim_id]
-        if basis != expected_basis:
-            # A row claiming MORE than the verifier established is the
-            # headline failure and keeps its own code; every other
-            # disagreement (a declaration where the verifier abstained, an
-            # abstention where it verified) is a row that does not describe
-            # this verification.
-            if basis == "issuer_verified":
-                _fail("CLAIM_NOT_VERIFIED", f"/claim_support_rows/{index}")
-            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
-
-        profile = _CLAIM_ROW_PROFILE[claim_id]
-        if basis == "abstained":
-            if row["abstention_code"] != _ABSTENTION_CODE:
-                _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
-            tallies[basis].append(claim_id)
-            continue
-
-        expected_digest = _expected_evidence_digest(unsigned, identity, claim_id)
-        refs = row["evidence_refs"]
-        if len(refs) != 1:
-            # Defence in depth: the schema pins evidence_refs to maxItems: 1
-            # (F9), so this is unreachable through the wire -- kept in case a
-            # caller reaches into this private helper directly, bypassing
-            # schema validation.
-            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
-        if (
-            expected_digest is None
-            or refs[0]["evidence_kind"] != profile["evidence_kind"]
-            or refs[0]["evidence_digest"] != expected_digest
-            or set(refs[0]) - {"evidence_kind", "evidence_digest"}
-        ):
-            # The last disjunct is sol round 2 P1: a support row's evidence
-            # ref may name the checked kind/digest and nothing else --
-            # EvidenceRefV0's optional third key (``evidence_ref``) is
-            # structurally forbidden here even though the shared v0
-            # definition permits it.
-            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
-        if basis == "issuer_verified":
-            if (
-                row["verifier_id"] != profile["verifier_id"]
-                or row["verifier_version"] != profile["verifier_version"]
-            ):
-                # Sol round 2 P2: the verifier id AND the pinned version it
-                # ran at must both match -- a row naming a different version
-                # of the right verifier is a row for a check that did not
-                # run under this module's implementation.
-                _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
-        elif row["attestation_basis"] != _ATTESTATION_BASIS:
-            _fail("CLAIM_SUPPORT_ROW_MISMATCH", f"/claim_support_rows/{index}")
+        basis = _check_support_row(
+            unsigned, identity, index, claim_id, by_id[claim_id], claim_bases[claim_id]
+        )
         tallies[basis].append(claim_id)
     return digest, {
         "claims_verified": tuple(tallies["issuer_verified"]),
@@ -2266,6 +2323,85 @@ def _check_manifest_digest_and_signature(
         _verify_signature(public_key, signature["algorithm"], material, signature["signature"])
     except RelyingPartyVerificationError:
         _fail("ISSUER_SIGNATURE_INVALID", "/signature/signature")
+
+
+def _derive_ds2(
+    identity: dict[str, Any],
+    composition: dict[str, Any],
+    leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]] | None,
+) -> tuple[str, str]:
+    """Return ``(composition_evidence, ds2_basis)``."""
+    composition_evidence = "declared_counts_only"
+    ds2_basis = "client_declared"
+    if leaf_lists:
+        # Sol round 2 P3(a): the item-set leaf list is the ONE input DS2's
+        # upgrade reads (_check_cell_roots), and _check_leaf_list_input
+        # deliberately never schema-validates a list above _MAX_LEAF_LIST
+        # (it is answered instead by DS3's abstention). DS2 must not read an
+        # unvalidated list as if it had been checked -- an oversized item-set
+        # list keeps DS2 at client_declared rather than hard-failing the
+        # whole verification, consistent with every other insufficient-
+        # evidence outcome in this function.
+        item_set_entries = leaf_lists.get(identity["dataset_ref"])
+        item_set_oversized = item_set_entries is not None and len(item_set_entries) > _MAX_LEAF_LIST
+        if not item_set_oversized and _check_cell_roots(identity, composition, leaf_lists):
+            composition_evidence = "cell_roots_recomputed"
+            ds2_basis = "issuer_verified"
+    return composition_evidence, ds2_basis
+
+
+def _derive_ds3(
+    context: DatasetRecordVerificationContext,
+    leakage_report: dict[str, Any],
+    attestation: dict[str, Any] | None,
+    leaf_lists: Mapping[str, Sequence[Mapping[str, Any]]] | None,
+    corpora_leaves: dict[str, list[str]],
+    attestation_consistent: bool,
+) -> tuple[str, str]:
+    """Return ``(disjointness_evidence, ds3_basis)``."""
+    disjointness_evidence = "token_lists_only"
+    ds3_basis = "client_declared"
+    # DS3 upgrades only when EVERY corpus its claim is about was supplied,
+    # digest-checked AND attested (sol round 1 P1). The first draft skipped
+    # findings whose corpora were not supplied and skipped attestation
+    # corpora with no supplied list, then upgraded DS3 if any leaf list plus
+    # an attestation existed -- so a record could reach issuer_verified with
+    # the one disjointness check that mattered never recomputed. A relevant
+    # set that is EMPTY does not upgrade either: with no disjointness finding
+    # there is no token-list disjointness to verify, and a pass printed over
+    # nothing is the vacuous-check failure this contract exists to prevent.
+    ds3_relevant = _ds3_relevant_corpus_refs(leakage_report)
+    attested_refs = (
+        {corpus["corpus_ref"] for corpus in attestation["corpora"]}
+        if attestation is not None
+        else set()
+    )
+    ds3_fully_covered = bool(ds3_relevant) and ds3_relevant <= (set(corpora_leaves) & attested_refs)
+    # ...and only when the disjointness DS3 asserts was actually recomputed
+    # and came out empty for every pair the claim covers (astra P1). Coverage
+    # answers "were the lists there"; this answers "did they say what DS3
+    # says they say".
+    if (
+        attestation_consistent
+        and ds3_fully_covered
+        and _ds3_disjointness_established(leakage_report, corpora_leaves)
+    ):
+        disjointness_evidence = "generation_attested"
+        ds3_basis = "issuer_verified"
+    # Sol round 2 P3(b): abstention must inspect only the corpus lists DS3's
+    # OWN claim depends on (``ds3_relevant``, derived above from the
+    # disjointness/overlap findings), not every key in ``leaf_lists`` --
+    # that included the reserved item-set key and any corpus irrelevant to
+    # this claim, so an oversized list for a corpus DS3 never reads about
+    # forced an abstention it had no bearing on.
+    ds3_abstains = not leaf_lists or any(
+        len(leaf_lists.get(corpus_ref, ())) > _MAX_LEAF_LIST for corpus_ref in ds3_relevant
+    )
+    if ds3_abstains and context.require_leaf_lists:
+        _fail("CLAIM_SUPPORT_ROW_MISMATCH", "/claim_support_rows/2")
+    if ds3_abstains:
+        ds3_basis = "abstained"
+    return disjointness_evidence, ds3_basis
 
 
 def _verify(
@@ -2313,22 +2449,7 @@ def _verify(
     _check_declared_partition(identity, composition)
     _check_composition_vocabulary(composition)
 
-    composition_evidence = "declared_counts_only"
-    ds2_basis = "client_declared"
-    if leaf_lists:
-        # Sol round 2 P3(a): the item-set leaf list is the ONE input DS2's
-        # upgrade reads (_check_cell_roots), and _check_leaf_list_input
-        # deliberately never schema-validates a list above _MAX_LEAF_LIST
-        # (it is answered instead by DS3's abstention). DS2 must not read an
-        # unvalidated list as if it had been checked -- an oversized item-set
-        # list keeps DS2 at client_declared rather than hard-failing the
-        # whole verification, consistent with every other insufficient-
-        # evidence outcome in this function.
-        item_set_entries = leaf_lists.get(identity["dataset_ref"])
-        item_set_oversized = item_set_entries is not None and len(item_set_entries) > _MAX_LEAF_LIST
-        if not item_set_oversized and _check_cell_roots(identity, composition, leaf_lists):
-            composition_evidence = "cell_roots_recomputed"
-            ds2_basis = "issuer_verified"
+    composition_evidence, ds2_basis = _derive_ds2(identity, composition, leaf_lists)
 
     leakage_report = bundle["leakage_report"]
     # The caller's leakage-scope pin gates every leakage check below it.
@@ -2365,50 +2486,9 @@ def _verify(
         1 for f in leakage_report["findings"] if f["finding_kind"] in _TIER_C_FINDING_KINDS
     )
 
-    disjointness_evidence = "token_lists_only"
-    ds3_basis = "client_declared"
-    # DS3 upgrades only when EVERY corpus its claim is about was supplied,
-    # digest-checked AND attested (sol round 1 P1). The first draft skipped
-    # findings whose corpora were not supplied and skipped attestation
-    # corpora with no supplied list, then upgraded DS3 if any leaf list plus
-    # an attestation existed -- so a record could reach issuer_verified with
-    # the one disjointness check that mattered never recomputed. A relevant
-    # set that is EMPTY does not upgrade either: with no disjointness finding
-    # there is no token-list disjointness to verify, and a pass printed over
-    # nothing is the vacuous-check failure this contract exists to prevent.
-    ds3_relevant = _ds3_relevant_corpus_refs(leakage_report)
-    attested_refs = (
-        {corpus["corpus_ref"] for corpus in attestation["corpora"]}
-        if attestation is not None
-        else set()
+    disjointness_evidence, ds3_basis = _derive_ds3(
+        context, leakage_report, attestation, leaf_lists, corpora_leaves, attestation_consistent
     )
-    ds3_fully_covered = bool(ds3_relevant) and ds3_relevant <= (
-        set(corpora_leaves) & attested_refs
-    )
-    # ...and only when the disjointness DS3 asserts was actually recomputed
-    # and came out empty for every pair the claim covers (astra P1). Coverage
-    # answers "were the lists there"; this answers "did they say what DS3
-    # says they say".
-    if (
-        attestation_consistent
-        and ds3_fully_covered
-        and _ds3_disjointness_established(leakage_report, corpora_leaves)
-    ):
-        disjointness_evidence = "generation_attested"
-        ds3_basis = "issuer_verified"
-    # Sol round 2 P3(b): abstention must inspect only the corpus lists DS3's
-    # OWN claim depends on (``ds3_relevant``, derived above from the
-    # disjointness/overlap findings), not every key in ``leaf_lists`` --
-    # that included the reserved item-set key and any corpus irrelevant to
-    # this claim, so an oversized list for a corpus DS3 never reads about
-    # forced an abstention it had no bearing on.
-    ds3_abstains = not leaf_lists or any(
-        len(leaf_lists.get(corpus_ref, ())) > _MAX_LEAF_LIST for corpus_ref in ds3_relevant
-    )
-    if ds3_abstains and context.require_leaf_lists:
-        _fail("CLAIM_SUPPORT_ROW_MISMATCH", "/claim_support_rows/2")
-    if ds3_abstains:
-        ds3_basis = "abstained"
 
     limitations = bundle["limitations"]
     _check_limitations_digest(unsigned, limitations)

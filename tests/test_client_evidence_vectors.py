@@ -165,7 +165,8 @@ def test_build_process_evidence_document_vector() -> None:
     doc = case["artifact_document"]
     assert set(doc) == {"snapshot_format", "manifest_digest"}
     assert doc["snapshot_format"] == "tes1"
-    assert doc["manifest_digest"].startswith("sha256:") and len(doc["manifest_digest"]) == 71
+    assert doc["manifest_digest"].startswith("sha256:")
+    assert len(doc["manifest_digest"]) == 71
     assert _jcs(doc).decode("utf-8") == case["jcs_utf8"]
     full = _VECTORS["manifests"][0]["slots"]["build_process_evidence"]
     assert full["artifact_document"] == doc

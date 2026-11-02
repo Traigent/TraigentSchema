@@ -17,8 +17,10 @@ EXPECTED = {
 
 
 def test_source_record_pins_commit_and_all_four_files():
-    assert len(SOURCE["source_commit"]) == 40 and set(SOURCE["files"]) == set(EXPECTED)
-    assert SOURCE["release_tag"] == "v1.4.0" and SOURCE["identical_at_release_tag"] is True
+    assert len(SOURCE["source_commit"]) == 40
+    assert set(SOURCE["files"]) == set(EXPECTED)
+    assert SOURCE["release_tag"] == "v1.4.0"
+    assert SOURCE["identical_at_release_tag"] is True
     on_disk = {p.name for p in DATA.glob("*.schema.json")}
     assert on_disk == set(EXPECTED), "an unpinned or missing vendored schema"
     assert SOURCE["source_dir"] == "spec/grammar/"
@@ -47,4 +49,5 @@ def test_contract_v1_includes_deploy_and_v2_is_the_14_format():
     v1 = (DATA / "tvl-runtime-contract.schema.json").read_text(encoding="utf-8")
     v2 = (DATA / "tvl-runtime-contract-v2.schema.json").read_text(encoding="utf-8")
     assert '"deploy": { "enum": ["never", "if_promoted"] }' in v1
-    assert "tvl-runtime-contract/2" in v2 and "tvl-runtime-contract/2" not in v1
+    assert "tvl-runtime-contract/2" in v2
+    assert "tvl-runtime-contract/2" not in v1

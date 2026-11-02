@@ -204,6 +204,19 @@ class LinkageIssuerKeyV1:
     public_key_digest: str
 
 
+def _check_issuer_key_context(key: LinkageIssuerKeyV1) -> None:
+    """Reject a context issuer key whose refs, algorithm or material are malformed."""
+    for ref in (key.key_ref, key.trust_ring_ref):
+        if type(ref) is not str or not _REF_RE.fullmatch(ref):
+            _fail("CONTEXT")
+    if key.algorithm not in ("ed25519", "ecdsa_p256_sha256"):
+        _fail("CONTEXT")
+    if type(key.public_key_der_b64) is not str or not key.public_key_der_b64:
+        _fail("CONTEXT")
+    if type(key.public_key_digest) is not str or not _SHA256_RE.fullmatch(key.public_key_digest):
+        _fail("CONTEXT")
+
+
 @dataclass(frozen=True, slots=True)
 class CommitmentLinkageVerificationContext:
     """Independently supplied expectations for one sidecar verification."""
@@ -229,17 +242,7 @@ class CommitmentLinkageVerificationContext:
         key = self.issuer_key
         if not isinstance(key, LinkageIssuerKeyV1):
             _fail("CONTEXT")
-        for ref in (key.key_ref, key.trust_ring_ref):
-            if type(ref) is not str or not _REF_RE.fullmatch(ref):
-                _fail("CONTEXT")
-        if key.algorithm not in ("ed25519", "ecdsa_p256_sha256"):
-            _fail("CONTEXT")
-        if type(key.public_key_der_b64) is not str or not key.public_key_der_b64:
-            _fail("CONTEXT")
-        if type(key.public_key_digest) is not str or not _SHA256_RE.fullmatch(
-            key.public_key_digest
-        ):
-            _fail("CONTEXT")
+        _check_issuer_key_context(key)
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,30 +304,10 @@ def verify_commitment_linkage(
     _fail(code)
 
 
-def _verify(
-    envelope: dict[str, Any], context: CommitmentLinkageVerificationContext
-) -> VerifiedCommitmentLinkage:
-    try:
-        errors = next(iter(_validator().iter_errors(envelope)), None)
-    except Exception:
-        _fail("SCHEMA")
-    if errors is not None:
-        _fail("SCHEMA")
-
-    unsigned = envelope["unsigned_linkage"]
-    signature = envelope["signature"]
-
-    roles = [entry["role"] for entry in unsigned["entries"]]
-    if any(type(role) is not str or role not in _ROLES for role in roles):
-        _fail("ROLE_SHAPE")
-    if len(set(roles)) != len(roles):
-        _fail("DUPLICATE_ROLE")
-
-    digest = _role_digest(UNSIGNED_LINKAGE_DOMAIN, unsigned)
-    if signature["unsigned_linkage_digest"] != digest:
-        _fail("UNSIGNED_LINKAGE_DIGEST_MISMATCH")
-
-    key = context.issuer_key
+def _check_signature(
+    unsigned: dict[str, Any], signature: dict[str, Any], key: LinkageIssuerKeyV1
+) -> None:
+    """Match the signature to the pinned issuer key and verify it over ``unsigned``."""
     if (
         signature["issuer_key_ref"] != key.key_ref
         or signature["trust_ring_ref"] != key.trust_ring_ref
@@ -354,6 +337,32 @@ def _verify(
         _verify_signature(public_key, signature["algorithm"], material, signature["signature"])
     except RelyingPartyVerificationError:
         _fail("SIGNATURE_INVALID")
+
+
+def _verify(
+    envelope: dict[str, Any], context: CommitmentLinkageVerificationContext
+) -> VerifiedCommitmentLinkage:
+    try:
+        errors = next(iter(_validator().iter_errors(envelope)), None)
+    except Exception:
+        _fail("SCHEMA")
+    if errors is not None:
+        _fail("SCHEMA")
+
+    unsigned = envelope["unsigned_linkage"]
+    signature = envelope["signature"]
+
+    roles = [entry["role"] for entry in unsigned["entries"]]
+    if any(type(role) is not str or role not in _ROLES for role in roles):
+        _fail("ROLE_SHAPE")
+    if len(set(roles)) != len(roles):
+        _fail("DUPLICATE_ROLE")
+
+    digest = _role_digest(UNSIGNED_LINKAGE_DOMAIN, unsigned)
+    if signature["unsigned_linkage_digest"] != digest:
+        _fail("UNSIGNED_LINKAGE_DIGEST_MISMATCH")
+
+    _check_signature(unsigned, signature, context.issuer_key)
 
     # Binding checks come after authentication so only a genuinely issued
     # sidecar can reach them; all three are exact-equality against caller pins.

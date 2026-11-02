@@ -892,6 +892,14 @@ def _decode_audit_path(audit_path: Any) -> list[bytes] | None:
     return path
 
 
+def _skip_right_edge_levels(fn: int, sn: int) -> tuple[int, int]:
+    """Shift ``fn`` and ``sn`` right while ``fn`` is a non-zero left child (RFC 9162 step 4)."""
+    while not fn & 1 and fn != 0:
+        fn >>= 1
+        sn >>= 1
+    return fn, sn
+
+
 def _fold_audit_path(r: bytes, path: list[bytes], fn: int, sn: int) -> bytes | None:
     """RFC 9162 inclusion-proof verification steps over ``path``; ``None`` if the path does not fit.
 
@@ -904,9 +912,7 @@ def _fold_audit_path(r: bytes, path: list[bytes], fn: int, sn: int) -> bytes | N
         if fn & 1 or fn == sn:
             r = _node_hash(p, r)
             if not fn & 1:
-                while not fn & 1 and fn != 0:
-                    fn >>= 1
-                    sn >>= 1
+                fn, sn = _skip_right_edge_levels(fn, sn)
         else:
             r = _node_hash(r, p)
         fn >>= 1

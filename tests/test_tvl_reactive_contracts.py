@@ -186,12 +186,15 @@ def test_digest_key_and_ref_shapes():
     ):
         f = v("tvl_reactive_common_schema", d)
         assert not f(r(kind))
-        assert f(r("other")) and f(kind + "ref_" + "g" * 32) and f("x")
+        assert f(r("other"))
+        assert f(kind + "ref_" + "g" * 32)
+        assert f("x")
 
 
 def test_instants_are_bounded_integers():
     h = v("tvl_reactive_common_schema", "Hours")
-    assert not h(0) and not h(1000000000)
+    assert not h(0)
+    assert not h(1000000000)
     for bad in (-1, 1000000001, 1.5, "1", True, None):
         assert h(bad), bad
 
@@ -203,11 +206,10 @@ def test_refusal_is_one_fixed_branch_per_code_and_never_echoes():
     msgs = schema["properties"]["message"]["enum"]
     assert len(codes) == len(set(codes)) == len(msgs) == len(schema["oneOf"])
     for code, msg, br in zip(codes, msgs, schema["oneOf"], strict=True):
-        assert (
-            br["properties"]["error_code"]["const"] == code
-            and br["properties"]["message"]["const"] == msg
-        )
-        assert "{" not in msg and "%" not in msg
+        assert br["properties"]["error_code"]["const"] == code
+        assert br["properties"]["message"]["const"] == msg
+        assert "{" not in msg
+        assert "%" not in msg
     f = v("tvl_reactive_common_schema", "Refusal")
     ok = {
         "success": False,
@@ -216,11 +218,9 @@ def test_refusal_is_one_fixed_branch_per_code_and_never_echoes():
         "message": "Instant is sealed.",
     }
     assert not f(ok)
-    assert (
-        f({**ok, "message": "Internal error."})
-        and f({**ok, "details": "x"})
-        and f({**ok, "success": True})
-    )
+    assert f({**ok, "message": "Internal error."})
+    assert f({**ok, "details": "x"})
+    assert f({**ok, "success": True})
     for needed in (
         "batch_out_of_order",
         "instant_not_increasing",
@@ -241,24 +241,26 @@ def window(**o):
 
 def test_window_unknown_reason_only_with_unknown():
     f = v("tvl_reactive_facts_schema", "WindowFact")
-    assert not f(window()) and not f(window(verdict="BREACHED"))
-    assert not f(window(verdict="UNKNOWN")) and not f(
-        window(verdict="UNKNOWN", unknown_reason="insufficient")
-    )
-    assert f(window(unknown_reason="insufficient")) and f(
-        window(verdict="UNKNOWN", unknown_reason="free text")
-    )
-    assert f(window(verdict="met")) and f(window(extra=1)) and f(window(start=-1))
+    assert not f(window())
+    assert not f(window(verdict="BREACHED"))
+    assert not f(window(verdict="UNKNOWN"))
+    assert not f(window(verdict="UNKNOWN", unknown_reason="insufficient"))
+    assert f(window(unknown_reason="insufficient"))
+    assert f(window(verdict="UNKNOWN", unknown_reason="free text"))
+    assert f(window(verdict="met"))
+    assert f(window(extra=1))
+    assert f(window(start=-1))
 
 
 def test_episode_reason_only_on_close():
     f = v("tvl_reactive_facts_schema", "EpisodeFact")
     base = {"monitor": TOK, "scope": TOK2}
-    assert not f({**base, "event": "opened"}) and not f({**base, "event": "continued"})
-    assert not f({**base, "event": "closed", "reason": "resolved"}) and not f(
-        {**base, "event": "closed", "reason": "withdrawn"}
-    )
-    assert f({**base, "event": "closed"}) and f({**base, "event": "opened", "reason": "resolved"})
+    assert not f({**base, "event": "opened"})
+    assert not f({**base, "event": "continued"})
+    assert not f({**base, "event": "closed", "reason": "resolved"})
+    assert not f({**base, "event": "closed", "reason": "withdrawn"})
+    assert f({**base, "event": "closed"})
+    assert f({**base, "event": "opened", "reason": "resolved"})
     assert f({**base, "event": "closed", "reason": "timeout"})
 
 
@@ -311,11 +313,9 @@ def test_optimization_fact_field_rules():
         opt("deploy_result", checks="refused", write="not_attempted", retries_exhausted=False)
     )
     assert f(opt("deploy_result", checks="passed", write="succeeded", retries_exhausted="no"))
-    assert (
-        f(opt("fired", occurrence=-1))
-        and f(opt("fired", revision="rev-1"))
-        and f(opt("fired", scope="Alice has diabetes"))
-    )
+    assert f(opt("fired", occurrence=-1))
+    assert f(opt("fired", revision="rev-1"))
+    assert f(opt("fired", scope="Alice has diabetes"))
 
 
 def test_candidates_valid_and_invalid_evidence():
@@ -330,9 +330,8 @@ def test_candidates_valid_and_invalid_evidence():
         }
     )
     assert not c({"evidence_valid": False})
-    assert c({"evidence_valid": True}) and c(
-        {"evidence_valid": False, "legacy_decision": "Promote"}
-    )
+    assert c({"evidence_valid": True})
+    assert c({"evidence_valid": False, "legacy_decision": "Promote"})
     assert c(
         {
             "evidence_valid": True,
@@ -369,15 +368,13 @@ def test_stage_request_is_closed_and_bounded():
             optimizations=[VALID_OPT["fired"]],
         )
     )
-    assert (
-        f(stage(extra=1))
-        and f(stage(producer_kind="backend_native"))
-        and f(stage(environment="production"))
-    )
-    assert not f(stage(windows=[window()] * 256)) and f(stage(windows=[window()] * 257))
-    assert f(stage(optimizations=[VALID_OPT["fired"]] * 257)) and f(
-        stage(windows=[{**window(), "note": "x"}])
-    )
+    assert f(stage(extra=1))
+    assert f(stage(producer_kind="backend_native"))
+    assert f(stage(environment="production"))
+    assert not f(stage(windows=[window()] * 256))
+    assert f(stage(windows=[window()] * 257))
+    assert f(stage(optimizations=[VALID_OPT["fired"]] * 257))
+    assert f(stage(windows=[{**window(), "note": "x"}]))
 
 
 def test_complete_request_rules():
@@ -451,22 +448,18 @@ DEPLOY = dict(
 
 def test_grant_create_shapes():
     f = v("tvl_reactive_authority_schema", "GrantCreateRequest")
-    assert not f(grant(**OPTIMIZE)) and not f(grant(**DEPLOY))
-    assert not f(grant(effect="optimize", decision="declined")) and not f(
-        grant(effect="deploy", decision="declined")
-    )
-    assert f(grant(**{**OPTIMIZE, "duration_hours": 2})) and f(
-        grant(**{**OPTIMIZE, "duration_hours": 0})
-    )
-    assert f(grant(**{**OPTIMIZE, "deploy": DEPLOY["deploy"]})) and f(
-        grant(**{**DEPLOY, "ceiling": OPTIMIZE["ceiling"]})
-    )
-    assert f(grant(effect="optimize", decision="granted")) and f(
-        grant(effect="optimize", decision="declined", duration_hours=1)
-    )
-    assert f(grant(**{**OPTIMIZE, "standing": True})) and f(
-        grant(**{**OPTIMIZE, "approval": "standing"})
-    )
+    assert not f(grant(**OPTIMIZE))
+    assert not f(grant(**DEPLOY))
+    assert not f(grant(effect="optimize", decision="declined"))
+    assert not f(grant(effect="deploy", decision="declined"))
+    assert f(grant(**{**OPTIMIZE, "duration_hours": 2}))
+    assert f(grant(**{**OPTIMIZE, "duration_hours": 0}))
+    assert f(grant(**{**OPTIMIZE, "deploy": DEPLOY["deploy"]}))
+    assert f(grant(**{**DEPLOY, "ceiling": OPTIMIZE["ceiling"]}))
+    assert f(grant(effect="optimize", decision="granted"))
+    assert f(grant(effect="optimize", decision="declined", duration_hours=1))
+    assert f(grant(**{**OPTIMIZE, "standing": True}))
+    assert f(grant(**{**OPTIMIZE, "approval": "standing"}))
 
 
 def test_reservation_start_results_cancel():
@@ -525,15 +518,19 @@ def test_reservation_start_results_cancel():
         "write": "not_attempted",
         "retries_exhausted": False,
     }
-    assert not o(ok_s) and not o(ok_f) and not o(ok_r)
+    assert not o(ok_s)
+    assert not o(ok_f)
+    assert not o(ok_r)
     assert not o({**ok_r, "checks": "unreachable"})
     assert o({**ok_f, "retries_exhausted": False})  # failed needs the retry bound reached
     assert o({**ok_s, "retries_exhausted": True})
-    assert o({**ok_f, "checks": "refused"}) and o({**ok_s, "checks": "unreachable"})
+    assert o({**ok_f, "checks": "refused"})
+    assert o({**ok_s, "checks": "unreachable"})
     assert o(
         {**ok_r, "checks": "passed"}
     )  # passed with no write attempted is not a valid terminal result
-    assert o({**ok_r, "write": "failed"}) and o({**ok_r, "retries_exhausted": True})
+    assert o({**ok_r, "write": "failed"})
+    assert o({**ok_r, "retries_exhausted": True})
     assert not o(
         {
             **base,
@@ -600,9 +597,8 @@ def test_reservation_start_results_cancel():
             "publish_result_key": pk,
         }
     )
-    assert o({**base, "fact": "started"}) and o(
-        {**base, "fact": "finished", "completion": "normal"}
-    )
+    assert o({**base, "fact": "started"})
+    assert o({**base, "fact": "finished", "completion": "normal"})
     assert o({**base, "fact": "authority", "state": "reachable", "completion": "normal"})
     c = v("tvl_reactive_authority_schema", "CancelRequest")
     assert not c(
@@ -643,18 +639,15 @@ def test_read_models_are_closed():
     }
     f = v("tvl_reactive_notification_schema", "Notification")
     assert not f(notif)
-    assert (
-        f({**notif, "title": "x"})
-        and f({**notif, "event": "deploy_held"})
-        and f({**notif, "decision": "sent"})
-    )
+    assert f({**notif, "title": "x"})
+    assert f({**notif, "event": "deploy_held"})
+    assert f({**notif, "decision": "sent"})
     g = copy.deepcopy(notif)
     g["guards"][0]["rule"] = TOK
     assert f(g)
     page = v("tvl_reactive_notification_schema", "NotificationPage")
-    assert not page({"schema_version": 1, "items": [notif], "next_after": None}) and page(
-        {"schema_version": 1, "items": [notif] * 101, "next_after": 1}
-    )
+    assert not page({"schema_version": 1, "items": [notif], "next_after": None})
+    assert page({"schema_version": 1, "items": [notif] * 101, "next_after": 1})
     attempt = {
         "schema_version": 1,
         "attempt_ref": r("attempt"),
@@ -671,11 +664,9 @@ def test_read_models_are_closed():
         "opened_at": "2026-10-22T10:00:00Z",
     }
     a = v("tvl_reactive_authority_schema", "Attempt")
-    assert (
-        not a(attempt)
-        and a({**attempt, "deploy_outcome": "deploy_held"})
-        and a({**attempt, "state": "hold"})
-    )
+    assert not a(attempt)
+    assert a({**attempt, "deploy_outcome": "deploy_held"})
+    assert a({**attempt, "state": "hold"})
     gr = {
         "schema_version": 1,
         "grant_ref": r("grant"),
@@ -688,9 +679,8 @@ def test_read_models_are_closed():
         "decided_at": "2026-10-22T10:00:00Z",
         "expires_at": "2026-10-22T11:00:00Z",
     }
-    assert not v("tvl_reactive_authority_schema", "Grant")(gr) and v(
-        "tvl_reactive_authority_schema", "Grant"
-    )({**gr, "decided_by": "Nimrod"})
+    assert not v("tvl_reactive_authority_schema", "Grant")(gr)
+    assert v("tvl_reactive_authority_schema", "Grant")({**gr, "decided_by": "Nimrod"})
 
 
 # ------------------------------------------------------------------ deploy
@@ -699,12 +689,10 @@ KEY_D = f"deploy:{r('attempt')}:{H64}:{H64B}"
 
 def test_deploy_key_result_and_finalize():
     k = vx("best_config_deploy_schema", "DeployIdempotencyKey")
-    assert (
-        not k(KEY_D)
-        and k("deploy:x:y:z")
-        and k(KEY_D + "0")
-        and k(KEY_D.replace("attemptref_", "grantref_"))
-    )
+    assert not k(KEY_D)
+    assert k("deploy:x:y:z")
+    assert k(KEY_D + "0")
+    assert k(KEY_D.replace("attemptref_", "grantref_"))
     res = vx("best_config_deploy_schema", "DeployPublishResult")
     ok = {
         "schema_version": 1,
@@ -725,10 +713,10 @@ def test_deploy_key_result_and_finalize():
             "decided_at": None,
         }
     )
-    assert res({**ok, "state": "cancelled"}) and res(
-        {**ok, "state": "succeeded", "head_generation": None}
-    )
-    assert res({**ok, "state": "failed"}) and res({**ok, "config": {}})
+    assert res({**ok, "state": "cancelled"})
+    assert res({**ok, "state": "succeeded", "head_generation": None})
+    assert res({**ok, "state": "failed"})
+    assert res({**ok, "config": {}})
     assert not vx("best_config_deploy_schema", "DeployFinalizeRequest")({"schema_version": 1})
     assert vx("best_config_deploy_schema", "DeployFinalizeRequest")(
         {"schema_version": 1, "force": True}
@@ -738,7 +726,8 @@ def test_deploy_key_result_and_finalize():
 def test_pinned_read_response_declares_content_and_generation():
     doc = load(EXE / "best_config_agent_head_config_schema.json")
     resp = doc["definitions"]["AgentHeadConfigResponse"]
-    assert resp["additionalProperties"] is False and set(resp["required"]) == {
+    assert resp["additionalProperties"] is False
+    assert set(resp["required"]) == {
         "schema_version",
         "generation",
         "version",
@@ -775,7 +764,8 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
                 )
             )
             for _method, o in item.items():
-                assert o["x-asserted-against-backend"] is False and o["operationId"]
+                assert o["x-asserted-against-backend"] is False
+                assert o["operationId"]
                 for status, resp in o["responses"].items():
                     ref_ = resp["content"]["application/json"]["schema"].get("$ref", "")
                     if int(status) >= 400:
@@ -1024,7 +1014,8 @@ def test_rate_limit_is_a_closed_envelope_on_every_endpoint():
         "message": "Too many requests.",
     }
     assert not f(ok)
-    assert f({**ok, "message": "slow down alice"}) and f({**ok, "details": {"scope": "x"}})
+    assert f({**ok, "message": "slow down alice"})
+    assert f({**ok, "details": {"scope": "x"}})
     for cat in CATALOGS:
         for route, item in load(cat)["paths"].items():
             for o in item.values():
@@ -1055,8 +1046,10 @@ def test_approval_context_is_closed_and_human_only():
         "current_head_generation": 4,
         "head_moved_since_optimization_start": True,
     }
-    assert not f({**base, "effect": "optimize"}) and not f({**base, "effect": "deploy", **dep})
-    assert f({**base, "effect": "deploy"}) and f({**base, "effect": "optimize", **dep})
+    assert not f({**base, "effect": "optimize"})
+    assert not f({**base, "effect": "deploy", **dep})
+    assert f({**base, "effect": "deploy"})
+    assert f({**base, "effect": "optimize", **dep})
     assert f({**base, "effect": "deploy", **dep, "note": "x"})
     ops = {
         o["operationId"]: o
@@ -1075,11 +1068,9 @@ def test_lease_renewal_is_bound_to_the_existing_reservation():
         "reservation_ref": r("reservation"),
         "reservation_generation": 2,
     }
-    assert (
-        not f(ok)
-        and f({k: x for k, x in ok.items() if k != "reservation_generation"})
-        and f({**ok, "attempt": "x"})
-    )
+    assert not f(ok)
+    assert f({k: x for k, x in ok.items() if k != "reservation_generation"})
+    assert f({**ok, "attempt": "x"})
     assert not v("tvl_reactive_authority_schema", "HeartbeatReceipt")(
         {
             "schema_version": 1,
@@ -1113,7 +1104,8 @@ def test_deploy_publication_is_its_own_branch_with_the_approval_time_generation(
     props = load(EXE / "best_config_agent_head_config_schema.json")["definitions"][
         "DeployPublishRequest"
     ]
-    assert props["additionalProperties"] is False and set(ok) == set(props["required"])
+    assert props["additionalProperties"] is False
+    assert set(ok) == set(props["required"])
     assert (
         "APPROVAL-TIME" in props["properties"]["expected_head_generation"]["description"]
         or "READ AT APPROVAL" in props["properties"]["expected_head_generation"]["description"]
@@ -1121,17 +1113,16 @@ def test_deploy_publication_is_its_own_branch_with_the_approval_time_generation(
     assert not f(ok)
     for needed in ok:
         assert f({k: x for k, x in ok.items() if k != needed}), f"{needed} must be required"
-    assert f({**ok, "expected_head_generation": -1}) and f({**ok, "idempotency_key": "deploy:x"})
+    assert f({**ok, "expected_head_generation": -1})
+    assert f({**ok, "idempotency_key": "deploy:x"})
     assert [e for e in f({**ok, "extra": 1})]
     cat = load(EXE / "best_config_agent_head_config_endpoints.json")["paths"]
     desc = cat["/api/v1/best-configs/agent-heads/{agent_ref}/deploy-publications"]["post"][
         "description"
     ]
-    assert (
-        "APPROVAL-TIME" in desc
-        and "BEFORE any stale-generation" in desc
-        and "publication_cancelled" in desc
-    )
+    assert "APPROVAL-TIME" in desc
+    assert "BEFORE any stale-generation" in desc
+    assert "publication_cancelled" in desc
     assert (
         "unchanged"
         not in load(EXE / "best_config_deploy_endpoints.json")["info"]["description"].split(
@@ -1483,7 +1474,8 @@ def test_compiler_valid_local_guard_is_a_valid_declaration():
     hosted, _local, _profiles = compile_runtime_document(module, token_map_doc=tokens)
     response = hosted["declarations"]["responses"][0]
     compiled = response["rules"][0]
-    assert compiled["trigger"]["event"] == "unit_violation" and compiled["do"] == "block_action"
+    assert compiled["trigger"]["event"] == "unit_violation"
+    assert compiled["do"] == "block_action"
     rule = {
         "response": response["name"],
         "rule": compiled["id"],
@@ -1501,7 +1493,10 @@ def test_compiler_valid_local_guard_is_a_valid_declaration():
 
 # ------------------------------------------------------- env-scope / monitor-roles amendment
 def _env(environment=TOK, policy="__default__"):
-    return {"environment_ref": environment, "policy": _policy() if policy == "__default__" else policy}
+    return {
+        "environment_ref": environment,
+        "policy": _policy() if policy == "__default__" else policy,
+    }
 
 
 def test_policy_read_is_per_environment_with_explicit_monitor_roles():

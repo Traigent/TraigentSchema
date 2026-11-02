@@ -383,7 +383,7 @@ def _expand_validated_pair(
             return False
         work.extend(zip(node_left, node_right, strict=True))
         return True
-    return not (node_left != node_right)
+    return bool(node_left == node_right)
 
 
 def _compare_validated(left: Any, right: Any) -> bool:

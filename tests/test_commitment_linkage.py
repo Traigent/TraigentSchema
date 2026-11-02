@@ -211,7 +211,8 @@ def test_commitment_domain_separation_each_input_matters():
 
 def test_new_opening_is_32_fresh_bytes():
     a, b = cl.new_opening(), cl.new_opening()
-    assert len(a) == len(b) == 32 and a != b
+    assert len(a) == len(b) == 32
+    assert a != b
 
 
 @pytest.mark.parametrize(
@@ -438,7 +439,8 @@ def test_errors_never_echo_values():
     entries[0]["role"] = secret_role
     with pytest.raises(cl.CommitmentLinkageError) as exc:
         cl.verify_commitment_linkage(_sign(_unsigned(entries=entries)), context=_ctx())
-    assert "Alice" not in str(exc.value) and "Alice" not in repr(exc.value)
+    assert "Alice" not in str(exc.value)
+    assert "Alice" not in repr(exc.value)
     assert exc.value.__cause__ is None
 
 
@@ -485,11 +487,15 @@ def test_open_commitment_is_not_public_and_caller_constructed_result_cannot_matc
     # result is not accepted by them.
     for public in (cl.verify_and_open_commitment, cl.verify_commitment_linkage):
         with pytest.raises(cl.CommitmentLinkageError) as exc:
-            public(forged, context=_ctx(), **(
-                dict(role="agent", fp_digest=FP, opening=bytes(32))
-                if public is cl.verify_and_open_commitment
-                else {}
-            ))
+            public(
+                forged,
+                context=_ctx(),
+                **(
+                    dict(role="agent", fp_digest=FP, opening=bytes(32))
+                    if public is cl.verify_and_open_commitment
+                    else {}
+                ),
+            )
         assert exc.value.code == "ENVELOPE_SHAPE"
 
 
@@ -497,9 +503,7 @@ def test_verify_and_open_commitment_public_path():
     env = _sign(_unsigned())
     role, _basis, opening, _ = VECTORS[0]
     assert (
-        cl.verify_and_open_commitment(
-            env, context=_ctx(), role=role, fp_digest=FP, opening=opening
-        )
+        cl.verify_and_open_commitment(env, context=_ctx(), role=role, fp_digest=FP, opening=opening)
         == cl.COMMITMENT_OPENED_MATCH
     )
     assert (
@@ -536,8 +540,10 @@ def test_non_ascii_key_material_closed_code_and_no_traceback_leak():
     with pytest.raises(cl.CommitmentLinkageError) as exc:
         cl.verify_commitment_linkage(_sign(_unsigned()), context=_ctx(issuer_key=bad))
     assert exc.value.code == "KEY_MATERIAL"
-    assert exc.value.__cause__ is None and exc.value.__context__ is None
-    assert "SECRETKEYCHAR" not in _formatted(exc.value) and "\u00e9" not in _formatted(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
+    assert "SECRETKEYCHAR" not in _formatted(exc.value)
+    assert "\u00e9" not in _formatted(exc.value)
     with pytest.raises(cl.CommitmentLinkageError) as exc2:
         cl.verify_and_open_commitment(
             _sign(_unsigned()),
@@ -556,7 +562,8 @@ def test_internal_failures_have_no_chained_context():
     entries[0]["role"] = secret_role
     with pytest.raises(cl.CommitmentLinkageError) as exc:
         cl.verify_commitment_linkage(_sign(_unsigned(entries=entries)), context=_ctx())
-    assert exc.value.__context__ is None and exc.value.__suppress_context__
+    assert exc.value.__context__ is None
+    assert exc.value.__suppress_context__
     assert "Alice" not in _formatted(exc.value)
 
 
@@ -595,7 +602,8 @@ def test_schema_and_verifier_reject_noncanonical_role_tokens(role):
 
 def test_schema_role_is_an_exact_enum():
     role_def = SCHEMA["definitions"]["CommitmentRoleV1"]
-    assert "pattern" not in role_def and "anyOf" not in role_def
+    assert "pattern" not in role_def
+    assert "anyOf" not in role_def
     assert set(role_def["enum"]) == set(cl._ROLES)
     assert len(role_def["enum"]) == len(cl._ROLES) == 12
 
@@ -677,7 +685,8 @@ def test_errors_inside_callers_handler_carry_no_cause_or_context(api, case, expe
     assert err.__context__ is None
     rendered = _formatted(err)
     assert "CALLERSENTINEL" not in rendered
-    assert "SECRETKEYCHAR" not in rendered and "SECRETKEYCHAR" not in repr(err)
+    assert "SECRETKEYCHAR" not in rendered
+    assert "SECRETKEYCHAR" not in repr(err)
 
 
 def test_open_wrapper_role_failure_inside_callers_handler_carries_no_context():
@@ -691,6 +700,8 @@ def test_open_wrapper_role_failure_inside_callers_handler_carries_no_context():
             )
         except cl.CommitmentLinkageError as err:
             caught = err
-    assert caught is not None and caught.code == "ROLE_SHAPE"
-    assert caught.__cause__ is None and caught.__context__ is None
+    assert caught is not None
+    assert caught.code == "ROLE_SHAPE"
+    assert caught.__cause__ is None
+    assert caught.__context__ is None
     assert "CALLERSENTINEL" not in _formatted(caught)

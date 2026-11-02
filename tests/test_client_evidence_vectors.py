@@ -174,10 +174,11 @@ def test_build_process_evidence_document_vector() -> None:
 
 @pytest.mark.parametrize("case", _VECTORS["negative_cases"], ids=lambda c: c["name"])
 def test_negative_vector_rejected(case: dict[str, Any]) -> None:
+    blind = bytes.fromhex(case["blind_hex"])
+    kind = case["artifact_kind"]
+    document = case["artifact_document"]
     with pytest.raises(Rejected):
-        slot_commitment(
-            bytes.fromhex(case["blind_hex"]), case["artifact_kind"], case["artifact_document"]
-        )
+        slot_commitment(blind, kind, document)
 
 
 def test_tampering_any_slot_changes_root() -> None:

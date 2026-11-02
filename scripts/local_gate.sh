@@ -301,24 +301,38 @@ if [[ "$MAIN_BOUND" == "1" ]] && ! skip sonar; then
     host="${SONAR_HOST_URL:-http://localhost:9000}"
     echo "  🔎 scanning against $host with qualitygate.wait=true …"
     # Produce coverage so the gate's new-code conditions can evaluate it.
-    if command -v pytest >/dev/null 2>&1; then
-      pytest tests/ -q -p no:cacheprovider \
-        --cov=traigent_schema --cov-report=xml:coverage.xml >/dev/null 2>&1 || true
-    fi
+    # relative_files makes the report's paths repo-relative (traigent_schema/...),
+    # which resolve inside the scanner container where the repo is mounted at /usr/src.
+    rm -f coverage.xml
+    covrc="$(mktemp)"; printf '[run]\nrelative_files = True\n' > "$covrc"
+    covlog="$(mktemp)"
+    pytest tests/ -q -p no:cacheprovider \
+      --cov=traigent_schema --cov-config="$covrc" --cov-report=xml:coverage.xml >"$covlog" 2>&1 || true
+    rm -f "$covrc"
+    if [[ ! -s coverage.xml ]]; then
+      echo "  ❌ coverage run produced no coverage.xml; refusing to scan with no coverage. Last output:"
+      tail -n 20 "$covlog" | sed 's/^/     /'
+      rm -f "$covlog"
+      FAIL=1
+    else
+    rm -f "$covlog"
     rc=0
     if command -v docker >/dev/null 2>&1; then
       net=""; [[ "$host" == *localhost* || "$host" == *127.0.0.1* ]] && net="--network=host"
       docker run --rm $net -e SONAR_HOST_URL="$host" -e SONAR_TOKEN \
         -v "$PWD":/usr/src sonarsource/sonar-scanner-cli:latest \
         -Dsonar.projectKey=Traigent_TraigentSchema \
+        -Dsonar.python.coverage.reportPaths=coverage.xml \
         -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300 || rc=$?
     else
       sonar-scanner -Dsonar.host.url="$host" \
         -Dsonar.projectKey=Traigent_TraigentSchema \
+        -Dsonar.python.coverage.reportPaths=coverage.xml \
         -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300 || rc=$?
     fi
     if [[ $rc -eq 0 ]]; then echo "  ✅ SonarQube quality gate passed"
     else echo "  ❌ SonarQube quality gate FAILED — fix locally before the main PR"; FAIL=1; fi
+    fi
   fi
 else
   hr; echo "ℹ️  SonarQube step skipped (not a release/hotfix branch). For main-bound"

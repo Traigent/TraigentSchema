@@ -9070,6 +9070,23 @@
       "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
       "version": "7.1.0",
       "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 12,
+          "fingerprint": "10b14360efd0878cb0cf06fa79eed21414402ae600e0b8f69935b2c03dd81a40"
+        }
+      ],
+      "reason": "Promotion of develop to main: the POST /api/v1/sessions request allOf gains two conditional if/then branches (10 -> 12 against main). TraigentSchema#610 adds the optional evaluator_code_digest, guarded by a branch that fires only when the field is present. TraigentSchema#615 adds the optional snapshot_g1_required and snapshot_g1_deadline_days, guarded by a branch that fires only when snapshot_g1_deadline_days is present. Each branch was already acknowledged individually against develop. Request bodies that omit these fields validate exactly as before, so a client built on the current main contract is not rejected; the published Python SDK 0.31.1 contains none of the three fields. The gate cannot align branches positionally when the count changes, so it flags this conservatively.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/615"
     }
   ]
 }

@@ -144,7 +144,8 @@ def test_mfa_rate_limited_is_distinct_429():
 def test_admin_reset_op():
     cat = _load("mfa/mfa_endpoints.json")
     op = cat["paths"]["/api/v1/admin/users/{user_id}/mfa/reset"]["post"]
-    assert op["parameters"][0]["name"] == "user_id" and op["parameters"][0]["in"] == "path"
+    assert op["parameters"][0]["name"] == "user_id"
+    assert op["parameters"][0]["in"] == "path"
     assert op["requestBody"]["required"] is True
     _ok("mfa/mfa_admin_reset_request_schema.json", {"reason": "lost device and recovery codes"})
     _bad("mfa/mfa_admin_reset_request_schema.json", {})

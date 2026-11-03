@@ -2170,7 +2170,8 @@ class TestUnsignedManifest:
         common = _load(CERT_DIR / "certification_common_v0_schema.json")
         text = common["definitions"]["DataFlowModeV0"]["description"]
         assert "private_online" in text
-        assert "does NOT attest" in text and "zero egress" in text
+        assert "does NOT attest" in text
+        assert "zero egress" in text
 
     def test_freshness_requires_nonce(self) -> None:
         manifest = _unsigned_manifest()

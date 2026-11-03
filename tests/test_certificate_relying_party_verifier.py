@@ -693,7 +693,7 @@ def test_expected_privacy_mode_parity_with_private_online_certificate() -> None:
     assert replace(prep, expected_privacy_mode="private_online").expected_privacy_mode == (
         "private_online"
     )
-    with pytest.raises(Exception):
+    with pytest.raises(verifier_impl.RelyingPartyVerificationError, match="^CO_CONTEXT$"):
         replace(prep, expected_privacy_mode="hybrid")
 
 

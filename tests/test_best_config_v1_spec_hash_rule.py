@@ -288,7 +288,8 @@ def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
     # NFC-colliding keys collapse; the later key in document order wins; order matters.
     forward = by_name["nfc_colliding_keys_last_wins"]["hashed_payload"]["config"]
     reverse = by_name["nfc_colliding_keys_last_wins_reversed"]["hashed_payload"]["config"]
-    assert forward == {"\u00e9": 2} and reverse == {"\u00e9": 1}
+    assert forward == {"\u00e9": 2}
+    assert reverse == {"\u00e9": 1}
     assert (
         by_name["nfc_colliding_keys_last_wins"]["spec_hash"]
         != by_name["nfc_colliding_keys_last_wins_reversed"]["spec_hash"]

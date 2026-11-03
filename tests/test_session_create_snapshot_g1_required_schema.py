@@ -54,4 +54,5 @@ def test_property_is_optional_and_declares_its_semantics() -> None:
     assert "snapshot_g1_required" not in schema["required"]
     prop = schema["properties"]["snapshot_g1_required"]
     assert prop["type"] == "boolean"
-    assert "G1" in prop["description"] and "B1" in prop["description"]
+    assert "G1" in prop["description"]
+    assert "B1" in prop["description"]

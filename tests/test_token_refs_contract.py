@@ -1,4 +1,5 @@
 """Plan v2.1 phase 1b-2a: the token-refs issuance contract."""
+
 import json
 import re
 from pathlib import Path
@@ -33,7 +34,12 @@ def _validator(definition):
 
 
 def _req(**over):
-    body = {"schema_version": 1, "agent_ref": AGENT, "operation_key": KEY, "items": [{"kind": "knob"}]}
+    body = {
+        "schema_version": 1,
+        "agent_ref": AGENT,
+        "operation_key": KEY,
+        "items": [{"kind": "knob"}],
+    }
     body.update(over)
     return body
 
@@ -46,7 +52,8 @@ def test_request_is_closed_and_bounded():
     doc = _load("token_refs_schema.json")
     assert doc["additionalProperties"] is False
     assert set(doc["required"]) == {"schema_version", "agent_ref", "operation_key", "items"}
-    assert doc["properties"]["items"]["minItems"] == 1 and doc["properties"]["items"]["maxItems"] == 200
+    assert doc["properties"]["items"]["minItems"] == 1
+    assert doc["properties"]["items"]["maxItems"] == 200
     assert doc["properties"]["items"]["items"]["additionalProperties"] is False
     assert _valid(_req())
     assert not _valid(_req(extra=1))
@@ -82,8 +89,15 @@ def test_refusal_envelope_one_fixed_branch_per_code():
     schema = _load("token_refs_schema.json")["definitions"]["TokenRefsRefusal"]
     assert schema["additionalProperties"] is False
     codes = schema["properties"]["error_code"]["enum"]
-    assert codes == ["invalid_request", "flag_disabled", "reference_not_found",
-                     "operation_key_conflict", "quota_exceeded", "internal_error", "service_unavailable"]
+    assert codes == [
+        "invalid_request",
+        "flag_disabled",
+        "reference_not_found",
+        "operation_key_conflict",
+        "quota_exceeded",
+        "internal_error",
+        "service_unavailable",
+    ]
     branches = [b["properties"] for b in schema["oneOf"]]
     assert [b["error_code"]["const"] for b in branches] == codes
     messages = schema["properties"]["message"]["enum"]
@@ -95,10 +109,13 @@ def test_route_is_declared_and_registered():
     doc = _load("token_refs_endpoints.json")
     post = doc["paths"]["/api/v1/optimization/token-refs"]["post"]
     assert post["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
-        "token_refs_schema.json#/definitions/TokenRefsRequest")
+        "token_refs_schema.json#/definitions/TokenRefsRequest"
+    )
     assert set(post["responses"]) == {"200", "400", "401", "403", "404", "409", "429", "500", "503"}
     mep = json.loads((Path(get_schemas_dir()) / "mep_endpoints.json").read_text())
-    assert any(re.search(r"token_refs_endpoints\.json$", e.get("paths_file", "")) for e in _entries(mep))
+    assert any(
+        re.search(r"token_refs_endpoints\.json$", e.get("paths_file", "")) for e in _entries(mep)
+    )
 
 
 def _entries(node):
@@ -114,8 +131,12 @@ def _entries(node):
 
 def test_service_unavailable_refusal_is_closed():
     v = _validator("TokenRefsRefusal")
-    ok = {"success": False, "error": "service_unavailable", "error_code": "service_unavailable",
-          "message": "Service is temporarily unavailable."}
+    ok = {
+        "success": False,
+        "error": "service_unavailable",
+        "error_code": "service_unavailable",
+        "message": "Service is temporarily unavailable.",
+    }
     assert not list(v.iter_errors(ok))
     assert list(v.iter_errors({**ok, "message": "Internal error."}))
     assert list(v.iter_errors({**ok, "details": {"x": 1}}))

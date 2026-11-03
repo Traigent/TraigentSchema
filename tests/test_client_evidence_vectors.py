@@ -165,7 +165,8 @@ def test_build_process_evidence_document_vector() -> None:
     doc = case["artifact_document"]
     assert set(doc) == {"snapshot_format", "manifest_digest"}
     assert doc["snapshot_format"] == "tes1"
-    assert doc["manifest_digest"].startswith("sha256:") and len(doc["manifest_digest"]) == 71
+    assert doc["manifest_digest"].startswith("sha256:")
+    assert len(doc["manifest_digest"]) == 71
     assert _jcs(doc).decode("utf-8") == case["jcs_utf8"]
     full = _VECTORS["manifests"][0]["slots"]["build_process_evidence"]
     assert full["artifact_document"] == doc
@@ -173,10 +174,11 @@ def test_build_process_evidence_document_vector() -> None:
 
 @pytest.mark.parametrize("case", _VECTORS["negative_cases"], ids=lambda c: c["name"])
 def test_negative_vector_rejected(case: dict[str, Any]) -> None:
+    blind = bytes.fromhex(case["blind_hex"])
+    kind = case["artifact_kind"]
+    document = case["artifact_document"]
     with pytest.raises(Rejected):
-        slot_commitment(
-            bytes.fromhex(case["blind_hex"]), case["artifact_kind"], case["artifact_document"]
-        )
+        slot_commitment(blind, kind, document)
 
 
 def test_tampering_any_slot_changes_root() -> None:

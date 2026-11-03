@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parent.parent
 def _load(name: str):
     path = ROOT / "scripts" / f"{name}.py"
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
@@ -123,9 +124,8 @@ def test_one_envelope_per_purpose_opens_and_validates() -> None:
         assert _open(entry) == entry["plaintext"]
         assert errors("label_envelope_schema.json", "", entry["envelope"]) == []
         packed = bytes.fromhex(entry["packed_hex"])
-        assert (
-            packed[0] == 1 and int.from_bytes(packed[1:5], "big") == entry["envelope"]["key_epoch"]
-        )
+        assert packed[0] == 1
+        assert int.from_bytes(packed[1:5], "big") == entry["envelope"]["key_epoch"]
         assert len(L.unb64u(entry["envelope"]["ciphertext"])) in (48, 80, 144, 272)
 
 
@@ -190,8 +190,10 @@ def test_envelope_schema_is_closed_and_bounded() -> None:
 def test_padding_vectors() -> None:
     for case in VECTORS["padding"]["ok"]:
         padded = L.pad(case["plaintext"])
-        assert padded.hex() == case["padded_hex"] and len(padded) == case["bucket"]
-        assert case["bucket"] in L.BUCKETS and L.unpad(padded) == case["plaintext"]
+        assert padded.hex() == case["padded_hex"]
+        assert len(padded) == case["bucket"]
+        assert case["bucket"] in L.BUCKETS
+        assert L.unpad(padded) == case["plaintext"]
     by_name = {c["name"]: c for c in VECTORS["padding"]["ok"]}
     assert by_name["31_bytes_fills_bucket_32"]["bucket"] == 32
     assert by_name["32_bytes_next_bucket_64"]["bucket"] == 64
@@ -349,7 +351,9 @@ def test_ref_formats_follow_the_backend() -> None:
     )
     assert errors(common, "/definitions/ObjectRef", longest + "0")  # 57 chars refused
     assert errors(common, "/definitions/ObjectRef", "cursorref_" + "0f" * 16)
-    assert errors(common, "/definitions/ObjectRef", "datasetsliceref_" + "0f" * 16)  # reuses evaluationsetref_
+    assert errors(
+        common, "/definitions/ObjectRef", "datasetsliceref_" + "0f" * 16
+    )  # reuses evaluationsetref_
     assert len(OBJECT_REF_KINDS) == 17
     assert errors(common, "/definitions/ObjectRef", "agent_build_ref_" + "0f" * 16)
     for entry in VECTORS["label_envelopes"]:

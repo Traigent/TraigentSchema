@@ -61,7 +61,7 @@
       }
     },
     "PrivacyModeSectionV0": {
-      "description": "The `privacy_mode` coverage section (gap C1: previously unrepresented). The build session's declared data-flow mode, signed even though D2 is unsupported and cannot be printed in frozen v0.",
+      "description": "The `privacy_mode` coverage section (gap C1: previously unrepresented). The build session's data-flow mode, signed even though D2 is unsupported and cannot be printed in frozen v0. `private_online` means the server-recorded session privacy policy was active for the run and the run used the online Traigent backend; it does NOT attest complete SDK egress, customer-content confinement, or zero egress (zero egress is `offline` with a D2 witness, unsupported in v0). `current_online` is an explicitly client-declared, unwitnessed mode. The value is server-derived from the server-owned stamp, never from a client declaration alone.",
       "type": "object",
       "additionalProperties": false,
       "required": ["declared_mode"],

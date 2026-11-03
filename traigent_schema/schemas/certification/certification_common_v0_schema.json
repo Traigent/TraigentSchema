@@ -113,11 +113,12 @@
       }
     },
     "DataFlowModeV0": {
-      "description": "Closed data-flow-mode vocabulary, grounded in the two modes already named elsewhere in this contract family: 'offline' (the retained future D2 payload shape, C6 Ruling 5) and 'current_online' (mandatory non-claim NC_CURRENT_ONLINE_FREETEXT: 'Current-online mode discloses tuned free-text configuration values'). No third mode is added here — inventing one would be a policy selection between competing registers this packet is not authorized to make (SCHEMA-1 stop condition). Used by the unsigned manifest's privacy_mode coverage section as the session-level declaration; D2 is unsupported in frozen v0.",
+      "description": "Closed data-flow-mode vocabulary with three values. 'private_online': the server-recorded session privacy policy was active for this run (effective_privacy_policy.privacy_active is true) and the run used the online Traigent backend. It does NOT attest complete SDK egress, customer-content confinement, or zero egress. The value is derived by the server from the server-owned stamp, never from a client declaration alone. 'current_online' (mandatory non-claim NC_CURRENT_ONLINE_FREETEXT: 'Current-online mode discloses tuned free-text configuration values') stays an explicitly client-declared, unwitnessed mode. 'offline' is reserved for a witnessed zero-backend-egress run (the retained future D2 payload shape, C6 Ruling 5); D2 is unsupported in frozen v0, so no run is certified as offline today. Used by the unsigned manifest's privacy_mode coverage section as the session-level declaration.",
       "type": "string",
       "enum": [
         "offline",
-        "current_online"
+        "current_online",
+        "private_online"
       ]
     },
     "SdkIdentityV0": {

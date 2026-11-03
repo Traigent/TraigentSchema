@@ -319,8 +319,17 @@ if [[ "$MAIN_BOUND" == "1" ]] && ! skip sonar; then
     rc=0
     if command -v docker >/dev/null 2>&1; then
       net=""; [[ "$host" == *localhost* || "$host" == *127.0.0.1* ]] && net="--network=host"
+      # In a linked worktree `.git` is a file pointing at the git common dir, outside
+      # the mount, so the scanner cannot open the repository. Mount that dir read-only
+      # at the same absolute path so the pointer resolves.
+      git_mount=()
+      common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+      if [[ -n "$common_dir" && -d "$common_dir" && "$common_dir" != "$PWD/.git" ]]; then
+        git_mount=(-v "$common_dir":"$common_dir":ro)
+      fi
       docker run --rm $net -e SONAR_HOST_URL="$host" -e SONAR_TOKEN \
-        -v "$PWD":/usr/src sonarsource/sonar-scanner-cli:latest \
+        -v "$PWD":"$PWD" ${git_mount[@]+"${git_mount[@]}"} -w "$PWD" sonarsource/sonar-scanner-cli:latest \
+        -Dsonar.projectBaseDir="$PWD" \
         -Dsonar.projectKey=Traigent_TraigentSchema \
         -Dsonar.python.coverage.reportPaths=coverage.xml \
         -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=300 || rc=$?

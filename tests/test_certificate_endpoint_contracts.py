@@ -364,6 +364,40 @@ def test_bind_g1_request_rejects_zero_manifest_root_digest() -> None:
     )
 
 
+def _bind_g1_request(declared_mode: str) -> dict:
+    return {
+        "build_session_ref": BUILD_REF,
+        "manifest_root_digest": DIGEST,
+        "commitment_scheme": "sha256_secret_blinded_v1",
+        "client_attestor_version": "1.0.0",
+        "client_key_ref": OPAQUE_REF,
+        "client_signature_algorithm": "ed25519",
+        "declared_mode": declared_mode,
+        "sdk_ref": "a" * 40,
+        "sdk_version": "1.0.0",
+    }
+
+
+def test_bind_g1_declared_mode_enum_is_the_three_data_flow_modes() -> None:
+    catalog = _load(CATALOG)
+    schema = _request_schema(catalog, "/api/v1beta/certificate-build-sessions/bind-g1", "POST")
+    node = schema["properties"]["declared_mode"]
+    assert sorted(node["enum"]) == ["current_online", "offline", "private_online"]
+
+
+@pytest.mark.parametrize("mode", ["offline", "current_online", "private_online"])
+def test_bind_g1_request_accepts_each_declared_mode(mode: str) -> None:
+    assert not SchemaValidator(contract="backend").validate_request(
+        "/api/v1beta/certificate-build-sessions/bind-g1", "POST", _bind_g1_request(mode)
+    )
+
+
+def test_bind_g1_request_rejects_unknown_declared_mode() -> None:
+    assert SchemaValidator(contract="backend").validate_request(
+        "/api/v1beta/certificate-build-sessions/bind-g1", "POST", _bind_g1_request("hybrid")
+    )
+
+
 @pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
 def test_client_key_request_rejects_fresh_pkcs8_private_der_without_echoing_key_bytes(
     algorithm: str,

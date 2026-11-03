@@ -2154,6 +2154,25 @@ class TestUnsignedManifest:
         manifest["privacy_mode"]["declared_mode"] = "hybrid"
         assert _errors(UNSIGNED_MANIFEST, manifest)
 
+    def test_data_flow_mode_enum_is_exactly_three_values(self) -> None:
+        common = _load(CERT_DIR / "certification_common_v0_schema.json")
+        enum = common["definitions"]["DataFlowModeV0"]["enum"]
+        assert sorted(enum) == ["current_online", "offline", "private_online"]
+        assert len(enum) == 3
+
+    @pytest.mark.parametrize("mode", ["offline", "current_online", "private_online"])
+    def test_privacy_mode_accepts_each_closed_value(self, mode: str) -> None:
+        manifest = _unsigned_manifest()
+        manifest["privacy_mode"]["declared_mode"] = mode
+        assert not _errors(UNSIGNED_MANIFEST, manifest)
+
+    def test_private_online_description_states_its_limits(self) -> None:
+        common = _load(CERT_DIR / "certification_common_v0_schema.json")
+        text = common["definitions"]["DataFlowModeV0"]["description"]
+        assert "private_online" in text
+        assert "does NOT attest" in text
+        assert "zero egress" in text
+
     def test_freshness_requires_nonce(self) -> None:
         manifest = _unsigned_manifest()
         del manifest["freshness"]["nonce"]

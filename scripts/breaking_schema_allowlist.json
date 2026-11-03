@@ -8994,6 +8994,84 @@
       "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
     },
     {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/privacy_mode/properties/declared_mode",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "53e9a13a5ebe230c109fef1983821cdfae779738aab292e8a8e29f52b3285f51"
+        }
+      ],
+      "reason": "Owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A (2026-10-29): a run made under the server-recorded session privacy policy must be certified truthfully instead of being forced into the unwitnessed current_online label. The signed privacy_mode.declared_mode enum gains the additive value private_online (the closed DataFlowModeV0 vocabulary in certification_common_v0_schema.json gains the same member). Verifiers pinned to 7.0.0 see an enum value they do not know and fail closed on it, so no old verifier can read it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress. offline stays reserved for a witnessed zero-backend-egress run (D2), which remains unsupported in frozen v0. The frozen-v0 byte-identity guards carry a matching disclosed exception (tests/_frozen_signatures_exception.py: assert_private_online_exception).",
+      "version": "7.1.0",
+      "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema/properties/signatures/allOf/0/properties/unsigned_manifest/properties/document/properties/privacy_mode/properties/declared_mode",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "c76d01f0fd91638faef6fb85936c55dc10cf075dbf313f5504f70629c15f432e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/privacy_mode/properties/declared_mode",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "882ade18431cce6558da2090c078ebddb0cd18d6d191928e6cb238541b9278ce"
+        }
+      ],
+      "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
+      "version": "7.1.0",
+      "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
       "file": "optimization/optimization_endpoints.json",
       "rule": "allOf_branch_count_changed",
       "findings": [

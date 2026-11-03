@@ -359,11 +359,16 @@ def _sign_fixture(
     *,
     claims: list[dict] | None = None,
     with_co: bool = True,
+    declared_mode: str | None = None,
 ) -> tuple[dict, object, VerificationContext, RelyingPartyPolicy]:
     cert = _build_valid_fixture(
         [claim_factory()] if claims is None else claims,
         with_co=with_co,
     )
+    if declared_mode is not None:
+        cert["signatures"]["unsigned_manifest"]["document"]["privacy_mode"][
+            "declared_mode"
+        ] = declared_mode
     seal = cert["ledger_seal_projection"]
     seal["seal_statement_digest"] = _digest(
         _SEAL_DOMAIN,
@@ -659,6 +664,37 @@ def test_g1_certificate_is_verified_offline(algorithm: str) -> None:
     assert result.valid
     assert result.code == "VERIFIED_SIGNATURE_ONLY"
     assert result.status_evidence == "not_checked"
+
+
+def test_privacy_modes_are_exactly_the_three_data_flow_modes() -> None:
+    assert verifier_impl._PRIVACY_MODES == frozenset(
+        {"offline", "current_online", "private_online"}
+    )
+
+
+@pytest.mark.parametrize("algorithm", ["ed25519", "ecdsa_p256_sha256"])
+def test_private_online_certificate_is_verified_offline(algorithm: str) -> None:
+    cert, issuer, context, policy = _sign_fixture(algorithm, declared_mode="private_online")
+    unsigned = cert["signatures"]["unsigned_manifest"]["document"]
+    assert unsigned["privacy_mode"]["declared_mode"] == "private_online"
+    # The client co-attestation context pins the mode the certificate carries.
+    assert _client_preparation_context(cert, context).expected_privacy_mode == (
+        "private_online"
+    )
+    result = verify_certificate(cert, issuer_public_key=issuer, context=context, policy=policy)
+    assert result.valid
+    assert result.code == "VERIFIED_SIGNATURE_ONLY"
+
+
+def test_expected_privacy_mode_parity_with_private_online_certificate() -> None:
+    cert, _, context, _ = _sign_fixture(declared_mode="private_online")
+    prep = _client_preparation_context(cert, context)
+    assert prep.expected_privacy_mode in verifier_impl._PRIVACY_MODES
+    assert replace(prep, expected_privacy_mode="private_online").expected_privacy_mode == (
+        "private_online"
+    )
+    with pytest.raises(verifier_impl.RelyingPartyVerificationError, match="^CO_CONTEXT$"):
+        replace(prep, expected_privacy_mode="hybrid")
 
 
 @pytest.mark.parametrize("verifier", [verify_certificate, verify, verify_agent_certificate])

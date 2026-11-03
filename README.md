@@ -420,7 +420,7 @@ what else the machine is doing); `make lint` and
 
 ## Version
 
-Current release line: **7.0.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
+Current release line: **7.1.0** (from `traigent_schema/version.py`; release notes in `CHANGELOG.md`).
 
 > **That is the repository version, not the published one.** PyPI's newest `traigent_schema`
 > release is **5.8.0** (uploaded 2026-09-05), so `pip install traigent_schema` installs 5.8.0.

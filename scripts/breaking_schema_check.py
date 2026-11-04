@@ -612,6 +612,56 @@ def _refuse_base_changing_keywords(node: dict, base: str, reg: Registry) -> None
             raise UnresolvedRef("$id not the registry key of its file")
 
 
+_LITERAL_KEYWORDS = frozenset({"enum", "const", "default", "examples", "example"})
+_NAME_MAP_KEYWORDS = frozenset(
+    {"properties", "patternProperties", "definitions", "$defs", "dependencies", "dependentSchemas"}
+)
+_DOC_SCAN_CACHE: dict[tuple[int, str], tuple[Registry, bool]] = {}
+
+
+def _document_changes_base(doc: Any) -> bool:
+    """True when the WHOLE document holds a base-changing / aliasing keyword other than its
+    own root ``$id``: any nested ``$id``/``id``, or any ``$anchor``/``$dynamic*``/
+    ``$recursive*``. A JSON Pointer fragment can cross such an ancestor without the walker
+    ever visiting it, so the check is document-level. Property/definition NAMES and literal
+    values (enum, const, default, examples) are not schema positions and are skipped."""
+
+    def scan(node: Any, *, root: bool) -> bool:
+        if isinstance(node, list):
+            return any(scan(item, root=False) for item in node)
+        if not isinstance(node, dict):
+            return False
+        for key, value in node.items():
+            if key in _ALWAYS_REFUSED_KEYWORDS or (key == "$id" and not root):
+                return True
+            if key in _LITERAL_KEYWORDS:
+                continue
+            if key in _NAME_MAP_KEYWORDS and isinstance(value, dict):
+                if any(scan(sub, root=False) for sub in value.values()):
+                    return True
+            elif scan(value, root=False):
+                return True
+        return False
+
+    return scan(doc, root=True)
+
+
+def _refuse_document(reg: Registry, uri: str) -> None:
+    """Fail closed for any document (old or new registry) that changes its resolution base
+    below its root; the verdict is cached once per registry and uri."""
+    key = (id(reg), uri)
+    cached = _DOC_SCAN_CACHE.get(key)
+    if cached is None or cached[0] is not reg:
+        try:
+            bad = _document_changes_base(reg.contents(uri))
+        except Exception:  # noqa: BLE001 - unknown document: refuse
+            bad = True
+        cached = (reg, bad)
+        _DOC_SCAN_CACHE[key] = cached
+    if cached[1]:
+        raise UnresolvedRef("document contains a base-changing keyword")
+
+
 _REF_SIBLING_ANNOTATIONS = frozenset({"description", "title", "$comment", "examples", "example"})
 
 
@@ -660,6 +710,7 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
         # deref() drops a $ref object's siblings, so inspect every node of the $ref chain RAW,
         # one hop at a time, before it is followed.
         cur, cur_base, cur_visited, hops = node, node_base, visited, 0
+        _refuse_document(reg, node_base)
         while isinstance(cur, dict) and isinstance(cur.get("$ref"), str):
             hops += 1
             _refuse_ref_siblings(cur, cur_base, reg)
@@ -674,6 +725,7 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
             except Exception as exc:  # noqa: BLE001 - unresolvable: no shortcut
                 raise UnresolvedRef(str(exc)) from exc
             cur_visited, cur_base = cur_visited | {key}, doc_uri
+            _refuse_document(reg, doc_uri)
         resolved, resolved_base, resolved_visited = cur, cur_base, cur_visited
         if not isinstance(resolved, dict):
             return resolved

@@ -1820,7 +1820,7 @@ def test_root_id_must_equal_the_registry_key_used_to_reach_the_file() -> None:
     reg = Registry().with_resource(uri, Resource(contents=doc, specification=DRAFT7))
     # root $id equal to the key it was reached by: allowed
     gate._refuse_base_changing_keywords(reg.contents(uri), uri, reg)
-    assert gate._fully_resolved_bytes({"$ref": uri}, "https://schemas.example/b.json", reg)
+    assert gate._fully_resolved_bytes({"$ref": uri}, uri, reg)
     # same root reached under a different key: refused (the $id does not match)
     with pytest.raises(gate.UnresolvedRef):
         gate._refuse_base_changing_keywords(doc, "https://schemas.example/other.json", reg)
@@ -1889,3 +1889,52 @@ def test_ref_with_only_annotation_siblings_is_still_eligible(tmp_path: Path) -> 
     result = _run_gate(repo, "master", "wrap")
     assert result.returncode == 0, result.stdout
     assert "response_narrowed_by_allof" in result.stdout
+
+
+def test_pointer_crossing_an_ancestor_with_id_gets_no_shortcut(tmp_path: Path) -> None:
+    """defs.json#/definitions/container/definitions/response crosses `container`, which
+    carries "$id": "sub/": the whole document is refused, not just the visited nodes."""
+    draft = "http://json-schema.org/draft-07/schema#"
+    closed = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+    }
+    node = {"$ref": "./widget_defs_schema.json#/definitions/container/definitions/response"}
+
+    def defs(prop: dict) -> dict:
+        body = {**closed, "properties": {"a": prop}}
+        return {
+            "$schema": draft,
+            "definitions": {"container": {"$id": "sub/", "definitions": {"response": body}}},
+        }
+
+    repo, filename = _allof_repo(tmp_path, "container", node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "widget_defs_schema.json").write_text(
+        json.dumps(defs({"type": "string"})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "widget_defs_schema.json").write_text(
+        json.dumps(defs({"type": ["string", "integer"]})), encoding="utf-8"
+    )
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_property_named_id_does_not_disable_the_shortcut() -> None:
+    assert not gate._document_changes_base(
+        {"$id": "u", "properties": {"id": {"type": "string"}, "$id": {"type": "string"}}}
+    )
+    assert gate._document_changes_base({"$id": "u", "definitions": {"c": {"$id": "sub/"}}})
+    assert gate._document_changes_base({"$anchor": "a"})

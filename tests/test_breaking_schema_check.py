@@ -1725,6 +1725,18 @@ def test_wrapped_ref_whose_target_widened_is_breaking(tmp_path: Path) -> None:
     assert "response_narrowed_by_allof" not in result.stdout
 
 
+def test_ref_shaped_literals_in_enum_are_not_resolved(tmp_path: Path) -> None:
+    old = {"type": "object", "enum": [{"$ref": "./a.json"}]}
+    new = {"allOf": [{"type": "object", "enum": [{"$ref": "./b.json"}]}]}
+    repo, filename = _allof_repo(tmp_path, "literal", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout
+    # identical to the pre-change checker for this change: 1 unacknowledged BREAKING, exit 1
+    assert result.returncode == 1, result.stdout
+    assert "BREAKING (unacked):   1" in result.stdout, result.stdout
+
+
 def test_typed_equality_distinguishes_true_from_one(tmp_path: Path) -> None:
     repo, filename = _allof_repo(tmp_path, "typed", {"enum": [1]})
     _commit_schema_change(

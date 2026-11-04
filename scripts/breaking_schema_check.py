@@ -581,9 +581,44 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
 
 
+_SCHEMA_MAP_KEYWORDS = frozenset(
+    {"properties", "patternProperties", "definitions", "$defs", "dependentSchemas", "dependencies"}
+)
+_SCHEMA_KEYWORDS = frozenset(
+    {"items", "additionalProperties", "additionalItems", "contains", "propertyNames"}
+    | {"not", "if", "then", "else"}
+)
+_SCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf"})
+
+
 def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
-    """Typed canonical serialization of ``raw`` with EVERY nested $ref resolved against
-    ``reg``. None on an unresolvable ref or a cycle, so the caller never shortcuts then."""
+    """Typed canonical serialization of the schema ``raw`` with every nested SCHEMA-position
+    $ref resolved against ``reg``. Only schema-valued keywords are descended; enum, const,
+    default, examples and any unknown keyword hold literal JSON values, compared as typed
+    bytes without resolving a ``$ref``-shaped object inside them. None on an unresolvable
+    ref or a cycle, so the caller never shortcuts then."""
+
+    def walk_value(key: str, value: Any, node_base: str, visited: frozenset[str], depth: int):
+        if key in _SCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+            return {
+                name: walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                for name, sub in value.items()
+            }
+        if key in _SCHEMA_KEYWORDS:
+            if isinstance(value, dict):
+                return walk(value, node_base, visited, depth + 1)
+            if isinstance(value, list):
+                return [
+                    walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                    for sub in value
+                ]
+            return value
+        if key in _SCHEMA_LIST_KEYWORDS and isinstance(value, list):
+            return [
+                walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                for sub in value
+            ]
+        return value  # opaque literal
 
     def walk(node: Any, node_base: str, visited: frozenset[str], depth: int) -> Any:
         if depth > 60:
@@ -591,14 +626,12 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
         resolved, resolved_base, resolved_visited, cyclic = deref(node, node_base, reg, visited)
         if cyclic:
             raise UnresolvedRef("cyclic")
-        if isinstance(resolved, dict):
-            return {
-                key: walk(value, resolved_base, resolved_visited, depth + 1)
-                for key, value in resolved.items()
-            }
-        if isinstance(resolved, list):
-            return [walk(item, resolved_base, resolved_visited, depth + 1) for item in resolved]
-        return resolved
+        if not isinstance(resolved, dict):
+            return resolved
+        return {
+            key: walk_value(key, value, resolved_base, resolved_visited, depth)
+            for key, value in resolved.items()
+        }
 
     try:
         return _canonical_json_bytes(walk(raw, base, frozenset(), 0))

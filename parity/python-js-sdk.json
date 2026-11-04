@@ -399,8 +399,8 @@
     "sdk032Surface": "Manifest Python pin advanced from d56e4353 to 6e8e4a54 (origin/develop, the SDK 0.32.0 release candidate) to cover two root exports the js-public-parity gate flagged unclassified on Traigent/Traigent#2861. requirement (traigent.runtime.decorator) is the runtime latency requirement decorator; traigent-js origin/main and origin/develop both export requirement from src/runtime/index.ts and list it in tests/integration/fixtures/api-surface.snapshot.json, so it is classified matched and added to requiredRootExports next to require. SnapshotBindingError (traigent.utils.exceptions) is the typed error of the Python opt-in snapshot store (S0 before dispatch, S1 from the terminal result, online G1); traigent-js has no snapshot store and no export of it (zero occurrences in src or its api-surface snapshot), so it is classified deferred-backlog, Python-only for now with no open JS design and no ticket. Owner may re-bucket."
   },
   "schemaRefresh": {
-    "lastSchemaFileSha": "9c92f0c9a0b199e4dfbe10d1bfa46830b3b48b860bd988918be4531a634a3eee",
-    "schemaFileCount": 560,
+    "lastSchemaFileSha": "db8e14948c53563940d38979a436f85ddf5f97040f365acc97af06d8b31c7693",
+    "schemaFileCount": 561,
     "note": "Auto-stamped by scripts/refresh_parity.py. Do not hand-edit this block."
   }
 }

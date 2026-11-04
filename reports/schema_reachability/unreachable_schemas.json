@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 476
+      "refOrEndpointGraph": 478
     },
-    "reachableCount": 509,
-    "schemaFileCount": 560,
-    "unreachableCount": 51
+    "reachableCount": 511,
+    "schemaFileCount": 561,
+    "unreachableCount": 50
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -60,7 +60,6 @@
     "optimization/guarantee_certificate_v2_delta_schema.json",
     "optimization/guarantee_certificate_v2_schema.json",
     "optimization/optimization_trace_signature_schema.json",
-    "optimization/session_create_response_schema.json",
     "optimization/tunable_schema.json",
     "results/comparison_schema.json",
     "results/report_request_schema.json",

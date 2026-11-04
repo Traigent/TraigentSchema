@@ -17,7 +17,14 @@ def _load():
 
 
 def _schema_ref(response):
-    return response.get("content", {}).get("application/json", {}).get("schema", {}).get("$ref")
+    schema = response.get("content", {}).get("application/json", {}).get("schema", {})
+    if "$ref" in schema:
+        return schema["$ref"]
+    # A response may narrow the envelope: allOf[envelope, oneOf[closed shapes, ...]] (#616).
+    for member in schema.get("allOf", []):
+        if member.get("$ref") in {ENVELOPE, REFUSAL}:
+            return member["$ref"]
+    return None
 
 
 def test_every_optimization_route_declares_error_responses():

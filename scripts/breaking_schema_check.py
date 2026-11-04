@@ -547,6 +547,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         findings=findings,
         depth=depth,
     )
+    if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
+        return
     resolved = _resolve_node_pair(scope, old_raw, new_raw, pointer)
     if resolved is None:
         return
@@ -565,6 +567,51 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     _compare_items(scope, pointer, old, new)
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
+
+
+_ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
+
+
+def _resolve_or_none(raw: Any, base: str, reg: Registry) -> Any:
+    try:
+        node, _base, _visited, cyclic = deref(raw, base, reg, frozenset())
+    except UnresolvedRef:
+        return None
+    return None if cyclic else node
+
+
+def _is_response_narrowing_wrap(
+    scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
+) -> bool:
+    """RESPONSE side only: the old schema S became ``allOf`` whose members include S verbatim
+    (the same resolved $ref target, or an identical subschema). Every instance the new schema
+    accepts is then also accepted by S, so a client written against S still reads every
+    response: the change only narrows what the server may send, which is not breaking for a
+    response. Emits one INFO and returns True. Anything else (no member equals the old S, an
+    extra sibling constraint keyword next to allOf, a request/conservative role) returns False
+    and the ordinary comparison reports the root findings as before; the allOf members are
+    never skipped blindly, so ``allOf: [{}]`` or an allOf without S stays BREAKING."""
+    if scope.role != "response" or not isinstance(new_raw, dict) or new_raw == old_raw:
+        return False
+    members = new_raw.get("allOf")
+    if "$ref" in new_raw or not isinstance(members, list) or not members:
+        return False
+    if any(key != "allOf" and key not in _ANNOTATION_KEYS for key in new_raw):
+        return False
+    old_node = _resolve_or_none(old_raw, scope.old_base, scope.old_reg)
+    if not isinstance(old_node, dict) or not old_node:
+        return False
+    for member in members:
+        if member == old_raw or _resolve_or_none(member, scope.new_base, scope.new_reg) == old_node:
+            scope.emit(
+                pointer,
+                "response_narrowed_by_allof",
+                "INFO",
+                "response schema now allOf[...] with the previous schema as a member: it can "
+                "only narrow what is sent, not break a client written against the previous schema",
+            )
+            return True
+    return False
 
 
 def _resolve_node_pair(

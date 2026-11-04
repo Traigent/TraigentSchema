@@ -1620,3 +1620,94 @@ def test_pre_push_hook_clears_git_local_env_before_exec(tmp_path: Path) -> None:
     # own HEAD (read via a call with a sanitized, not poisoned, env) is
     # unchanged.
     assert _run_git(REPO_ROOT, "rev-parse", "HEAD").strip() == repo_root_head_before
+
+
+# --- response schema wrapped in allOf that still contains the old schema (#616) -------------
+def _endpoints_doc(schema: dict) -> dict:
+    return {
+        "paths": {
+            "/w": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"409": {"content": {"application/json": {"schema": schema}}}},
+                }
+            }
+        }
+    }
+
+
+def _allof_repo(tmp_path: Path, name: str, baseline_schema: dict) -> tuple[Path, str]:
+    filename = "widget_endpoints.json"
+    repo = _response_schema_repo(tmp_path / name, filename, _endpoints_doc(baseline_schema))
+    return repo, filename
+
+
+ENVELOPE_REF = {"$ref": "./widget_response_schema.json"}
+
+
+def _allof_envelope_repo(tmp_path: Path, name: str) -> tuple[Path, str]:
+    repo, filename = _allof_repo(tmp_path, name, ENVELOPE_REF)
+    (repo / "traigent_schema" / "schemas" / "widgets" / "widget_response_schema.json").write_text(
+        json.dumps(_closed_response_schema(), indent=2) + "\n", encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "add envelope")
+    return repo, filename
+
+
+def test_response_allof_containing_old_ref_is_not_breaking(tmp_path: Path) -> None:
+    repo, filename = _allof_envelope_repo(tmp_path, "ok")
+    extra = {"type": "object", "properties": {"id": {"type": "string"}}}
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [extra, ENVELOPE_REF]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "wrapped",
+    [
+        {"allOf": [{}]},
+        {"allOf": [{"type": "object", "properties": {"id": {"type": "string"}}}]},
+        {"allOf": [ENVELOPE_REF], "type": "object"},
+        {"allOf": [ENVELOPE_REF], "required": ["extra"]},
+    ],
+)
+def test_response_allof_without_the_old_schema_stays_breaking(tmp_path: Path, wrapped: dict) -> None:
+    repo, filename = _allof_envelope_repo(tmp_path, "bad")
+    _commit_schema_change(repo, "wrap", _endpoints_doc(wrapped), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    # a sibling constraint keyword next to allOf is never waved through by the shortcut
+    assert "response_narrowed_by_allof" not in result.stdout
+    if wrapped["allOf"] != [ENVELOPE_REF]:
+        assert result.returncode == 1, result.stdout
+
+
+def test_request_side_allof_narrowing_stays_breaking(tmp_path: Path) -> None:
+    filename = "widget_endpoints.json"
+    base = {
+        "paths": {
+            "/w": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": ENVELOPE_REF}}},
+                    "responses": {"200": {"content": {"application/json": {"schema": {"type": "object"}}}}},
+                }
+            }
+        }
+    }
+    repo = _response_schema_repo(tmp_path / "req", filename, base)
+    (repo / "traigent_schema" / "schemas" / "widgets" / "widget_response_schema.json").write_text(
+        json.dumps(_closed_response_schema(), indent=2) + "\n", encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "add schema")
+    changed = json.loads(json.dumps(base))
+    changed["paths"]["/w"]["post"]["requestBody"]["content"]["application/json"]["schema"] = {
+        "allOf": [ENVELOPE_REF, {"type": "object", "required": ["id"]}]
+    }
+    _commit_schema_change(repo, "req-wrap", changed, "req wrap", filename)
+    result = _run_gate(repo, "master", "req-wrap")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout

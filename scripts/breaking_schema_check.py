@@ -581,14 +581,32 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
 
 
+# CLOSED keyword classification for the allOf-narrowing shortcut. Every keyword of a visited
+# schema node must be in exactly one of these sets; ANY other keyword (including a typo or a
+# future draft keyword) means no shortcut, so an unlisted schema-valued keyword can never hide
+# a $ref whose target widened.
 _SCHEMA_MAP_KEYWORDS = frozenset(
     {"properties", "patternProperties", "definitions", "$defs", "dependentSchemas", "dependencies"}
 )
 _SCHEMA_KEYWORDS = frozenset(
-    {"items", "additionalProperties", "additionalItems", "contains", "propertyNames"}
-    | {"not", "if", "then", "else"}
+    {"items", "prefixItems", "additionalProperties", "additionalItems", "unevaluatedItems"}
+    | {"unevaluatedProperties", "contains", "propertyNames", "not", "if", "then", "else"}
 )
 _SCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf"})
+_LITERAL_KEYWORDS = frozenset(
+    {"type", "enum", "const", "default", "examples", "example", "required", "format", "pattern"}
+    | {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"}
+    | {"minLength", "maxLength", "minItems", "maxItems", "uniqueItems"}
+    | {"minProperties", "maxProperties", "minContains", "maxContains", "dependentRequired"}
+    | {"contentEncoding", "contentMediaType", "readOnly", "writeOnly", "deprecated", "nullable"}
+    | {"title", "description", "$comment", "$schema", "$id", "discriminator"}
+)
+_NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
+_VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})
+
+
+def _is_literal_keyword(key: str) -> bool:
+    return key in _LITERAL_KEYWORDS or key.startswith("x-")
 
 
 _ALWAYS_REFUSED_KEYWORDS = frozenset(
@@ -612,10 +630,6 @@ def _refuse_base_changing_keywords(node: dict, base: str, reg: Registry) -> None
             raise UnresolvedRef("$id not the registry key of its file")
 
 
-_LITERAL_KEYWORDS = frozenset({"enum", "const", "default", "examples", "example"})
-_NAME_MAP_KEYWORDS = frozenset(
-    {"properties", "patternProperties", "definitions", "$defs", "dependencies", "dependentSchemas"}
-)
 _DOC_SCAN_CACHE: dict[tuple[int, str], tuple[Registry, bool]] = {}
 
 
@@ -634,7 +648,7 @@ def _document_changes_base(doc: Any) -> bool:
         for key, value in node.items():
             if key in _ALWAYS_REFUSED_KEYWORDS or (key == "$id" and not root):
                 return True
-            if key in _LITERAL_KEYWORDS:
+            if key in _VALUE_LITERAL_SKIP or key.startswith("x-"):
                 continue
             if key in _NAME_MAP_KEYWORDS and isinstance(value, dict):
                 if any(scan(sub, root=False) for sub in value.values()):
@@ -702,7 +716,9 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
                 walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
                 for sub in value
             ]
-        return value  # opaque literal
+        if _is_literal_keyword(key):
+            return value  # literal: compared as typed bytes, never resolved
+        raise UnresolvedRef(f"keyword {key!r} is not classified")
 
     def walk(node: Any, node_base: str, visited: frozenset[str], depth: int) -> Any:
         if depth > 60:

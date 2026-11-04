@@ -1942,3 +1942,56 @@ def test_property_named_id_does_not_disable_the_shortcut() -> None:
     )
     assert gate._document_changes_base({"$id": "u", "definitions": {"c": {"$id": "sub/"}}})
     assert gate._document_changes_base({"$anchor": "a"})
+
+
+def _wrapped_ref_widening_repo(tmp_path: Path, name: str, holder: dict) -> Path:
+    """`holder` is the response schema embedding a $ref to widgets/t_schema.json, which widens
+    string -> [string, integer] on the head side; the head wraps the holder in allOf."""
+    draft = "http://json-schema.org/draft-07/schema#"
+    repo, filename = _allof_repo(tmp_path, name, holder)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "t_schema.json").write_text(
+        json.dumps({"$schema": draft, "type": "string"}), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "target")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "t_schema.json").write_text(
+        json.dumps({"$schema": draft, "type": ["string", "integer"]}), encoding="utf-8"
+    )
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [holder, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    return repo
+
+
+def test_ref_under_prefixitems_whose_target_widened_is_breaking(tmp_path: Path) -> None:
+    holder = {"type": "array", "prefixItems": [{"$ref": "./t_schema.json"}]}
+    repo = _wrapped_ref_widening_repo(tmp_path, "prefix", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_unknown_keyword_beside_a_wrapped_schema_disables_the_shortcut(tmp_path: Path) -> None:
+    holder = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+        "foo": {"$ref": "./t_schema.json"},
+    }
+    repo = _wrapped_ref_widening_repo(tmp_path, "foo", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_keyword_classification_is_closed() -> None:
+    for key in ("prefixItems", "unevaluatedItems", "unevaluatedProperties", "if", "dependentSchemas"):
+        assert key in gate._SCHEMA_KEYWORDS | gate._SCHEMA_MAP_KEYWORDS
+    assert not (gate._LITERAL_KEYWORDS & (gate._SCHEMA_KEYWORDS | gate._SCHEMA_MAP_KEYWORDS))
+    assert gate._is_literal_keyword("x-content-class")
+    assert not gate._is_literal_keyword("foo")

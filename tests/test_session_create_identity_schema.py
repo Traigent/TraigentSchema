@@ -493,4 +493,5 @@ def test_code_digest_is_classed_as_digest_in_manifest() -> None:
     )
     suffix = "/properties/evaluator_code_digest"
     classes = [v for k, v in manifest["classes"].items() if k.endswith(suffix)]
-    assert classes and set(classes) == {"digest"}, classes
+    assert classes, classes
+    assert set(classes) == {"digest"}, classes

@@ -14,7 +14,9 @@ from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
 from tests._frozen_signatures_exception import (
+    PRIVATE_ONLINE_RELS,
     assert_description_only_exception,
+    assert_private_online_exception,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,9 +56,6 @@ _FROZEN_DIGESTS: dict[str, str] = {
     "traigent_schema/certification/process_record_verifier.py": (
         "b726bbf7065f4874b3e40a5de1668760336000a6f999dd2ff99e707a645a9eaa"
     ),
-    "traigent_schema/schemas/certification/certification_common_v0_schema.json": (
-        "069e488b794a35f4b85c66f796cd7278bbb4deb7b8b17c9483b21461c91f3c4f"
-    ),
     "traigent_schema/schemas/certification/agent_certificate_v0_schema.json": (
         "df29e85888df6de1166f19b2f17ec4238864be5afa96421ed75e37059aceb390"
     ),
@@ -72,16 +71,16 @@ _FROZEN_DIGESTS: dict[str, str] = {
     "traigent_schema/schemas/certification/certificate_client_evidence_manifest_v0_schema.json": (
         "2ea9ad3fa07cfdd006c44b2de7c65c63a0e6ef3d91b2e3bc1409776f00188aed"
     ),
-    "traigent_schema/schemas/certification/certificate_unsigned_manifest_v0_schema.json": (
-        "aaaa004541af79c9b5221f95dbdf15d9f5759edb78a9f0b53cd95e2f854bd9f8"
-    ),
     "traigent_schema/schemas/certification/certificate_verification_materials_v0_schema.json": (
         "232911c85d697d5793d5dd2a7f9aefbba53e5544159408d60134f457679f3a8e"
     ),
-    "traigent_schema/schemas/certification/certification_endpoints_v0.json": (
-        "da60d93ed3aa1c4a97f671972fecea967a756ffa15df1f884cb0105819a4542e"
-    ),
 }
+# certification_common_v0_schema.json, certificate_unsigned_manifest_v0_schema.json
+# and certification_endpoints_v0.json are likewise NOT in _FROZEN_DIGESTS: they carry
+# the disclosed private_online exception (owner cards
+# security-policy-2026-10-29-certify-private-runs = A and
+# security-policy-2026-10-29-private-mode-label = A, 2026-10-29), guarded by
+# assert_private_online_exception in tests/_frozen_signatures_exception.py.
 # certificate_signatures_v0_schema.json is deliberately NOT in _FROZEN_DIGESTS:
 # it carries the one disclosed exception below (owner ruling D-T4.1 = A,
 # 2026-09-11) and gets its own, narrower guard instead of the blind
@@ -406,6 +405,40 @@ def test_certificate_signatures_v0_disclosed_exception() -> None:
     """
 
     assert_description_only_exception(_FROZEN_REF, ROOT)
+
+
+def test_private_online_v0_disclosed_exception() -> None:
+    """The disclosed additive ``private_online`` data-flow value (owner cards
+    security-policy-2026-10-29-certify-private-runs = A and
+    security-policy-2026-10-29-private-mode-label = A, 2026-10-29). See
+    tests/_frozen_signatures_exception.py for the guard.
+    """
+
+    assert_private_online_exception(_FROZEN_REF, ROOT)
+
+
+@pytest.mark.parametrize("tampered_index", [0, 1, 2])
+def test_private_online_pins_are_checked_without_the_anchor(
+    tampered_index: int, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Every private_online file keeps an unconditional sha256 pin: a tampered
+    file fails even when the anchor is unavailable (shallow clone)."""
+
+    monkeypatch.setattr(
+        "tests._frozen_signatures_exception._git_show",
+        lambda *_args, **_kwargs: None,
+    )
+    for rel in PRIVATE_ONLINE_RELS:
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / rel).read_bytes())
+    tampered = tmp_path / PRIVATE_ONLINE_RELS[tampered_index]
+    tampered.write_bytes(tampered.read_bytes() + b" ")
+    with pytest.raises(AssertionError, match="no longer matches"):
+        assert_private_online_exception(_FROZEN_REF, tmp_path)
+    tampered.write_bytes((ROOT / PRIVATE_ONLINE_RELS[tampered_index]).read_bytes())
+    with pytest.raises(pytest.skip.Exception):
+        assert_private_online_exception(_FROZEN_REF, tmp_path)
 
 
 def test_the_attestation_basis_restriction_is_not_a_sibling_of_a_ref() -> None:

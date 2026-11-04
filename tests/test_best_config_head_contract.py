@@ -1,4 +1,5 @@
 """Plan v2.1 phase 0b: ref-addressed agent head read and the protected-publish contract."""
+
 import json
 from pathlib import Path
 
@@ -60,12 +61,21 @@ def test_head_response_is_closed_and_has_no_raw_ids():
 
 @pytest.mark.parametrize(
     ("generation", "exists", "valid"),
-    [(0, False, True), (1, True, True), (7, True, True), (0, True, False), (1, False, False),
-     (5, False, False), (-1, False, False)],
+    [
+        (0, False, True),
+        (1, True, True),
+        (7, True, True),
+        (0, True, False),
+        (1, False, False),
+        (5, False, False),
+        (-1, False, False),
+    ],
 )
 def test_exists_is_false_iff_generation_is_zero(generation, exists, valid):
     body = {"agent_ref": REF, "environment": "default", "generation": generation, "exists": exists}
-    assert (not list(_validator("agent_head_by_ref_response_schema.json").iter_errors(body))) is valid
+    assert (
+        not list(_validator("agent_head_by_ref_response_schema.json").iter_errors(body))
+    ) is valid
 
 
 def test_response_rejects_raw_ids_and_extra_members():
@@ -142,7 +152,9 @@ def test_publish_headers_and_applicability_decision_table():
     assert headers["X-Traigent-Agent-Ref"]["schema"]["$ref"].endswith("#/definitions/AgentRef")
     assert headers["X-Traigent-Expected-Head-Generation"]["schema"]["minimum"] == 0
     rule = post["description"]
-    assert "if and only if" in rule and "content_less_v1" in rule and "content_less_v2" in rule
+    assert "if and only if" in rule
+    assert "content_less_v1" in rule
+    assert "content_less_v2" in rule
     rows = [f"[{n}]" for n in range(1, 9)]
     assert all(row in rule for row in rows)
     for needle in (
@@ -182,8 +194,12 @@ def test_refusal_precedence_is_written_down():
     assert positions == sorted(positions)
 
 
-PROTECTED_409 = ["head_environment_mismatch", "head_agent_mismatch", "head_generation_stale",
-                 "head_publish_conflict"]
+PROTECTED_409 = [
+    "head_environment_mismatch",
+    "head_agent_mismatch",
+    "head_generation_stale",
+    "head_publish_conflict",
+]
 
 
 def _envelope_body(code):
@@ -234,11 +250,21 @@ def test_every_complete_protected_409_body_matches_exactly_one_branch(code):
 @pytest.mark.parametrize(
     "body",
     [
-        {"success": False, "error": "If-Match is required to update an existing best config",
-         "error_code": "BEST_CONFIG_CONFLICT",
-         "message": "If-Match is required to update an existing best config"},
-        {"success": False, "code": "STALE_HEAD_GENERATION", "error_code": "STALE_HEAD_GENERATION",
-         "current_generation": 3, "expected_generation": 1, "error": "x", "message": "x"},
+        {
+            "success": False,
+            "error": "If-Match is required to update an existing best config",
+            "error_code": "BEST_CONFIG_CONFLICT",
+            "message": "If-Match is required to update an existing best config",
+        },
+        {
+            "success": False,
+            "code": "STALE_HEAD_GENERATION",
+            "error_code": "STALE_HEAD_GENERATION",
+            "current_generation": 3,
+            "expected_generation": 1,
+            "error": "x",
+            "message": "x",
+        },
     ],
 )
 def test_legacy_409_bodies_are_still_valid(body):
@@ -271,8 +297,12 @@ def _publish_500_validator():
 # The body the Backend emits for an unchanged legacy publish that fails unexpectedly
 # (src/routes/best_config_routes.py error_response(..., status=500, error_code="BEST_CONFIG_ERROR")
 # through the 5xx branch of src/utils/response_handler.py).
-LEGACY_500 = {"success": False, "message": "Internal server error", "error": "Internal server error",
-              "error_code": "BEST_CONFIG_ERROR"}
+LEGACY_500 = {
+    "success": False,
+    "message": "Internal server error",
+    "error": "Internal server error",
+    "error_code": "BEST_CONFIG_ERROR",
+}
 
 
 def test_publish_500_has_two_disjoint_branches():
@@ -312,10 +342,18 @@ def test_a_malformed_protected_500_is_rejected():
 
 # --- 401 / 403 of the protected publish: closed `unauthenticated` / `forbidden`, disjoint from legacy ---
 
-LEGACY_401 = {"success": False, "message": "Authentication required",
-              "error": "AUTHENTICATION_REQUIRED", "error_code": "AUTHENTICATION_REQUIRED"}
-LEGACY_403 = {"success": False, "message": "Permission denied", "error": "PERMISSION_DENIED",
-              "error_code": "PERMISSION_DENIED"}
+LEGACY_401 = {
+    "success": False,
+    "message": "Authentication required",
+    "error": "AUTHENTICATION_REQUIRED",
+    "error_code": "AUTHENTICATION_REQUIRED",
+}
+LEGACY_403 = {
+    "success": False,
+    "message": "Permission denied",
+    "error": "PERMISSION_DENIED",
+    "error_code": "PERMISSION_DENIED",
+}
 
 
 def _auth_status_validator(status):
@@ -324,14 +362,17 @@ def _auth_status_validator(status):
         Resource.from_contents(_load(f"best_config_publish_{status}_schema.json")),
     )
     schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
-    return Draft7Validator({"$id": BASE + "execution/best_config_endpoints.json", **schema},
-                           registry=registry)
+    return Draft7Validator(
+        {"$id": BASE + "execution/best_config_endpoints.json", **schema}, registry=registry
+    )
 
 
 @pytest.mark.parametrize(
     ("status", "closed", "legacy_body"),
-    [("401", ["unauthenticated"], LEGACY_401),
-     ("403", ["forbidden", "head_write_unauthorized"], LEGACY_403)],
+    [
+        ("401", ["unauthenticated"], LEGACY_401),
+        ("403", ["forbidden", "head_write_unauthorized"], LEGACY_403),
+    ],
 )
 def test_publish_auth_statuses_have_two_disjoint_branches(status, closed, legacy_body):
     schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
@@ -350,8 +391,11 @@ def test_publish_auth_statuses_have_two_disjoint_branches(status, closed, legacy
 
 @pytest.mark.parametrize(
     ("status", "code", "other"),
-    [("401", "unauthenticated", "forbidden"), ("403", "forbidden", "unauthenticated"),
-     ("403", "head_write_unauthorized", "head_body_invalid")],
+    [
+        ("401", "unauthenticated", "forbidden"),
+        ("403", "forbidden", "unauthenticated"),
+        ("403", "head_write_unauthorized", "head_body_invalid"),
+    ],
 )
 def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, other):
     validator = _auth_status_validator(status)
@@ -368,75 +412,104 @@ def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, 
 
 # --- the authentication stage, the decision table and the refusal order agree (sol r5 P2) ---
 
+
 def _post_description():
     return _publish()["description"]
 
 
 def test_auth_envelope_predicate_is_the_agent_ref_header_alone():
     text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
-    assert "iff" not in stage and "if and only if the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in stage
+    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
+    assert "iff" not in stage
+    assert (
+        "if and only if the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
+        in stage
+    )
     assert "before any session is resolved" in stage
     assert "Expected-Head-Generation and Agent-Id play no part" in stage
     # the response descriptions and the vendored envelopes state the same predicate, no other
     for status in ("401", "403"):
         desc = _publish()["responses"][status]["description"]
-        assert "carries X-Traigent-Agent-Ref" in desc and "Expected-Head-Generation" not in desc
-        assert "Expected-Head-Generation" not in _load(f"best_config_publish_{status}_schema.json")["description"]
+        assert "carries X-Traigent-Agent-Ref" in desc
+        assert "Expected-Head-Generation" not in desc
+        assert (
+            "Expected-Head-Generation"
+            not in _load(f"best_config_publish_{status}_schema.json")["description"]
+        )
 
 
 def test_row_7_is_legacy_for_the_auth_stage_too():
     text = _post_description()
-    assert "[7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged" in text
-    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
-    assert "decision-table row [7]" in stage and "legacy generic 401/403" in stage
+    assert (
+        "[7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged"
+        in text
+    )
+    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
+    assert "decision-table row [7]" in stage
+    assert "legacy generic 401/403" in stage
     assert "everything AFTER authentication" in stage
 
 
 def test_known_content_less_session_without_header_gap_is_documented():
     text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
-    assert "KNOWN, ACCEPTED GAP" in stage and "row [6]" in stage
+    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
+    assert "KNOWN, ACCEPTED GAP" in stage
+    assert "row [6]" in stage
     assert "refused 400 head_capture_invalid" in stage
-    assert "[6] No Agent-Ref, content-less session" in text and "-> 400 head_capture_invalid" in text
+    assert "[6] No Agent-Ref, content-less session" in text
+    assert "-> 400 head_capture_invalid" in text
 
 
 def test_refusal_order_has_one_binding_resolution_stage_between_capture_and_unknown_ref():
     text = _post_description()
-    order = text[text.index("ORDER OF REFUSALS"):]
+    order = text[text.index("ORDER OF REFUSALS") :]
     positions = [order.index(item) for item in STAGES]
     assert positions == sorted(positions), positions
     assert "one order; the first stage that applies answers" in order
     docs = _docs()
-    section = docs[docs.index("**Refusal precedence.**"):docs.index("## Scope and commands")]
+    section = docs[docs.index("**Refusal precedence.**") : docs.index("## Scope and commands")]
     flat = " ".join(section.split()).replace("`", "").replace("**", "")
-    codes = ["(1) not authenticated, 401 unauthenticated", "(2) permissions or project role denied, 403 forbidden",
-             "(3) malformed or incomplete capture, 400 head_capture_invalid", "(4) session binding resolution",
-             "403 head_write_unauthorized", "404 reference_not_found", "500 internal_error",
-             "(5) the resolved binding against the request", "(6) a well-formed but unknown or foreign ref, 404 reference_not_found",
-             "(7) agent WRITE denied, 403 head_write_unauthorized", "(8) session agreement, 409 head_agent_mismatch",
-             "(9) 409 head_environment_mismatch", "(10) the body, 400 head_body_invalid",
-             "(11) the head compare, 409 head_generation_stale", "(12) the ordinary conflict, 409 head_publish_conflict"]
+    codes = [
+        "(1) not authenticated, 401 unauthenticated",
+        "(2) permissions or project role denied, 403 forbidden",
+        "(3) malformed or incomplete capture, 400 head_capture_invalid",
+        "(4) session binding resolution",
+        "403 head_write_unauthorized",
+        "404 reference_not_found",
+        "500 internal_error",
+        "(5) the resolved binding against the request",
+        "(6) a well-formed but unknown or foreign ref, 404 reference_not_found",
+        "(7) agent WRITE denied, 403 head_write_unauthorized",
+        "(8) session agreement, 409 head_agent_mismatch",
+        "(9) 409 head_environment_mismatch",
+        "(10) the body, 400 head_body_invalid",
+        "(11) the head compare, 409 head_generation_stale",
+        "(12) the ordinary conflict, 409 head_publish_conflict",
+    ]
     pos = [flat.index(c) for c in codes]
     assert pos == sorted(pos), pos
 
 
 def test_description_and_docs_state_the_binding_resolution_stage_identically():
     text = _post_description()
-    stage = text[text.index("(4) SESSION BINDING RESOLUTION"):text.index("(5) the resolved binding")]
+    stage = text[
+        text.index("(4) SESSION BINDING RESOLUTION") : text.index("(5) the resolved binding")
+    ]
     docs = " ".join(_docs().split()).replace("`", "").replace("**", "")
     for clause in (
         "the caller may not use the session 403 head_write_unauthorized",
         "the session is deleted, not registered or outside the caller's scope 404 reference_not_found",
         "the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed content_less block) 500 internal_error",
     ):
-        assert clause in stage and clause in docs, clause
+        assert clause in stage, clause
+        assert clause in docs, clause
 
 
 def test_row_4_is_stage_5_and_never_answers_an_unreadable_session():
     text = _post_description()
-    row4 = text[text.index("[4] Agent-Ref present"):text.index("[5] ")]
-    assert "stage (5) of the ORDER OF REFUSALS" in row4 and "-> 400 head_capture_invalid" in row4
+    row4 = text[text.index("[4] Agent-Ref present") : text.index("[5] ")]
+    assert "stage (5) of the ORDER OF REFUSALS" in row4
+    assert "-> 400 head_capture_invalid" in row4
     assert "stage (4) answers it first" in row4
     assert "no resolvable content-less session binding" not in text
     docs = " ".join(_docs().split())
@@ -446,11 +519,18 @@ def test_row_4_is_stage_5_and_never_answers_an_unreadable_session():
 def test_legacy_allow_list_is_stated_in_both_places():
     text = _post_description()
     assert "ONLY through this ALLOW-LIST" in text
-    for clause in ("spec.provenance names no session id", "positively read", "positively absent",
-                   "every other outcome is refused at stage (4)"):
+    for clause in (
+        "spec.provenance names no session id",
+        "positively read",
+        "positively absent",
+        "every other outcome is refused at stage (4)",
+    ):
         assert clause in text, clause
     docs = " ".join(_docs().split()).replace("**", "")
-    assert "Legacy allow-list: the legacy path is taken only when (a) the publish names no session id" in docs
+    assert (
+        "Legacy allow-list: the legacy path is taken only when (a) the publish names no session id"
+        in docs
+    )
     assert "every other outcome is refused at stage 4 and writes nothing" in docs
 
 
@@ -467,7 +547,11 @@ COMBINED_FAILURES = [
     ("unknown Agent-Ref + a readable content-less session", {6}, "404 reference_not_found"),
     ("Agent-Ref + a readable legacy-shape session (row 4)", {5}, "400 head_capture_invalid"),
     ("Agent-Ref + no session id (row 4)", {5}, "400 head_capture_invalid"),
-    ("no Agent-Ref + a readable content-less session (row 6) + wrong environment", {5, 9}, "400 head_capture_invalid"),
+    (
+        "no Agent-Ref + a readable content-less session (row 6) + wrong environment",
+        {5, 9},
+        "400 head_capture_invalid",
+    ),
 ]
 
 
@@ -475,7 +559,7 @@ def _stage_texts():
     import re
 
     text = _post_description()
-    order = text[text.index("ORDER OF REFUSALS"):]
+    order = text[text.index("ORDER OF REFUSALS") :]
     parts = re.split(r"\((\d+)\) ", order)
     return {int(parts[i]): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
 
@@ -490,10 +574,13 @@ def test_combined_failures_have_exactly_one_answer(case, failing, answer):
 
 # --- the layer-disabled contract is stated once and every predicate statement is qualified (sol r6 P2) ---
 
+
 def _docs():
     from pathlib import Path
 
-    return (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text(encoding="utf-8")
+    return (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_layer_disabled_means_every_response_is_legacy_and_is_stated_once():
@@ -502,19 +589,26 @@ def test_layer_disabled_means_every_response_is_legacy_and_is_stated_once():
     assert "EVERY response on this route is the legacy one, whatever the headers" in text
     assert "defaults OFF" in text
     docs = _docs()
-    assert "With the layer disabled every response on this route is the legacy\none, whatever the headers" in docs
+    assert (
+        "With the layer disabled every response on this route is the legacy\none, whatever the headers"
+        in docs
+    )
 
 
 def test_every_predicate_statement_names_the_layer_condition():
     for status in ("401", "403"):
         desc = _publish()["responses"][status]["description"]
-        assert "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in desc
+        assert (
+            "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
+            in desc
+        )
         assert "this header alone" not in desc
         assert "every request while the layer is disabled" in desc
     assert "this header alone" not in _load("best_config_publish_401_schema.json")["description"]
-    assert "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref" in _load(
-        "best_config_publish_401_schema.json"
-    )["description"]
+    assert (
+        "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
+        in _load("best_config_publish_401_schema.json")["description"]
+    )
     docs = _docs()
     assert "iff it carries `X-Traigent-Agent-Ref`" not in docs
     assert "iff the layer is enabled and it carries `X-Traigent-Agent-Ref`" in docs
@@ -522,7 +616,7 @@ def test_every_predicate_statement_names_the_layer_condition():
 
 def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
     text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE"): text.index("DECISION TABLE")]
+    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
     assert "is never legacy: it writes nothing and moves no head" in stage
     assert "stage (4) of the ORDER OF REFUSALS" in stage
     assert "reports as not a typed session is legacy" not in text
@@ -531,6 +625,7 @@ def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
 
 
 # --- sol r9: one canonical provenance session-id parse, and the userless-key ownership rule ---
+
 
 def _flat_docs():
     return " ".join(_docs().split()).replace("`", "").replace("**", "")
@@ -579,8 +674,14 @@ def _publish_body(provenance=None):
 
 @pytest.mark.parametrize(
     "provenance",
-    [None, {}, {"source_session_id": "sess_1"}, {"source_session_id": "  sess_1  "},
-     {"source_session_id": ""}, {"source_session_id": "s" * 512}],
+    [
+        None,
+        {},
+        {"source_session_id": "sess_1"},
+        {"source_session_id": "  sess_1  "},
+        {"source_session_id": ""},
+        {"source_session_id": "s" * 512},
+    ],
 )
 def test_the_request_schema_accepts_every_session_id_representation_the_prose_names(provenance):
     """Manual publication = the field omitted (or empty); a padded id is a string the Backend trims."""
@@ -589,8 +690,13 @@ def test_the_request_schema_accepts_every_session_id_representation_the_prose_na
 
 @pytest.mark.parametrize(
     "provenance",
-    [{"source_session_id": None}, {"source_session_id": 7}, {"source_session_id": ["sess_1"]},
-     {"session_id": "sess_1"}, {"source_session_id": "s" * 513}],
+    [
+        {"source_session_id": None},
+        {"source_session_id": 7},
+        {"source_session_id": ["sess_1"]},
+        {"session_id": "sess_1"},
+        {"source_session_id": "s" * 513},
+    ],
 )
 def test_the_request_schema_rejects_the_representations_the_prose_no_longer_promises(provenance):
     """null, non-strings, a `session_id` fallback and >512 characters are not valid bodies."""
@@ -599,8 +705,14 @@ def test_the_request_schema_rejects_the_representations_the_prose_no_longer_prom
 
 def test_the_prose_names_the_schema_bound_and_the_backend_only_rules():
     flat_text = " ".join(_post_description().split())
-    assert "the request schema bounds source_session_id to a string of at most 512 characters" in flat_text
-    assert "the trim, the 128-character limit, the whitespace/control check and NFC stability are applied by the Backend to the raw value" in flat_text
+    assert (
+        "the request schema bounds source_session_id to a string of at most 512 characters"
+        in flat_text
+    )
+    assert (
+        "the trim, the 128-character limit, the whitespace/control check and NFC stability are applied by the Backend to the raw value"
+        in flat_text
+    )
 
 
 def test_the_403_description_separates_authentication_refusals_from_ownership_refusals():
@@ -608,7 +720,7 @@ def test_the_403_description_separates_authentication_refusals_from_ownership_re
     assert "and every request without X-Traigent-Agent-Ref)" not in text  # the old blanket promise
     assert "AUTHENTICATION AND ROLE REFUSALS" in text
     assert "SESSION-OWNERSHIP REFUSALS" in text
-    ownership = text[text.index("SESSION-OWNERSHIP REFUSALS"):]
+    ownership = text[text.index("SESSION-OWNERSHIP REFUSALS") :]
     assert "closed head_write_unauthorized" in ownership
     assert "with or without X-Traigent-Agent-Ref" in ownership
 
@@ -617,7 +729,9 @@ def test_each_403_example_lands_on_exactly_the_intended_oneof_branch():
     schema = _publish()["responses"]["403"]["content"]["application/json"]["schema"]
     protected, legacy = schema["oneOf"]
     validator = _auth_status_validator("403")
-    ownership_refusal = _envelope_body("head_write_unauthorized")  # authenticated editor, another user's session
+    ownership_refusal = _envelope_body(
+        "head_write_unauthorized"
+    )  # authenticated editor, another user's session
     auth_refusal_without_ref = LEGACY_403  # unauthenticated-layer/role refusal, no Agent-Ref
     registry = _registry().with_resource(
         BASE + "optimization/best_config_publish_403_schema.json",
@@ -662,6 +776,6 @@ def test_the_userless_key_ownership_rule_is_a_stage_4_statement_in_both_places()
 def test_the_twelve_stage_order_is_unchanged_by_the_session_id_and_ownership_statements():
     assert sorted(_stage_texts()) == list(range(1, 13))
     docs = _flat_docs()
-    order = docs[docs.index("Refusal precedence."):docs.index("Scope and commands")]
+    order = docs[docs.index("Refusal precedence.") : docs.index("Scope and commands")]
     positions = [order.index(f"({n}) ") for n in range(1, 13)]
     assert positions == sorted(positions)

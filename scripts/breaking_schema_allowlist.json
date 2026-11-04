@@ -2865,7 +2865,7 @@
     {
       "file": "auth/api_key_create_request_schema.json",
       "rule": "allOf_added",
-      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type).",
+      "reason": "The conditional adds a director key type. For every pre-existing key type and for omitted key_type, the else branch restores exactly the previous minItems:1 on scopes/permissions and forbids the new resource_grants (not:{}). The accepted request set for existing clients is therefore unchanged. See test_item6f4_non_director_* in tests/test_director_evidence_contract.py for the differential proof (empty scopes/permissions rejected, resource_grants rejected, valid scopes+permissions and omitted scopes+permissions both still accepted, across user/service/admin/temporary/readonly/system/omitted key_type). This allOf was itself removed in a later PR (the three entries immediately below, same file) once key_type=director was found to be unintended; the differential proof those tests gave now lives under their post-removal names (test_item6_create_empty_scopes_rejected / ..._permissions_rejected / ..._valid_..._accepted / ..._omitted_..._accepted in the same test file) -- this entry is kept as the historical record of the #471 PR and is not re-evaluated by the fingerprint check now that #/allOf no longer exists.",
       "version": "6.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/471",
       "findings": [
@@ -2876,6 +2876,77 @@
           "old": 0,
           "new": 1,
           "fingerprint": "88679fc781f05d477e7cd36fcad5580b006950dfcd346da680a156c53cb0f77d"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "enum",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): the key_type=\"director\" enum member added by #471 was never intended for this public schema and was never implemented in TraigentBackend (no route/model accepts key_type=director; confirmed by repo-wide grep against TraigentBackend develop). Removing it is correcting an unintended public contract addition, not retiring a shipped capability -- no real client could ever have minted a director key, since the backend would have had nowhere to persist one. The private follow-up for TraigentBackend is filed as a GitHub issue (see PR description) in case the Director-evidence feature still wants a scoped key path later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/key_type",
+          "role": "request",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "\"director\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"director\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"readonly\"",
+            "\"service\"",
+            "\"system\"",
+            "\"temporary\"",
+            "\"user\""
+          ],
+          "fingerprint": "3afff5b8b6e99a71399f638a1a76d4299162bfb8df0641c6463788c4de8e77d9"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "minItems",
+      "reason": "Restores the pre-#471 minItems:1 on permissions directly on the top-level property, now that the director-only allOf conditional that used to carry this constraint (in its else branch, for every non-director key_type) is gone along with the director path. Same restoration as the already-allowed scopes minItems entry from #376 (matched automatically above), just for the sibling permissions property, which #471 happened to move into the same conditional. The accepted request set for existing (non-director) clients is unchanged: empty permissions was never meaningful to the route's allowlist check either way. See test_item6_create_empty_permissions_rejected in tests/test_director_evidence_contract.py.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/permissions",
+          "role": "request",
+          "subject": "minItems",
+          "old": null,
+          "new": 1,
+          "fingerprint": "ac9f9f3842a6eb236f27b3b01a8da131a6bf99e2844668fbf4870efdfab890b1"
+        }
+      ]
+    },
+    {
+      "file": "auth/api_key_create_request_schema.json",
+      "rule": "property_removed",
+      "reason": "Owner ruling (Nimrod, 2026-10-23): resource_grants was added by #471 solely to carry the director key_type's atomic per-resource grant list; it was never intended as a general-purpose public field and TraigentBackend never implemented it (no route reads a resource_grants key off the create-request body). With key_type=director removed in this same change, resource_grants has no remaining purpose in this schema -- removing an unintended, unimplemented field is correcting the contract, not retiring a shipped one. Private follow-up filed in TraigentBackend as a GitHub issue (linked in the PR description) in case per-resource grants at key-creation time are still wanted later.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/609",
+      "findings": [
+        {
+          "pointer": "#/properties/resource_grants",
+          "role": "request",
+          "subject": "resource_grants",
+          "old": true,
+          "new": false,
+          "fingerprint": "966f38ea43d009847fd2f3f934b60eb120a096900aaa64f17a095e935336e1da"
         }
       ]
     },
@@ -8679,6 +8750,326 @@
       "reason": "G1 co-sign deadline (owner card feature-pick-2026-10-28-g1-cosign-deadline-config, A). The new allOf branch is an if/then: a request that sends snapshot_g1_deadline_days without snapshot_g1_required exactly true becomes invalid; requests that omit the deadline behave as before, and the existing allOf branches are unchanged. Both fields are introduced in this same unreleased change, and the Backend refuses the same pairing closed, so the schema states the server's rule.",
       "version": "unreleased",
       "pr": "G1 snapshot binding (Spine-Trail st_0c84a1f417f0)"
+    },
+    {
+      "file": "execution/hybrid_session_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/status",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"aborted\"",
+              "\"awaiting_results\"",
+              "\"cold_start_a\"",
+              "\"cold_start_b\"",
+              "\"complete\"",
+              "\"created\"",
+              "\"elimination_round\"",
+              "\"not_started\"",
+              "\"partially_deleted\"",
+              "\"paused\"",
+              "\"pending\"",
+              "\"pruned\"",
+              "\"registered\"",
+              "\"running\"",
+              "\"starting\"",
+              "\"unknown\""
+            ]
+          },
+          "old": [
+            "\"active\"",
+            "\"cancelled\"",
+            "\"completed\"",
+            "\"expired\"",
+            "\"failed\""
+          ],
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "4d3ea622c31e902a252ed8f2fa48afe3ab8acd278a62536f4011a61f23da394c"
+        }
+      ],
+      "reason": "TraigentSchema#621: the unused hybrid session record status enum (active, expired, completed, failed, cancelled) is replaced by the shared lowercase session lifecycle enum. Every previous value is kept (no member removed), so no previously valid record is rejected; the added members are the values the session routes actually serve (for example the wire value `complete` for a finished hybrid session). No endpoint binds this record schema, so the widening has no consumer.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/{session_id}/status/get/responses/200/content/application/json/schema/properties/status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "21af4acb7cab381548add0fd85cd2a8ba61c09dbda3cdfa72421f33a6bab12f2"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "58c64175b4508860db3e7f9c2a45843a904caba6abbdea3a00c5e4cf27ead118"
+        }
+      ],
+      "reason": "TraigentSchema#621: the hybrid status `status` and next-trial `session_status` response fields were unconstrained strings and are now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json). The enum lists every literal the Backend session-payload normalizer can emit (verified against its producer enums), so no real response is rejected; the tightening makes a drifting or non-lowercase value fail response validation, which is the point of the issue.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/session_status",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "\"aborted\"",
+            "\"active\"",
+            "\"awaiting_results\"",
+            "\"cancelled\"",
+            "\"cold_start_a\"",
+            "\"cold_start_b\"",
+            "\"complete\"",
+            "\"completed\"",
+            "\"created\"",
+            "\"elimination_round\"",
+            "\"expired\"",
+            "\"failed\"",
+            "\"not_started\"",
+            "\"partially_deleted\"",
+            "\"paused\"",
+            "\"pending\"",
+            "\"pruned\"",
+            "\"registered\"",
+            "\"running\"",
+            "\"starting\"",
+            "\"unknown\""
+          ],
+          "fingerprint": "546cf567ba65ce596ec84774455aaa71a865266470540bbf7821aa7d7e45df02"
+        }
+      ],
+      "reason": "TraigentSchema#621: session_status was an unconstrained string and is now bound to the closed lowercase lifecycle enum (session_lifecycle_status_schema.json), which lists every literal the Backend session-payload normalizer can emit. No real response is rejected; a non-lowercase or unknown status now fails response validation as intended.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/621"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/next-trial/post/responses/200/content/application/json/schema/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "0ba19f14c47fb745be5068ba50927e4a00e95687e719f8eae117d7d87811e7ab"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "optimization/session_next_trial_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/trial/properties/dataset_subset_indices",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "null"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": [
+            "null",
+            "object"
+          ],
+          "fingerprint": "5c85a2db6e2dd34a6cfcbd4c15bfe7412653b7a8afbaa593de9702f4908f3a83"
+        }
+      ],
+      "reason": "TraigentSchema#622: trial.dataset_subset_indices now also allows null. The classic next-trial handler serves dataset_subset_indices: None whenever the request sent no subset_size, so the previous object-only type rejected a real reply; the change widens the response type to what the Backend emits and no consumer that handled the object form is affected.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/issues/622"
+    },
+    {
+      "file": "certification/certificate_unsigned_manifest_v0_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/privacy_mode/properties/declared_mode",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "53e9a13a5ebe230c109fef1983821cdfae779738aab292e8a8e29f52b3285f51"
+        }
+      ],
+      "reason": "Owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A (2026-10-29): a run made under the server-recorded session privacy policy must be certified truthfully instead of being forced into the unwitnessed current_online label. The signed privacy_mode.declared_mode enum gains the additive value private_online (the closed DataFlowModeV0 vocabulary in certification_common_v0_schema.json gains the same member). Verifiers pinned to 7.0.0 see an enum value they do not know and fail closed on it, so no old verifier can read it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress. offline stays reserved for a witnessed zero-backend-egress run (D2), which remains unsupported in frozen v0. The frozen-v0 byte-identity guards carry a matching disclosed exception (tests/_frozen_signatures_exception.py: assert_private_online_exception).",
+      "version": "7.1.0",
+      "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "certification/certification_endpoints_v0.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/certificate-build-sessions/prepare/post/responses/200/content/application/json/schema/properties/signatures/allOf/0/properties/unsigned_manifest/properties/document/properties/privacy_mode/properties/declared_mode",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "c76d01f0fd91638faef6fb85936c55dc10cf075dbf313f5504f70629c15f432e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/certificates/{certificate_ref}/get/responses/200/content/application/json/schema/properties/signed_certificate/properties/signatures/properties/unsigned_manifest/properties/document/properties/privacy_mode/properties/declared_mode",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"private_online\""
+            ]
+          },
+          "old": [
+            "\"current_online\"",
+            "\"offline\""
+          ],
+          "new": [
+            "\"current_online\"",
+            "\"offline\"",
+            "\"private_online\""
+          ],
+          "fingerprint": "882ade18431cce6558da2090c078ebddb0cd18d6d191928e6cb238541b9278ce"
+        }
+      ],
+      "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
+      "version": "7.1.0",
+      "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
     }
   ]
 }

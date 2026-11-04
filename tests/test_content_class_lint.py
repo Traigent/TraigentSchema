@@ -41,7 +41,8 @@ CONTENT_FREE = {
 
 def _load():
     spec = importlib.util.spec_from_file_location("content_class_lint", SCRIPT)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -117,7 +118,8 @@ def test_class_vocabulary_matches_the_registered_extension() -> None:
 
 def _manifest_module():
     spec = importlib.util.spec_from_file_location("content_class_manifest", MANIFEST_SCRIPT)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

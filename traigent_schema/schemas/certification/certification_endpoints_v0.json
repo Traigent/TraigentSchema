@@ -107,7 +107,7 @@
                     "$ref": "./certification_common_v0_schema.json#/definitions/SignatureAlgorithmV0"
                   },
                   "declared_mode": {
-                    "enum": ["offline", "current_online"]
+                    "enum": ["offline", "current_online", "private_online"]
                   },
                   "sdk_ref": {
                     "$ref": "./certification_common_v0_schema.json#/definitions/GitCommitSha"

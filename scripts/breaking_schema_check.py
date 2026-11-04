@@ -591,6 +591,27 @@ _SCHEMA_KEYWORDS = frozenset(
 _SCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf"})
 
 
+_ALWAYS_REFUSED_KEYWORDS = frozenset(
+    {"id", "$anchor", "$dynamicRef", "$dynamicAnchor", "$recursiveRef", "$recursiveAnchor"}
+)
+
+
+def _refuse_base_changing_keywords(node: dict, base: str, reg: Registry) -> None:
+    """Fail closed: a keyword that changes (or aliases) the resolution base makes the
+    $ref-equality below unreliable, so the allOf shortcut must not fire. A file's own ROOT
+    ``$id`` is allowed only when it equals the registry key the walker used to reach that
+    file; any other ``$id`` (nested, or on a non-root node) is refused."""
+    if _ALWAYS_REFUSED_KEYWORDS & node.keys():
+        raise UnresolvedRef("base-changing keyword")
+    if "$id" in node:
+        try:
+            is_root = reg.contents(base) is node
+        except Exception:  # noqa: BLE001 - unknown base: refuse
+            is_root = False
+        if not is_root or node["$id"] != base:
+            raise UnresolvedRef("$id not the registry key of its file")
+
+
 def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
     """Typed canonical serialization of the schema ``raw`` with every nested SCHEMA-position
     $ref resolved against ``reg``. Only schema-valued keywords are descended; enum, const,
@@ -628,6 +649,7 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
             raise UnresolvedRef("cyclic")
         if not isinstance(resolved, dict):
             return resolved
+        _refuse_base_changing_keywords(resolved, resolved_base, reg)
         return {
             key: walk_value(key, value, resolved_base, resolved_visited, depth)
             for key, value in resolved.items()

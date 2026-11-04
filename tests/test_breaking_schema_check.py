@@ -1776,3 +1776,54 @@ def test_request_side_allof_narrowing_stays_breaking(tmp_path: Path) -> None:
     result = _run_gate(repo, "master", "req-wrap")
     assert result.returncode == 1, result.stdout
     assert "response_narrowed_by_allof" not in result.stdout
+
+
+def _closed_obj(prop: dict) -> dict:
+    return {"type": "object", "additionalProperties": False, "properties": {"a": prop}}
+
+
+@pytest.mark.parametrize("keyword", ["$id", "id", "$anchor", "$dynamicAnchor", "$recursiveAnchor"])
+def test_base_changing_keyword_disables_the_allof_shortcut(tmp_path: Path, keyword: str) -> None:
+    old = _closed_obj({keyword: "urn:n", "type": "string"})
+    repo, filename = _allof_repo(tmp_path, "kw", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc({"allOf": [old]}), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_same_wrap_without_a_base_changing_keyword_still_gets_the_shortcut(tmp_path: Path) -> None:
+    old = _closed_obj({"type": "string"})
+    repo, filename = _allof_repo(tmp_path, "nokw", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc({"allOf": [old]}), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout
+
+
+def test_nested_id_whose_type_changes_is_breaking(tmp_path: Path) -> None:
+    old = _closed_obj({"$id": "urn:n", "type": "string"})
+    new = {"allOf": [_closed_obj({"$id": "urn:n", "type": "integer"})]}
+    repo, filename = _allof_repo(tmp_path, "nested", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_root_id_must_equal_the_registry_key_used_to_reach_the_file() -> None:
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT7
+
+    uri = "https://schemas.example/x.json"
+    doc = {"$id": uri, "type": "string"}
+    reg = Registry().with_resource(uri, Resource(contents=doc, specification=DRAFT7))
+    # root $id equal to the key it was reached by: allowed
+    gate._refuse_base_changing_keywords(reg.contents(uri), uri, reg)
+    assert gate._fully_resolved_bytes({"$ref": uri}, "https://schemas.example/b.json", reg)
+    # same root reached under a different key: refused (the $id does not match)
+    with pytest.raises(gate.UnresolvedRef):
+        gate._refuse_base_changing_keywords(doc, "https://schemas.example/other.json", reg)
+    # a non-root node carrying the same $id: refused
+    with pytest.raises(gate.UnresolvedRef):
+        gate._refuse_base_changing_keywords({"$id": uri}, uri, reg)

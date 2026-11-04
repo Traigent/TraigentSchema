@@ -1893,33 +1893,37 @@ def test_ref_with_only_annotation_siblings_is_still_eligible(tmp_path: Path) -> 
 
 def test_pointer_crossing_an_ancestor_with_id_gets_no_shortcut(tmp_path: Path) -> None:
     """defs.json#/definitions/container/definitions/response crosses `container`, which
-    carries "$id": "sub/": the whole document is refused, not just the visited nodes."""
+    carries "$id": "sub/". Its inner {"$ref": "x_schema.json"} really means sub/x_schema.json,
+    but a walker blind to the ancestor resolves it to widgets/x_schema.json (unchanged) and
+    would wave the wrap through. Only sub/x_schema.json widens."""
     draft = "http://json-schema.org/draft-07/schema#"
     closed = {
+        "$schema": draft,
         "type": "object",
         "additionalProperties": False,
         "properties": {"a": {"type": "string"}},
     }
+    widened = {**closed, "properties": {"a": {"type": ["string", "integer"]}}}
     node = {"$ref": "./widget_defs_schema.json#/definitions/container/definitions/response"}
-
-    def defs(prop: dict) -> dict:
-        body = {**closed, "properties": {"a": prop}}
-        return {
-            "$schema": draft,
-            "definitions": {"container": {"$id": "sub/", "definitions": {"response": body}}},
-        }
-
+    defs = {
+        "$schema": draft,
+        "definitions": {
+            "container": {
+                "$id": "sub/",
+                "definitions": {"response": {"$ref": "x_schema.json"}},
+            }
+        },
+    }
     repo, filename = _allof_repo(tmp_path, "container", node)
     schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
-    (schema_dir / "widget_defs_schema.json").write_text(
-        json.dumps(defs({"type": "string"})), encoding="utf-8"
-    )
+    (schema_dir / "sub").mkdir()
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs), encoding="utf-8")
+    (schema_dir / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
     _run_git(repo, "add", "-A")
     _run_git(repo, "commit", "-q", "-m", "defs")
     _run_git(repo, "checkout", "-q", "-b", "wrap")
-    (schema_dir / "widget_defs_schema.json").write_text(
-        json.dumps(defs({"type": ["string", "integer"]})), encoding="utf-8"
-    )
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(widened), encoding="utf-8")
     (schema_dir / filename).write_text(
         json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
     )

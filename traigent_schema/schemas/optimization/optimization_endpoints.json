@@ -701,21 +701,38 @@
             }
           },
           "400": {
-            "description": "Bad request — malformed body or parameters. `error_code` CAPABILITY_NOT_SUPPORTED: raised for every request that declares `content_less_v1` (the one capability the server cannot yet answer), before any write, so the client creates nothing. The content-less request shape is deferred to a later slice. An unknown capability value is a schema violation, not this refusal. The body is this error envelope with the fixed text pinned by agent_identity_resolution_schema.json CapabilityNotSupportedResponse (no `details`).",
+            "description": "Bad request — malformed body or parameters. `error_code` CAPABILITY_NOT_SUPPORTED: raised for every request that declares `content_less_v1` (the one capability the server cannot yet answer), before any write, so the client creates nothing. The content-less request shape is deferred to a later slice. An unknown capability value is a schema violation, not this refusal. The body is this error envelope with the fixed text pinned by agent_identity_resolution_schema.json CapabilityNotSupportedResponse (no `details`). The body is the canonical envelope AND one of: the closed CapabilityNotSupportedResponse, or any other 400 of the endpoint (VALIDATION_ERROR with field-attributed `details`) whose error_code is not CAPABILITY_NOT_SUPPORTED.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "allOf": [
+                    {
+                      "oneOf": [
+                        { "$ref": "./agent_identity_resolution_schema.json#/definitions/CapabilityNotSupportedResponse" },
+                        { "not": { "required": ["error_code"], "properties": { "error_code": { "enum": ["CAPABILITY_NOT_SUPPORTED"] } } } }
+                      ]
+                    },
+                    { "$ref": "../error_envelope_schema.json" }
+                  ]
                 }
               }
             }
           },
           "409": {
-            "description": "Agent identity could not be resolved to exactly one agent, so nothing was created. The body is the canonical error envelope; its exact shapes are pinned in agent_identity_resolution_schema.json. `error_code` agent_identity_ambiguous (AgentIdentityAmbiguousResponse): several existing agents match the code locator, ids in `details.candidate_agent_ids`. `error_code` agent_identity_conflict (AgentIdentityConflictResponse): the request's name matches an agent of a different function, id in `details.conflicting_agent_id`. Ids are sent only to a caller authorized for every listed agent.",
+            "description": "Agent identity could not be resolved to exactly one agent, so nothing was created. The body is the canonical error envelope; its exact shapes are pinned in agent_identity_resolution_schema.json. `error_code` agent_identity_ambiguous (AgentIdentityAmbiguousResponse): several existing agents match the code locator, ids in `details.candidate_agent_ids`. `error_code` agent_identity_conflict (AgentIdentityConflictResponse): the request's name matches an agent of a different function, id in `details.conflicting_agent_id`. Ids are sent only to a caller authorized for every listed agent. The body is the canonical envelope AND one of: the two closed identity bodies, or another 409 of the endpoint (domain errors with a fixed message, DATABASE_INTEGRITY_ERROR) whose error_code is neither identity code, so an identity code with any other `details` or text matches nothing.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "allOf": [
+                    {
+                      "oneOf": [
+                        { "$ref": "./agent_identity_resolution_schema.json#/definitions/AgentIdentityAmbiguousResponse" },
+                        { "$ref": "./agent_identity_resolution_schema.json#/definitions/AgentIdentityConflictResponse" },
+                        { "not": { "required": ["error_code"], "properties": { "error_code": { "enum": ["agent_identity_ambiguous", "agent_identity_conflict"] } } } }
+                      ]
+                    },
+                    { "$ref": "../error_envelope_schema.json" }
+                  ]
                 }
               }
             }

@@ -9070,6 +9070,80 @@
       "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
       "version": "7.1.0",
       "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "83747e3e9045d7319c35dc8b594b0dd37ffa928d57396db571291549d6442a18"
+        }
+      ],
+      "reason": "POST /api/v1/sessions 400 response is rewired from the bare canonical error envelope to allOf[oneOf[closed CapabilityNotSupportedResponse, not-that-error_code], error_envelope]. The checker cannot see through allOf/oneOf of refs and reads the root as unconstrained; semantically nothing is loosened: every body the old schema accepted is still accepted except the one now-closed CAPABILITY_NOT_SUPPORTED body, which must match the fixed-text closed schema (no details, no echo), and the envelope (additionalProperties false, success/message/error required) still applies as an allOf member.",
+      "version": "7.1.0",
+      "pr": "#618"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "7015417fc0dcf708e7613a7ba8d0c95367a873a0b51a818cf9d11c0c26b9a5a5"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "91648f9d453daa2b6f0a2d49443f5aded74ff7ca61c1fe679437414e235d7268"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "d94701a5dd8f7ed97057acde0b200e59767477a9d1c4e912253a27c67cd0ff06"
+        }
+      ],
+      "reason": "Same rewiring as the additionalProperties entry: success, message and error stay required through the allOf-ed error_envelope_schema.json member; the checker only sees the root of the new schema and reports them as no longer required. Verified by tests/test_agent_identity_resolution_contract.py (VALIDATION_ERROR bodies still validate, bodies missing the required members do not).",
+      "version": "7.1.0",
+      "pr": "#618"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "c1b13f4866c28ad7a9ed45f8b5185db2700b9f5161c29053a57f8f6a205a6a85"
+        }
+      ],
+      "reason": "Same rewiring as the additionalProperties entry: the 400 response root is now an allOf, so the checker reports the root type as unconstrained; the allOf-ed error_envelope_schema.json member keeps type object. The change tightens the CAPABILITY_NOT_SUPPORTED body to a closed fixed-text schema and loosens nothing.",
+      "version": "7.1.0",
+      "pr": "#618"
     }
   ]
 }

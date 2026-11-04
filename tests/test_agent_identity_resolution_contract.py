@@ -219,11 +219,11 @@ def test_conflict_409_requires_its_detail() -> None:
     assert not _valid("AgentIdentityConflictResponse", wrong)
 
 
-def test_endpoint_declares_the_409_as_the_canonical_envelope() -> None:
+def test_endpoint_409_keeps_the_canonical_envelope_as_its_generic_branch() -> None:
     doc = json.loads((OPT / "optimization_endpoints.json").read_text())
     responses = doc["paths"]["/api/v1/sessions"]["post"]["responses"]
     schema = responses["409"]["content"]["application/json"]["schema"]
-    assert schema == {"$ref": "../error_envelope_schema.json"}
+    assert {"$ref": "../error_envelope_schema.json"} in schema["allOf"]
 
 
 def test_refusal_bodies_are_valid_canonical_envelopes() -> None:
@@ -293,3 +293,62 @@ def test_description_does_not_make_request_agent_id_a_resolution_input() -> None
     assert "(agent_key, function_name) is a resolution input" in text
     assert "agent_key, agent_id, function_name" not in text
     assert "`agent_id` field is accepted but NOT used to select an agent" in text
+
+
+# --- the endpoint's 400 / 409 actually resolve to the closed schemas -------------------------
+def _endpoint_response_valid(status: str, body: dict[str, Any]) -> bool:
+    doc = json.loads((OPT / "optimization_endpoints.json").read_text())
+    schema = doc["paths"]["/api/v1/sessions"]["post"]["responses"][status]["content"][
+        "application/json"
+    ]["schema"]
+    resolver = jsonschema.RefResolver(base_uri=OPT.as_uri() + "/", referrer=doc)
+    return not list(jsonschema.Draft7Validator(schema, resolver=resolver).iter_errors(body))
+
+
+def test_endpoint_409_references_the_closed_identity_schemas() -> None:
+    doc = json.loads((OPT / "optimization_endpoints.json").read_text())
+    text = json.dumps(doc["paths"]["/api/v1/sessions"]["post"]["responses"]["409"])
+    assert "AgentIdentityAmbiguousResponse" in text
+    assert "AgentIdentityConflictResponse" in text
+    text400 = json.dumps(doc["paths"]["/api/v1/sessions"]["post"]["responses"]["400"])
+    assert "CapabilityNotSupportedResponse" in text400
+
+
+def test_endpoint_409_accepts_closed_bodies_and_generic_envelope() -> None:
+    amb = _envelope("agent_identity_ambiguous", AMBIGUOUS_TEXT, {"candidate_agent_ids": [A1, A2]})
+    con = _envelope("agent_identity_conflict", CONFLICT_TEXT, {"conflicting_agent_id": A3})
+    assert _endpoint_response_valid("409", amb)
+    assert _endpoint_response_valid("409", con)
+    generic = _envelope("DATABASE_INTEGRITY_ERROR", "Data conflict occurred.")
+    assert _endpoint_response_valid("409", generic)
+
+
+def test_endpoint_409_rejects_identity_code_with_arbitrary_details_or_text() -> None:
+    assert not _endpoint_response_valid(
+        "409", _envelope("agent_identity_ambiguous", AMBIGUOUS_TEXT, {"anything": "x"})
+    )
+    assert not _endpoint_response_valid(
+        "409", _envelope("agent_identity_conflict", "free text", {"conflicting_agent_id": A3})
+    )
+    assert not _endpoint_response_valid(
+        "409", _envelope("agent_identity_ambiguous", AMBIGUOUS_TEXT, {"candidate_agent_ids": [A1]})
+    )
+
+
+def test_endpoint_400_capability_refusal_is_closed() -> None:
+    assert _endpoint_response_valid("400", _envelope("CAPABILITY_NOT_SUPPORTED", CAPABILITY_TEXT))
+    assert not _endpoint_response_valid(
+        "400", _envelope("CAPABILITY_NOT_SUPPORTED", CAPABILITY_TEXT, {"echo": "content_less_v1"})
+    )
+    assert not _endpoint_response_valid("400", _envelope("CAPABILITY_NOT_SUPPORTED", "other text"))
+    assert _endpoint_response_valid(
+        "400", _envelope("VALIDATION_ERROR", "bad", {"function_name": ["required"]})
+    )
+
+
+def test_endpoint_400_and_409_still_require_the_envelope_members() -> None:
+    assert not _endpoint_response_valid("400", {"error_code": "VALIDATION_ERROR"})
+    assert not _endpoint_response_valid("409", {"error_code": "DATABASE_INTEGRITY_ERROR"})
+    assert not _endpoint_response_valid(
+        "409", {**_envelope("DATABASE_INTEGRITY_ERROR", "x"), "unexpected": 1}
+    )

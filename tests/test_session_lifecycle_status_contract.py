@@ -246,6 +246,9 @@ SESSION_POSTS_PARSING_A_JSON_BODY = (
 def test_session_posts_list_413(path: str) -> None:
     responses = load_json(ENDPOINTS)["paths"][path]["post"]["responses"]
     assert "413" in responses
-    # Same closed error envelope the neighbouring 400 uses; the Backend serves PAYLOAD_TOO_LARGE in it.
-    assert responses["413"]["content"] == responses["400"]["content"]
+    # The canonical error envelope (the 400 narrows it with closed shapes, #616); the Backend
+    # serves PAYLOAD_TOO_LARGE in it.
+    assert responses["413"]["content"] == {
+        "application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}
+    }
     assert "PAYLOAD_TOO_LARGE" in responses["413"]["description"]

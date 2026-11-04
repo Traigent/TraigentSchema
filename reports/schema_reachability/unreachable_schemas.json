@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 476
+      "refOrEndpointGraph": 478
     },
-    "reachableCount": 509,
+    "reachableCount": 511,
     "schemaFileCount": 561,
-    "unreachableCount": 52
+    "unreachableCount": 50
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -54,14 +54,12 @@
     "labels/label_wrap_schema.json",
     "mep.json",
     "onboarding/onboarding_funnel_event_schema.json",
-    "optimization/agent_identity_resolution_schema.json",
     "optimization/best_config_manifest_v2_schema.json",
     "optimization/certificate_subject_schema.json",
     "optimization/guarantee_certificate_statistical_body_schema.json",
     "optimization/guarantee_certificate_v2_delta_schema.json",
     "optimization/guarantee_certificate_v2_schema.json",
     "optimization/optimization_trace_signature_schema.json",
-    "optimization/session_create_response_schema.json",
     "optimization/tunable_schema.json",
     "results/comparison_schema.json",
     "results/report_request_schema.json",

@@ -2022,3 +2022,34 @@ def test_dependencies_array_values_are_kept_literally() -> None:
     out = gate._fully_resolved_bytes({"$ref": uri}, uri, reg)
     assert out is not None
     assert b'"a":["b"]' in out and b'"c":{"type":"string"}' in out
+
+
+def test_dialect_switch_in_a_referenced_document_gets_no_shortcut(tmp_path: Path) -> None:
+    d7, d4 = "http://json-schema.org/draft-07/schema#", "http://json-schema.org/draft-04/schema#"
+    obj = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "array", "contains": {"type": "string"}}},
+    }
+
+    def defs(dialect: str) -> dict:
+        return {"$schema": dialect, "definitions": {"obj": obj}}
+
+    node = {"$ref": "./widget_defs_schema.json#/definitions/obj"}
+    repo, filename = _allof_repo(tmp_path, "dialect", node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs(d7)), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs(d4)), encoding="utf-8")
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout

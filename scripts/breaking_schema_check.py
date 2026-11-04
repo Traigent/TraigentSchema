@@ -660,6 +660,11 @@ def _document_changes_base(doc: Any) -> bool:
     return scan(doc, root=True)
 
 
+def _document_dialect(reg: Registry, uri: str) -> Any:
+    doc = reg.contents(uri)
+    return doc.get("$schema", "<absent>") if isinstance(doc, dict) else "<absent>"
+
+
 def _refuse_document(reg: Registry, uri: str) -> None:
     """Fail closed for any document (old or new registry) that changes its resolution base
     below its root; the verdict is cached once per registry and uri."""
@@ -727,6 +732,7 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
         # one hop at a time, before it is followed.
         cur, cur_base, cur_visited, hops = node, node_base, visited, 0
         _refuse_document(reg, node_base)
+        dialects[node_base] = _document_dialect(reg, node_base)
         while isinstance(cur, dict) and isinstance(cur.get("$ref"), str):
             hops += 1
             _refuse_ref_siblings(cur, cur_base, reg)
@@ -742,6 +748,7 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
                 raise UnresolvedRef(str(exc)) from exc
             cur_visited, cur_base = cur_visited | {key}, doc_uri
             _refuse_document(reg, doc_uri)
+            dialects[doc_uri] = _document_dialect(reg, doc_uri)
         resolved, resolved_base, resolved_visited = cur, cur_base, cur_visited
         if not isinstance(resolved, dict):
             return resolved
@@ -751,8 +758,12 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
             for key, value in resolved.items()
         }
 
+    dialects: dict[str, Any] = {}
     try:
-        return _canonical_json_bytes(walk(raw, base, frozenset(), 0))
+        body = walk(raw, base, frozenset(), 0)
+        # fold every visited document's $schema into the compared bytes: a dialect switch in a
+        # referenced document changes keyword semantics invisibly (absent != any value)
+        return _canonical_json_bytes({"dialects": dialects, "body": body})
     except (UnresolvedRef, ValueError):
         return None
 
@@ -781,7 +792,7 @@ def _is_response_narrowing_wrap(
     if any(key != "allOf" and key not in _ANNOTATION_KEYS for key in new_raw):
         return False
     old_bytes = _fully_resolved_bytes(old_raw, scope.old_base, scope.old_reg)
-    if old_bytes is None or old_bytes in (b"{}", b"true"):
+    if old_bytes is None or old_bytes.endswith((b'"body":{}}', b'"body":true}')):
         return False
     for member in members:
         if _fully_resolved_bytes(member, scope.new_base, scope.new_reg) == old_bytes:

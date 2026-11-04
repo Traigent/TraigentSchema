@@ -1995,3 +1995,30 @@ def test_keyword_classification_is_closed() -> None:
     assert not (gate._LITERAL_KEYWORDS & (gate._SCHEMA_KEYWORDS | gate._SCHEMA_MAP_KEYWORDS))
     assert gate._is_literal_keyword("x-content-class")
     assert not gate._is_literal_keyword("foo")
+
+
+def test_discriminator_mapping_to_a_widened_child_gets_no_shortcut(tmp_path: Path) -> None:
+    holder = {
+        "type": "object",
+        "discriminator": {"propertyName": "kind", "mapping": {"child": "./t_schema.json"}},
+    }
+    repo = _wrapped_ref_widening_repo(tmp_path, "discr", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_discriminator_is_not_a_literal_keyword() -> None:
+    assert not gate._is_literal_keyword("discriminator")
+
+
+def test_dependencies_array_values_are_kept_literally() -> None:
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT7
+
+    uri = "https://schemas.example/d.json"
+    doc = {"$id": uri, "dependencies": {"a": ["b"], "c": {"type": "string"}}}
+    reg = Registry().with_resource(uri, Resource(contents=doc, specification=DRAFT7))
+    out = gate._fully_resolved_bytes({"$ref": uri}, uri, reg)
+    assert out is not None
+    assert b'"a":["b"]' in out and b'"c":{"type":"string"}' in out

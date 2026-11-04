@@ -599,7 +599,7 @@ _LITERAL_KEYWORDS = frozenset(
     | {"minLength", "maxLength", "minItems", "maxItems", "uniqueItems"}
     | {"minProperties", "maxProperties", "minContains", "maxContains", "dependentRequired"}
     | {"contentEncoding", "contentMediaType", "readOnly", "writeOnly", "deprecated", "nullable"}
-    | {"title", "description", "$comment", "$schema", "$id", "discriminator"}
+    | {"title", "description", "$comment", "$schema", "$id"}
 )
 _NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
 _VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})

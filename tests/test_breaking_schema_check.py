@@ -1620,3 +1620,436 @@ def test_pre_push_hook_clears_git_local_env_before_exec(tmp_path: Path) -> None:
     # own HEAD (read via a call with a sanitized, not poisoned, env) is
     # unchanged.
     assert _run_git(REPO_ROOT, "rev-parse", "HEAD").strip() == repo_root_head_before
+
+
+# --- response schema wrapped in allOf that still contains the old schema (#616) -------------
+def _endpoints_doc(schema: dict) -> dict:
+    return {
+        "paths": {
+            "/w": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},
+                    "responses": {"409": {"content": {"application/json": {"schema": schema}}}},
+                }
+            }
+        }
+    }
+
+
+def _allof_repo(tmp_path: Path, name: str, baseline_schema: dict) -> tuple[Path, str]:
+    filename = "widget_endpoints.json"
+    repo = _response_schema_repo(tmp_path / name, filename, _endpoints_doc(baseline_schema))
+    return repo, filename
+
+
+ENVELOPE_REF = {"$ref": "./widget_response_schema.json"}
+
+
+def _allof_envelope_repo(tmp_path: Path, name: str) -> tuple[Path, str]:
+    repo, filename = _allof_repo(tmp_path, name, ENVELOPE_REF)
+    (repo / "traigent_schema" / "schemas" / "widgets" / "widget_response_schema.json").write_text(
+        json.dumps(_closed_response_schema(), indent=2) + "\n", encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "add envelope")
+    return repo, filename
+
+
+def test_response_allof_containing_old_ref_is_not_breaking(tmp_path: Path) -> None:
+    repo, filename = _allof_envelope_repo(tmp_path, "ok")
+    extra = {"type": "object", "properties": {"id": {"type": "string"}}}
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [extra, ENVELOPE_REF]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("wrapped", "expected_finding"),
+    [
+        ({"allOf": [{}]}, "additionalProperties closed"),
+        (
+            {"allOf": [{"type": "object", "properties": {"id": {"type": "string"}}}]},
+            "additionalProperties closed",
+        ),
+        # a sibling constraint keyword next to allOf: the shortcut must not fire, so the
+        # root-level findings are reported exactly as before
+        ({"allOf": [ENVELOPE_REF], "type": "object"}, "additionalProperties closed"),
+        ({"allOf": [ENVELOPE_REF], "required": ["extra"]}, "additionalProperties closed"),
+    ],
+)
+def test_response_allof_without_the_old_schema_stays_breaking(
+    tmp_path: Path, wrapped: dict, expected_finding: str
+) -> None:
+    repo, filename = _allof_envelope_repo(tmp_path, "bad")
+    _commit_schema_change(repo, "wrap", _endpoints_doc(wrapped), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+    assert "[BREAKING]" in result.stdout
+    assert expected_finding in result.stdout, result.stdout
+
+
+def test_narrowing_inside_a_oneof_branch_is_not_waved_through(tmp_path: Path) -> None:
+    old = {"oneOf": [{"type": "string"}, {"enum": ["a"]}]}
+    new = {"oneOf": [{"allOf": [{"type": "string"}, {"enum": ["b"]}]}, {"enum": ["a"]}]}
+    repo, filename = _allof_repo(tmp_path, "oneof", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+
+
+def test_wrapped_ref_whose_target_widened_is_breaking(tmp_path: Path) -> None:
+    ref = {"$ref": "./widget_defs.json#/definitions/X"}
+    old_defs = {"definitions": {"X": {"type": "string"}}}
+    repo, filename = _allof_repo(tmp_path, "widen", ref)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "widget_defs.json").write_text(json.dumps(old_defs), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "widen")
+    (schema_dir / "widget_defs.json").write_text(
+        json.dumps({"definitions": {"X": {"type": ["string", "integer"]}}}), encoding="utf-8"
+    )
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [ref, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "widen and wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "widen")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+
+
+def test_ref_shaped_literals_in_enum_are_not_resolved(tmp_path: Path) -> None:
+    old = {"type": "object", "enum": [{"$ref": "./a.json"}]}
+    new = {"allOf": [{"type": "object", "enum": [{"$ref": "./b.json"}]}]}
+    repo, filename = _allof_repo(tmp_path, "literal", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout
+    # identical to the pre-change checker for this change: 1 unacknowledged BREAKING, exit 1
+    assert result.returncode == 1, result.stdout
+    assert "BREAKING (unacked):   1" in result.stdout, result.stdout
+
+
+def test_typed_equality_distinguishes_true_from_one(tmp_path: Path) -> None:
+    repo, filename = _allof_repo(tmp_path, "typed", {"enum": [1]})
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [{"enum": [True]}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    # {"enum":[1]} and {"enum":[true]} must NOT be equal, so the shortcut does not fire and the
+    # ordinary comparison reports its own findings. (The ordinary comparator classifies a
+    # response enum removal as INFO, so exit status is the comparator's, not asserted here.)
+    assert "response_narrowed_by_allof" not in result.stdout
+    assert "enum constraint removed entirely" in result.stdout, result.stdout
+
+
+def test_request_side_allof_narrowing_stays_breaking(tmp_path: Path) -> None:
+    filename = "widget_endpoints.json"
+    base = {
+        "paths": {
+            "/w": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": ENVELOPE_REF}}},
+                    "responses": {"200": {"content": {"application/json": {"schema": {"type": "object"}}}}},
+                }
+            }
+        }
+    }
+    repo = _response_schema_repo(tmp_path / "req", filename, base)
+    (repo / "traigent_schema" / "schemas" / "widgets" / "widget_response_schema.json").write_text(
+        json.dumps(_closed_response_schema(), indent=2) + "\n", encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "add schema")
+    changed = json.loads(json.dumps(base))
+    changed["paths"]["/w"]["post"]["requestBody"]["content"]["application/json"]["schema"] = {
+        "allOf": [ENVELOPE_REF, {"type": "object", "required": ["id"]}]
+    }
+    _commit_schema_change(repo, "req-wrap", changed, "req wrap", filename)
+    result = _run_gate(repo, "master", "req-wrap")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+
+
+def _closed_obj(prop: dict) -> dict:
+    return {"type": "object", "additionalProperties": False, "properties": {"a": prop}}
+
+
+@pytest.mark.parametrize("keyword", ["$id", "id", "$anchor", "$dynamicAnchor", "$recursiveAnchor"])
+def test_base_changing_keyword_disables_the_allof_shortcut(tmp_path: Path, keyword: str) -> None:
+    old = _closed_obj({keyword: "urn:n", "type": "string"})
+    repo, filename = _allof_repo(tmp_path, "kw", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc({"allOf": [old]}), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_same_wrap_without_a_base_changing_keyword_still_gets_the_shortcut(tmp_path: Path) -> None:
+    old = _closed_obj({"type": "string"})
+    repo, filename = _allof_repo(tmp_path, "nokw", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc({"allOf": [old]}), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout
+
+
+def test_nested_id_whose_type_changes_is_breaking(tmp_path: Path) -> None:
+    old = _closed_obj({"$id": "urn:n", "type": "string"})
+    new = {"allOf": [_closed_obj({"$id": "urn:n", "type": "integer"})]}
+    repo, filename = _allof_repo(tmp_path, "nested", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_root_id_must_equal_the_registry_key_used_to_reach_the_file() -> None:
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT7
+
+    uri = "https://schemas.example/x.json"
+    doc = {"$id": uri, "type": "string"}
+    reg = Registry().with_resource(uri, Resource(contents=doc, specification=DRAFT7))
+    # root $id equal to the key it was reached by: allowed
+    gate._refuse_base_changing_keywords(reg.contents(uri), uri, reg)
+    assert gate._fully_resolved_bytes({"$ref": uri}, uri, reg)
+    # same root reached under a different key: refused (the $id does not match)
+    with pytest.raises(gate.UnresolvedRef):
+        gate._refuse_base_changing_keywords(doc, "https://schemas.example/other.json", reg)
+    # a non-root node carrying the same $id: refused
+    with pytest.raises(gate.UnresolvedRef):
+        gate._refuse_base_changing_keywords({"$id": uri}, uri, reg)
+
+
+def _ref_sibling_repo(tmp_path: Path, name: str, ref_node: dict) -> tuple[Path, Path, str]:
+    repo, filename = _allof_repo(tmp_path, name, ref_node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "sub").mkdir()
+    closed = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+    }
+    (schema_dir / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "targets")
+    return repo, schema_dir, filename
+
+
+def test_ref_with_id_sibling_does_not_get_the_shortcut(tmp_path: Path) -> None:
+    node = {"$id": "sub/", "$ref": "x_schema.json"}
+    repo, schema_dir, filename = _ref_sibling_repo(tmp_path, "idsib", node)
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    widened = {"$schema": "http://json-schema.org/draft-07/schema#", "type": "object",
+               "additionalProperties": False,
+               "properties": {"a": {"type": ["string", "integer"]}}}
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(widened), encoding="utf-8")
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout  # failed on the guard, not on a typo
+    assert "additionalProperties closed" in result.stdout, result.stdout
+
+
+@pytest.mark.parametrize("sibling", [{"$anchor": "a"}, {"type": "object"}, {"$recursiveRef": "#"}])
+def test_ref_with_non_annotation_sibling_does_not_get_the_shortcut(
+    tmp_path: Path, sibling: dict
+) -> None:
+    node = {"$ref": "./x_schema.json", **sibling}
+    repo, _dir, filename = _ref_sibling_repo(tmp_path, "sib", node)
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [node, {"type": "object"}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+
+
+def test_ref_with_only_annotation_siblings_is_still_eligible(tmp_path: Path) -> None:
+    node = {**ENVELOPE_REF, "description": "the envelope"}
+    repo, filename = _allof_envelope_repo(tmp_path, "ann")
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [node, {"type": "object"}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout
+
+
+def test_pointer_crossing_an_ancestor_with_id_gets_no_shortcut(tmp_path: Path) -> None:
+    """defs.json#/definitions/container/definitions/response crosses `container`, which
+    carries "$id": "sub/". Its inner {"$ref": "x_schema.json"} really means sub/x_schema.json,
+    but a walker blind to the ancestor resolves it to widgets/x_schema.json (unchanged) and
+    would wave the wrap through. Only sub/x_schema.json widens."""
+    draft = "http://json-schema.org/draft-07/schema#"
+    closed = {
+        "$schema": draft,
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+    }
+    widened = {**closed, "properties": {"a": {"type": ["string", "integer"]}}}
+    node = {"$ref": "./widget_defs_schema.json#/definitions/container/definitions/response"}
+    defs = {
+        "$schema": draft,
+        "definitions": {
+            "container": {
+                "$id": "sub/",
+                "definitions": {"response": {"$ref": "x_schema.json"}},
+            }
+        },
+    }
+    repo, filename = _allof_repo(tmp_path, "container", node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "sub").mkdir()
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs), encoding="utf-8")
+    (schema_dir / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(widened), encoding="utf-8")
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_property_named_id_does_not_disable_the_shortcut() -> None:
+    assert not gate._document_changes_base(
+        {"$id": "u", "properties": {"id": {"type": "string"}, "$id": {"type": "string"}}}
+    )
+    assert gate._document_changes_base({"$id": "u", "definitions": {"c": {"$id": "sub/"}}})
+    assert gate._document_changes_base({"$anchor": "a"})
+
+
+def _wrapped_ref_widening_repo(tmp_path: Path, name: str, holder: dict) -> Path:
+    """`holder` is the response schema embedding a $ref to widgets/t_schema.json, which widens
+    string -> [string, integer] on the head side; the head wraps the holder in allOf."""
+    draft = "http://json-schema.org/draft-07/schema#"
+    repo, filename = _allof_repo(tmp_path, name, holder)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "t_schema.json").write_text(
+        json.dumps({"$schema": draft, "type": "string"}), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "target")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "t_schema.json").write_text(
+        json.dumps({"$schema": draft, "type": ["string", "integer"]}), encoding="utf-8"
+    )
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [holder, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    return repo
+
+
+def test_ref_under_prefixitems_whose_target_widened_is_breaking(tmp_path: Path) -> None:
+    holder = {"type": "array", "prefixItems": [{"$ref": "./t_schema.json"}]}
+    repo = _wrapped_ref_widening_repo(tmp_path, "prefix", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_unknown_keyword_beside_a_wrapped_schema_disables_the_shortcut(tmp_path: Path) -> None:
+    holder = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+        "foo": {"$ref": "./t_schema.json"},
+    }
+    repo = _wrapped_ref_widening_repo(tmp_path, "foo", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_keyword_classification_is_closed() -> None:
+    for key in ("prefixItems", "unevaluatedItems", "unevaluatedProperties", "if", "dependentSchemas"):
+        assert key in gate._SCHEMA_KEYWORDS | gate._SCHEMA_MAP_KEYWORDS
+    assert not (gate._LITERAL_KEYWORDS & (gate._SCHEMA_KEYWORDS | gate._SCHEMA_MAP_KEYWORDS))
+    assert gate._is_literal_keyword("x-content-class")
+    assert not gate._is_literal_keyword("foo")
+
+
+def test_discriminator_mapping_to_a_widened_child_gets_no_shortcut(tmp_path: Path) -> None:
+    holder = {
+        "type": "object",
+        "discriminator": {"propertyName": "kind", "mapping": {"child": "./t_schema.json"}},
+    }
+    repo = _wrapped_ref_widening_repo(tmp_path, "discr", holder)
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+
+
+def test_discriminator_is_not_a_literal_keyword() -> None:
+    assert not gate._is_literal_keyword("discriminator")
+
+
+def test_dependencies_array_values_are_kept_literally() -> None:
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT7
+
+    uri = "https://schemas.example/d.json"
+    doc = {"$id": uri, "dependencies": {"a": ["b"], "c": {"type": "string"}}}
+    reg = Registry().with_resource(uri, Resource(contents=doc, specification=DRAFT7))
+    out = gate._fully_resolved_bytes({"$ref": uri}, uri, reg)
+    assert out is not None
+    assert b'"a":["b"]' in out and b'"c":{"type":"string"}' in out
+
+
+def test_dialect_switch_in_a_referenced_document_gets_no_shortcut(tmp_path: Path) -> None:
+    d7, d4 = "http://json-schema.org/draft-07/schema#", "http://json-schema.org/draft-04/schema#"
+    obj = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "array", "contains": {"type": "string"}}},
+    }
+
+    def defs(dialect: str) -> dict:
+        return {"$schema": dialect, "definitions": {"obj": obj}}
+
+    node = {"$ref": "./widget_defs_schema.json#/definitions/obj"}
+    repo, filename = _allof_repo(tmp_path, "dialect", node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs(d7)), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    (schema_dir / "widget_defs_schema.json").write_text(json.dumps(defs(d4)), encoding="utf-8")
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout

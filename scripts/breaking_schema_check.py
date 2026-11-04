@@ -612,6 +612,19 @@ def _refuse_base_changing_keywords(node: dict, base: str, reg: Registry) -> None
             raise UnresolvedRef("$id not the registry key of its file")
 
 
+_REF_SIBLING_ANNOTATIONS = frozenset({"description", "title", "$comment", "examples", "example"})
+
+
+def _refuse_ref_siblings(node: dict, base: str, reg: Registry) -> None:
+    """A ``$ref`` object with sibling keywords other than pure annotations is ambiguous
+    (draft-07 ignores the siblings, later drafts honour them), and deref() drops them: no
+    shortcut. The base-changing keyword guard also runs on the raw node."""
+    extra = set(node) - {"$ref"} - _REF_SIBLING_ANNOTATIONS
+    if extra:
+        raise UnresolvedRef("$ref with sibling keywords")
+    _refuse_base_changing_keywords(node, base, reg)
+
+
 def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
     """Typed canonical serialization of the schema ``raw`` with every nested SCHEMA-position
     $ref resolved against ``reg``. Only schema-valued keywords are descended; enum, const,
@@ -644,9 +657,24 @@ def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
     def walk(node: Any, node_base: str, visited: frozenset[str], depth: int) -> Any:
         if depth > 60:
             raise UnresolvedRef("too deep")
-        resolved, resolved_base, resolved_visited, cyclic = deref(node, node_base, reg, visited)
-        if cyclic:
-            raise UnresolvedRef("cyclic")
+        # deref() drops a $ref object's siblings, so inspect every node of the $ref chain RAW,
+        # one hop at a time, before it is followed.
+        cur, cur_base, cur_visited, hops = node, node_base, visited, 0
+        while isinstance(cur, dict) and isinstance(cur.get("$ref"), str):
+            hops += 1
+            _refuse_ref_siblings(cur, cur_base, reg)
+            if hops > 25:
+                raise UnresolvedRef("ref chain too long")
+            doc_uri, pointer = _split_ref(cur_base, cur["$ref"])
+            key = f"{doc_uri}#{pointer}"
+            if key in cur_visited:
+                raise UnresolvedRef("cyclic")
+            try:
+                cur = _json_pointer_get(reg.contents(doc_uri), pointer)
+            except Exception as exc:  # noqa: BLE001 - unresolvable: no shortcut
+                raise UnresolvedRef(str(exc)) from exc
+            cur_visited, cur_base = cur_visited | {key}, doc_uri
+        resolved, resolved_base, resolved_visited = cur, cur_base, cur_visited
         if not isinstance(resolved, dict):
             return resolved
         _refuse_base_changing_keywords(resolved, resolved_base, reg)

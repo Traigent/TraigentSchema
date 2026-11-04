@@ -1827,3 +1827,65 @@ def test_root_id_must_equal_the_registry_key_used_to_reach_the_file() -> None:
     # a non-root node carrying the same $id: refused
     with pytest.raises(gate.UnresolvedRef):
         gate._refuse_base_changing_keywords({"$id": uri}, uri, reg)
+
+
+def _ref_sibling_repo(tmp_path: Path, name: str, ref_node: dict) -> tuple[Path, Path, str]:
+    repo, filename = _allof_repo(tmp_path, name, ref_node)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "sub").mkdir()
+    closed = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {"type": "string"}},
+    }
+    (schema_dir / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(closed), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "targets")
+    return repo, schema_dir, filename
+
+
+def test_ref_with_id_sibling_does_not_get_the_shortcut(tmp_path: Path) -> None:
+    node = {"$id": "sub/", "$ref": "x_schema.json"}
+    repo, schema_dir, filename = _ref_sibling_repo(tmp_path, "idsib", node)
+    _run_git(repo, "checkout", "-q", "-b", "wrap")
+    widened = {"$schema": "http://json-schema.org/draft-07/schema#", "type": "object",
+               "additionalProperties": False,
+               "properties": {"a": {"type": ["string", "integer"]}}}
+    (schema_dir / "sub" / "x_schema.json").write_text(json.dumps(widened), encoding="utf-8")
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [node, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+    assert "unresolved_ref" not in result.stdout, result.stdout  # failed on the guard, not on a typo
+    assert "additionalProperties closed" in result.stdout, result.stdout
+
+
+@pytest.mark.parametrize("sibling", [{"$anchor": "a"}, {"type": "object"}, {"$recursiveRef": "#"}])
+def test_ref_with_non_annotation_sibling_does_not_get_the_shortcut(
+    tmp_path: Path, sibling: dict
+) -> None:
+    node = {"$ref": "./x_schema.json", **sibling}
+    repo, _dir, filename = _ref_sibling_repo(tmp_path, "sib", node)
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [node, {"type": "object"}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert "response_narrowed_by_allof" not in result.stdout, result.stdout
+
+
+def test_ref_with_only_annotation_siblings_is_still_eligible(tmp_path: Path) -> None:
+    node = {**ENVELOPE_REF, "description": "the envelope"}
+    repo, filename = _allof_envelope_repo(tmp_path, "ann")
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [node, {"type": "object"}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 0, result.stdout
+    assert "response_narrowed_by_allof" in result.stdout

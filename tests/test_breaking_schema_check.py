@@ -1667,22 +1667,75 @@ def test_response_allof_containing_old_ref_is_not_breaking(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize(
-    "wrapped",
+    ("wrapped", "expected_finding"),
     [
-        {"allOf": [{}]},
-        {"allOf": [{"type": "object", "properties": {"id": {"type": "string"}}}]},
-        {"allOf": [ENVELOPE_REF], "type": "object"},
-        {"allOf": [ENVELOPE_REF], "required": ["extra"]},
+        ({"allOf": [{}]}, "additionalProperties closed"),
+        (
+            {"allOf": [{"type": "object", "properties": {"id": {"type": "string"}}}]},
+            "additionalProperties closed",
+        ),
+        # a sibling constraint keyword next to allOf: the shortcut must not fire, so the
+        # root-level findings are reported exactly as before
+        ({"allOf": [ENVELOPE_REF], "type": "object"}, "additionalProperties closed"),
+        ({"allOf": [ENVELOPE_REF], "required": ["extra"]}, "additionalProperties closed"),
     ],
 )
-def test_response_allof_without_the_old_schema_stays_breaking(tmp_path: Path, wrapped: dict) -> None:
+def test_response_allof_without_the_old_schema_stays_breaking(
+    tmp_path: Path, wrapped: dict, expected_finding: str
+) -> None:
     repo, filename = _allof_envelope_repo(tmp_path, "bad")
     _commit_schema_change(repo, "wrap", _endpoints_doc(wrapped), "wrap", filename)
     result = _run_gate(repo, "master", "wrap")
-    # a sibling constraint keyword next to allOf is never waved through by the shortcut
+    assert result.returncode == 1, result.stdout
     assert "response_narrowed_by_allof" not in result.stdout
-    if wrapped["allOf"] != [ENVELOPE_REF]:
-        assert result.returncode == 1, result.stdout
+    assert "[BREAKING]" in result.stdout
+    assert expected_finding in result.stdout, result.stdout
+
+
+def test_narrowing_inside_a_oneof_branch_is_not_waved_through(tmp_path: Path) -> None:
+    old = {"oneOf": [{"type": "string"}, {"enum": ["a"]}]}
+    new = {"oneOf": [{"allOf": [{"type": "string"}, {"enum": ["b"]}]}, {"enum": ["a"]}]}
+    repo, filename = _allof_repo(tmp_path, "oneof", old)
+    _commit_schema_change(repo, "wrap", _endpoints_doc(new), "wrap", filename)
+    result = _run_gate(repo, "master", "wrap")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+
+
+def test_wrapped_ref_whose_target_widened_is_breaking(tmp_path: Path) -> None:
+    ref = {"$ref": "./widget_defs.json#/definitions/X"}
+    old_defs = {"definitions": {"X": {"type": "string"}}}
+    repo, filename = _allof_repo(tmp_path, "widen", ref)
+    schema_dir = repo / "traigent_schema" / "schemas" / "widgets"
+    (schema_dir / "widget_defs.json").write_text(json.dumps(old_defs), encoding="utf-8")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "defs")
+    _run_git(repo, "checkout", "-q", "-b", "widen")
+    (schema_dir / "widget_defs.json").write_text(
+        json.dumps({"definitions": {"X": {"type": ["string", "integer"]}}}), encoding="utf-8"
+    )
+    (schema_dir / filename).write_text(
+        json.dumps(_endpoints_doc({"allOf": [ref, {"type": "object"}]})), encoding="utf-8"
+    )
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "widen and wrap")
+    _run_git(repo, "checkout", "-q", "master")
+    result = _run_gate(repo, "master", "widen")
+    assert result.returncode == 1, result.stdout
+    assert "response_narrowed_by_allof" not in result.stdout
+
+
+def test_typed_equality_distinguishes_true_from_one(tmp_path: Path) -> None:
+    repo, filename = _allof_repo(tmp_path, "typed", {"enum": [1]})
+    _commit_schema_change(
+        repo, "wrap", _endpoints_doc({"allOf": [{"enum": [True]}]}), "wrap", filename
+    )
+    result = _run_gate(repo, "master", "wrap")
+    # {"enum":[1]} and {"enum":[true]} must NOT be equal, so the shortcut does not fire and the
+    # ordinary comparison reports its own findings. (The ordinary comparator classifies a
+    # response enum removal as INFO, so exit status is the comparator's, not asserted here.)
+    assert "response_narrowed_by_allof" not in result.stdout
+    assert "enum constraint removed entirely" in result.stdout, result.stdout
 
 
 def test_request_side_allof_narrowing_stays_breaking(tmp_path: Path) -> None:

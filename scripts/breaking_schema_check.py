@@ -494,6 +494,10 @@ class _NodeScope:
     file: str
     findings: list[Finding]
     depth: int
+    # True while every ancestor position is monotone for narrowing (root, properties, items,
+    # additionalProperties); False below oneOf/anyOf/allOf branches, where narrowing a branch
+    # can widen the whole.
+    monotone: bool = True
 
     def emit(self, pointer: str, rule: str, severity: Severity, message: str, **identity) -> None:
         emit(self.findings, self.file, pointer, rule, severity, self.role, message, **identity)
@@ -501,7 +505,9 @@ class _NodeScope:
     def keyword(self, pointer: str, keyword: str, **kwargs) -> None:
         _keyword_finding(self.findings, self.file, pointer, self.role, keyword, **kwargs)
 
-    def recurse(self, old_raw: Any, new_raw: Any, pointer: str) -> None:
+    def recurse(
+        self, old_raw: Any, new_raw: Any, pointer: str, *, monotone: bool = True
+    ) -> None:
         compare_node(
             old_raw,
             new_raw,
@@ -516,6 +522,7 @@ class _NodeScope:
             file=self.file,
             findings=self.findings,
             depth=self.depth + 1,
+            monotone=self.monotone and monotone,
         )
 
 
@@ -534,6 +541,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     file: str,
     findings: list[Finding],
     depth: int = 0,
+    monotone: bool = True,
 ) -> None:
     scope = _NodeScope(
         old_base=old_base,
@@ -546,6 +554,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         file=file,
         findings=findings,
         depth=depth,
+        monotone=monotone,
     )
     if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
         return
@@ -572,37 +581,59 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
 
 
-def _resolve_or_none(raw: Any, base: str, reg: Registry) -> Any:
+def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
+    """Typed canonical serialization of ``raw`` with EVERY nested $ref resolved against
+    ``reg``. None on an unresolvable ref or a cycle, so the caller never shortcuts then."""
+
+    def walk(node: Any, node_base: str, visited: frozenset[str], depth: int) -> Any:
+        if depth > 60:
+            raise UnresolvedRef("too deep")
+        resolved, resolved_base, resolved_visited, cyclic = deref(node, node_base, reg, visited)
+        if cyclic:
+            raise UnresolvedRef("cyclic")
+        if isinstance(resolved, dict):
+            return {
+                key: walk(value, resolved_base, resolved_visited, depth + 1)
+                for key, value in resolved.items()
+            }
+        if isinstance(resolved, list):
+            return [walk(item, resolved_base, resolved_visited, depth + 1) for item in resolved]
+        return resolved
+
     try:
-        node, _base, _visited, cyclic = deref(raw, base, reg, frozenset())
-    except UnresolvedRef:
+        return _canonical_json_bytes(walk(raw, base, frozenset(), 0))
+    except (UnresolvedRef, ValueError):
         return None
-    return None if cyclic else node
 
 
 def _is_response_narrowing_wrap(
     scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
 ) -> bool:
     """RESPONSE side only: the old schema S became ``allOf`` whose members include S verbatim
-    (the same resolved $ref target, or an identical subschema). Every instance the new schema
+    (identical after every nested $ref is resolved, typed comparison). Every instance the new schema
     accepts is then also accepted by S, so a client written against S still reads every
     response: the change only narrows what the server may send, which is not breaking for a
-    response. Emits one INFO and returns True. Anything else (no member equals the old S, an
+    response, and only where narrowing is monotone (the body root and below
+    properties/items/additionalProperties, never inside oneOf/anyOf/allOf/not branches). Emits one INFO and returns True. Anything else (no member equals the old S, an
     extra sibling constraint keyword next to allOf, a request/conservative role) returns False
     and the ordinary comparison reports the root findings as before; the allOf members are
     never skipped blindly, so ``allOf: [{}]`` or an allOf without S stays BREAKING."""
-    if scope.role != "response" or not isinstance(new_raw, dict) or new_raw == old_raw:
+    if (
+        scope.role != "response"
+        or not scope.monotone
+        or not isinstance(new_raw, dict)
+    ):
         return False
     members = new_raw.get("allOf")
     if "$ref" in new_raw or not isinstance(members, list) or not members:
         return False
     if any(key != "allOf" and key not in _ANNOTATION_KEYS for key in new_raw):
         return False
-    old_node = _resolve_or_none(old_raw, scope.old_base, scope.old_reg)
-    if not isinstance(old_node, dict) or not old_node:
+    old_bytes = _fully_resolved_bytes(old_raw, scope.old_base, scope.old_reg)
+    if old_bytes is None or old_bytes in (b"{}", b"true"):
         return False
     for member in members:
-        if member == old_raw or _resolve_or_none(member, scope.new_base, scope.new_reg) == old_node:
+        if _fully_resolved_bytes(member, scope.new_base, scope.new_reg) == old_bytes:
             scope.emit(
                 pointer,
                 "response_narrowed_by_allof",
@@ -1097,7 +1128,7 @@ def _compare_combinator_branches(
         )
         return
     for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
-        scope.recurse(ob, nb, f"{combinator_pointer}/{i}")
+        scope.recurse(ob, nb, f"{combinator_pointer}/{i}", monotone=False)
 
 
 def _combinator_appeared(

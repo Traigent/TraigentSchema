@@ -1,0 +1,551 @@
+{
+  "openapi": "3.0.0",
+  "x-asserted-against-backend": false,
+  "info": {
+    "title": "Traigent Backend Crew Routes",
+    "version": "1.0.0",
+    "description": "Crew catalog routes (slice 1). Declared ahead of the backend implementation (CREW-11); x-asserted-against-backend is false until the BE routes land. Tenant and project come from the canonical auth context, never from headers or query parameters. Feature gate: crews. The crew_run, crew_member_execution and crew_handoff schemas are slice-3 contracts with no routes yet."
+  },
+  "paths": {
+    "/api/v1/crews": {
+      "get": {
+        "summary": "List crews",
+        "operationId": "listCrews",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Crews",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create crew (idempotent by crew_key)",
+        "operationId": "createCrew",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./crew_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing crew returned (idempotent replay)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_response_schema.json"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Crew created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (closed error_code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crew_id}": {
+      "get": {
+        "summary": "Get crew with roles",
+        "operationId": "getCrew",
+        "parameters": [
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Crew",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_response_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Crew not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crew_id}/archive": {
+      "post": {
+        "summary": "Archive crew (archive-not-cascade)",
+        "operationId": "archiveCrew",
+        "parameters": [
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Crew archived (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_response_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Crew not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crew_id}/roles": {
+      "post": {
+        "summary": "Add or update a role (upsert by role_key)",
+        "operationId": "upsertCrewRole",
+        "parameters": [
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./crew_role_upsert_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_role_response_schema.json"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Role added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_role_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Crew not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (closed error_code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crew_id}/revisions": {
+      "get": {
+        "summary": "List crew revisions",
+        "operationId": "listCrewRevisions",
+        "parameters": [
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_revision_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Crew not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create crew revision with bindings",
+        "operationId": "createCrewRevision",
+        "parameters": [
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./crew_revision_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Revision created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_revision_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Crews feature not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Crew not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (closed error_code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

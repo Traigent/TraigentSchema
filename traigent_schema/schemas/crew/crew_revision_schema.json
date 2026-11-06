@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_revision_schema.json",
+  "title": "Crew Revision",
+  "description": "Immutable snapshot of a crew's roles, bindings and pinned member revisions. Table crew_revisions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_revision_id",
+    "crew_id",
+    "revision_no",
+    "source",
+    "created_by",
+    "created_at",
+    "digest",
+    "bindings"
+  ],
+  "properties": {
+    "crew_revision_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId",
+      "x-identifier": true,
+      "description": "Opaque revision id."
+    },
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true,
+      "description": "Owning crew."
+    },
+    "revision_no": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based, dense per crew."
+    },
+    "source": {
+      "$ref": "./crew_common_schema.json#/definitions/RevisionSource"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "x-identifier": true,
+      "description": "Opaque user id."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "digest": {
+      "$ref": "./crew_common_schema.json#/definitions/Sha256Digest"
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "./crew_role_binding_schema.json"
+      }
+    }
+  }
+}

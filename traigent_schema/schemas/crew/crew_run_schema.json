@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_run_schema.json",
+  "title": "Crew Run",
+  "description": "Contract only (slice 3, no API yet). One end-to-end execution of a crew revision for one input. Totals are exclusive (additive) sums over member executions; unknown stays null. Metrics aggregate by crew_run membership, never by agent_id IN crew.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_run_id",
+    "crew_id",
+    "crew_revision_id",
+    "status",
+    "completeness",
+    "entry_role_token",
+    "hop_count",
+    "loop_count",
+    "halted_by_policy",
+    "halt_reason",
+    "started_at"
+  ],
+  "properties": {
+    "crew_run_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRunId",
+      "x-identifier": true,
+      "description": "SDK-minted UUIDv7."
+    },
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true,
+      "description": "Crew."
+    },
+    "crew_revision_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId",
+      "x-identifier": true,
+      "description": "Revision executed."
+    },
+    "experiment_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 100,
+      "x-identifier": true
+    },
+    "configuration_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 100,
+      "x-identifier": true
+    },
+    "scenario_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128,
+      "x-identifier": true,
+      "description": "Server-issued scenario reference (position or digest), never a customer example id."
+    },
+    "replicate": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "status": {
+      "$ref": "./crew_common_schema.json#/definitions/RunStatus"
+    },
+    "completeness": {
+      "$ref": "./crew_common_schema.json#/definitions/RunCompleteness"
+    },
+    "entry_role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true,
+      "description": "Role that received the input."
+    },
+    "hop_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of handoffs."
+    },
+    "loop_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of detected loops."
+    },
+    "wall_clock_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Wall clock, ms."
+    },
+    "exclusive_cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Sum of member exclusive cost."
+    },
+    "exclusive_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Sum of member exclusive latency."
+    },
+    "exclusive_input_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Sum of member exclusive input tokens."
+    },
+    "exclusive_output_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Sum of member exclusive output tokens."
+    },
+    "halted_by_policy": {
+      "type": "boolean"
+    },
+    "halt_reason": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/HaltReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Required non-null iff halted_by_policy is true."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "halted_by_policy": {
+            "const": true
+          }
+        },
+        "required": [
+          "halted_by_policy"
+        ]
+      },
+      "then": {
+        "properties": {
+          "halt_reason": {
+            "$ref": "./crew_common_schema.json#/definitions/HaltReason"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "halted_by_policy": {
+            "const": false
+          }
+        },
+        "required": [
+          "halted_by_policy"
+        ]
+      },
+      "then": {
+        "properties": {
+          "halt_reason": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

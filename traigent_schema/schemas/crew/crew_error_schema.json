@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_error_schema.json",
+  "title": "Crew Error",
+  "description": "Closed error body for crew routes. Shape A error envelope narrowed: error_code is a closed enum, there is no free-form details object, and message is server-templated; no field ever echoes client-supplied keys, names or values.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "error",
+    "error_code"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Server-templated text; never contains client-supplied values."
+    },
+    "error": {
+      "type": "string",
+      "enum": [
+        "validation_error",
+        "not_found",
+        "forbidden",
+        "conflict",
+        "feature_disabled"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "error_code": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewErrorCode"
+    }
+  }
+}

@@ -87,6 +87,26 @@
       "fixtures": [
         "optimize.stop-rules.v1"
       ]
+    },
+    {
+      "id": "crew.declarations",
+      "title": "Crew declarations: a named set of agents that cooperate on one job, with roles bound to agents",
+      "area": "core-api",
+      "python": {
+        "entryPoints": [
+          "traigent.optimize(crew=..., role=...) (not implemented)"
+        ]
+      },
+      "js": {
+        "entryPoints": [
+          "@traigent/sdk optimize({ crew, role }) (not implemented)"
+        ]
+      },
+      "disposition": "planned",
+      "rationale": "Neither SDK implements crew declarations yet. Slice 0 (CREW-11) defines the contract in traigent_schema/schemas/crew/; SDK declarations are slice 2 of the Crews program (Python crew=/role= for whole agents, JS crew/role for whole agents). Neither SDK exports a bare Crew class (import clash with crewai.Crew).",
+      "owner": "sdk-maintainers",
+      "targetMilestone": "crews-slice-2",
+      "fixtures": []
     }
   ]
 }

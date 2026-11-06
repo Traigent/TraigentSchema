@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_role_schema.json",
+  "title": "Crew Role",
+  "description": "A slot in a crew (triage, planner, critic). Stable across revisions. Table crew_roles, unique (crew_id, role_token).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role_id",
+    "crew_id",
+    "role_key",
+    "role_token",
+    "created_at"
+  ],
+  "properties": {
+    "role_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRoleId",
+      "x-identifier": true,
+      "description": "Opaque role id."
+    },
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true,
+      "description": "Owning crew."
+    },
+    "role_key": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleKey",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Customer alias of the role. CONTENT; portal only."
+    },
+    "role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true,
+      "description": "Opaque server-issued token; the only role label on traces and baggage."
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "color": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 7,
+          "pattern": "^#[0-9a-fA-F]{6}(?![\\s\\S])"
+        },
+        "icon": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "pattern": "^[a-z0-9_-]*(?![\\s\\S])"
+        },
+        "order": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "description": "Display meta; presentation only."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "archived_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

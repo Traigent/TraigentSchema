@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_handoff_schema.json",
+  "title": "Crew Handoff",
+  "description": "Contract only (slice 3, no API yet). One directed transfer of work between two roles inside a crew run. Carries counts and enums only, never message content. Not related to agent_handoff (team-ownership transfer).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_run_id",
+    "hop_seq",
+    "from_role_token",
+    "to_role_token",
+    "transfer_status",
+    "context_truncated"
+  ],
+  "properties": {
+    "crew_run_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRunId",
+      "x-identifier": true,
+      "description": "Parent crew run."
+    },
+    "hop_seq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "1-based position of the hop within the run."
+    },
+    "from_role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true,
+      "description": "Sending role."
+    },
+    "to_role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true,
+      "description": "Receiving role."
+    },
+    "transfer_status": {
+      "$ref": "./crew_common_schema.json#/definitions/TransferStatus"
+    },
+    "hop_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Latency of the hop, ms."
+    },
+    "inherited_context_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Context tokens carried over from earlier hops."
+    },
+    "added_context_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Context tokens added at this hop."
+    },
+    "context_truncated": {
+      "type": "boolean",
+      "description": "True when context was truncated at this hop."
+    }
+  }
+}

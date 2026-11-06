@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_member_execution_schema.json",
+  "title": "Crew Member Execution",
+  "description": "Contract only (slice 3, no API yet). One invocation of a role's agent inside a crew run. Cost, latency and tokens are split: exclusive = self only (additive), inclusive = self plus nested children (a view, never summed). Unknown stays null, never 0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invocation_id",
+    "crew_run_id",
+    "role_token",
+    "attempt",
+    "exclusive_cost_usd",
+    "inclusive_cost_usd",
+    "exclusive_latency_ms",
+    "inclusive_latency_ms",
+    "started_at"
+  ],
+  "properties": {
+    "invocation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "x-identifier": true,
+      "description": "Dedup id of this invocation (UUID)."
+    },
+    "crew_run_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRunId",
+      "x-identifier": true,
+      "description": "Parent crew run."
+    },
+    "role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true,
+      "description": "Role executed."
+    },
+    "agent_id": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/AgentId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Actual agent that ran; null if not attributable."
+    },
+    "agent_build_digest": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/Sha256Digest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "config_digest": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/Sha256Digest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "parent_invocation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "x-identifier": true
+    },
+    "exclusive_cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self cost, USD."
+    },
+    "inclusive_cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self plus children cost, USD. A view; never aggregated."
+    },
+    "exclusive_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self latency, ms."
+    },
+    "inclusive_latency_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self plus children latency, ms."
+    },
+    "exclusive_input_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self input tokens."
+    },
+    "exclusive_output_tokens": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Self output tokens."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

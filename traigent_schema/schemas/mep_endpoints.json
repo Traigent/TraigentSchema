@@ -203,6 +203,11 @@
       "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
     },
     {
+      "name": "Crews",
+      "description": "Crew catalog (slice 1): a named set of agents that cooperate on one job; roles, immutable revisions with bindings, archive. Declared ahead of the backend (x-asserted-against-backend false).",
+      "paths_file": "./crew/crew_endpoints.json"
+    },
+    {
       "name": "Agent Decisions",
       "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
       "paths_file": "./agent_decision/agent_decision_endpoints.json"

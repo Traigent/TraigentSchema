@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_error_schema.json",
   "title": "Crew Error",
-  "description": "Closed error body for crew routes. Shape A error envelope narrowed: error_code is a closed enum, there is no free-form details object, and message is server-templated; no field ever echoes client-supplied keys, names or values.",
+  "description": "Closed error body for crew routes. Shape A error envelope narrowed: error_code is a closed enum, message is one fixed template per error_code (enum + allOf mapping), there is no details object; no field ever echoes client-supplied keys, names or values. Feature off, unauthorized principal and foreign/missing resources all answer the same closed crew_not_found 404.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,23 +18,204 @@
     },
     "message": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "Server-templated text; never contains client-supplied values."
+      "enum": [
+        "The request is not valid.",
+        "Not found.",
+        "The crew is archived.",
+        "A crew with this key already exists.",
+        "The role conflicts with an existing role.",
+        "The binding conflicts with an existing binding.",
+        "The entry role is not valid for this revision.",
+        "The revision base is stale.",
+        "Internal error."
+      ],
+      "description": "Fixed template per error_code."
     },
     "error": {
       "type": "string",
       "enum": [
         "validation_error",
         "not_found",
-        "forbidden",
         "conflict",
-        "feature_disabled"
+        "internal_error"
       ],
       "x-content-class": "closed_enum"
     },
     "error_code": {
       "$ref": "./crew_common_schema.json#/definitions/CrewErrorCode"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_validation_failed"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The request is not valid."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_not_found"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "Not found."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_archived"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The crew is archived."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_key_conflict"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "A crew with this key already exists."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_role_conflict"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The role conflicts with an existing role."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_binding_conflict"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The binding conflicts with an existing binding."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_entry_role_conflict"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The entry role is not valid for this revision."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_revision_conflict"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "The revision base is stale."
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error_code": {
+            "const": "crew_internal_error"
+          }
+        },
+        "required": [
+          "error_code"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "const": "Internal error."
+          }
+        }
+      }
+    }
+  ]
 }

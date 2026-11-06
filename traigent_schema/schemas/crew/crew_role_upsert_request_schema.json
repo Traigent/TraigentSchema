@@ -29,12 +29,14 @@
           "pattern": "^#[0-9a-fA-F]{6}(?![\\s\\S])"
         },
         "icon": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 64,
-          "pattern": "^[a-z0-9_-]*(?![\\s\\S])"
+          "anyOf": [
+            {
+              "$ref": "./crew_common_schema.json#/definitions/RoleIcon"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "order": {
           "type": [

@@ -2,16 +2,35 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_revision_create_request_schema.json",
   "title": "Crew Revision Create Request",
-  "description": "POST /api/v1/crews/{crew_id}/revisions. Creates the next immutable revision from the given bindings. A binding that contradicts an existing one yields 409 crew_binding_conflict; more than one entry binding yields 409 crew_entry_role_conflict.",
+  "description": "POST /api/v1/crews/{crew_id}/revisions. Creates the next immutable revision from the given bindings. A binding that contradicts an existing one yields 409 crew_binding_conflict; the entry role is the single entry_role_id (no per-binding entry flag, so two entries cannot be expressed); a stale base_revision_no yields 409 crew_revision_conflict.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "source",
+    "base_revision_no",
     "bindings"
   ],
   "properties": {
     "source": {
       "$ref": "./crew_common_schema.json#/definitions/RevisionSource"
+    },
+    "base_revision_no": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "latest_revision_no the client built on (0 = none yet). Stale -> 409 crew_revision_conflict; revision_no is allocated server-side under a row lock on the crew."
+    },
+    "entry_role_id": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/CrewRoleId",
+          "x-identifier": true,
+          "description": "Entry role."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The single entry role of the revision (at most one by construction); null until chosen."
     },
     "bindings": {
       "type": "array",
@@ -35,25 +54,22 @@
             "$ref": "./crew_common_schema.json#/definitions/BindingKind"
           },
           "agent_id": {
-            "anyOf": [
-              {
-                "$ref": "./crew_common_schema.json#/definitions/AgentId"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Bound agent; null only while state is unbound or for agent_unit rows."
+            "$ref": "./crew_common_schema.json#/definitions/AgentId"
           },
           "unit_ref": {
+            "type": "null",
+            "description": "Reserved (slice 4). MUST be null until slice 4 widens it to a versioned code-identifier reference (GNFR-PRIV-003)."
+          },
+          "pinned_agent_revision": {
             "type": [
               "string",
               "null"
             ],
-            "maxLength": 256,
-            "description": "Reserved (slice 4): versioned unit reference. Must be null in slices 1-3; a code identifier (GNFR-PRIV-003), never a display name."
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Pinned agent revision; null = follow the agent's latest."
           },
-          "pinned_agent_digest": {
+          "pinned_config_digest": {
             "anyOf": [
               {
                 "$ref": "./crew_common_schema.json#/definitions/Sha256Digest"
@@ -62,18 +78,14 @@
                 "type": "null"
               }
             ],
-            "description": "Pinned agent build/config digest; null = follow the agent's latest."
-          },
-          "entry": {
-            "type": "boolean",
-            "description": "Entry role flag. At most one true per revision; exactly one is required before execution features."
+            "description": "Pinned config digest; null = unpinned."
           },
           "provenance": {
             "$ref": "./crew_common_schema.json#/definitions/BindingProvenance"
           }
         }
       },
-      "description": "Role bindings; role_id values must belong to this crew."
+      "description": "Role bindings; role_id values must belong to this crew and be unique within the request (service check)."
     }
   }
 }

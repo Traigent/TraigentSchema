@@ -56,7 +56,7 @@
     "created_by": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 100,
+      "maxLength": 255,
       "x-identifier": true,
       "description": "Opaque user id."
     },
@@ -73,7 +73,7 @@
         "integer",
         "null"
       ],
-      "minimum": 0,
+      "minimum": 1,
       "description": "Highest revision_no, null when the crew has no revision yet."
     }
   }

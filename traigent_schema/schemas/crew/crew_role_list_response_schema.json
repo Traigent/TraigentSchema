@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_role_list_response_schema.json",
+  "title": "Crew Role List Response",
+  "description": "200 body of GET .../crews/{crew_id}/roles.",
+  "type": "object",
+  "x-wrap-status": "wrapped",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "./crew_role_schema.json"
+          }
+        }
+      }
+    }
+  }
+}

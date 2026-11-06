@@ -30,9 +30,16 @@
       "description": "Crew."
     },
     "crew_revision_id": {
-      "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId",
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "x-identifier": true,
-      "description": "Revision executed."
+      "description": "Revision executed; null only when completeness != complete."
     },
     "experiment_run_id": {
       "type": [
@@ -53,13 +60,15 @@
       "x-identifier": true
     },
     "scenario_ref": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/ScenarioRef"
+        },
+        {
+          "type": "null"
+        }
       ],
-      "maxLength": 128,
-      "x-identifier": true,
-      "description": "Server-issued scenario reference (position or digest), never a customer example id."
+      "x-identifier": true
     },
     "replicate": {
       "type": [
@@ -75,9 +84,16 @@
       "$ref": "./crew_common_schema.json#/definitions/RunCompleteness"
     },
     "entry_role_token": {
-      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/RoleToken"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "x-identifier": true,
-      "description": "Role that received the input."
+      "description": "Entry role; null only when completeness != complete."
     },
     "hop_count": {
       "type": "integer",
@@ -156,6 +172,28 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "completeness": {
+            "const": "complete"
+          }
+        },
+        "required": [
+          "completeness"
+        ]
+      },
+      "then": {
+        "properties": {
+          "crew_revision_id": {
+            "type": "string"
+          },
+          "entry_role_token": {
+            "type": "string"
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {

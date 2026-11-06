@@ -29,9 +29,16 @@
       "description": "Parent crew run."
     },
     "role_token": {
-      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/RoleToken"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "x-identifier": true,
-      "description": "Role executed."
+      "description": "Role executed; null when unresolved on a cold-cache unbound run (run completeness != complete)."
     },
     "agent_id": {
       "anyOf": [

@@ -17,7 +17,8 @@ SCHEMAS = Path(get_schemas_dir())
 CREW = "crew_" + "ab" * 8
 CREV = "crev_" + "cd" * 8
 CROL = "crol_" + "ef" * 8
-TOKEN = "k3j9x2m7"
+TOKEN = "rtk_" + "abcdefghij234567klmnopqrst"[:26]
+TOKEN2 = "rtk_" + "pqrstuvwxyz234567abcdefghi"[:26]
 RUN = "0191a2b3-c4d5-7e6f-8a9b-0c1d2e3f4a5b"
 INV = "0191a2b3-c4d5-4e6f-8a9b-0c1d2e3f4a5b"
 DIGEST = "sha256:" + "a" * 64
@@ -67,12 +68,14 @@ ROLE_DOC = {
     "created_at": NOW,
 }
 BINDING_DOC = {
+    "crew_id": CREW,
     "crew_revision_id": CREV,
     "role_id": CROL,
     "binding_kind": "agent",
     "agent_id": "agent_1",
     "unit_ref": None,
-    "pinned_agent_digest": None,
+    "pinned_agent_revision": None,
+    "pinned_config_digest": None,
     "entry": True,
     "state": "bound",
     "provenance": "portal",
@@ -91,7 +94,12 @@ HANDOFF_DOC = {
     "crew_run_id": RUN,
     "hop_seq": 1,
     "from_role_token": TOKEN,
-    "to_role_token": "p4q8r1s5",
+    "to_role_token": TOKEN2,
+    "from_invocation_id": INV,
+    "to_invocation_id": None,
+    "requested_at": NOW,
+    "entered": False,
+    "dedup_id": INV,
     "transfer_status": "completed",
     "context_truncated": False,
     "inherited_context_tokens": 10,
@@ -159,7 +167,22 @@ def test_entities_are_closed(name: str) -> None:
     [
         ("crew_schema.json", "crew_id", "crew_XYZ"),
         ("crew_schema.json", "crew_id", CREW + "\n"),
-        ("crew_role_schema.json", "role_token", "has__under"),
+        ("crew_role_schema.json", "role_token", "k3j9x2m7"),  # old underscore-free form
+        ("crew_role_schema.json", "role_token", "rtk_" + "A" * 26),
+        ("crew_role_schema.json", "role_token", "rtk_" + "a" * 25),
+        ("crew_role_schema.json", "role_token", "rtk_" + "1" * 26),  # base32 has no 0/1/8/9
+        ("crew_schema.json", "crew_key", "has space"),
+        ("crew_schema.json", "crew_key", "x" * 129),
+        ("crew_schema.json", "crew_key", "tri.age"),
+        ("crew_schema.json", "latest_revision_no", 0),
+        ("crew_schema.json", "created_by", "u" * 256),
+        ("crew_role_binding_schema.json", "unit_ref", "my_unit"),
+        ("crew_role_binding_schema.json", "agent_id", "a" * 513),
+        ("crew_role_binding_schema.json", "pinned_agent_digest", DIGEST),
+        ("crew_role_schema.json", "display", {"icon": "free-text"}),
+        ("crew_role_schema.json", "display", {"color": "red"}),
+        ("crew_run_schema.json", "scenario_ref", "Alice_has_diabetes"),
+        ("crew_handoff_schema.json", "dedup_id", "not-a-uuid"),
         ("crew_role_schema.json", "role_id", CREW),
         ("crew_role_binding_schema.json", "binding_kind", "unit"),
         ("crew_role_binding_schema.json", "state", "active"),
@@ -214,22 +237,151 @@ def test_requests() -> None:
         {"role_key": "triage", "display": {"color": "#aabbcc"}},
     )
     _bad("crew_role_upsert_request_schema.json", {"role_key": "triage", "role_token": TOKEN})
+    _ok("crew_create_request_schema.json", {"crew_key": "Triage_Crew-1", "name": "n"})
+    _bad("crew_create_request_schema.json", {"crew_key": "has space", "name": "n"})
+    _ok("crew_update_request_schema.json", {"name": "n2"})
+    _bad("crew_update_request_schema.json", {})
+    _bad("crew_update_request_schema.json", {"crew_key": "new"})
     binding = {"role_id": CROL, "binding_kind": "agent", "agent_id": "agent_1"}
+    req = {"source": "sdk_declared", "base_revision_no": 0, "bindings": [binding]}
+    name = "crew_revision_create_request_schema.json"
+    _ok(name, req)
+    _ok(name, {**req, "base_revision_no": 3, "entry_role_id": CROL})
+    _bad(name, {k: v for k, v in req.items() if k != "base_revision_no"})
+    _bad(name, {**req, "base_revision_no": -1})
+    _bad(name, {**req, "bindings": []})
+    _bad(name, {**req, "bindings": [{**binding, "state": "bound"}]})
+    # two entry bindings cannot be expressed: no per-binding entry flag is accepted
+    two = [{**binding, "entry": True}, {**binding, "role_id": "crol_" + "12" * 8, "entry": True}]
+    _bad(name, {**req, "bindings": two})
+    _bad(name, {**req, "bindings": [{**binding, "unit_ref": "u"}]})
+    _bad(name, {**req, "bindings": [{**binding, "agent_id": None}]})
+
+
+def _binding(**kw: object) -> dict:
+    return {**BINDING_DOC, **kw}
+
+
+def test_binding_invariants() -> None:
+    n = "crew_role_binding_schema.json"
+    _ok(n, _binding(state="unbound", agent_id=None, provenance="inferred_suggestion"))
+    _ok(n, _binding(state="retired", provenance="inferred_suggestion"))
     _ok(
-        "crew_revision_create_request_schema.json",
-        {"source": "sdk_declared", "bindings": [binding]},
+        n,
+        _binding(
+            binding_kind="agent_unit", pinned_agent_revision="r7", pinned_config_digest=DIGEST
+        ),
     )
-    _bad("crew_revision_create_request_schema.json", {"source": "portal", "bindings": []})
+    _bad(n, _binding(state="bound", provenance="inferred_suggestion"))
+    _bad(n, _binding(state="bound", agent_id=None))
+    _bad(n, _binding(state="unbound", agent_id="agent_1"))
+    _bad(n, {k: v for k, v in BINDING_DOC.items() if k != "crew_id"})
+    _bad(n, _binding(entry="yes"))
+
+
+def test_revision_two_entry_flags_are_a_service_check() -> None:
+    # Documented limit: draft-07 cannot count; the README lists it as a service check
+    # (partial unique index). The request side makes it unrepresentable (see test_requests).
+    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
+    assert "at most one entry binding per revision" in readme
+
+
+def test_role_key_nullable_and_icon_enum() -> None:
+    _ok("crew_role_schema.json", {**ROLE_DOC, "role_key": None})
+    _ok("crew_role_schema.json", {**ROLE_DOC, "display": {"icon": "bolt", "color": "#00ff00"}})
+
+
+def test_error_messages_are_fixed_templates() -> None:
+    common = _load("crew_common_schema.json")["definitions"]["CrewErrorCode"]["enum"]
+    assert "crew_feature_disabled" not in common
+    tmpl = _load("crew_error_schema.json")
+    mapped = {b["if"]["properties"]["error_code"]["const"] for b in tmpl["allOf"]}
+    assert mapped == set(common)
+    ok = {
+        "success": False,
+        "message": "Not found.",
+        "error": "not_found",
+        "error_code": "crew_not_found",
+    }
+    _ok("crew_error_schema.json", ok)
+    _bad("crew_error_schema.json", {**ok, "message": "Crew Alice not found"})
     _bad(
-        "crew_revision_create_request_schema.json",
-        {"source": "portal", "bindings": [{**binding, "state": "bound"}]},
+        "crew_error_schema.json", {**ok, "message": "The crew is archived."}
+    )  # wrong template for code
+
+
+def test_role_list_response() -> None:
+    _ok(
+        "crew_role_list_response_schema.json",
+        {"success": True, "message": "ok", "data": {"items": [ROLE_DOC]}},
     )
+
+
+def test_run_cold_cache_nullability() -> None:
+    cold = {
+        **RUN_DOC,
+        "completeness": "partial",
+        "crew_revision_id": None,
+        "entry_role_token": None,
+    }
+    _ok("crew_run_schema.json", cold)
+    _bad("crew_run_schema.json", {**cold, "completeness": "complete"})
+    _ok("crew_member_execution_schema.json", {**EXEC_DOC, "role_token": None})
+    _ok("crew_run_schema.json", {**RUN_DOC, "scenario_ref": "scn_" + "ab" * 8})
+
+
+def test_handoff_lifecycle_fields() -> None:
+    _ok("crew_handoff_schema.json", {**HANDOFF_DOC, "entered": True, "to_invocation_id": INV})
+    for field in ("requested_at", "entered", "dedup_id", "from_invocation_id", "to_invocation_id"):
+        _bad("crew_handoff_schema.json", {k: v for k, v in HANDOFF_DOC.items() if k != field})
+
+
+def test_trial_allocation() -> None:
+    doc = {
+        "configuration_run_id": "cfgrun_1",
+        "crew_id": CREW,
+        "crew_revision_id": CREV,
+        "role_token": TOKEN,
+        "member_config_digest": DIGEST,
+    }
+    _ok("crew_trial_allocation_schema.json", doc)
+    _bad("crew_trial_allocation_schema.json", {**doc, "member_config_digest": "abc"})
+    _bad("crew_trial_allocation_schema.json", {**doc, "extra": 1})
+
+
+def test_digest_canonicalization_is_documented_and_stable() -> None:
+    import hashlib
+
+    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
+    assert 'sort_keys=True, separators=(",", ":"), ensure_ascii=False' in readme
+    keys = [
+        "role_id",
+        "binding_kind",
+        "agent_id",
+        "unit_ref",
+        "pinned_agent_revision",
+        "pinned_config_digest",
+        "entry",
+        "state",
+        "provenance",
+    ]
+    for key in keys:
+        assert f"`{key}" in readme or key in readme
+    b = {k: BINDING_DOC[k] for k in keys}
+    body = json.dumps(
+        {"crew_id": CREW, "bindings": [b]},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    digest = "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
+    _ok("crew_revision_schema.json", {**REVISION_DOC, "digest": digest})
 
 
 def test_error_body_is_closed_and_never_free_form() -> None:
     err = {
         "success": False,
-        "message": "Binding conflict.",
+        "message": "The binding conflicts with an existing binding.",
         "error": "conflict",
         "error_code": "crew_binding_conflict",
     }
@@ -262,19 +414,29 @@ def test_responses() -> None:
 def test_endpoints_catalog_shape() -> None:
     schemas_dir = Path(get_schemas_dir())
     doc = json.loads((schemas_dir / "crew" / "crew_endpoints.json").read_text(encoding="utf-8"))
-    assert set(doc["paths"]) == {
-        "/api/v1/crews",
-        "/api/v1/crews/{crew_id}",
-        "/api/v1/crews/{crew_id}/archive",
-        "/api/v1/crews/{crew_id}/roles",
-        "/api/v1/crews/{crew_id}/revisions",
+    base = "/api/v1beta/projects/{project_id}/crews"
+    ops = {(m, p[len(base) :]) for p, item in doc["paths"].items() for m in item}
+    assert ops == {
+        ("post", ""),
+        ("get", ""),
+        ("get", "/{crew_id}"),
+        ("put", "/{crew_id}"),
+        ("post", "/{crew_id}/archive"),
+        ("post", "/{crew_id}/unarchive"),
+        ("get", "/{crew_id}/roles"),
+        ("post", "/{crew_id}/roles"),
+        ("get", "/{crew_id}/revisions"),
+        ("post", "/{crew_id}/revisions"),
     }
-    assert "409" in doc["paths"]["/api/v1/crews/{crew_id}/revisions"]["post"]["responses"]
+    assert all(p.startswith(base) for p in doc["paths"])
+    assert "409" in doc["paths"][base + "/{crew_id}/revisions"]["post"]["responses"]
     for item in doc["paths"].values():
         for op in item.values():
-            assert "429" in op["responses"]
+            assert "429" in op["responses"] and "404" in op["responses"]
+            assert "403" not in op["responses"]
+            assert any(p["name"] == "project_id" for p in op["parameters"])
             for status, resp in op["responses"].items():
-                if status.startswith("4") and status != "429":
+                if status.startswith(("4", "5")) and status != "429":
                     assert (
                         resp["content"]["application/json"]["schema"]["$ref"]
                         == "./crew_error_schema.json"
@@ -291,7 +453,6 @@ def test_content_vs_identifier_annotations() -> None:
     assert role["role_key"]["x-content"] is True
     assert role["role_token"]["x-identifier"] is True and role["role_id"]["x-identifier"] is True
     assert _load("crew_run_schema.json")["properties"]["crew_run_id"]["x-identifier"] is True
-    # role_token must stay '__'-free: the joint-optimization key is <role_token>__<param>.
-    assert "_" not in _load("crew_common_schema.json")["definitions"]["RoleToken"][
-        "pattern"
-    ].replace("^", "")
+    pattern = _load("crew_common_schema.json")["definitions"]["RoleToken"]["pattern"]
+    assert pattern.startswith("^rtk_[a-z2-7]{26}")
+    assert _load("crew_common_schema.json")["definitions"]["AgentId"]["maxLength"] == 512

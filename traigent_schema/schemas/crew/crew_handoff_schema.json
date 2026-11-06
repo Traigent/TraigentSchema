@@ -10,6 +10,11 @@
     "hop_seq",
     "from_role_token",
     "to_role_token",
+    "from_invocation_id",
+    "to_invocation_id",
+    "requested_at",
+    "entered",
+    "dedup_id",
     "transfer_status",
     "context_truncated"
   ],
@@ -22,7 +27,7 @@
     "hop_seq": {
       "type": "integer",
       "minimum": 1,
-      "description": "1-based position of the hop within the run."
+      "description": "1-based; allocated by the sender from the baggage hop counter; unique per crew run."
     },
     "from_role_token": {
       "$ref": "./crew_common_schema.json#/definitions/RoleToken",
@@ -33,6 +38,38 @@
       "$ref": "./crew_common_schema.json#/definitions/RoleToken",
       "x-identifier": true,
       "description": "Receiving role."
+    },
+    "from_invocation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "x-identifier": true,
+      "description": "Sending invocation."
+    },
+    "to_invocation_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "x-identifier": true,
+      "description": "Receiving invocation; null if the transfer was never entered."
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entered": {
+      "type": "boolean",
+      "description": "True when the receiving role was actually entered. A handoff is counted when requested; a loop is counted when entered (RFC counters)."
+    },
+    "dedup_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "x-identifier": true,
+      "description": "Replay key; ingest is idempotent per (crew_run_id, dedup_id)."
     },
     "transfer_status": {
       "$ref": "./crew_common_schema.json#/definitions/TransferStatus"

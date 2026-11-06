@@ -21,8 +21,8 @@
     },
     "RoleToken": {
       "type": "string",
-      "pattern": "^[a-z0-9]{8,32}(?![\\s\\S])",
-      "description": "Opaque server-issued role token, unique within a crew. Lowercase alphanumerics only, so it never contains '__' and the joint-optimization key '<role_token>__<param>' stays unambiguous. This is the only role label allowed on traces, baggage and smartopt keys; the customer's role_key never leaves the crew tables."
+      "pattern": "^rtk_[a-z2-7]{26}(?![\\s\\S])",
+      "description": "Opaque server-issued role token, unique within a crew: 'rtk_' + 26 lowercase unpadded base32 chars (128 random bits). A single underscore never forms '__'; the joint-optimization key '<role_token>__<param>' is split on the FIRST '__'. This is the only role label allowed on traces, baggage and smartopt keys; the customer's role_key never leaves the crew tables."
     },
     "CrewRunId": {
       "type": "string",
@@ -32,8 +32,10 @@
     "AgentId": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 100,
-      "description": "Existing project agent id (agents/agent_schema.json#/properties/id).",
+      "maxLength": 512,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Existing project agent id (agents/agent_schema.json#/properties/id). Client-supplied, therefore CONTENT for Director inputs and exports (GNFR-PRIV-003): exports use the backend agent_ref instead.",
       "x-reference": "../agents/agent_schema.json#/properties/id"
     },
     "Sha256Digest": {
@@ -44,9 +46,8 @@
     },
     "CrewKey": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 128,
-      "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Matching is case-insensitive within the creator partition on the default tenant (BE agents rule, src/models/agent.py:132) and within the project elsewhere; a key is never reused after archive."
+      "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
+      "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Same rules as agent_key (BE src/models/agent.py AGENT_KEY_PATTERN, ForeignKeyId): [A-Za-z0-9_-]{1,128}, case-sensitive, unique among ACTIVE crews per project (per creator on the default tenant), reusable after archive; unarchive is 409 crew_key_conflict while an active crew holds the key."
     },
     "RoleKey": {
       "type": "string",
@@ -135,6 +136,29 @@
       "x-content-class": "closed_enum",
       "description": "Whether every expected member execution and handoff was ingested."
     },
+    "ScenarioRef": {
+      "type": "string",
+      "pattern": "^scn_[0-9a-f]{8,64}(?![\\s\\S])",
+      "x-content-class": "opaque_ref",
+      "description": "Server-issued scenario reference only; never a customer example id or label."
+    },
+    "RoleIcon": {
+      "type": "string",
+      "x-content-class": "closed_enum",
+      "enum": [
+        "agent",
+        "user",
+        "search",
+        "pen",
+        "check",
+        "shield",
+        "bolt",
+        "book",
+        "code",
+        "chat"
+      ],
+      "description": "Closed icon vocabulary (documented in the domain README)."
+    },
     "CrewErrorCode": {
       "type": "string",
       "x-content-class": "closed_enum",
@@ -142,12 +166,12 @@
         "crew_validation_failed",
         "crew_not_found",
         "crew_archived",
-        "crew_feature_disabled",
         "crew_key_conflict",
         "crew_role_conflict",
         "crew_binding_conflict",
         "crew_entry_role_conflict",
-        "crew_revision_conflict"
+        "crew_revision_conflict",
+        "crew_internal_error"
       ],
       "description": "Closed error vocabulary. crew_binding_conflict (409) = a binding contradicts an existing binding (same revision/role bound to a different agent, or an agent already bound to the same role differently). The error body never echoes client-supplied keys or values."
     }

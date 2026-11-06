@@ -91,11 +91,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -188,11 +188,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -255,11 +255,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -350,11 +350,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -427,11 +427,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -494,11 +494,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -561,11 +561,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -666,11 +666,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -762,11 +762,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }
@@ -857,11 +857,11 @@
             }
           },
           "429": {
-            "description": "Rate limited",
+            "description": "Rate limited (closed crew 429)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
+                  "$ref": "./crew_rate_limit_schema.json"
                 }
               }
             }

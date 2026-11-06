@@ -102,5 +102,45 @@
       "type": "boolean",
       "description": "True when context was truncated at this hop."
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "entered": {
+            "const": true
+          }
+        },
+        "required": [
+          "entered"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_invocation_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "entered": {
+            "const": false
+          }
+        },
+        "required": [
+          "entered"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_invocation_id": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
 }

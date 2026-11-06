@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_revision_create_request_schema.json",
   "title": "Crew Revision Create Request",
-  "description": "POST /api/v1/crews/{crew_id}/revisions. Creates the next immutable revision from the given bindings. A binding that contradicts an existing one yields 409 crew_binding_conflict; the entry role is the single entry_role_id (no per-binding entry flag, so two entries cannot be expressed); a stale base_revision_no yields 409 crew_revision_conflict.",
+  "description": "POST /api/v1beta/projects/{project_id}/crews/{crew_id}/revisions. Creates the next immutable revision from the given bindings. A binding that contradicts an existing one yields 409 crew_binding_conflict; the entry role is the single entry_role_id (no per-binding entry flag, so two entries cannot be expressed); a stale base_revision_no yields 409 crew_revision_conflict.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -81,7 +81,13 @@
             "description": "Pinned config digest; null = unpinned."
           },
           "provenance": {
-            "$ref": "./crew_common_schema.json#/definitions/BindingProvenance"
+            "type": "string",
+            "enum": [
+              "portal",
+              "sdk_declared"
+            ],
+            "x-content-class": "closed_enum",
+            "description": "Request provenance: portal or sdk_declared only. inferred_suggestion is never accepted here (it never grants membership and cannot be bound)."
           }
         }
       },

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_revision_list_response_schema.json",
   "title": "Crew Revision List Response",
-  "description": "200 body of GET /api/v1/crews/{crew_id}/revisions (newest first).",
+  "description": "200 body of GET /api/v1beta/projects/{project_id}/crews/{crew_id}/revisions (newest first).",
   "type": "object",
   "x-wrap-status": "wrapped",
   "additionalProperties": false,

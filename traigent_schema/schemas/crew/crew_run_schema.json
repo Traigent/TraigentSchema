@@ -42,21 +42,25 @@
       "description": "Revision executed; null only when completeness != complete."
     },
     "experiment_run_id": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/ExperimentRunId"
+        },
+        {
+          "type": "null"
+        }
       ],
-      "minLength": 1,
-      "maxLength": 100,
       "x-identifier": true
     },
     "configuration_run_id": {
-      "type": [
-        "string",
-        "null"
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/ConfigurationRunId"
+        },
+        {
+          "type": "null"
+        }
       ],
-      "minLength": 1,
-      "maxLength": 100,
       "x-identifier": true
     },
     "scenario_ref": {

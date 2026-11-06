@@ -136,6 +136,16 @@
       "x-content-class": "closed_enum",
       "description": "Whether every expected member execution and handoff was ingested."
     },
+    "ExperimentRunId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "description": "Server-issued experiment run id: lowercase UUID, the backend's real id shape (BE src/models/experiment_run.py id = str(uuid.uuid4()), String(100)). Content (names, agent ids) can never match."
+    },
+    "ConfigurationRunId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "description": "Server-issued configuration run id: lowercase UUID (BE src/models/configuration_run.py:37 id = str(uuid.uuid4()))."
+    },
     "ScenarioRef": {
       "type": "string",
       "pattern": "^scn_[0-9a-f]{8,64}(?![\\s\\S])",

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_list_response_schema.json",
   "title": "Crew List Response",
-  "description": "200 body of GET /api/v1/crews. Nested pagination (strict nested-only paginated_response).",
+  "description": "200 body of GET /api/v1beta/projects/{project_id}/crews. Nested pagination (strict nested-only paginated_response).",
   "type": "object",
   "x-wrap-status": "wrapped",
   "additionalProperties": false,

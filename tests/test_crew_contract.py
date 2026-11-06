@@ -338,7 +338,7 @@ def test_handoff_lifecycle_fields() -> None:
 
 def test_trial_allocation() -> None:
     doc = {
-        "configuration_run_id": "cfgrun_1",
+        "configuration_run_id": "123e4567-e89b-42d3-a456-426614174000",
         "crew_id": CREW,
         "crew_revision_id": CREV,
         "role_token": TOKEN,
@@ -349,33 +349,131 @@ def test_trial_allocation() -> None:
     _bad("crew_trial_allocation_schema.json", {**doc, "extra": 1})
 
 
-def test_digest_canonicalization_is_documented_and_stable() -> None:
-    import hashlib
+def _vec_binding(role: str, agent: str, **kw: object) -> dict:
+    base = {
+        "role_id": role,
+        "binding_kind": "agent",
+        "agent_id": agent,
+        "unit_ref": None,
+        "pinned_agent_revision": None,
+        "pinned_config_digest": None,
+        "entry": False,
+        "state": "bound",
+        "provenance": "portal",
+    }
+    return {**base, **kw}
 
-    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
-    assert 'sort_keys=True, separators=(",", ":"), ensure_ascii=False' in readme
-    keys = [
-        "role_id",
-        "binding_kind",
-        "agent_id",
-        "unit_ref",
-        "pinned_agent_revision",
-        "pinned_config_digest",
-        "entry",
-        "state",
-        "provenance",
-    ]
-    for key in keys:
-        assert f"`{key}" in readme or key in readme
-    b = {k: BINDING_DOC[k] for k in keys}
-    body = json.dumps(
-        {"crew_id": CREW, "bindings": [b]},
+
+def _canonical(crew_id: str, bindings: list[dict]) -> str:
+    ordered = sorted(bindings, key=lambda x: x["role_id"])
+    return json.dumps(
+        {"crew_id": crew_id, "bindings": ordered},
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
     )
+
+
+DIGEST_VECTOR_JSON = (
+    '{"bindings":[{"agent_id":"agent_a","binding_kind":"agent","entry":true,'
+    '"pinned_agent_revision":null,"pinned_config_digest":null,"provenance":"portal",'
+    '"role_id":"crol_0101010101010101","state":"bound","unit_ref":null},'
+    '{"agent_id":"agént_é","binding_kind":"agent","entry":false,'
+    '"pinned_agent_revision":null,"pinned_config_digest":null,"provenance":"portal",'
+    '"role_id":"crol_0202020202020202","state":"bound","unit_ref":null}],'
+    '"crew_id":"crew_abababababababab"}'
+)
+DIGEST_VECTOR = "sha256:579ab49c3699f17052f5134079ba84fbca7c313878773072a4020589f79bd8bc"
+
+
+def test_digest_canonicalization_vectors() -> None:
+    import hashlib
+
+    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
+    assert 'sort_keys=True, separators=(",", ":"), ensure_ascii=False' in readme
+    assert "raw UTF-8" in readme
+    first = _vec_binding("crol_" + "01" * 8, "agent_a", entry=True)
+    second = _vec_binding("crol_" + "02" * 8, "ag\u00e9nt_\u00e9")
+    body = _canonical(CREW, [first, second])
+    assert body == DIGEST_VECTOR_JSON
+    assert "\\u00e9" not in body and "é" in body  # non-ASCII stays raw UTF-8
     digest = "sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
-    _ok("crew_revision_schema.json", {**REVISION_DOC, "digest": digest})
+    assert digest == DIGEST_VECTOR
+    # reordered input gives the same canonical JSON and digest
+    reordered = _canonical(CREW, [second, first])
+    assert reordered == body
+    assert "sha256:" + hashlib.sha256(reordered.encode("utf-8")).hexdigest() == DIGEST_VECTOR
+    # any membership change changes the digest
+    changed = _canonical(CREW, [{**first, "agent_id": "agent_b"}, second])
+    assert "sha256:" + hashlib.sha256(changed.encode("utf-8")).hexdigest() != DIGEST_VECTOR
+    _ok("crew_revision_schema.json", {**REVISION_DOC, "digest": DIGEST_VECTOR})
+
+
+def test_revision_request_rejects_inferred_suggestion() -> None:
+    name = "crew_revision_create_request_schema.json"
+    binding = {"role_id": CROL, "binding_kind": "agent", "agent_id": "agent_1"}
+    req = {"source": "portal", "base_revision_no": 0}
+    _ok(name, {**req, "bindings": [{**binding, "provenance": "sdk_declared"}]})
+    _ok(name, {**req, "bindings": [{**binding, "provenance": "portal"}]})
+    _bad(name, {**req, "bindings": [{**binding, "provenance": "inferred_suggestion"}]})
+
+
+def test_run_ids_are_server_issued_uuids_not_content() -> None:
+    uid = "123e4567-e89b-42d3-a456-426614174000"
+    _ok("crew_run_schema.json", {**RUN_DOC, "experiment_run_id": uid, "configuration_run_id": uid})
+    canaries = ["Alice_has_diabetes", "agent_1", "my experiment", uid.upper(), uid + "\n"]
+    for canary in canaries:
+        _bad("crew_run_schema.json", {**RUN_DOC, "experiment_run_id": canary})
+        _bad("crew_run_schema.json", {**RUN_DOC, "configuration_run_id": canary})
+    alloc = {
+        "configuration_run_id": uid,
+        "crew_id": CREW,
+        "crew_revision_id": CREV,
+        "role_token": TOKEN,
+        "member_config_digest": DIGEST,
+    }
+    _ok("crew_trial_allocation_schema.json", alloc)
+    for canary in canaries:
+        _bad("crew_trial_allocation_schema.json", {**alloc, "configuration_run_id": canary})
+
+
+def test_closed_crew_429() -> None:
+    n = "crew_rate_limit_schema.json"
+    ok = {
+        "success": False,
+        "message": "Too many requests.",
+        "error": "rate_limited",
+        "error_code": "crew_rate_limited",
+        "retry_after": 5,
+    }
+    _ok(n, ok)
+    _bad(n, {**ok, "details": {"scope": "global", "retry_after": 5}})
+    _bad(n, {**ok, "message": "Crew Alice is throttled"})
+    _bad(n, {**ok, "error_code": "RATE_LIMIT_EXCEEDED"})
+    _bad(n, {**ok, "retry_after": 0})
+    _bad(n, {k: v for k, v in ok.items() if k != "retry_after"})
+    doc = _load("crew_endpoints.json")
+    for item in doc["paths"].values():
+        for op in item.values():
+            ref = op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"]
+            assert ref == "./crew_rate_limit_schema.json"
+
+
+def test_handoff_entered_matches_destination_invocation() -> None:
+    n = "crew_handoff_schema.json"
+    _ok(n, {**HANDOFF_DOC, "entered": True, "to_invocation_id": INV})
+    _ok(n, {**HANDOFF_DOC, "entered": False, "to_invocation_id": None})
+    _bad(n, {**HANDOFF_DOC, "entered": True, "to_invocation_id": None})
+    _bad(n, {**HANDOFF_DOC, "entered": False, "to_invocation_id": INV})
+
+
+def test_member_null_role_token_is_an_ingestion_cross_record_check() -> None:
+    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
+    assert "Ingestion cross-record check" in readme
+    assert (
+        "null `role_token` is rejected unless its parent `crew_run` has `completeness != complete`"
+        in readme
+    )
 
 
 def test_error_body_is_closed_and_never_free_form() -> None:
@@ -436,11 +534,11 @@ def test_endpoints_catalog_shape() -> None:
             assert "403" not in op["responses"]
             assert any(p["name"] == "project_id" for p in op["parameters"])
             for status, resp in op["responses"].items():
-                if status.startswith(("4", "5")) and status != "429":
-                    assert (
-                        resp["content"]["application/json"]["schema"]["$ref"]
-                        == "./crew_error_schema.json"
-                    )
+                ref = resp["content"]["application/json"]["schema"]["$ref"]
+                if status == "429":
+                    assert ref == "./crew_rate_limit_schema.json"
+                elif status.startswith(("4", "5")):
+                    assert ref == "./crew_error_schema.json"
 
 
 def test_content_vs_identifier_annotations() -> None:

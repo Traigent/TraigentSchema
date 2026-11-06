@@ -14,10 +14,9 @@
   ],
   "properties": {
     "configuration_run_id": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 100,
-      "x-identifier": true
+      "$ref": "./crew_common_schema.json#/definitions/ConfigurationRunId",
+      "x-identifier": true,
+      "description": "Server-issued configuration run id."
     },
     "crew_id": {
       "$ref": "./crew_common_schema.json#/definitions/CrewId",

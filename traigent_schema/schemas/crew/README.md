@@ -13,8 +13,12 @@ transfer of work between roles inside a run (not `agent_handoff`, which is team 
 | `crew_common_schema.json` | ids, closed enums, error codes |
 | `crew_schema.json`, `crew_role_schema.json`, `crew_revision_schema.json`, `crew_role_binding_schema.json` | slice-1 entities |
 | `crew_*_request_schema.json`, `crew_*_response_schema.json`, `crew_error_schema.json` | slice-1 API shapes |
-| `crew_endpoints.json` | `/api/v1beta/projects/{project_id}/crews` and `/{crew_id}` (GET, PUT name/description), `/archive`, `/unarchive`, `/roles` (GET, POST upsert), `/revisions` (GET, POST). No PUT/DELETE on bindings (declared ahead of the backend: `x-asserted-against-backend: false`) |
+| `crew_endpoints.json` | `/api/v1beta/projects/{project_id}/crews` and `/{crew_id}` (GET, PUT name/description), `/archive`, `/unarchive`, `/memberships` (GET), `/roles` (GET, POST upsert), `/revisions` (GET, POST). No PUT/DELETE on bindings (declared ahead of the backend: `x-asserted-against-backend: false`) |
 | `crew_run_schema.json`, `crew_member_execution_schema.json`, `crew_handoff_schema.json`, `crew_trial_allocation_schema.json` | slice-3/4 execution shapes, **contract only, no API yet** |
+
+## Summaries and memberships (read models)
+
+Crew list rows and the crew response carry `role_count`, `bound_member_count` (distinct `agent_id`s bound in the latest revision) and `entry_role_id` (nullable), so the portal needs no per-crew fan-out. `GET /api/v1beta/projects/{project_id}/crews/memberships` is one paginated read for the fleet board: items `{agent_id, crew_id, role_id, role_token, revision_no}`, only `state=bound` bindings of each crew's latest revision, optional repeatable `agent_id` filter (max 100; values are CONTENT and never logged), `include_archived` false by default. Same closed 404 and error rules as the other crew routes.
 
 ## Privacy: content vs identifiers (constitution 11, GNFR-PRIV-002/003)
 

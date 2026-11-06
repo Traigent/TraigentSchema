@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_membership_schema.json",
+  "title": "Crew Membership",
+  "description": "One bound role of the latest revision of a crew: which agent fills which role. Read model for the fleet board. Only state=bound bindings of each crew's latest revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agent_id",
+    "crew_id",
+    "role_id",
+    "role_token",
+    "revision_no"
+  ],
+  "properties": {
+    "agent_id": {
+      "$ref": "./crew_common_schema.json#/definitions/AgentId"
+    },
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true
+    },
+    "role_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRoleId",
+      "x-identifier": true
+    },
+    "role_token": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleToken",
+      "x-identifier": true
+    },
+    "revision_no": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

@@ -59,6 +59,9 @@ CREW_DOC = {
     "created_at": NOW,
     "updated_at": NOW,
     "latest_revision_no": None,
+    "role_count": 0,
+    "bound_member_count": 0,
+    "entry_role_id": None,
 }
 ROLE_DOC = {
     "role_id": CROL,
@@ -509,6 +512,68 @@ def test_responses() -> None:
     )
 
 
+MEMBERSHIP_DOC = {
+    "agent_id": "agent_1",
+    "crew_id": CREW,
+    "role_id": CROL,
+    "role_token": TOKEN,
+    "revision_no": 1,
+}
+
+
+def test_crew_summary_fields() -> None:
+    _ok(
+        "crew_schema.json",
+        {**CREW_DOC, "role_count": 2, "bound_member_count": 1, "entry_role_id": CROL},
+    )
+    for field, value in (
+        ("role_count", -1),
+        ("bound_member_count", -1),
+        ("bound_member_count", "1"),
+        ("entry_role_id", "crol_XYZ"),
+    ):
+        _bad("crew_schema.json", {**CREW_DOC, field: value})
+    for field in ("role_count", "bound_member_count", "entry_role_id"):
+        doc = {k: v for k, v in CREW_DOC.items() if k != field}
+        _bad("crew_schema.json", doc)
+    _ok(
+        "crew_response_schema.json",
+        {"success": True, "message": "ok", "data": {**CREW_DOC, "roles": [], "role_count": 3}},
+    )
+
+
+def test_membership_contract() -> None:
+    _ok("crew_membership_schema.json", MEMBERSHIP_DOC)
+    _bad("crew_membership_schema.json", {**MEMBERSHIP_DOC, "extra": 1})
+    _bad("crew_membership_schema.json", {**MEMBERSHIP_DOC, "role_token": "rtk_short"})
+    _bad("crew_membership_schema.json", {**MEMBERSHIP_DOC, "revision_no": 0})
+    _bad("crew_membership_schema.json", {**MEMBERSHIP_DOC, "agent_id": None})
+    for field in MEMBERSHIP_DOC:
+        _bad("crew_membership_schema.json", {k: v for k, v in MEMBERSHIP_DOC.items() if k != field})
+    page = {
+        "page": 1,
+        "per_page": 20,
+        "total": 1,
+        "total_pages": 1,
+        "has_next": False,
+        "has_prev": False,
+    }
+    env = {"success": True, "message": "ok"}
+    _ok(
+        "crew_membership_list_response_schema.json",
+        {**env, "data": {"items": [MEMBERSHIP_DOC], "pagination": page}},
+    )
+    _bad(
+        "crew_membership_list_response_schema.json",
+        {**env, "data": {"items": [{**MEMBERSHIP_DOC, "name": "x"}], "pagination": page}},
+    )
+    doc = json.loads((CREW_DIR / "crew_endpoints.json").read_text(encoding="utf-8"))
+    op = doc["paths"]["/api/v1beta/projects/{project_id}/crews/memberships"]["get"]
+    agent = next(p for p in op["parameters"] if p["name"] == "agent_id")
+    assert agent["schema"]["maxItems"] == 100 and agent["explode"] is True
+    assert any(p["name"] == "include_archived" for p in op["parameters"])
+
+
 def test_endpoints_catalog_shape() -> None:
     schemas_dir = Path(get_schemas_dir())
     doc = json.loads((schemas_dir / "crew" / "crew_endpoints.json").read_text(encoding="utf-8"))
@@ -517,6 +582,7 @@ def test_endpoints_catalog_shape() -> None:
     assert ops == {
         ("post", ""),
         ("get", ""),
+        ("get", "/memberships"),
         ("get", "/{crew_id}"),
         ("put", "/{crew_id}"),
         ("post", "/{crew_id}/archive"),

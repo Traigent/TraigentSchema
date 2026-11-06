@@ -33,7 +33,10 @@
         "created_at",
         "updated_at",
         "latest_revision_no",
-        "roles"
+        "roles",
+        "role_count",
+        "bound_member_count",
+        "entry_role_id"
       ],
       "properties": {
         "crew_id": {
@@ -100,6 +103,28 @@
           "items": {
             "$ref": "./crew_role_schema.json"
           }
+        },
+        "role_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of roles of the crew."
+        },
+        "bound_member_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Distinct agent_ids bound (state=bound) in the latest revision; 0 when the crew has no revision."
+        },
+        "entry_role_id": {
+          "anyOf": [
+            {
+              "$ref": "./crew_common_schema.json#/definitions/CrewRoleId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "x-identifier": true,
+          "description": "Entry role of the latest revision; null when none or no revision."
         }
       }
     }

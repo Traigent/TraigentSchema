@@ -539,7 +539,13 @@ def test_crew_summary_fields() -> None:
         _bad("crew_schema.json", {**CREW_DOC, field: value})
     _ok("crew_schema.json", {**CREW_DOC, "source": "sdk_declared"})
     _bad("crew_schema.json", {**CREW_DOC, "source": ""})
-    for field in ("role_count", "bound_member_count", "entry_role_id", "latest_revision_id", "source"):
+    for field in (
+        "role_count",
+        "bound_member_count",
+        "entry_role_id",
+        "latest_revision_id",
+        "source",
+    ):
         doc = {k: v for k, v in CREW_DOC.items() if k != field}
         _bad("crew_schema.json", doc)
     _ok(
@@ -582,7 +588,10 @@ def test_membership_contract() -> None:
     q = doc["paths"][base + "/query"]["post"]
     assert q["operationId"] == "listCrewMembershipsQuery"
     assert not any(p["in"] == "query" and p["name"] == "agent_ids" for p in q["parameters"])
-    _ok("crew_membership_query_request_schema.json", {"agent_ids": ["a"] * 100, "include_archived": True})
+    _ok(
+        "crew_membership_query_request_schema.json",
+        {"agent_ids": ["a"] * 100, "include_archived": True},
+    )
     _ok("crew_membership_query_request_schema.json", {})
     _bad("crew_membership_query_request_schema.json", {"agent_ids": ["a"] * 101})
     _bad("crew_membership_query_request_schema.json", {"agent_ids": ["a" * 513]})
@@ -608,6 +617,9 @@ def test_endpoints_catalog_shape() -> None:
         ("post", "/{crew_id}/roles"),
         ("get", "/{crew_id}/revisions"),
         ("post", "/{crew_id}/revisions"),
+        ("get", "/{crew_id}/proposals"),
+        ("post", "/{crew_id}/proposals/{proposal_id}/accept"),
+        ("post", "/{crew_id}/proposals/{proposal_id}/dismiss"),
     }
     assert all(p.startswith(base) for p in doc["paths"])
     assert "409" in doc["paths"][base + "/{crew_id}/revisions"]["post"]["responses"]
@@ -637,3 +649,151 @@ def test_content_vs_identifier_annotations() -> None:
     pattern = _load("crew_common_schema.json")["definitions"]["RoleToken"]["pattern"]
     assert pattern.startswith("^rtk_[a-z2-7]{26}")
     assert _load("crew_common_schema.json")["definitions"]["AgentId"]["maxLength"] == 512
+
+
+# --- slice 2: declarations from code (CREW-20) -------------------------------------------
+CMP = "cmp_" + "ab" * 16
+PROPOSAL_DOC = {
+    "proposal_id": CMP,
+    "crew_id": CREW,
+    "role_id": CROL,
+    "agent_id": "agent_1",
+    "source": "sdk_declared",
+    "status": "open",
+    "first_seen_at": NOW,
+    "last_seen_at": NOW,
+    "seen_count": 1,
+    "decided_by": None,
+    "decided_at": None,
+}
+_PAGE = {
+    "page": 1,
+    "per_page": 20,
+    "total": 1,
+    "total_pages": 1,
+    "has_next": False,
+    "has_prev": False,
+}
+
+
+def test_crew_declaration_is_closed_and_both_keys_required() -> None:
+    _ok("crew_declaration_schema.json", {"crew_key": "support-desk", "role_key": "triage"})
+    _bad("crew_declaration_schema.json", {"crew_key": "support-desk"})
+    _bad("crew_declaration_schema.json", {"role_key": "triage"})
+    _bad("crew_declaration_schema.json", {"crew_key": "has space", "role_key": "triage"})
+    _bad("crew_declaration_schema.json", {"crew_key": "a", "role_key": "b", "name": "x"})
+    props = _load("crew_declaration_schema.json")["properties"]
+    for field in ("crew_key", "role_key"):
+        assert props[field]["x-content"] is True
+        assert props[field]["x-privacy-classification"] == "user_content"
+
+
+def test_session_wire_contract_lives_in_the_crew_domain_not_the_linted_optimization_docs() -> None:
+    """The optimization channel is content-class linted and closed; crew keys and ids are not
+    provable opaque refs there, so the optimization documents must not reference the crew wire
+    schemas (the lint would otherwise demand new legacy_content, which the ratchet forbids)."""
+    for name in ("optimization_endpoints.json", "session_create_response_schema.json"):
+        text = (SCHEMAS / "optimization" / name).read_text(encoding="utf-8")
+        assert "crew_declaration" not in text and "crew_binding" not in text
+    readme = (CREW_DIR / "README.md").read_text(encoding="utf-8")
+    assert "metadata.crew_declaration" in readme and "crew_binding" in readme
+    for name, where in (
+        ("crew_declaration_schema.json", "metadata.crew_declaration"),
+        ("crew_binding_schema.json", "crew_binding"),
+    ):
+        assert where in _load(name)["description"]
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        {
+            "status": "bound",
+            "crew_id": CREW,
+            "role_id": CROL,
+            "role_token": TOKEN,
+            "crew_revision_id": CREV,
+            "revision_no": 2,
+        },
+        {"status": "pending_portal"},
+        {"status": "pending_portal", "crew_id": CREW},
+        {"status": "conflict", "crew_id": CREW},
+        {"status": "disabled"},
+        {"status": "unknown"},
+    ],
+)
+def test_crew_binding_valid(doc: dict) -> None:
+    _ok("crew_binding_schema.json", doc)
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        {"status": "bound"},
+        {"status": "bound", "crew_id": CREW, "role_id": CROL},
+        {"status": "pending_portal", "role_id": CROL},
+        {"status": "pending_portal", "role_token": TOKEN},
+        {"status": "conflict", "crew_id": CREW, "crew_revision_id": CREV},
+        {"status": "disabled", "crew_id": CREW},
+        {"status": "unknown", "role_id": CROL},
+        {"status": "unknown_crew"},
+        {
+            "status": "bound",
+            "crew_id": CREW,
+            "role_id": CROL,
+            "role_token": TOKEN,
+            "crew_revision_id": CREV,
+            "revision_no": 0,
+        },
+        {"status": "pending_portal", "crew_name": "Support"},
+    ],
+)
+def test_crew_binding_rejects(doc: dict) -> None:
+    _bad("crew_binding_schema.json", doc)
+
+
+def test_proposal_entity_and_responses() -> None:
+    _ok("crew_membership_proposal_schema.json", PROPOSAL_DOC)
+    decided = {**PROPOSAL_DOC, "status": "dismissed", "decided_by": "user_1", "decided_at": NOW}
+    _ok("crew_membership_proposal_schema.json", decided)
+    _ok("crew_membership_proposal_schema.json", {**decided, "status": "accepted"})
+    env = {"success": True, "message": "ok"}
+    _ok("crew_membership_proposal_response_schema.json", {**env, "data": PROPOSAL_DOC})
+    _ok(
+        "crew_membership_proposal_list_response_schema.json",
+        {**env, "data": {"items": [PROPOSAL_DOC], "pagination": _PAGE}},
+    )
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [
+        {"proposal_id": "cmp_xyz"},
+        {"proposal_id": CMP + "\n"},
+        {"proposal_id": "cmp_" + "a" * 31},
+        {"source": "portal"},
+        {"status": "reopened"},
+        {"seen_count": 0},
+        {"status": "accepted"},  # decided_* must be set
+        {"decided_by": "user_1"},  # open proposal cannot be decided
+        {"unknown_extra_field": 1},
+    ],
+)
+def test_proposal_rejects(patch: dict) -> None:
+    _bad("crew_membership_proposal_schema.json", {**PROPOSAL_DOC, **patch})
+
+
+def test_proposal_ops_are_closed_and_declared() -> None:
+    doc = json.loads((CREW_DIR / "crew_endpoints.json").read_text(encoding="utf-8"))
+    base = "/api/v1beta/projects/{project_id}/crews/{crew_id}/proposals"
+    lst = doc["paths"][base]["get"]
+    status = next(p for p in lst["parameters"] if p["name"] == "status")
+    assert status["schema"]["default"] == "open"
+    for suffix in ("accept", "dismiss"):
+        op = doc["paths"][f"{base}/{{proposal_id}}/{suffix}"]["post"]
+        assert any(p["name"] == "proposal_id" for p in op["parameters"])
+        assert op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"] == (
+            "./crew_membership_proposal_response_schema.json"
+        )
+    accept = doc["paths"][f"{base}/{{proposal_id}}/accept"]["post"]
+    assert "409" in accept["responses"]

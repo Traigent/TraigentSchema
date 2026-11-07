@@ -4,7 +4,7 @@
   "info": {
     "title": "Traigent Backend Crew Routes",
     "version": "1.0.0",
-    "description": "Crew catalog routes (slice 1). Declared ahead of the backend implementation (CREW-11); x-asserted-against-backend is false until the BE routes land. Tenant comes from the canonical auth context; project_id is the project path scope checked against it, never a header. Feature gate: crews; feature off answers the same closed 404 as a missing crew (outermost check). Slice 1 serves human principals only; API-key callers get the same closed 404. No PUT/DELETE on bindings: membership changes append a revision. The crew_run, crew_member_execution and crew_handoff schemas are slice-3 contracts with no routes yet."
+    "description": "Crew catalog routes (slice 1). Declared ahead of the backend implementation (CREW-11); x-asserted-against-backend is false until the BE routes land. Tenant comes from the canonical auth context; project_id is the project path scope checked against it, never a header. Feature gate: crews; feature off answers the same closed 404 as a missing crew (outermost check). Slice 1 serves human principals only; API-key callers get the same closed 404. No PUT/DELETE on bindings: membership changes append a revision. The crew_run, crew_member_execution and crew_handoff schemas are slice-3 contracts with no routes yet. Slice 2 adds the membership proposal routes (list, accept, dismiss); editors only, API keys get the closed 404 there (an API key may only declare membership through session create)."
   },
   "paths": {
     "/api/v1beta/projects/{project_id}/crews": {
@@ -1032,6 +1032,260 @@
           },
           "409": {
             "description": "Conflict (closed error_code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (closed crew 429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_rate_limit_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/crews/{crew_id}/proposals": {
+      "get": {
+        "summary": "List membership proposals of a crew (open by default)",
+        "operationId": "listCrewProposals",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/ProposalStatus",
+              "default": "open"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proposals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_membership_proposal_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found (feature off, unauthorized principal including API keys, foreign or missing)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (closed crew 429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_rate_limit_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/crews/{crew_id}/proposals/{proposal_id}/accept": {
+      "post": {
+        "summary": "Accept a proposal (editor): appends a full-snapshot revision and marks it accepted, one transaction",
+        "operationId": "acceptCrewProposal",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          },
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewProposalId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_membership_proposal_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found (feature off, unauthorized principal including API keys, foreign or missing)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict (closed error_code: crew_archived, crew_binding_conflict, crew_revision_conflict)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (closed crew 429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_rate_limit_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/crews/{crew_id}/proposals/{proposal_id}/dismiss": {
+      "post": {
+        "summary": "Dismiss a proposal (editor): durable",
+        "operationId": "dismissCrewProposal",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "crew_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewId"
+            }
+          },
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./crew_common_schema.json#/definitions/CrewProposalId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dismissed (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_membership_proposal_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found (feature off, unauthorized principal including API keys, foreign or missing)",
             "content": {
               "application/json": {
                 "schema": {

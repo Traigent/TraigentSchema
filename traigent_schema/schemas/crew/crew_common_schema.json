@@ -184,6 +184,41 @@
         "crew_internal_error"
       ],
       "description": "Closed error vocabulary. crew_binding_conflict (409) = a binding contradicts an existing binding (same revision/role bound to a different agent, or an agent already bound to the same role differently). The error body never echoes client-supplied keys or values."
+    },
+    "CrewProposalId": {
+      "type": "string",
+      "pattern": "^cmp_[0-9a-f]{32}(?![\\s\\S])",
+      "description": "Opaque server-issued crew membership proposal id: 'cmp_' + 32 lowercase hex."
+    },
+    "ProposalStatus": {
+      "type": "string",
+      "enum": [
+        "open",
+        "accepted",
+        "dismissed"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed lifecycle of a membership proposal. dismissed is durable: a later SDK declaration never reopens it."
+    },
+    "ProposalSource": {
+      "type": "string",
+      "enum": [
+        "sdk_declared"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Where the proposal came from. Only sdk_declared exists in slice 2."
+    },
+    "CrewBindingStatus": {
+      "type": "string",
+      "enum": [
+        "bound",
+        "pending_portal",
+        "conflict",
+        "disabled",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed outcome of a crew declaration on session create. unknown = mock mode or the crew step failed; the session itself never fails because of crews."
     }
   }
 }

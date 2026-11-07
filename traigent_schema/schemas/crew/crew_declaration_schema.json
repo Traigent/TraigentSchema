@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_declaration_schema.json",
+  "title": "Crew Declaration",
+  "description": "Optional `crew_declaration` an SDK sends in session-create metadata beside agent_key (CREW-18/20). Both keys are CONTENT: the backend extracts and removes this object from metadata before any generic persistence or telemetry, so the keys live only in crew tables. Content-less mode sends nothing (the session stays unbound). Wire location: `metadata.crew_declaration` of POST /api/v1/sessions. Deliberately NOT referenced from the optimization documents: that channel is content-class linted and closed (the ratchet admits no new legacy_content), and `metadata` is already a free object, so this crew-domain schema is the authority for the optional key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_key",
+    "role_key"
+  ],
+  "properties": {
+    "crew_key": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewKey",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Stable crew registration key. CONTENT."
+    },
+    "role_key": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleKey",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Stable role key inside the crew. CONTENT."
+    }
+  }
+}

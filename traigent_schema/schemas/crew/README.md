@@ -11,7 +11,7 @@ transfer of work between roles inside a run (not `agent_handoff`, which is team 
 | File | What |
 |---|---|
 | `crew_common_schema.json` | ids, closed enums, error codes |
-| `crew_schema.json`, `crew_role_schema.json`, `crew_revision_schema.json`, `crew_role_binding_schema.json` | slice-1 entities |
+| `crew_schema.json`, `crew_role_schema.json`, `crew_revision_schema.json`, `crew_role_binding_schema.json` | slice-1 entities; `crew_schema.json` and the crew response carry a required `source` (`portal` \| `sdk_declared`), where the crew was registered |
 | `crew_*_request_schema.json`, `crew_*_response_schema.json`, `crew_error_schema.json` | slice-1 API shapes |
 | `crew_endpoints.json` | `/api/v1beta/projects/{project_id}/crews` and `/{crew_id}` (GET, PUT name/description), `/archive`, `/unarchive`, `/memberships` (GET), `/memberships/query` (POST, agent filter in body), `/roles` (GET, POST upsert), `/revisions` (GET, POST). No PUT/DELETE on bindings (declared ahead of the backend: `x-asserted-against-backend: false`) |
 | `crew_run_schema.json`, `crew_member_execution_schema.json`, `crew_handoff_schema.json`, `crew_trial_allocation_schema.json` | slice-3/4 execution shapes, **contract only, no API yet** |

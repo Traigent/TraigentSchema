@@ -28,6 +28,7 @@
         "crew_key",
         "name",
         "description",
+        "source",
         "archived_at",
         "created_by",
         "created_at",
@@ -68,6 +69,14 @@
           "x-content": true,
           "x-privacy-classification": "user_content",
           "description": "Mutable description. CONTENT."
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "portal",
+            "sdk_declared"
+          ],
+          "description": "Where the crew was registered: the portal or declared by an SDK."
         },
         "archived_at": {
           "type": [

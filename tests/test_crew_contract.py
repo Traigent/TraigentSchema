@@ -54,6 +54,7 @@ CREW_DOC = {
     "crew_key": "triage-crew",
     "name": "Triage",
     "description": None,
+    "source": "portal",
     "archived_at": None,
     "created_by": "user_1",
     "created_at": NOW,
@@ -198,6 +199,7 @@ def test_entities_are_closed(name: str) -> None:
         ("crew_run_schema.json", "crew_run_id", "0191a2b3-c4d5-4e6f-8a9b-0c1d2e3f4a5b"),
         ("crew_run_schema.json", "halt_reason", "because"),
         ("crew_run_schema.json", "status", "done"),
+        ("crew_schema.json", "source", "import"),
         ("crew_member_execution_schema.json", "exclusive_cost_usd", -1),
     ],
 )
@@ -535,7 +537,9 @@ def test_crew_summary_fields() -> None:
         ("entry_role_id", "crol_XYZ"),
     ):
         _bad("crew_schema.json", {**CREW_DOC, field: value})
-    for field in ("role_count", "bound_member_count", "entry_role_id", "latest_revision_id"):
+    _ok("crew_schema.json", {**CREW_DOC, "source": "sdk_declared"})
+    _bad("crew_schema.json", {**CREW_DOC, "source": ""})
+    for field in ("role_count", "bound_member_count", "entry_role_id", "latest_revision_id", "source"):
         doc = {k: v for k, v in CREW_DOC.items() if k != field}
         _bad("crew_schema.json", doc)
     _ok(

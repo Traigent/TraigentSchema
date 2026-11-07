@@ -33,6 +33,7 @@
         "created_at",
         "updated_at",
         "latest_revision_no",
+        "latest_revision_id",
         "roles",
         "role_count",
         "bound_member_count",
@@ -97,6 +98,18 @@
           ],
           "minimum": 1,
           "description": "Highest revision_no, null when the crew has no revision yet."
+        },
+        "latest_revision_id": {
+          "anyOf": [
+            {
+              "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "x-identifier": true,
+          "description": "Opaque id of the latest revision (the revision latest_revision_no names); null when the crew has no revision yet. Read in one query with the summary counts."
         },
         "roles": {
           "type": "array",

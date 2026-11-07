@@ -59,6 +59,7 @@ CREW_DOC = {
     "created_at": NOW,
     "updated_at": NOW,
     "latest_revision_no": None,
+    "latest_revision_id": None,
     "role_count": 0,
     "bound_member_count": 0,
     "entry_role_id": None,
@@ -517,6 +518,7 @@ MEMBERSHIP_DOC = {
     "crew_id": CREW,
     "role_id": CROL,
     "role_token": TOKEN,
+    "crew_revision_id": CREV,
     "revision_no": 1,
 }
 
@@ -533,7 +535,7 @@ def test_crew_summary_fields() -> None:
         ("entry_role_id", "crol_XYZ"),
     ):
         _bad("crew_schema.json", {**CREW_DOC, field: value})
-    for field in ("role_count", "bound_member_count", "entry_role_id"):
+    for field in ("role_count", "bound_member_count", "entry_role_id", "latest_revision_id"):
         doc = {k: v for k, v in CREW_DOC.items() if k != field}
         _bad("crew_schema.json", doc)
     _ok(
@@ -568,10 +570,20 @@ def test_membership_contract() -> None:
         {**env, "data": {"items": [{**MEMBERSHIP_DOC, "name": "x"}], "pagination": page}},
     )
     doc = json.loads((CREW_DIR / "crew_endpoints.json").read_text(encoding="utf-8"))
-    op = doc["paths"]["/api/v1beta/projects/{project_id}/crews/memberships"]["get"]
-    agent = next(p for p in op["parameters"] if p["name"] == "agent_id")
-    assert agent["schema"]["maxItems"] == 100 and agent["explode"] is True
+    base = "/api/v1beta/projects/{project_id}/crews/memberships"
+    op = doc["paths"][base]["get"]
+    # agent ids are CONTENT: never a query parameter (traced as http.target/http.url)
+    assert not any(p["name"] == "agent_id" for p in op["parameters"])
     assert any(p["name"] == "include_archived" for p in op["parameters"])
+    q = doc["paths"][base + "/query"]["post"]
+    assert q["operationId"] == "listCrewMembershipsQuery"
+    assert not any(p["in"] == "query" and p["name"] == "agent_ids" for p in q["parameters"])
+    _ok("crew_membership_query_request_schema.json", {"agent_ids": ["a"] * 100, "include_archived": True})
+    _ok("crew_membership_query_request_schema.json", {})
+    _bad("crew_membership_query_request_schema.json", {"agent_ids": ["a"] * 101})
+    _bad("crew_membership_query_request_schema.json", {"agent_ids": ["a" * 513]})
+    _bad("crew_membership_query_request_schema.json", {"agent_id": ["a"]})
+    _bad("crew_membership_query_request_schema.json", {"agent_ids": "a"})
 
 
 def test_endpoints_catalog_shape() -> None:
@@ -583,6 +595,7 @@ def test_endpoints_catalog_shape() -> None:
         ("post", ""),
         ("get", ""),
         ("get", "/memberships"),
+        ("post", "/memberships/query"),
         ("get", "/{crew_id}"),
         ("put", "/{crew_id}"),
         ("post", "/{crew_id}/archive"),

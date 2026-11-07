@@ -10,7 +10,8 @@
     "crew_id",
     "role_id",
     "role_token",
-    "revision_no"
+    "revision_no",
+    "crew_revision_id"
   ],
   "properties": {
     "agent_id": {
@@ -31,6 +32,11 @@
     "revision_no": {
       "type": "integer",
       "minimum": 1
+    },
+    "crew_revision_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId",
+      "x-identifier": true,
+      "description": "Opaque id of the revision revision_no names."
     }
   }
 }

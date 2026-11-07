@@ -202,7 +202,7 @@
     },
     "/api/v1beta/projects/{project_id}/crews/memberships": {
       "get": {
-        "summary": "List crew memberships (bound roles of each crew's latest revision)",
+        "summary": "List crew memberships (bound roles of each crew's latest revision); no agent filter, see POST /memberships/query",
         "operationId": "listCrewMemberships",
         "parameters": [
           {
@@ -239,21 +239,6 @@
             "schema": {
               "type": "boolean",
               "default": false
-            }
-          },
-          {
-            "name": "agent_id",
-            "in": "query",
-            "required": false,
-            "style": "form",
-            "explode": true,
-            "description": "Repeatable agent filter (max 100 values). CONTENT: never logged.",
-            "schema": {
-              "type": "array",
-              "maxItems": 100,
-              "items": {
-                "$ref": "./crew_common_schema.json#/definitions/AgentId"
-              }
             }
           }
         ],
@@ -305,6 +290,104 @@
                 "schema": {
                   "$ref": "./crew_rate_limit_schema.json"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/crews/memberships/query": {
+      "post": {
+        "summary": "Query crew memberships with an agent filter in the body (agent ids are content, never in the URL)",
+        "operationId": "listCrewMembershipsQuery",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Memberships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_membership_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found (feature off, unauthorized principal, foreign or missing)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (closed crew 429)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./crew_rate_limit_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./crew_membership_query_request_schema.json"
               }
             }
           }

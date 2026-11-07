@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_role_binding_schema.json",
+  "title": "Crew Role Binding",
+  "description": "Binding of a role to an agent (or unit) inside one crew revision. Key (crew_revision_id, role_id). Table crew_role_bindings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_id",
+    "crew_revision_id",
+    "role_id",
+    "binding_kind",
+    "agent_id",
+    "unit_ref",
+    "pinned_agent_revision",
+    "pinned_config_digest",
+    "entry",
+    "state",
+    "provenance"
+  ],
+  "properties": {
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true,
+      "description": "Owning crew; part of the composite FKs (tenant_id, project_id, crew_id, revision_id) and (tenant_id, project_id, crew_id, role_id)."
+    },
+    "crew_revision_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRevisionId",
+      "x-identifier": true,
+      "description": "Revision this binding belongs to."
+    },
+    "role_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRoleId",
+      "x-identifier": true,
+      "description": "Role being bound."
+    },
+    "binding_kind": {
+      "$ref": "./crew_common_schema.json#/definitions/BindingKind"
+    },
+    "agent_id": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/AgentId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Bound agent (for agent_unit: the required host agent). Non-null iff state is bound; null when unbound."
+    },
+    "unit_ref": {
+      "type": "null",
+      "description": "Reserved (slice 4). MUST be null until slice 4 widens it to a versioned code-identifier reference (GNFR-PRIV-003)."
+    },
+    "pinned_agent_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Pinned agent revision; null = follow the agent's latest."
+    },
+    "pinned_config_digest": {
+      "anyOf": [
+        {
+          "$ref": "./crew_common_schema.json#/definitions/Sha256Digest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Pinned config digest; null = unpinned."
+    },
+    "entry": {
+      "type": "boolean",
+      "description": "Entry role flag. At most one true per revision; exactly one is required before execution features."
+    },
+    "state": {
+      "$ref": "./crew_common_schema.json#/definitions/BindingState"
+    },
+    "provenance": {
+      "$ref": "./crew_common_schema.json#/definitions/BindingProvenance"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "bound"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "unbound"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "agent_id": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "provenance": {
+            "const": "inferred_suggestion"
+          }
+        },
+        "required": [
+          "provenance"
+        ]
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "enum": [
+              "unbound",
+              "retired"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_update_request_schema.json",
+  "title": "Crew Update Request",
+  "description": "PUT /api/v1beta/projects/{project_id}/crews/{crew_id}. Name and description only; crew_key is immutable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Mutable display name. CONTENT."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Mutable description. CONTENT."
+    }
+  },
+  "minProperties": 1
+}

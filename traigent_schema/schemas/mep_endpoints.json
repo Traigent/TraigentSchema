@@ -226,6 +226,11 @@
       "name": "Agent Compliance Applicability",
       "description": "Applicability screen of an Agent against the regulation catalogue (AGB-74 slice 4): closed screening answers, pure suggestions, human decisions per obligation as immutable snapshots, current plus history.",
       "paths_file": "./agent_readiness/compliance_applicability_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence Export",
+      "description": "Evidence export pack of an Agent as a ZIP with an integrity manifest (AGB-74 slice 5): human project members only, synchronous, size-capped, never cached.",
+      "paths_file": "./agent_readiness/compliance_export_endpoints.json"
     }
   ]
 }

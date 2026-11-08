@@ -71,9 +71,10 @@
         "DEPENDENCY_CHANGED",
         "REVIEW_DATE_PASSED",
         "DEPENDENCY_UNRESOLVED",
-        "DEPENDENCY_ADDED"
+        "DEPENDENCY_ADDED",
+        "UNTRACKABLE_DEPENDENCY"
       ],
-      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED, DEPENDENCY_ADDED (a dependency kind that resolves now but was absent or unresolved at signing) and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED (a recorded dependency no longer resolves) makes it NOT_ASSESSED."
+      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED, DEPENDENCY_ADDED (a dependency kind that resolves now but was absent or unresolved at signing) and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED (a recorded dependency no longer resolves) makes it NOT_ASSESSED. UNTRACKABLE_DEPENDENCY (interim, fail closed: the Agent currently has a dependency with no server-side fingerprint, such as a declared dataset or an unregistered code-digest evaluator, so its change could not be detected) also makes it NOT_ASSESSED, whatever the ingredient."
     },
     "FingerprintKind": {
       "type": "string",

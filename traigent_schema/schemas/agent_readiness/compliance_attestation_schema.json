@@ -566,6 +566,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "attestation_id",
+        "can_revoke",
         "signer",
         "recorded_at",
         "review_due_at",
@@ -573,6 +575,14 @@
         "currency_reason"
       ],
       "properties": {
+        "attestation_id": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The standing (latest non-revoked) attestation this summary describes."
+        },
+        "can_revoke": {
+          "type": "boolean",
+          "description": "True iff the caller may revoke the standing attestation now. Computed with the same revocation-authority predicate as AttestationRecord.can_revoke and the revoke write."
+        },
         "signer": {
           "$ref": "#/definitions/Principal"
         },

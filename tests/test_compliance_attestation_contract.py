@@ -129,6 +129,8 @@ def test_schema_is_closed_everywhere() -> None:
         (
             "AttestationSummary",
             lambda: {
+                "attestation_id": "cat_1",
+                "can_revoke": False,
                 "signer": _principal("erased"),
                 "recorded_at": _NOW,
                 "review_due_at": _NOW,
@@ -291,6 +293,8 @@ def test_note_is_the_only_free_text_and_is_marked_customer_content() -> None:
 def test_evidence_response_accepts_an_attestation_summary_but_no_note() -> None:
     evidence = load_json(EVIDENCE_PATH)
     summary = {
+        "attestation_id": "cat_1",
+        "can_revoke": False,
         "signer": _principal(),
         "recorded_at": _NOW,
         "review_due_at": "2027-11-08T12:00:00Z",
@@ -372,3 +376,21 @@ def test_a_grant_withdrawal_declares_an_empty_object_body() -> None:
     post = load_json(ENDPOINTS_PATH)["paths"][path]["post"]
     ref = post["requestBody"]["content"]["application/json"]["schema"]["$ref"]
     assert ref.endswith("#/definitions/AttesterGrantWithdrawRequest")
+
+
+def test_the_evidence_summary_carries_the_standing_attestation_id_and_can_revoke() -> None:
+    summary = {
+        "attestation_id": "cat_1",
+        "can_revoke": True,
+        "signer": _principal(),
+        "recorded_at": _NOW,
+        "review_due_at": _NOW,
+        "statement_version": "1",
+        "currency_reason": "CURRENT",
+    }
+    assert _errors("AttestationSummary", summary) == []
+    for field in ("attestation_id", "can_revoke"):
+        broken = {k: v for k, v in summary.items() if k != field}
+        assert _errors("AttestationSummary", broken) != [], field
+    assert _errors("AttestationSummary", {**summary, "can_revoke": "yes"}) != []
+    assert _errors("AttestationSummary", {**summary, "note": "customer text"}) != []

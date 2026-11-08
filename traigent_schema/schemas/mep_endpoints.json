@@ -211,6 +211,11 @@
       "name": "Agent Compliance Evidence",
       "description": "Read-only evidence-coverage view of one Agent against the regulation catalogue crosswalk (ingredient states and coverage counts; not a compliance determination).",
       "paths_file": "./agent_readiness/compliance_evidence_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Attestations",
+      "description": "Per-statement attester grants and authenticated attestations about an Agent (AGB-74 slice 2): grant, withdraw, sign, revoke, list and a can-sign capabilities read.",
+      "paths_file": "./agent_readiness/compliance_attestation_endpoints.json"
     }
   ]
 }

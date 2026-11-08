@@ -1,0 +1,566 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_attestation_schema.json",
+  "title": "Compliance Attester Grants and Attestations",
+  "description": "AGB-74 slice 2: closed contracts for per-statement attester grants and authenticated attestations about an Agent. Wording is deliberate: these are authenticated attestations (an authorised member recorded a catalogue statement), never cryptographic signatures, certifications or compliance determinations. Signer, time, tenant and project are always server-derived. Records are append-only; a withdrawal or revocation is a new row. Currency (SUPPORTED, EXPIRED, NOT_ASSESSED) is recomputed on read, never stored. The only free text is the optional `note`, which is customer content.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "StatementId": {
+      "type": "string",
+      "enum": [
+        "A1",
+        "A2",
+        "A3",
+        "A3b",
+        "A3c",
+        "A4",
+        "A5",
+        "A6a",
+        "A6b",
+        "A6c",
+        "A6d"
+      ],
+      "description": "The attestable statement: an `A` ingredient id of the regulation catalogue. The wording of each statement is catalogue content served by the Backend at runtime (see AttestationCapabilitiesResponse), not part of this contract."
+    },
+    "GrantKind": {
+      "type": "string",
+      "enum": [
+        "grant",
+        "revocation"
+      ],
+      "description": "A `revocation` row is a withdrawal of the grant it names."
+    },
+    "AttestationKind": {
+      "type": "string",
+      "enum": [
+        "attestation",
+        "revocation"
+      ]
+    },
+    "Outcome": {
+      "type": "string",
+      "enum": [
+        "affirmed"
+      ],
+      "description": "The only assertion an attestation can make for now: the signer affirms the statement."
+    },
+    "Principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal_kind",
+        "principal_ref"
+      ],
+      "properties": {
+        "principal_kind": {
+          "const": "USER"
+        },
+        "principal_ref": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The user id, or the literal string 'erased' after account erasure."
+        }
+      }
+    },
+    "CurrencyReason": {
+      "type": "string",
+      "enum": [
+        "CURRENT",
+        "STATEMENT_CHANGED",
+        "DEPENDENCY_CHANGED",
+        "REVIEW_DATE_PASSED",
+        "DEPENDENCY_UNRESOLVED"
+      ],
+      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED makes it NOT_ASSESSED."
+    },
+    "FingerprintKind": {
+      "type": "string",
+      "enum": [
+        "agent_configuration",
+        "evaluator",
+        "dataset",
+        "posture"
+      ]
+    },
+    "FingerprintBasis": {
+      "type": "string",
+      "enum": [
+        "backend_observed",
+        "server_recorded_client_declaration"
+      ]
+    },
+    "DependencyFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "basis"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/FingerprintKind"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "basis": {
+          "$ref": "#/definitions/FingerprintBasis"
+        }
+      },
+      "description": "One dependency fingerprint the SERVER resolved at signing time."
+    },
+    "FingerprintEcho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/FingerprintKind"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      "description": "A fingerprint the client believes is current. The server compares it with its own resolution and refuses a stale one (409 stale_fingerprints); it is never stored."
+    },
+    "AttesterGrantCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grantee_user_id",
+        "statement_id"
+      ],
+      "properties": {
+        "grantee_user_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "statement_id": {
+          "$ref": "#/definitions/StatementId"
+        }
+      },
+      "description": "Grants one statement to one project member. The grantor, time, tenant and project are server-derived. A grant is not bound to the statement's template digest."
+    },
+    "AttesterGrantRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grant_id",
+        "kind",
+        "statement_id",
+        "grantee",
+        "granted_by",
+        "self_grant",
+        "recorded_at",
+        "revokes",
+        "withdrawn_by"
+      ],
+      "properties": {
+        "grant_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "kind": {
+          "$ref": "#/definitions/GrantKind"
+        },
+        "statement_id": {
+          "$ref": "#/definitions/StatementId"
+        },
+        "grantee": {
+          "$ref": "#/definitions/Principal"
+        },
+        "granted_by": {
+          "$ref": "#/definitions/Principal",
+          "description": "The actor who WROTE this row: the grantor on a grant, the withdrawing admin on a revocation."
+        },
+        "self_grant": {
+          "type": "boolean",
+          "description": "True iff the grantor granted the capability to themselves; fixed at write time. A revocation copies the original grant's value."
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revokes": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "withdrawn_by": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Computed on read: the id of the revocation row that withdrew this grant, if any."
+        }
+      }
+    },
+    "AttesterGrantListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0-beta.1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/AttesterGrantRecord"
+          }
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "$ref": "../pagination_schema.json"
+            },
+            {
+              "properties": {
+                "per_page": {
+                  "maximum": 100
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "StatementCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ingredient_id",
+        "statement_version",
+        "statement_digest",
+        "statement_text",
+        "can_sign"
+      ],
+      "properties": {
+        "ingredient_id": {
+          "$ref": "#/definitions/StatementId"
+        },
+        "statement_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "statement_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the exact statement text. Echo it when signing: a changed statement is refused."
+        },
+        "statement_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600,
+          "description": "Catalogue-authored statement wording (not customer content)."
+        },
+        "can_sign": {
+          "type": "boolean",
+          "description": "True iff the caller is a human session, an active project member and holds an active grant for this statement. Admin status alone is not enough."
+        }
+      }
+    },
+    "AttestationCapabilitiesResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "statements"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0-beta.1"
+        },
+        "statements": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/definitions/StatementCapability"
+          }
+        }
+      },
+      "description": "Can-sign per statement, for the calling user only. Closed booleans: no reason codes."
+    },
+    "AttestationCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "ingredient_id",
+        "statement_digest",
+        "outcome",
+        "review_period_days"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "ingredient_id": {
+          "$ref": "#/definitions/StatementId"
+        },
+        "statement_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "$ref": "#/definitions/Outcome"
+        },
+        "review_period_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 366,
+          "description": "The server sets review_due_at to the recording time plus this many days."
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Optional free text. CUSTOMER CONTENT: stored with the record, returned only to project admins and the signer by the list endpoint, never in the evidence summary, never logged and never sent to the Director, an LLM or observability."
+        },
+        "dependency_fingerprints": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/definitions/FingerprintEcho"
+          }
+        }
+      },
+      "description": "Signer, time, tenant, project, statement version and the stored fingerprints are server-derived and are NOT accepted."
+    },
+    "AttestationRevokeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Optional free text. CUSTOMER CONTENT; same handling as AttestationCreateRequest.note."
+        }
+      }
+    },
+    "AttestationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_id",
+        "kind",
+        "ingredient_id",
+        "statement_version",
+        "statement_digest",
+        "outcome",
+        "dependency_fingerprints",
+        "signer",
+        "grant_id",
+        "recorded_at",
+        "review_due_at",
+        "revokes",
+        "revoked_by",
+        "currency_reason",
+        "note"
+      ],
+      "properties": {
+        "attestation_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "kind": {
+          "$ref": "#/definitions/AttestationKind"
+        },
+        "ingredient_id": {
+          "$ref": "#/definitions/StatementId"
+        },
+        "statement_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "statement_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Outcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dependency_fingerprints": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/definitions/DependencyFingerprint"
+          }
+        },
+        "signer": {
+          "$ref": "#/definitions/Principal",
+          "description": "The authenticated user who wrote this row (the signer, or the revoker on a revocation)."
+        },
+        "grant_id": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "review_due_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revokes": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoked_by": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currency_reason": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/CurrencyReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Present (non-null) only on the standing attestation of its ingredient in a list response; null on every other row and on write responses."
+        },
+        "note": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "CUSTOMER CONTENT. Null unless the reader is a project admin or the signer."
+        }
+      },
+      "description": "An authenticated attestation, or the revocation of one. Not a cryptographic signature."
+    },
+    "AttestationListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0-beta.1"
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/AttestationRecord"
+          }
+        },
+        "pagination": {
+          "allOf": [
+            {
+              "$ref": "../pagination_schema.json"
+            },
+            {
+              "properties": {
+                "per_page": {
+                  "maximum": 100
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "AttestationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signer",
+        "recorded_at",
+        "review_due_at",
+        "statement_version",
+        "currency_reason"
+      ],
+      "properties": {
+        "signer": {
+          "$ref": "#/definitions/Principal"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "review_due_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "statement_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "currency_reason": {
+          "$ref": "#/definitions/CurrencyReason"
+        }
+      },
+      "description": "The closed summary carried on an `A` ingredient row of the compliance-evidence response. It never carries the note."
+    }
+  }
+}

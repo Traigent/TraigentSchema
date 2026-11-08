@@ -154,8 +154,12 @@
         },
         "producer_ref": {
           "type": "string",
-          "enum": ["ACCURACY_INTERVAL_V1", "ANCHOR_RUN_METRICS_V1", "CHANGE_RECORDS_V1"],
+          "enum": ["ACCURACY_INTERVAL_V1", "ANCHOR_RUN_METRICS_V1", "CHANGE_RECORDS_V1", "ATTESTATION_RECORDS_V1"],
           "description": "Which Backend producer computed this state. Absent when the ingredient has no producer (state NOT_ASSESSED)."
+        },
+        "attestation": {
+          "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_attestation_schema.json#/definitions/AttestationSummary",
+          "description": "Present only on an `A` ingredient that has a standing (latest non-revoked) authenticated attestation. Never carries the note."
         },
         "links": {
           "type": "array",

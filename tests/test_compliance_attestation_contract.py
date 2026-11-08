@@ -9,7 +9,6 @@ mep_endpoints.json). Additive change to compliance_evidence_response_schema.json
 from __future__ import annotations
 
 import copy
-import json
 from typing import Any
 
 import pytest
@@ -62,7 +61,11 @@ def _record() -> dict[str, Any]:
         "statement_digest": _DIGEST,
         "outcome": "affirmed",
         "dependency_fingerprints": [
-            {"kind": "agent_configuration", "value": "2026-11-08T11:00:00+00:00", "basis": "backend_observed"}
+            {
+                "kind": "agent_configuration",
+                "value": "2026-11-08T11:00:00+00:00",
+                "basis": "backend_observed",
+            }
         ],
         "signer": _principal(),
         "grant_id": "cag_1",
@@ -73,6 +76,10 @@ def _record() -> dict[str, Any]:
         "currency_reason": "CURRENT",
         "note": None,
     }
+
+
+def _grant_request() -> dict[str, Any]:
+    return {"grantee_user_id": "u", "statement_id": "A1"}
 
 
 def _request() -> dict[str, Any]:
@@ -152,7 +159,11 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
         (
             "AttestationCreateRequest",
             _request,
-            lambda r: r.update(dependency_fingerprints=[{"kind": "evaluator", "value": "v", "basis": "backend_observed"}]),
+            lambda r: r.update(
+                dependency_fingerprints=[
+                    {"kind": "evaluator", "value": "v", "basis": "backend_observed"}
+                ]
+            ),
         ),
         (
             "AttestationCreateRequest",
@@ -160,8 +171,16 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
             lambda r: r.update(dependency_fingerprints=[{"kind": "prompt", "value": "v"}]),
         ),
         ("AttestationRevokeRequest", dict, lambda r: r.update(signer_user_id="u")),
-        ("AttesterGrantCreateRequest", lambda: {"grantee_user_id": "u", "statement_id": "A1"}, lambda r: r.update(reason="why")),
-        ("AttesterGrantCreateRequest", lambda: {"grantee_user_id": "u", "statement_id": "A1"}, lambda r: r.update(statement_id="A9")),
+        (
+            "AttesterGrantCreateRequest",
+            lambda: {"grantee_user_id": "u", "statement_id": "A1"},
+            lambda r: r.update(reason="why"),
+        ),
+        (
+            "AttesterGrantCreateRequest",
+            lambda: {"grantee_user_id": "u", "statement_id": "A1"},
+            lambda r: r.update(statement_id="A9"),
+        ),
         ("AttesterGrantRecord", _grant, lambda r: r.update(kind="withdrawn")),
         ("AttesterGrantRecord", _grant, lambda r: r.pop("self_grant")),
         ("AttestationRecord", _record, lambda r: r.update(outcome="compliant")),
@@ -207,7 +226,9 @@ def test_note_is_the_only_free_text_and_is_marked_customer_content() -> None:
     definitions = _SCHEMA["definitions"]
     for name in ("AttestationCreateRequest", "AttestationRevokeRequest"):
         assert "CUSTOMER CONTENT" in definitions[name]["properties"]["note"]["description"]
-    assert "CUSTOMER CONTENT" in definitions["AttestationRecord"]["properties"]["note"]["description"]
+    assert (
+        "CUSTOMER CONTENT" in definitions["AttestationRecord"]["properties"]["note"]["description"]
+    )
     # The evidence-summary shape has no note at all.
     assert "note" not in definitions["AttestationSummary"]["properties"]
 

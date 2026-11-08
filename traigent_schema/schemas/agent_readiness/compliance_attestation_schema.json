@@ -70,9 +70,10 @@
         "STATEMENT_CHANGED",
         "DEPENDENCY_CHANGED",
         "REVIEW_DATE_PASSED",
-        "DEPENDENCY_UNRESOLVED"
+        "DEPENDENCY_UNRESOLVED",
+        "DEPENDENCY_ADDED"
       ],
-      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED makes it NOT_ASSESSED."
+      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED, DEPENDENCY_ADDED (a dependency kind that resolves now but was absent or unresolved at signing) and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED (a recorded dependency no longer resolves) makes it NOT_ASSESSED."
     },
     "FingerprintKind": {
       "type": "string",
@@ -104,8 +105,8 @@
         },
         "value": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 255
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "sha256 digest (\"sha256:<hex>\") of the resolved identifier; the raw identifier is never stored or returned."
         },
         "basis": {
           "$ref": "#/definitions/FingerprintBasis"
@@ -126,8 +127,8 @@
         },
         "value": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 255
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "sha256 digest (\"sha256:<hex>\") of the resolved identifier; the raw identifier is never stored or returned."
         }
       },
       "description": "A fingerprint the client believes is current. The server compares it with its own resolution and refuses a stale one (409 stale_fingerprints); it is never stored."
@@ -375,6 +376,7 @@
         "dependency_fingerprints",
         "signer",
         "grant_id",
+        "revoker_basis",
         "recorded_at",
         "review_due_at",
         "revokes",
@@ -431,6 +433,21 @@
               "type": "null"
             }
           ]
+        },
+        "revoker_basis": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "signer_grant",
+                "project_admin"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Revocation rows only: signer_grant (the signer held a current grant, carried in grant_id) or project_admin (grant_id null). Null on an attestation."
         },
         "recorded_at": {
           "type": "string",

@@ -566,7 +566,7 @@
     },
     "/api/v1beta/projects/{project_id}/compliance-attestations/{attestation_id}/revocations": {
       "post": {
-        "summary": "Revoke an attestation (the signer or a project admin)",
+        "summary": "Revoke an attestation (the signer while holding a current grant for the statement, or a project admin)",
         "operationId": "revokeComplianceAttestation",
         "x-asserted-against-backend": false,
         "parameters": [

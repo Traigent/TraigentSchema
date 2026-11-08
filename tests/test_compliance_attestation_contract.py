@@ -63,12 +63,13 @@ def _record() -> dict[str, Any]:
         "dependency_fingerprints": [
             {
                 "kind": "agent_configuration",
-                "value": "2026-11-08T11:00:00+00:00",
+                "value": "sha256:" + "a" * 64,
                 "basis": "backend_observed",
             }
         ],
         "signer": _principal(),
         "grant_id": "cag_1",
+        "revoker_basis": None,
         "recorded_at": _NOW,
         "review_due_at": "2027-11-08T12:00:00Z",
         "revokes": None,
@@ -187,6 +188,13 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
         ("AttestationRecord", _record, lambda r: r.update(currency_reason="FINE")),
         ("AttestationRecord", _record, lambda r: r.update(signature="MEUCIQ")),
         ("AttestationRecord", _record, lambda r: r.pop("note")),
+        ("AttestationRecord", _record, lambda r: r.pop("revoker_basis")),
+        ("AttestationRecord", _record, lambda r: r.update(revoker_basis="tenant_admin")),
+        (
+            "AttestationRecord",
+            _record,
+            lambda r: r["dependency_fingerprints"][0].update(value="raw-dataset-id"),
+        ),
         (
             "AttestationRecord",
             _record,

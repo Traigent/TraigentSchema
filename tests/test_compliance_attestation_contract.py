@@ -345,3 +345,30 @@ def test_endpoints_are_registered_and_wired() -> None:
                     ref = body["content"]["application/json"]["schema"]["$ref"]
                     definition = _SCHEMA["definitions"][ref.rsplit("/", 1)[-1]]
                     assert key not in definition["properties"]
+
+
+def test_fingerprints_are_server_derived_only_and_dataset_is_not_a_kind() -> None:
+    definitions = _SCHEMA["definitions"]
+    assert definitions["FingerprintKind"]["enum"] == ["agent_configuration", "evaluator", "posture"]
+    assert definitions["FingerprintBasis"]["enum"] == ["backend_observed"]
+    for name in ("DependencyFingerprint", "FingerprintEcho"):
+        assert "server-generated" in definitions[name]["properties"]["value"]["description"]
+        assert "agb74-fp-v1" in definitions[name]["properties"]["value"]["description"]
+    fingerprint = _record()["dependency_fingerprints"][0]
+    assert _errors("DependencyFingerprint", fingerprint) == []
+    assert _errors("DependencyFingerprint", {**fingerprint, "kind": "dataset"}) != []
+    assert (
+        _errors(
+            "DependencyFingerprint", {**fingerprint, "basis": "server_recorded_client_declaration"}
+        )
+        != []
+    )
+
+
+def test_a_grant_withdrawal_declares_an_empty_object_body() -> None:
+    assert _errors("AttesterGrantWithdrawRequest", {}) == []
+    assert _errors("AttesterGrantWithdrawRequest", {"reason": "why"}) != []
+    path = "/api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals"
+    post = load_json(ENDPOINTS_PATH)["paths"][path]["post"]
+    ref = post["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref.endswith("#/definitions/AttesterGrantWithdrawRequest")

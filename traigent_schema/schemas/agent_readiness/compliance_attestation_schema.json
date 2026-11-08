@@ -80,16 +80,16 @@
       "enum": [
         "agent_configuration",
         "evaluator",
-        "dataset",
         "posture"
-      ]
+      ],
+      "description": "Dependency kinds that have a SERVER-side opaque identity. The anchor run's dataset reference is a customer-declared identifier with no server-side opaque id, so it is not fingerprintable and is never stored: there is no dataset kind."
     },
     "FingerprintBasis": {
       "type": "string",
       "enum": [
-        "backend_observed",
-        "server_recorded_client_declaration"
-      ]
+        "backend_observed"
+      ],
+      "description": "Every stored fingerprint is derived by the Backend from server-generated identifiers and server timestamps only."
     },
     "DependencyFingerprint": {
       "type": "object",
@@ -106,7 +106,7 @@
         "value": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
-          "description": "sha256 digest (\"sha256:<hex>\") of the resolved identifier; the raw identifier is never stored or returned."
+          "description": "\"sha256:<hex>\" over the domain-separated string agb74-fp-v1|<kind>|<tenant_id>|<opaque id>|<version>. The opaque id is a server-generated identifier (or \"-\") and the version a server timestamp (or \"-\"); the value derives only from server-generated ids, server timestamps and the tenant id, never from customer text."
         },
         "basis": {
           "$ref": "#/definitions/FingerprintBasis"
@@ -128,7 +128,7 @@
         "value": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
-          "description": "sha256 digest (\"sha256:<hex>\") of the resolved identifier; the raw identifier is never stored or returned."
+          "description": "\"sha256:<hex>\" over the domain-separated string agb74-fp-v1|<kind>|<tenant_id>|<opaque id>|<version>. The opaque id is a server-generated identifier (or \"-\") and the version a server timestamp (or \"-\"); the value derives only from server-generated ids, server timestamps and the tenant id, never from customer text."
         }
       },
       "description": "A fingerprint the client believes is current. The server compares it with its own resolution and refuses a stale one (409 stale_fingerprints); it is never stored."
@@ -354,6 +354,12 @@
         }
       },
       "description": "Signer, time, tenant, project, statement version and the stored fingerprints are server-derived and are NOT accepted."
+    },
+    "AttesterGrantWithdrawRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "description": "Empty by design: a grant withdrawal carries no free text. Anything that is not a JSON object is refused."
     },
     "AttestationRevokeRequest": {
       "type": "object",

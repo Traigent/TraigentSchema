@@ -267,6 +267,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./compliance_attestation_schema.json#/definitions/AttesterGrantWithdrawRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Withdrawal recorded",

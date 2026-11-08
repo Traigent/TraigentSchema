@@ -34,7 +34,7 @@
     "InvalidationReason": {
       "type": "string",
       "enum": ["catalogue_changed", "facts_changed"],
-      "description": "Why a stored decision is read as unresolved: the catalogue version/digest differs from the one it was made against, or a screening fact its obligation depends on differs from the previous revision's."
+      "description": "Why a stored decision is read as unresolved: the catalogue version/digest differs from the one it was made against, or a screening fact its obligation depends on differs between the revision the decision was made in (`decided_in_revision_id`) and the current revision. A decision made in the current revision is never invalidated by that revision's own facts."
     },
     "ScreeningAnswers": {
       "type": "object",
@@ -60,6 +60,7 @@
       "description": "CUSTOMER CONTENT. null means not answered; a missing answer makes every obligation that depends on it unresolved."
     },
     "DecisionInput": {
+      "description": "A decision made in THIS submission: it takes this revision's id as `decided_in_revision_id`.",
       "type": "object",
       "additionalProperties": false,
       "required": ["obligation_id", "decision"],
@@ -73,6 +74,20 @@
           "description": "Optional free text. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
         }
       }
+    },
+    "DecisionCarry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "carry"],
+      "properties": {
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "carry": { "const": true }
+      },
+      "description": "Keep the predecessor's decision for this obligation exactly as it is, including its rationale and the revision it was decided in. Refused (400) when the predecessor holds no decision for the obligation."
+    },
+    "DecisionItem": {
+      "oneOf": [{ "$ref": "#/definitions/DecisionInput" }, { "$ref": "#/definitions/DecisionCarry" }],
+      "description": "Either a new decision made in this submission, or `carry: true` for the predecessor's decision."
     },
     "ApplicabilityRevisionCreateRequest": {
       "type": "object",
@@ -94,8 +109,8 @@
         "decisions": {
           "type": "array",
           "maxItems": 500,
-          "items": { "$ref": "#/definitions/DecisionInput" },
-          "description": "At most one item per obligation of a visible pack. An obligation with no item reads as unresolved."
+          "items": { "$ref": "#/definitions/DecisionItem" },
+          "description": "At most one item per obligation of a visible pack: a new decision, or `carry: true` to keep the predecessor's. An obligation with no item reads as unresolved."
         }
       },
       "description": "Reviewer, time, tenant, project, posture revision, catalogue version and digest are server-derived and are NOT accepted. Writes are for human project admins only."
@@ -103,7 +118,7 @@
     "DecisionRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["obligation_id", "decision", "rationale"],
+      "required": ["obligation_id", "decision", "rationale", "decided_in_revision_id"],
       "properties": {
         "obligation_id": { "$ref": "#/definitions/ObligationId" },
         "decision": { "$ref": "#/definitions/Decision" },
@@ -111,6 +126,10 @@
           "type": ["string", "null"],
           "maxLength": 2000,
           "description": "CUSTOMER CONTENT. Null when none was given."
+        },
+        "decided_in_revision_id": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The revision in which this decision was made. A decision made in a submission carries that submission's id; a carried decision keeps the id of the revision it was first made in."
         }
       }
     },

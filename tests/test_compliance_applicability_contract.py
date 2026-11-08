@@ -59,6 +59,13 @@ def _request() -> dict[str, Any]:
     }
 
 
+def _record_decisions_without_origin() -> dict[str, Any]:
+    """A request item that is neither a new decision nor a carry (no decision, no carry)."""
+    body = _request()
+    body["decisions"] = [{"obligation_id": _OBL}]
+    return body
+
+
 def _record() -> dict[str, Any]:
     return {
         "revision_id": "car_1",
@@ -67,7 +74,14 @@ def _record() -> dict[str, Any]:
         "catalogue_version": "be4267a0360742f4133f610d84d30c8b2583b3b4",
         "catalogue_digest": _DIGEST,
         "screening": _screening(),
-        "decisions": [{"obligation_id": _OBL, "decision": "applicable", "rationale": None}],
+        "decisions": [
+            {
+                "obligation_id": _OBL,
+                "decision": "applicable",
+                "rationale": None,
+                "decided_in_revision_id": "car_1",
+            }
+        ],
         "reviewer": _principal(),
         "recorded_at": _NOW,
         "review_due_at": "2027-02-06T12:00:00Z",
@@ -193,6 +207,30 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
         ),
         ("ApplicabilityRevisionCreateRequest", _request, lambda r: r.pop("expected_current_id")),
         ("ApplicabilityRevisionCreateRequest", _request, lambda r: r.pop("screening")),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _request,
+            lambda r: r["decisions"].append({"obligation_id": _OBL, "carry": False}),
+        ),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _request,
+            lambda r: r["decisions"].append(
+                {"obligation_id": _OBL, "carry": True, "decision": "applicable"}
+            ),
+        ),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _request,
+            lambda r: r["decisions"].append(
+                {"obligation_id": _OBL, "carry": True, "rationale": "x"}
+            ),
+        ),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _record_decisions_without_origin,
+            lambda r: None,
+        ),
         ("ApplicabilityRevisionCreateRequest", _request, lambda r: r.update(review_period_days=0)),
         (
             "ApplicabilityRevisionCreateRequest",
@@ -387,3 +425,16 @@ def test_endpoints_are_registered_and_wired() -> None:
         for operation in item.values():
             assert operation["x-asserted-against-backend"] is False
             assert "429" in operation["responses"]
+
+
+def test_a_request_may_carry_the_predecessors_decision_forward() -> None:
+    request = _request()
+    request["decisions"].append({"obligation_id": "OBL-EU-AI-ACT-ART10", "carry": True})
+    assert _errors("ApplicabilityRevisionCreateRequest", request) == []
+
+
+def test_every_decision_record_names_the_revision_it_was_decided_in() -> None:
+    record = _record()
+    assert _errors("ApplicabilityRevisionRecord", record) == []
+    record["decisions"][0].pop("decided_in_revision_id")
+    assert _errors("ApplicabilityRevisionRecord", record) != []

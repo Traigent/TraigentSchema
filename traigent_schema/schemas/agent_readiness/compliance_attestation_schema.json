@@ -288,11 +288,16 @@
       "additionalProperties": false,
       "required": [
         "schema_version",
+        "can_manage_grants",
         "statements"
       ],
       "properties": {
         "schema_version": {
           "const": "1.0.0-beta.1"
+        },
+        "can_manage_grants": {
+          "type": "boolean",
+          "description": "True iff the caller may create and withdraw attester grants: a human session that is a project member with the admin role (the predicate the grant routes enforce)."
         },
         "statements": {
           "type": "array",
@@ -302,7 +307,7 @@
           }
         }
       },
-      "description": "Can-sign per statement, for the calling user only. Closed booleans: no reason codes."
+      "description": "Can-sign per statement and can-manage-grants, for the calling user only. Closed booleans: no reason codes."
     },
     "AttestationCreateRequest": {
       "type": "object",
@@ -382,7 +387,8 @@
         "revokes",
         "revoked_by",
         "currency_reason",
-        "note"
+        "note",
+        "can_revoke"
       ],
       "properties": {
         "attestation_id": {
@@ -507,6 +513,10 @@
             }
           ],
           "description": "CUSTOMER CONTENT. Null unless the reader is a project admin or the signer."
+        },
+        "can_revoke": {
+          "type": "boolean",
+          "description": "True iff the caller may revoke this attestation now: they signed it and still hold a current grant for its statement, or they are a project admin; false on a revocation row and on an already revoked attestation. Computed with the predicate the revoke route enforces."
         }
       },
       "description": "An authenticated attestation, or the revocation of one. Not a cryptographic signature."

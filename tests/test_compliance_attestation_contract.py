@@ -70,6 +70,7 @@ def _record() -> dict[str, Any]:
         "signer": _principal(),
         "grant_id": "cag_1",
         "revoker_basis": None,
+        "can_revoke": True,
         "recorded_at": _NOW,
         "review_due_at": "2027-11-08T12:00:00Z",
         "revokes": None,
@@ -189,6 +190,8 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
         ("AttestationRecord", _record, lambda r: r.update(signature="MEUCIQ")),
         ("AttestationRecord", _record, lambda r: r.pop("note")),
         ("AttestationRecord", _record, lambda r: r.pop("revoker_basis")),
+        ("AttestationRecord", _record, lambda r: r.pop("can_revoke")),
+        ("AttestationRecord", _record, lambda r: r.update(can_revoke="yes")),
         ("AttestationRecord", _record, lambda r: r.update(revoker_basis="tenant_admin")),
         (
             "AttestationRecord",
@@ -211,6 +214,7 @@ def test_invalid_shapes_are_rejected(definition: str, factory: Any, mutate: Any)
 def test_capabilities_response_is_closed_booleans() -> None:
     ok = {
         "schema_version": "1.0.0-beta.1",
+        "can_manage_grants": False,
         "statements": [
             {
                 "ingredient_id": "A1",
@@ -222,12 +226,55 @@ def test_capabilities_response_is_closed_booleans() -> None:
         ],
     }
     assert _errors("AttestationCapabilitiesResponse", ok) == []
+    missing = copy.deepcopy(ok)
+    del missing["can_manage_grants"]
+    assert _errors("AttestationCapabilitiesResponse", missing) != []
+    bad = copy.deepcopy(ok)
+    bad["can_manage_grants"] = "yes"
+    assert _errors("AttestationCapabilitiesResponse", bad) != []
     bad = copy.deepcopy(ok)
     bad["statements"][0]["can_sign"] = "no"
     assert _errors("AttestationCapabilitiesResponse", bad) != []
     bad = copy.deepcopy(ok)
     bad["statements"][0]["cannot_sign_reason"] = "NO_ACTIVE_GRANT"
     assert _errors("AttestationCapabilitiesResponse", bad) != []
+
+
+_PAGINATION = {
+    "page": 1,
+    "per_page": 25,
+    "total": 1,
+    "total_pages": 1,
+    "has_next": False,
+    "has_prev": False,
+}
+
+
+@pytest.mark.parametrize(
+    ("definition", "item"),
+    [("AttestationListResponse", _record), ("AttesterGrantListResponse", _grant)],
+)
+def test_list_responses_declare_real_pagination(definition: str, item: Any) -> None:
+    ok = {"schema_version": "1.0.0-beta.1", "items": [item()], "pagination": dict(_PAGINATION)}
+    assert _errors(definition, ok) == []
+    for field in ("page", "per_page", "total", "total_pages", "has_next", "has_prev"):
+        broken = copy.deepcopy(ok)
+        del broken["pagination"][field]
+        assert _errors(definition, broken) != [], field
+    too_big = copy.deepcopy(ok)
+    too_big["pagination"]["per_page"] = 101
+    assert _errors(definition, too_big) != []
+    no_pagination = copy.deepcopy(ok)
+    del no_pagination["pagination"]
+    assert _errors(definition, no_pagination) != []
+    paths = load_json(ENDPOINTS_PATH)["paths"]
+    base = "/api/v1beta/projects/{project_id}/"
+    for path in (
+        base + "compliance-attester-grants",
+        base + "compliance-attestations/agents/{agent_id}",
+    ):
+        names = {p["name"] for p in paths[path]["get"]["parameters"]}
+        assert {"page", "per_page"} <= names
 
 
 def test_note_is_the_only_free_text_and_is_marked_customer_content() -> None:

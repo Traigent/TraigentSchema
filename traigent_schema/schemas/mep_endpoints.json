@@ -221,6 +221,11 @@
       "name": "Agent Compliance Document References",
       "description": "Customer-declared document references (a link plus a declared SHA-256) about an Agent (AGB-74 slice 3): record, withdraw and list. The platform never fetches or verifies the document.",
       "paths_file": "./agent_readiness/compliance_document_ref_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Applicability",
+      "description": "Applicability screen of an Agent against the regulation catalogue (AGB-74 slice 4): closed screening answers, pure suggestions, human decisions per obligation as immutable snapshots, current plus history.",
+      "paths_file": "./agent_readiness/compliance_applicability_endpoints.json"
     }
   ]
 }

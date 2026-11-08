@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agent_readiness/compliance_evidence_response_schema.json",
   "title": "Agent Compliance Evidence Response",
-  "description": "AGB-74 slice 1: GET .../agent-compliance-evidence/{agent_id}. A closed, read-only evidence-coverage view of one Agent: which evidence ingredients the platform can produce today, in which state, and which catalogue obligations each ingredient may contribute to. It is an evidence inventory, never a determination about any regulation; the banner is a one-member enum so every consumer renders the same words. The response carries only ids, closed enums, numbers, timestamps and catalogue-authored text (obligation ids, criterion and limitation wording); it never echoes the requested agent id (the caller already holds it from the path) and never carries customer prompts, outputs, notes or any customer-authored free text. The regulation catalogue itself is not part of this contract: this schema fixes the SHAPE; the catalogue content is served by the Backend at runtime. An ingredient with no real producer is NOT_ASSESSED, never a placeholder SUPPORTED. EXPIRED is emitted only where an existing decay mechanism says the evidence no longer applies. Coverage counts are plain counts per pack, never percentages. `applicability_unresolved` counts the obligations of the pack, because no applicability screen exists yet: every obligation is unresolved.",
+  "description": "AGB-74 slice 1: GET .../agent-compliance-evidence/{agent_id}. A closed, read-only evidence-coverage view of one Agent: which evidence ingredients the platform can produce today, in which state, and which catalogue obligations each ingredient may contribute to. It is an evidence inventory, never a determination about any regulation; the banner is a one-member enum so every consumer renders the same words. The response carries only ids, closed enums, numbers, timestamps and catalogue-authored text (obligation ids, criterion and limitation wording); it never echoes the requested agent id (the caller already holds it from the path) and never carries customer prompts, outputs, notes or any customer-authored free text. The regulation catalogue itself is not part of this contract: this schema fixes the SHAPE; the catalogue content is served by the Backend at runtime. An ingredient with no real producer is NOT_ASSESSED, never a placeholder SUPPORTED. EXPIRED is emitted only where an existing decay mechanism says the evidence no longer applies. Coverage counts are plain counts per pack, never percentages. `applicability_unresolved` counts the obligations of the pack whose effective applicability decision is unresolved; with no applicability screen recorded, every obligation is.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "generated_at", "catalogue", "packs", "ingredients", "banner"],
@@ -72,7 +72,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["supported", "gap", "not_assessed", "expired", "applicability_unresolved"],
-      "description": "Counts per pack, no percentages. supported/gap/not_assessed/expired count the distinct ingredients linked to the pack's obligations, by state. applicability_unresolved is the number of the pack's obligations whose applicability is unresolved; with no applicability screen yet it equals the pack's obligation count.",
+      "description": "Counts per pack, no percentages. supported/gap/not_assessed/expired count the distinct ingredients linked to the pack's obligations, by state. supported/gap/not_assessed/expired exclude an ingredient when every link of that ingredient into this pack points to an obligation decided not_applicable. applicability_unresolved is the number of the pack's obligations whose effective applicability decision is unresolved (an obligation with no recorded decision counts); with no applicability screen recorded it equals the pack's obligation count.",
       "properties": {
         "supported": { "type": "integer", "minimum": 0, "maximum": 1000 },
         "gap": { "type": "integer", "minimum": 0, "maximum": 1000 },
@@ -90,7 +90,11 @@
         "semver": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "maxLength": 32 },
         "title": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Catalogue-authored pack title." },
         "draft": { "type": "boolean" },
-        "coverage": { "$ref": "#/definitions/Coverage" }
+        "coverage": { "$ref": "#/definitions/Coverage" },
+        "applicability": {
+          "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_applicability_schema.json#/definitions/ApplicabilitySummary",
+          "description": "Counts of the pack's obligations by effective applicability decision, and when the current screen was recorded. Never carries the screening answers or a rationale."
+        }
       }
     },
     "Measurement": {

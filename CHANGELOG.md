@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`ComplianceEvidenceResponse` contract (AGB-74 slice 1; contract-only, additive).** New closed `agent_readiness/compliance_evidence_response_schema.json` and `compliance_evidence_endpoints.json` (registered in `mep_endpoints.json`): `GET /api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}`, a read-only evidence-coverage view of one Agent. It carries the catalogue identity (`version`, `manifest_sha256`, `draft`, `visible_obligations`, where 0 is an explicit empty cohort), pack summaries with plain per-state counts (no percentages; `applicability_unresolved` counts the pack's obligations until an applicability screen exists), ingredient rows (`kind` M/A/D/L, five groups, states `SUPPORTED`/`GAP`/`NOT_ASSESSED`/`EXPIRED`, optional `measurements` with nullable interval and target and a closed `observation_basis` (`client_reported`), optional closed `producer_ref`, requirement links with `relation` exact/partial/related) and the constant `banner` ("Evidence coverage, not a compliance determination.", a one-member enum). Shape only: no regulation text, obligation or citation is part of this repository; the Backend serves catalogue content at runtime. No free-text customer fields. Marked `x-asserted-against-backend: false` until the Backend route merges. Parity manifest regenerated; pinned by `tests/test_compliance_evidence_contract.py`. Not released yet.
+
 ## [7.1.0] - 2026-10-29
 
 ### Added

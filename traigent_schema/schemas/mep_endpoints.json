@@ -206,6 +206,11 @@
       "name": "Agent Decisions",
       "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
       "paths_file": "./agent_decision/agent_decision_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence",
+      "description": "Read-only evidence-coverage view of one Agent against the regulation catalogue crosswalk (ingredient states and coverage counts; not a compliance determination).",
+      "paths_file": "./agent_readiness/compliance_evidence_endpoints.json"
     }
   ]
 }

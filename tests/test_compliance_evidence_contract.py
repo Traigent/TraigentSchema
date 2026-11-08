@@ -12,6 +12,7 @@ citations) is part of this public repository; the Backend serves catalogue conte
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
 import pytest
@@ -64,7 +65,6 @@ def _measurement() -> dict[str, Any]:
 def _response() -> dict[str, Any]:
     return {
         "schema_version": "1.0.0-beta.1",
-        "agent_id": "agent-1",
         "generated_at": "2026-11-08T12:00:00Z",
         "catalogue": {
             "version": "fb9cd62",
@@ -167,6 +167,7 @@ def test_valid_populated_and_empty_packs() -> None:
         lambda r: r["ingredients"][0]["measurements"][0].update(
             observation_basis="backend_observed"
         ),
+        lambda r: r.update(agent_id="customer-chosen-id"),  # the requested id is never echoed
         lambda r: r["catalogue"].pop("visible_obligations"),
         lambda r: r["catalogue"].update(visible_obligations=-1),
     ],
@@ -175,6 +176,17 @@ def test_invalid_shapes_are_rejected(mutate: Any) -> None:
     instance = copy.deepcopy(_response())
     mutate(instance)
     assert _errors(instance) != []
+
+
+def test_response_does_not_carry_the_requested_agent_id() -> None:
+    assert "agent_id" not in _SCHEMA["properties"]
+    assert "agent_id" not in _SCHEMA["required"]
+
+
+def test_draft_wording_matches_per_pack_filtering() -> None:
+    text = json.dumps(_SCHEMA["properties"]["catalogue"]["properties"]["draft"])
+    assert "`packs` is empty" not in text
+    assert "published packs remain visible" in text
 
 
 def test_banner_is_a_single_member_enum() -> None:

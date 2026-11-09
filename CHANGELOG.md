@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **List query parameters for measures and prompt lists (additive; query parameters only).** `GET /api/v1/measures` gains optional boolean `has_evaluator` (filter metrics by whether at least one evaluator visible to the caller is attached; a non-boolean value is a 422 validation error). A new module `prompts/prompts_list_endpoints.json`, indexed by the backend contract root (`mep_endpoints.json`), declares only two list GETs: `GET /api/v1beta/prompts` and the project-scoped `GET /api/v1beta/projects/{project_id}/prompts` (required string path parameter `project_id`). Both take `page` (minimum 1, default 1), `per_page` (1 to 100; default 20), `search`, `prompt_type`, `label` and the new `sort_by` (`updated_at`, `name`, `version_count`; default `updated_at`) and `sort_order` (`asc`, `desc`; optional, default `desc` for `updated_at` and `version_count`, `asc` for `name`). No other prompt operations are added to the backend contract and `prompts_endpoints.json` is unchanged. The 422 validation responses are intentionally not declared per operation; the backend adds its standard validation-error envelope. Parity manifest regenerated. Package version unchanged until a release is cut.
+
 ## [7.1.0] - 2026-10-29
 
 ### Added

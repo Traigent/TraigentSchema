@@ -88,6 +88,11 @@
       "paths_file": "./execution/best_config_agent_head_config_endpoints.json"
     },
     {
+      "name": "Prompt List",
+      "description": "Prompt list routes.",
+      "paths_file": "./prompts/prompts_list_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

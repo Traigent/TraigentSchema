@@ -11,6 +11,7 @@ SCHEMAS = get_schemas_dir()
 READINESS = SCHEMAS / "agent_readiness"
 SCHEMA_PATH = READINESS / "compliance_export_manifest_schema.json"
 ENDPOINTS_PATH = READINESS / "compliance_export_endpoints.json"
+ERROR_PATH = READINESS / "compliance_export_error_schema.json"
 _REGISTRY = build_registry(SCHEMAS)
 _ID = load_json(SCHEMA_PATH)["$id"]
 _DIGEST = "a" * 64
@@ -99,6 +100,40 @@ def test_manifest_names_the_subject_it_is_about() -> None:
     assert _errors("Manifest", {**_manifest(), "subject": {**_manifest()["subject"], "x": 1}}) != []
 
 
+def test_agent_row_id_accepts_the_agent_id_limit_of_512() -> None:
+    for length, ok in ((1, True), (512, True), (513, False), (0, False)):
+        manifest = _manifest()
+        manifest["subject"]["agent_row_id"] = "a" * length
+        assert (_errors("Manifest", manifest) == []) is ok, length
+
+
+def _error_errors(instance: Any) -> list[str]:
+    error_id = load_json(ERROR_PATH)["$id"]
+    return ref_errors(_REGISTRY, error_id, instance)
+
+
+_REAL_413 = {
+    "success": False,
+    "message": "Export too large",
+    "error": "export_too_large",
+    "error_code": "export_too_large",
+}
+
+
+def test_413_declares_the_export_specific_error_and_accepts_the_real_body() -> None:
+    operation = next(iter(load_json(ENDPOINTS_PATH)["paths"].values()))["post"]
+    ref = operation["responses"]["413"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "./compliance_export_error_schema.json"
+    assert _error_errors(_REAL_413) == []
+
+
+def test_413_error_is_closed_and_rejects_a_wrong_code() -> None:
+    assert _error_errors({**_REAL_413, "error_code": "not_found"}) != []
+    assert _error_errors({**_REAL_413, "error": "invalid_request"}) != []
+    assert _error_errors({**_REAL_413, "message": "Not found"}) != []
+    assert _error_errors({**_REAL_413, "detail": "x"}) != []
+
+
 def test_request_is_the_empty_object() -> None:
     assert _errors("ExportRequest", {}) == []
     assert _errors("ExportRequest", {"format": "pdf"}) != []
@@ -120,7 +155,7 @@ def test_registered_and_free_of_determination_wording() -> None:
     assert "./agent_readiness/compliance_export_endpoints.json" in (
         SCHEMAS / "mep_endpoints.json"
     ).read_text(encoding="utf-8")
-    for path in (SCHEMA_PATH, ENDPOINTS_PATH):
+    for path in (SCHEMA_PATH, ENDPOINTS_PATH, ERROR_PATH):
         text = path.read_text(encoding="utf-8").lower()
         for word in ("compliant", "certified", "satisfies", "signed"):
             assert word not in text, (path.name, word)

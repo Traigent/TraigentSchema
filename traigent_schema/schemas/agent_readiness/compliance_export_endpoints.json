@@ -116,7 +116,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_readiness_error_schema.json"
+                  "$ref": "./compliance_export_error_schema.json"
                 }
               }
             }

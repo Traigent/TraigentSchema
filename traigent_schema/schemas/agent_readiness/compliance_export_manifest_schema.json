@@ -369,10 +369,8 @@
               "description": "The agent's project-scoped identity (agent_key)."
             },
             "agent_row_id": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128,
-              "description": "The server-side id of the agent row (Agent.id)."
+              "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId",
+              "description": "The server-side id of the agent row (Agent.id; up to 512 characters, the same limit as OpaqueId)."
             }
           }
         }

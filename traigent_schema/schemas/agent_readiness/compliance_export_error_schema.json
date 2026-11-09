@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_export_error_schema.json",
+  "title": "Compliance Evidence Export Size-Limit Error",
+  "description": "The closed 413 body of the evidence export: the pack would exceed the size cap and nothing is returned. Public strings are finite server-controlled values; details, request data, identifiers, exception text and internal diagnostics are not representable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "message", "error", "error_code"],
+  "properties": {
+    "success": {"const": false},
+    "message": {"const": "Export too large"},
+    "error": {"const": "export_too_large"},
+    "error_code": {"const": "export_too_large"}
+  }
+}

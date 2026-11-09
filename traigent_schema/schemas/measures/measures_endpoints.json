@@ -40,6 +40,15 @@
     "/api/v1/measures": {
       "get": {
         "summary": "List measures",
+        "parameters": [
+          {
+            "name": "has_evaluator",
+            "in": "query",
+            "required": false,
+            "description": "Filter metrics by whether at least one evaluator visible to the caller is attached. A non-boolean value is rejected with a 422 validation error.",
+            "schema": { "type": "boolean" }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Measures retrieved successfully"

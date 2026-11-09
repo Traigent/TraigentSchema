@@ -107,6 +107,21 @@ def _coverage():
     }
 
 
+def test_every_fleet_observe_document_is_present():
+    """Literal path references also keep the orphan-schema ratchet (tests/test_schemas.py) honest."""
+    schemas_dir = get_schemas_dir()
+    assert (schemas_dir / "fleet_observe" / "agent_observation_record_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "coverage_ratio_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "evidence_record_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "finding_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "fleet_observe_common_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "identity_cluster_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "import_event_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "source_evidence_class_map_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "spawn_tree_schema.json").is_file()
+    assert len(list(DOMAIN.glob("*.json"))) == 9
+
+
 @pytest.mark.parametrize("rel", ALL)
 def test_documents_are_valid_draft7_schemas(rel):
     jsonschema.Draft7Validator.check_schema(_load(rel))

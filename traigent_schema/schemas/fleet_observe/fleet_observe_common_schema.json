@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/fleet_observe_common_schema.json",
+  "title": "fleet_observe_common_schema.json",
+  "description": "Fleet Observe v1 shared definitions (TRAIG-179, additive). Closed enums, server-issued refs, digests and counts only: no free-text field exists anywhere in this domain. Customer-chosen identifiers (principal names, workload names, labels) are content and cross only as sha256 digests. Observability is not privacy-preserving; these contracts describe what an authorized read observed within a declared boundary and period, nothing wider. Out of scope in v1 (deliberately absent): lineage edges, birth/terminal records, charters, crew tables (the crews design owns crews), builder-company path, cross-tenant federation.",
+  "definitions": {
+    "ClusterRef": {
+      "type": "string",
+      "pattern": "^clusterref_[0-9a-f]{32}$",
+      "maxLength": 43,
+      "description": "Server-issued id of an identity cluster.",
+      "x-content-class": "opaque_ref"
+    },
+    "AgentRef": {
+      "type": "string",
+      "pattern": "^agentref_[0-9a-f]{32}$",
+      "maxLength": 41,
+      "description": "Server-issued opaque reference to an agent record.",
+      "x-content-class": "opaque_ref"
+    },
+    "SpawnTreeRef": {
+      "type": "string",
+      "pattern": "^spawntreeref_[0-9a-f]{32}$",
+      "maxLength": 45,
+      "description": "Server-issued id of a spawn tree.",
+      "x-content-class": "opaque_ref"
+    },
+    "ImportEventRef": {
+      "type": "string",
+      "pattern": "^importref_[0-9a-f]{32}$",
+      "maxLength": 42,
+      "description": "Server-issued id of one accepted import event.",
+      "x-content-class": "opaque_ref"
+    },
+    "SourceRef": {
+      "type": "string",
+      "pattern": "^sourceref_[0-9a-f]{32}$",
+      "maxLength": 42,
+      "description": "Server-issued id of a configured import source.",
+      "x-content-class": "opaque_ref"
+    },
+    "BoundaryRef": {
+      "type": "string",
+      "pattern": "^boundaryref_[0-9a-f]{32}$",
+      "maxLength": 44,
+      "description": "Server-issued id of a declared observation boundary (the set of accounts, clusters or gateways the read covered).",
+      "x-content-class": "opaque_ref"
+    },
+    "FindingRef": {
+      "type": "string",
+      "pattern": "^findingref_[0-9a-f]{32}$",
+      "maxLength": 43,
+      "description": "Server-issued id of a finding.",
+      "x-content-class": "opaque_ref"
+    },
+    "EvidenceRef": {
+      "type": "string",
+      "pattern": "^evidenceref_[0-9a-f]{32}$",
+      "maxLength": 44,
+      "description": "Server-issued id of an evidence record.",
+      "x-content-class": "opaque_ref"
+    },
+    "Sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "maxLength": 71,
+      "x-content-class": "digest",
+      "description": "sha256 digest. Customer-chosen identifiers cross only in this form."
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$",
+      "maxLength": 27,
+      "x-content-class": "timestamp"
+    },
+    "Count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000,
+      "x-content-class": "number"
+    },
+    "TrustLevel": {
+      "type": "string",
+      "enum": [
+        "client_attested",
+        "backend_observed",
+        "server_verified"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "The existing 3-value authority ceiling, kept as the derived compatibility field. A test pins this enum identical to agent_lifecycle_record/agent_lifecycle_common_schema.json#/definitions/TrustLevel. Never a substitute for EvidenceClass."
+    },
+    "EvidenceClass": {
+      "type": "string",
+      "enum": [
+        "independent_observed",
+        "self_reported",
+        "lineage_internal",
+        "inherited_conditional",
+        "vendor_claimed",
+        "constraint_enforced"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Evidence classes are never merged or averaged (D5). independent_observed: read by Traigent from a system the agent does not control. self_reported: declared by the agent or its runtime. lineage_internal: reported inside one spawn lineage. inherited_conditional: carried parent to child, valid only while the inheritance conditions hold. vendor_claimed: a vendor's own statement. constraint_enforced: reserved for mediated Enforce-tier routes; no Observe v1 producer."
+    },
+    "ImportSourceKind": {
+      "type": "string",
+      "enum": [
+        "cloud_iam_principal",
+        "credential_inventory",
+        "kubernetes_workload",
+        "llm_gateway_log",
+        "otel_trace_export",
+        "sdk_declaration",
+        "spawn_parent_report",
+        "parent_evidence_inherit",
+        "vendor_platform_registry",
+        "mediated_enforcement_connector"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed list of import source kinds; the class each yields is pinned by the source-to-class table."
+    },
+    "MemberKind": {
+      "type": "string",
+      "enum": [
+        "principal",
+        "credential",
+        "workload"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "What an external source identifies. External sources identify principals, credentials and workloads, never agents."
+    },
+    "ConfidenceLevel": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Explicit clustering confidence. unknown is a first-class value, never a default of high."
+    },
+    "RetentionClass": {
+      "type": "string",
+      "enum": [
+        "ledger_minimal",
+        "evidence_short",
+        "evidence_standard",
+        "legal_hold"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Retention rule for the retained content behind an event. ledger_minimal keeps only ids and digests after payload removal."
+    },
+    "BoundaryKind": {
+      "type": "string",
+      "enum": [
+        "cloud_account",
+        "orchestrator_cluster",
+        "gateway",
+        "agent_platform",
+        "repository"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Kind of system the boundary covers."
+    },
+    "ObservationBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_ref",
+        "boundary_kind"
+      ],
+      "description": "The declared boundary of an observation. A claim is 'observed within this boundary and period' (D6, D7).",
+      "properties": {
+        "boundary_ref": {
+          "$ref": "#/definitions/BoundaryRef"
+        },
+        "boundary_kind": {
+          "$ref": "#/definitions/BoundaryKind"
+        }
+      }
+    },
+    "ClusterMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member_kind",
+        "member_digest"
+      ],
+      "properties": {
+        "member_kind": {
+          "$ref": "#/definitions/MemberKind"
+        },
+        "member_digest": {
+          "$ref": "#/definitions/Sha256Digest"
+        }
+      },
+      "description": "One imported principal, credential or workload, by digest of its source identifier (the identifier itself is customer content and never crosses)."
+    }
+  }
+}

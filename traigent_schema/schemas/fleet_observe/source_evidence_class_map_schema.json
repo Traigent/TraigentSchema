@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/source_evidence_class_map_schema.json",
+  "title": "source_evidence_class_map_schema.json",
+  "description": "Shape of the source-to-evidence-class mapping table (F6). The table instance is traigent_schema/data/fleet_observe/source_evidence_class_map.json. Exactly one row per ImportSourceKind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "map_version",
+    "rows"
+  ],
+  "properties": {
+    "map_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "x-content-class": "number"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "evidence_class",
+          "origin_trust_level",
+          "producer_state"
+        ],
+        "properties": {
+          "source_kind": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/ImportSourceKind"
+          },
+          "evidence_class": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceClass"
+          },
+          "origin_trust_level": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/TrustLevel"
+          },
+          "producer_state": {
+            "type": "string",
+            "enum": [
+              "observe_v1",
+              "reserved"
+            ],
+            "x-content-class": "closed_enum",
+            "description": "reserved: structurally legal, no producer in Observe v1."
+          }
+        }
+      }
+    }
+  }
+}

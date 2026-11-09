@@ -558,6 +558,226 @@
       },
       "description": "An authenticated attestation, or the revocation of one. Not a cryptographic signature."
     },
+    "ExportedAttestationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_id",
+        "kind",
+        "ingredient_id",
+        "statement_version",
+        "statement_digest",
+        "outcome",
+        "dependency_fingerprints",
+        "signer",
+        "grant_id",
+        "revoker_basis",
+        "recorded_at",
+        "review_due_at",
+        "revokes",
+        "revoked_by",
+        "currency_reason",
+        "note",
+        "document_ref_ids",
+        "signer_erased",
+        "self_grant",
+        "statement_text",
+        "statement_text_status"
+      ],
+      "properties": {
+        "attestation_id": {
+          "$ref": "#/definitions/OpaqueId"
+        },
+        "kind": {
+          "$ref": "#/definitions/AttestationKind"
+        },
+        "ingredient_id": {
+          "$ref": "#/definitions/StatementId"
+        },
+        "statement_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "statement_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Outcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dependency_fingerprints": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/definitions/DependencyFingerprint"
+          }
+        },
+        "signer": {
+          "$ref": "#/definitions/Principal",
+          "description": "The authenticated user who wrote this row (the signer, or the revoker on a revocation)."
+        },
+        "grant_id": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoker_basis": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "signer_grant",
+                "project_admin"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Revocation rows only: signer_grant (the signer held a current grant, carried in grant_id) or project_admin (grant_id null). Null on an attestation."
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "review_due_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revokes": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoked_by": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currency_reason": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/CurrencyReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Present (non-null) only on the standing attestation of its ingredient in a list response; null on every other row and on write responses."
+        },
+        "note": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "CUSTOMER CONTENT. Null unless the reader is a project admin or the signer."
+        },
+        "document_ref_ids": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "description": "The document references this attestation links, in the order sent; an empty list for a statement that takes no link and on a revocation row."
+        },
+        "signer_erased": {
+          "type": "boolean",
+          "description": "True iff the signer's account was erased (signer.principal_ref is the literal 'erased')."
+        },
+        "self_grant": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "True iff the signer held the attester grant by granting it to themselves; null when the row has no grant (a revocation by a project admin)."
+        },
+        "statement_text": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 600
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Catalogue-authored wording the signer saw. A non-null string exactly when statement_text_status is 'current'; null otherwise (the old wording is not retained)."
+        },
+        "statement_text_status": {
+          "$ref": "#/definitions/StatementTextStatus"
+        }
+      },
+      "description": "One attestation or revocation row as exported in attestations.json of the evidence export pack: an AttestationRecord without the caller-relative can_revoke, plus signer_erased, self_grant and the statement wording with its closed status marker. statement_text is a non-null string if and only if statement_text_status is 'current'.",
+      "if": {
+        "properties": {
+          "statement_text_status": {
+            "const": "current"
+          }
+        },
+        "required": [
+          "statement_text_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "statement_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement_text"
+        ]
+      },
+      "else": {
+        "properties": {
+          "statement_text": {
+            "type": "null"
+          }
+        }
+      }
+    },
     "AttestationListResponse": {
       "type": "object",
       "additionalProperties": false,

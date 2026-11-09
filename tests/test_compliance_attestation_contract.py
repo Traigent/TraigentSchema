@@ -426,3 +426,61 @@ def test_the_statement_text_status_marker_is_a_closed_enum() -> None:
         assert _errors("StatementTextStatus", bad) != []
     description = load_json(SCHEMA_PATH)["definitions"]["CurrencyReason"]["description"]
     assert "takes precedence" in description
+
+
+def _exported(status: str, text: str | None) -> dict[str, Any]:
+    record = _record()
+    record.pop("can_revoke")
+    record.update(
+        signer_erased=False,
+        self_grant=False,
+        statement_text=text,
+        statement_text_status=status,
+    )
+    return record
+
+
+def test_the_exported_record_references_the_statement_text_status_enum() -> None:
+    props = _SCHEMA["definitions"]["ExportedAttestationRecord"]["properties"]
+    assert props["statement_text_status"] == {"$ref": "#/definitions/StatementTextStatus"}
+
+
+@pytest.mark.parametrize(
+    ("status", "text"),
+    [
+        ("current", "I state that the example holds."),
+        ("superseded_version", None),
+        ("statement_unavailable", None),
+    ],
+)
+def test_an_exported_record_is_valid_for_each_status(status: str, text: str | None) -> None:
+    assert _errors("ExportedAttestationRecord", _exported(status, text)) == []
+
+
+def test_an_exported_record_with_no_grant_may_have_a_null_self_grant() -> None:
+    record = _exported("current", "wording")
+    record["self_grant"] = None
+    assert _errors("ExportedAttestationRecord", record) == []
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        _exported("current", None),  # current without text
+        _exported("current", 5),  # current with a non-string text
+        _exported("superseded_version", "old wording"),  # superseded with text
+        _exported("statement_unavailable", "wording"),  # unavailable with text
+        _exported("unknown", None),  # outside the closed enum
+    ],
+)
+def test_an_exported_record_rejects_text_that_disagrees_with_its_status(
+    record: dict[str, Any],
+) -> None:
+    assert _errors("ExportedAttestationRecord", record) != []
+
+
+@pytest.mark.parametrize("missing", ["statement_text", "statement_text_status", "signer_erased"])
+def test_an_exported_record_requires_the_marker_fields(missing: str) -> None:
+    record = _exported("current", "wording")
+    del record[missing]
+    assert _errors("ExportedAttestationRecord", record) != []

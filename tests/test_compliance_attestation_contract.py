@@ -417,3 +417,12 @@ def test_linked_statements_carry_document_ref_ids_and_two_new_currency_reasons()
 def test_the_sign_route_declares_the_linked_reference_conflicts() -> None:
     text = ENDPOINTS_PATH.read_text()
     assert "linked_reference_required" in text and "linked_reference_invalid" in text
+
+
+def test_the_statement_text_status_marker_is_a_closed_enum() -> None:
+    for value in ("current", "superseded_version", "statement_unavailable"):
+        assert _errors("StatementTextStatus", value) == []
+    for bad in ("CURRENT", "unknown", "", None, 1):
+        assert _errors("StatementTextStatus", bad) != []
+    description = load_json(SCHEMA_PATH)["definitions"]["CurrencyReason"]["description"]
+    assert "takes precedence" in description

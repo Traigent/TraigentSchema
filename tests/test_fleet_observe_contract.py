@@ -108,7 +108,7 @@ def _coverage():
 
 
 def test_every_fleet_observe_document_is_present():
-    """Literal path references also keep the orphan-schema ratchet (tests/test_schemas.py) honest."""
+    """Literal path references keep the orphan-schema ratchet (tests/test_schemas.py) honest."""
     schemas_dir = get_schemas_dir()
     assert (schemas_dir / "fleet_observe" / "agent_observation_record_schema.json").is_file()
     assert (schemas_dir / "fleet_observe" / "coverage_ratio_schema.json").is_file()

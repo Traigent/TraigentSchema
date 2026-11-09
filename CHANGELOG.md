@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **List query parameters for two existing list routes (additive; query parameters only).** `GET /api/v1/measures` gains optional boolean `has_evaluator` (filter metrics by whether at least one evaluator visible to the caller is attached; an invalid value is a 422). `GET /api/v1beta/prompts` (prompt management list; not previously declared in the contract) is declared with `page` (minimum 1), `per_page` (1 to 100), `search`, `prompt_type`, `label` and the new `sort_by` (`updated_at`, `name`, `version_count`; default `updated_at`) and `sort_order` (`asc`, `desc`; optional, default `desc` for `updated_at` and `version_count`, `asc` for `name`). Parity manifest regenerated. Package version unchanged until a release is cut.
+
 ## [7.1.0] - 2026-10-29
 
 ### Added

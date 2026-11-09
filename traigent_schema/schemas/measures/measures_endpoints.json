@@ -45,16 +45,13 @@
             "name": "has_evaluator",
             "in": "query",
             "required": false,
-            "description": "Filter metrics by whether at least one evaluator visible to the caller is attached",
+            "description": "Filter metrics by whether at least one evaluator visible to the caller is attached. A non-boolean value is rejected with a 422 validation error.",
             "schema": { "type": "boolean" }
           }
         ],
         "responses": {
           "200": {
             "description": "Measures retrieved successfully"
-          },
-          "422": {
-            "description": "Invalid query parameter value (for example a non-boolean has_evaluator)."
           },
           "429": {
             "description": "Too many requests — rate limit exceeded.",

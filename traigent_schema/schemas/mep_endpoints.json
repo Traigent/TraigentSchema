@@ -88,6 +88,11 @@
       "paths_file": "./execution/best_config_agent_head_config_endpoints.json"
     },
     {
+      "name": "Prompt Management",
+      "description": "Current backend prompt management routes (/api/v1beta/prompts and the project-scoped aliases).",
+      "paths_file": "./prompts/prompts_endpoints.json"
+    },
+    {
       "name": "Observability",
       "description": "Current backend observability and trace review routes.",
       "paths_file": "./observability/observability_endpoints.json"

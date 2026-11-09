@@ -77,6 +77,7 @@ def _record() -> dict[str, Any]:
         "revoked_by": None,
         "currency_reason": "CURRENT",
         "note": None,
+        "document_ref_ids": ["cdr_1"],
     }
 
 
@@ -136,6 +137,8 @@ def test_schema_is_closed_everywhere() -> None:
                 "review_due_at": _NOW,
                 "statement_version": "1",
                 "currency_reason": "REVIEW_DATE_PASSED",
+                "document_ref_ids": [],
+                "self_grant": False,
             },
         ),
     ],
@@ -300,6 +303,8 @@ def test_evidence_response_accepts_an_attestation_summary_but_no_note() -> None:
         "review_due_at": "2027-11-08T12:00:00Z",
         "statement_version": "1",
         "currency_reason": "CURRENT",
+        "document_ref_ids": [],
+        "self_grant": False,
     }
     row = {
         "id": "A1",
@@ -387,10 +392,28 @@ def test_the_evidence_summary_carries_the_standing_attestation_id_and_can_revoke
         "review_due_at": _NOW,
         "statement_version": "1",
         "currency_reason": "CURRENT",
+        "document_ref_ids": [],
+        "self_grant": False,
     }
     assert _errors("AttestationSummary", summary) == []
-    for field in ("attestation_id", "can_revoke"):
+    for field in ("attestation_id", "can_revoke", "document_ref_ids", "self_grant"):
         broken = {k: v for k, v in summary.items() if k != field}
         assert _errors("AttestationSummary", broken) != [], field
     assert _errors("AttestationSummary", {**summary, "can_revoke": "yes"}) != []
     assert _errors("AttestationSummary", {**summary, "note": "customer text"}) != []
+
+
+def test_linked_statements_carry_document_ref_ids_and_two_new_currency_reasons() -> None:
+    assert _errors("AttestationCreateRequest", {**_request(), "document_ref_ids": ["cdr_1"]}) == []
+    for bad in ("cdr_1", [1], ["a", "a"], ["x"] * 21):
+        assert _errors("AttestationCreateRequest", {**_request(), "document_ref_ids": bad}) != []
+    reasons = load_json(SCHEMA_PATH)["definitions"]["CurrencyReason"]["enum"]
+    assert {"LINKED_REFERENCE_WITHDRAWN", "SIGNER_ERASED"} <= set(reasons)
+    assert _errors("AttestationRecord", {**_record(), "currency_reason": "SIGNER_ERASED"}) == []
+    broken = {k: v for k, v in _record().items() if k != "document_ref_ids"}
+    assert _errors("AttestationRecord", broken) != []
+
+
+def test_the_sign_route_declares_the_linked_reference_conflicts() -> None:
+    text = ENDPOINTS_PATH.read_text()
+    assert "linked_reference_required" in text and "linked_reference_invalid" in text

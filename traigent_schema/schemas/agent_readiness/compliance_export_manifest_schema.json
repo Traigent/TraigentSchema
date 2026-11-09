@@ -202,6 +202,24 @@
               "minimum": 0
             }
           }
+        },
+        "change_history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Content-free change records of the agent (posture revisions and bridged lifecycle records), exported inside measurements.json under change_history; records counts both."
         }
       }
     },
@@ -211,6 +229,7 @@
       "required": [
         "schema_version",
         "export_id",
+        "subject",
         "generated_at",
         "catalogue",
         "pack_versions",
@@ -321,6 +340,41 @@
         },
         "customer_content_note": {
           "type": "string"
+        },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tenant_id",
+            "project_id",
+            "agent_id",
+            "agent_row_id"
+          ],
+          "description": "Which agent this pack is about, so it cannot be presented for another. tenant_id and project_id come from the canonical request context. agent_id is the project-scoped agent identity (agent_key) the reader is authorised to see; agent_row_id is the server-side id of the agent row. Identifiers only.",
+          "properties": {
+            "tenant_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "project_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "agent_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "The agent's project-scoped identity (agent_key)."
+            },
+            "agent_row_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "The server-side id of the agent row (Agent.id)."
+            }
+          }
         }
       }
     }

@@ -469,21 +469,27 @@
                       "type": "string",
                       "enum": [
                         "The statement changed since it was displayed.",
-                        "The agent changed since it was displayed."
+                        "The agent changed since it was displayed.",
+                        "A statement of this kind needs at least one linked document reference.",
+                        "A linked document reference is not valid for this agent."
                       ]
                     },
                     "error": {
                       "type": "string",
                       "enum": [
                         "stale_statement",
-                        "stale_fingerprints"
+                        "stale_fingerprints",
+                        "linked_reference_required",
+                        "linked_reference_invalid"
                       ]
                     },
                     "error_code": {
                       "type": "string",
                       "enum": [
                         "stale_statement",
-                        "stale_fingerprints"
+                        "stale_fingerprints",
+                        "linked_reference_required",
+                        "linked_reference_invalid"
                       ]
                     }
                   }

@@ -37,6 +37,12 @@ def _manifest() -> dict[str, Any]:
         "schema_version": "1.0.0-beta.1",
         "export_id": "cee_" + "0" * 32,
         "generated_at": "2026-11-08T12:00:00+00:00",
+        "subject": {
+            "tenant_id": "t1",
+            "project_id": "p1",
+            "agent_id": "agent-key",
+            "agent_row_id": "agent_row_1",
+        },
         "catalogue": {"version": "0.1.0", "manifest_sha256": _DIGEST, "draft": True},
         "pack_versions": [{"framework_id": "FW-EU-AI-ACT", "semver": "0.1.0", "draft": True}],
         "files": [{"name": n, "sha256": _DIGEST, "bytes": 10} for n in _FILES],
@@ -46,6 +52,7 @@ def _manifest() -> dict[str, Any]:
             "attestations": _section(notes_withheld=0),
             "documents": _section(),
             "measurements": _section(),
+            "change_history": _section(),
             "erased_identities": _section(),
             "tvl_offline_bundle": {"complete": False, "records": 0},
             "pdf": {"complete": False, "records": 0},
@@ -79,6 +86,17 @@ def test_manifest_requires_all_six_file_digests() -> None:
     manifest = _manifest()
     manifest["files"][0]["sha256"] = "xyz"
     assert _errors("Manifest", manifest) != []
+
+
+def test_manifest_names_the_subject_it_is_about() -> None:
+    manifest = _manifest()
+    del manifest["subject"]
+    assert _errors("Manifest", manifest) != []
+    for key in ("tenant_id", "project_id", "agent_id", "agent_row_id"):
+        broken = _manifest()
+        del broken["subject"][key]
+        assert _errors("Manifest", broken) != [], key
+    assert _errors("Manifest", {**_manifest(), "subject": {**_manifest()["subject"], "x": 1}}) != []
 
 
 def test_request_is_the_empty_object() -> None:

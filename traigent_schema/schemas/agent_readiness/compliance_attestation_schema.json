@@ -72,9 +72,11 @@
         "REVIEW_DATE_PASSED",
         "DEPENDENCY_UNRESOLVED",
         "DEPENDENCY_ADDED",
-        "UNTRACKABLE_DEPENDENCY"
+        "UNTRACKABLE_DEPENDENCY",
+        "LINKED_REFERENCE_WITHDRAWN",
+        "SIGNER_ERASED"
       ],
-      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED, DEPENDENCY_ADDED (a dependency kind that resolves now but was absent or unresolved at signing) and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED (a recorded dependency no longer resolves) makes it NOT_ASSESSED. UNTRACKABLE_DEPENDENCY (interim, fail closed: the Agent currently has a dependency with no server-side fingerprint, such as a declared dataset or an unregistered code-digest evaluator, so its change could not be detected) also makes it NOT_ASSESSED, whatever the ingredient."
+      "description": "Why an attestation currently is, or is not, current. Recomputed on every read, never stored. STATEMENT_CHANGED, DEPENDENCY_CHANGED, DEPENDENCY_ADDED (a dependency kind that resolves now but was absent or unresolved at signing) and REVIEW_DATE_PASSED make the ingredient EXPIRED; DEPENDENCY_UNRESOLVED (a recorded dependency no longer resolves) makes it NOT_ASSESSED. UNTRACKABLE_DEPENDENCY (interim, fail closed: the Agent currently has a dependency with no server-side fingerprint, such as a declared dataset or an unregistered code-digest evaluator, so its change could not be detected) also makes it NOT_ASSESSED, whatever the ingredient. LINKED_REFERENCE_WITHDRAWN: a document reference this attestation links (a 'stamp + link' statement) was withdrawn, so the attestation is EXPIRED. SIGNER_ERASED: the signing user was erased, so the attestation can no longer be tied to a named, accountable person; it is NOT_ASSESSED."
     },
     "FingerprintKind": {
       "type": "string",
@@ -352,6 +354,15 @@
           "items": {
             "$ref": "#/definitions/FingerprintEcho"
           }
+        },
+        "document_ref_ids": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "description": "Ids of standing (non-withdrawn) document references of the same agent, tenant and project that this attestation links. REQUIRED and non-empty for the 'stamp + link' statements (A1, A3, A3b, A3c, A6a, A6b, A6c, A6d): a request that omits it, sends an empty list, or names a reference that is not standing for this agent is refused with 409 linked_reference_required or linked_reference_invalid (the body never echoes the ids). A statement that takes no link refuses a non-empty list with 409 linked_reference_invalid."
         }
       },
       "description": "Signer, time, tenant, project, statement version and the stored fingerprints are server-derived and are NOT accepted."
@@ -395,7 +406,8 @@
         "revoked_by",
         "currency_reason",
         "note",
-        "can_revoke"
+        "can_revoke",
+        "document_ref_ids"
       ],
       "properties": {
         "attestation_id": {
@@ -524,6 +536,15 @@
         "can_revoke": {
           "type": "boolean",
           "description": "True iff the caller may revoke this attestation now: they signed it and still hold a current grant for its statement, or they are a project admin; false on a revocation row and on an already revoked attestation. Computed with the predicate the revoke route enforces."
+        },
+        "document_ref_ids": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "description": "The document references this attestation links, in the order sent; an empty list for a statement that takes no link and on a revocation row."
         }
       },
       "description": "An authenticated attestation, or the revocation of one. Not a cryptographic signature."
@@ -573,7 +594,9 @@
         "recorded_at",
         "review_due_at",
         "statement_version",
-        "currency_reason"
+        "currency_reason",
+        "document_ref_ids",
+        "self_grant"
       ],
       "properties": {
         "attestation_id": {
@@ -602,6 +625,19 @@
         },
         "currency_reason": {
           "$ref": "#/definitions/CurrencyReason"
+        },
+        "document_ref_ids": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/OpaqueId"
+          },
+          "description": "The document references the standing attestation links (empty for a statement that takes no link). The tab shows them and picks them when signing."
+        },
+        "self_grant": {
+          "type": "boolean",
+          "description": "True iff the signer held the attester grant by granting it to themselves (the grant's own self_grant flag). A reader should weigh a self-granted attestation accordingly."
         }
       },
       "description": "The closed summary carried on an `A` ingredient row of the compliance-evidence response. It never carries the note."

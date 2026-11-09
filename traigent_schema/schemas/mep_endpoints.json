@@ -211,6 +211,31 @@
       "name": "Agent Decisions",
       "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
       "paths_file": "./agent_decision/agent_decision_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence",
+      "description": "Read-only evidence-coverage view of one Agent against the regulation catalogue crosswalk (ingredient states and coverage counts; not a compliance determination).",
+      "paths_file": "./agent_readiness/compliance_evidence_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Attestations",
+      "description": "Per-statement attester grants and authenticated attestations about an Agent (AGB-74 slice 2): grant, withdraw, sign, revoke, list and a can-sign capabilities read.",
+      "paths_file": "./agent_readiness/compliance_attestation_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Document References",
+      "description": "Customer-declared document references (a link plus a declared SHA-256) about an Agent (AGB-74 slice 3): record, withdraw and list. The platform never fetches or verifies the document.",
+      "paths_file": "./agent_readiness/compliance_document_ref_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Applicability",
+      "description": "Applicability screen of an Agent against the regulation catalogue (AGB-74 slice 4): closed screening answers, pure suggestions, human decisions per obligation as immutable snapshots, current plus history.",
+      "paths_file": "./agent_readiness/compliance_applicability_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence Export",
+      "description": "Evidence export pack of an Agent as a ZIP with an integrity manifest (AGB-74 slice 5): human project members only, synchronous, size-capped, never cached.",
+      "paths_file": "./agent_readiness/compliance_export_endpoints.json"
     }
   ]
 }

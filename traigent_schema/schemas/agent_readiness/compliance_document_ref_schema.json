@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_document_ref_schema.json",
+  "title": "Compliance Document References",
+  "description": "AGB-74 slice 3: closed contracts for customer-declared document references about an Agent: a link plus a SHA-256 that the customer states belongs to the document. The platform never fetches, previews, extracts, stores or analyses the document, and never checks that the link serves those bytes: the hash basis is always `customer_declared` and every reference is an `unverified_external_reference`. The URL is CUSTOMER CONTENT: it travels in request and list-response bodies only (never a path or query string), is returned only to project members by the list endpoint, and is absent from the compliance-evidence response, from audit text, from logs and from every error. There is no title, filename, note or supplier field. Records are append-only; a withdrawal is a new row. The actor, time, tenant and project are always server-derived.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "Principal": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_attestation_schema.json#/definitions/Principal"
+    },
+    "DocumentIngredientId": {
+      "type": "string",
+      "pattern": "^D[0-9][a-z]?$",
+      "maxLength": 4,
+      "description": "A `D` (document) ingredient of the regulation catalogue crosswalk. The Backend validates it against the vendored catalogue."
+    },
+    "DocumentKind": {
+      "type": "string",
+      "enum": [
+        "risk_management_evidence",
+        "rights_impact_assessment",
+        "risk_assessment",
+        "technical_documentation",
+        "supplier_due_diligence",
+        "cybersecurity_audit_report"
+      ],
+      "description": "Closed, derived one-to-one from the `D` ingredient: D1a risk_management_evidence, D1b rights_impact_assessment, D1c risk_assessment, D2 technical_documentation, D3 supplier_due_diligence, D4 cybersecurity_audit_report."
+    },
+    "HashBasis": {
+      "type": "string",
+      "enum": ["customer_declared"],
+      "description": "Who established the digest. Closed to the only basis there is: the customer declared it. The platform did not read the document."
+    },
+    "Verification": {
+      "type": "string",
+      "enum": ["unverified_external_reference"],
+      "description": "A reference is never verified: the platform neither fetched the link nor compared the bytes with the digest."
+    },
+    "ReferenceKind": {
+      "type": "string",
+      "enum": ["reference", "withdrawal"]
+    },
+    "DocumentReferenceCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "ingredient_id", "url", "sha256"],
+      "properties": {
+        "agent_id": { "$ref": "#/definitions/OpaqueId" },
+        "ingredient_id": { "$ref": "#/definitions/DocumentIngredientId" },
+        "url": {
+          "type": "string",
+          "minLength": 9,
+          "maxLength": 2048,
+          "pattern": "^https://",
+          "description": "CUSTOMER CONTENT. https only; credentials in the authority, and query strings or fragments that look like signed-link parameters (X-Amz-*, sig, token, signature, se, sp), are refused, never stripped. Sent in the body only. The Backend never fetches it."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$",
+          "description": "The SHA-256 the customer declares for the document. Stored lower-case."
+        }
+      },
+      "description": "Actor, time, tenant, project, document kind and hash basis are server-derived and are NOT accepted."
+    },
+    "DocumentReferenceWithdrawRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "description": "Empty by design: a withdrawal carries no free text."
+    },
+    "DocumentReferenceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference_id",
+        "kind",
+        "ingredient_id",
+        "document_kind",
+        "url",
+        "sha256",
+        "hash_basis",
+        "verification",
+        "actor",
+        "recorded_at",
+        "withdraws",
+        "withdrawn_by",
+        "can_withdraw"
+      ],
+      "properties": {
+        "reference_id": { "$ref": "#/definitions/OpaqueId" },
+        "kind": { "$ref": "#/definitions/ReferenceKind" },
+        "ingredient_id": { "$ref": "#/definitions/DocumentIngredientId" },
+        "document_kind": { "$ref": "#/definitions/DocumentKind" },
+        "url": {
+          "type": ["string", "null"],
+          "maxLength": 2048,
+          "description": "CUSTOMER CONTENT. Null on a withdrawal row. Returned only to project members, only by the create response and the list endpoint."
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "The customer-declared digest. Null on a withdrawal row."
+        },
+        "hash_basis": {
+          "oneOf": [{ "$ref": "#/definitions/HashBasis" }, { "type": "null" }]
+        },
+        "verification": {
+          "oneOf": [{ "$ref": "#/definitions/Verification" }, { "type": "null" }],
+          "description": "Always `unverified_external_reference` on a reference row; null on a withdrawal row."
+        },
+        "actor": {
+          "$ref": "#/definitions/Principal",
+          "description": "The member who WROTE this row: the declarer on a reference, the withdrawing member on a withdrawal. principal_ref is 'erased' after account erasure; the url and sha256 are kept."
+        },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "withdraws": {
+          "oneOf": [{ "$ref": "#/definitions/OpaqueId" }, { "type": "null" }]
+        },
+        "withdrawn_by": {
+          "oneOf": [{ "$ref": "#/definitions/OpaqueId" }, { "type": "null" }],
+          "description": "Computed on read: the id of the withdrawal row that withdrew this reference, if any."
+        },
+        "can_withdraw": {
+          "type": "boolean",
+          "description": "True iff the caller may withdraw this reference now: the member who recorded it, or a project admin; false on a withdrawal row and on a reference that was already withdrawn."
+        }
+      }
+    },
+    "DocumentReferenceListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "items", "pagination"],
+      "properties": {
+        "schema_version": { "const": "1.0.0-beta.1" },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/definitions/DocumentReferenceRecord" }
+        },
+        "pagination": {
+          "allOf": [
+            { "$ref": "../pagination_schema.json" },
+            { "properties": { "per_page": { "maximum": 100 } } }
+          ]
+        }
+      }
+    },
+    "DocumentReferenceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash_basis", "recorded_at", "verification"],
+      "properties": {
+        "hash_basis": { "$ref": "#/definitions/HashBasis" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "verification": { "$ref": "#/definitions/Verification" }
+      },
+      "description": "The closed summary carried on a `D` ingredient row of the compliance-evidence response: a customer-declared reference exists. It never carries the URL or the digest."
+    }
+  }
+}

@@ -1,0 +1,380 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_export_manifest_schema.json",
+  "title": "Compliance Evidence Export Manifest",
+  "description": "AGB-74 slice 5: the closed manifest.json of the evidence export pack, and its empty request. The pack is a ZIP built synchronously for a human project member; it is evidence coverage, not a compliance determination. The manifest is an INTEGRITY MANIFEST: the SHA-256 of every other file in the pack. It is not a digital signature. It lists generation time (server), the catalogue version and digest, the pack versions, per-section completeness, fixed limitations text and the reasons the PDF and the offline replay bundle are absent. The pack holds CUSTOMER CONTENT (document URLs, applicability facts and rationale, attestation notes) and is returned only to the authorised member who requested it; it is never logged. An attestation note is included only where the reader may read it in the product, and the count of withheld notes is declared. Fixed files: coverage.json (the evidence response), coverage.html, applicability.json, attestations.json, documents.json, measurements.json (measured rows keep observation_basis client_reported). Fixed filename compliance-evidence-<export_id>.zip, Cache-Control no-store.",
+  "definitions": {
+    "ExportRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0,
+      "description": "An empty object. There are no options: the pack contents are fixed."
+    },
+    "ExportId": {
+      "type": "string",
+      "pattern": "^cee_[0-9a-f]{32}$"
+    },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "FileDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "applicability.json",
+            "attestations.json",
+            "coverage.html",
+            "coverage.json",
+            "documents.json",
+            "measurements.json"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "Completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage",
+        "applicability",
+        "attestations",
+        "documents",
+        "measurements",
+        "erased_identities",
+        "tvl_offline_bundle",
+        "pdf"
+      ],
+      "properties": {
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "attestations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "notes_withheld": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Attestation notes left out because this reader may not read them in the product."
+            }
+          }
+        },
+        "documents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "measurements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "erased_identities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "tvl_offline_bundle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "pdf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "change_history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "complete",
+            "records"
+          ],
+          "properties": {
+            "complete": {
+              "type": "boolean"
+            },
+            "records": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "description": "Content-free change records of the agent (posture revisions and bridged lifecycle records), exported inside measurements.json under change_history; records counts both."
+        }
+      }
+    },
+    "Manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "export_id",
+        "subject",
+        "generated_at",
+        "catalogue",
+        "pack_versions",
+        "files",
+        "completeness",
+        "limitations",
+        "integrity",
+        "pdf",
+        "pdf_reason",
+        "tvl_offline_bundle",
+        "tvl_offline_bundle_reason",
+        "contains_customer_content",
+        "customer_content_note"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string"
+        },
+        "export_id": {
+          "$ref": "#/definitions/ExportId"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server time."
+        },
+        "catalogue": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "manifest_sha256",
+            "draft"
+          ],
+          "properties": {
+            "version": {
+              "type": "string"
+            },
+            "manifest_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "draft": {
+              "type": "boolean"
+            }
+          }
+        },
+        "pack_versions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "framework_id",
+              "semver",
+              "draft"
+            ],
+            "properties": {
+              "framework_id": {
+                "type": "string"
+              },
+              "semver": {
+                "type": "string"
+              },
+              "draft": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/definitions/FileDigest"
+          },
+          "description": "Every file except manifest.json itself, sorted by name."
+        },
+        "completeness": {
+          "$ref": "#/definitions/Completeness"
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Fixed copy."
+        },
+        "integrity": {
+          "const": "sha256 manifest"
+        },
+        "pdf": {
+          "const": "not_included"
+        },
+        "pdf_reason": {
+          "type": "string"
+        },
+        "tvl_offline_bundle": {
+          "const": "not_available"
+        },
+        "tvl_offline_bundle_reason": {
+          "type": "string"
+        },
+        "contains_customer_content": {
+          "const": true
+        },
+        "customer_content_note": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tenant_id",
+            "project_id",
+            "agent_id",
+            "agent_row_id"
+          ],
+          "description": "Which agent this pack is about, so it cannot be presented for another. tenant_id and project_id come from the canonical request context. agent_id is the project-scoped agent identity (agent_key) the reader is authorised to see; agent_row_id is the server-side id of the agent row. Identifiers only.",
+          "properties": {
+            "tenant_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "project_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "agent_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "The agent's project-scoped identity (agent_key)."
+            },
+            "agent_row_id": {
+              "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId",
+              "description": "The server-side id of the agent row (Agent.id; up to 512 characters, the same limit as OpaqueId)."
+            }
+          }
+        }
+      }
+    }
+  }
+}

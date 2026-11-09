@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_evidence_response_schema.json",
+  "title": "Agent Compliance Evidence Response",
+  "description": "AGB-74 slice 1: GET .../agent-compliance-evidence/{agent_id}. A closed, read-only evidence-coverage view of one Agent: which evidence ingredients the platform can produce today, in which state, and which catalogue obligations each ingredient may contribute to. It is an evidence inventory, never a determination about any regulation; the banner is a one-member enum so every consumer renders the same words. The response carries only ids, closed enums, numbers, timestamps and catalogue-authored text (obligation ids, criterion and limitation wording); it never echoes the requested agent id (the caller already holds it from the path) and never carries customer prompts, outputs, notes or any customer-authored free text. The regulation catalogue itself is not part of this contract: this schema fixes the SHAPE; the catalogue content is served by the Backend at runtime. An ingredient with no real producer is NOT_ASSESSED, never a placeholder SUPPORTED. EXPIRED is emitted only where an existing decay mechanism says the evidence no longer applies. Coverage counts are plain counts per pack, never percentages. `applicability_unresolved` counts the obligations of the pack whose effective applicability decision is unresolved; with no applicability screen recorded, every obligation is.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "catalogue", "packs", "ingredients", "banner"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0-beta.1",
+      "description": "Closed wire-version discriminator."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Backend time at which this view was computed."
+    },
+    "catalogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "manifest_sha256", "draft", "visible_obligations"],
+      "description": "Identity of the vendored regulation catalogue this view was computed against.",
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$",
+          "description": "Catalogue source revision (git object id, abbreviated or full)."
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the Backend's vendored-catalogue manifest, which pins every vendored file by digest."
+        },
+        "draft": {
+          "type": "boolean",
+          "description": "True while any catalogue entry is unreviewed draft. Draft packs are hidden in production, so `packs` lists only the published packs there (empty while every pack is draft); published packs remain visible."
+        },
+        "visible_obligations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Number of catalogue obligations visible to this caller, i.e. the sum over `packs`. 0 is an explicit empty cohort (for example every pack is draft and draft is hidden): `packs` is then empty and every ingredient's `links` is empty. A published pack stays visible, with its links, next to hidden draft packs. Consumers must render that as 'no catalogue obligations visible', not as an error."
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "maxItems": 50,
+      "description": "Framework packs visible to this caller. Published packs are always listed; draft packs are listed only outside production and only behind an operator flag, always with draft=true.",
+      "items": { "$ref": "#/definitions/PackSummary" }
+    },
+    "ingredients": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "Every evidence ingredient of the catalogue crosswalk, each with its current state.",
+      "items": { "$ref": "#/definitions/Ingredient" }
+    },
+    "banner": {
+      "type": "string",
+      "enum": ["Evidence coverage, not a compliance determination."],
+      "description": "Constant text every rendering shows. A single-member enum so no consumer can vary it."
+    }
+  },
+  "definitions": {
+    "IngredientState": {
+      "type": "string",
+      "enum": ["SUPPORTED", "GAP", "NOT_ASSESSED", "EXPIRED"],
+      "description": "SUPPORTED: the recorded evidence meets the named evidence criterion within its recorded scope (no legal conclusion). GAP: evidence exists and fails. NOT_ASSESSED: no producer or no evidence; never counted as either. EXPIRED: evidence bound to an older subject version or past its review date, per an existing decay mechanism."
+    },
+    "Coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported", "gap", "not_assessed", "expired", "applicability_unresolved"],
+      "description": "Counts per pack, no percentages. supported/gap/not_assessed/expired count the distinct ingredients linked to the pack's obligations, by state. supported/gap/not_assessed/expired exclude an ingredient when every link of that ingredient into this pack points to an obligation decided not_applicable. applicability_unresolved is the number of the pack's obligations whose effective applicability decision is unresolved (an obligation with no recorded decision counts); with no applicability screen recorded it equals the pack's obligation count.",
+      "properties": {
+        "supported": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "gap": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "not_assessed": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "expired": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "applicability_unresolved": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "PackSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework_id", "semver", "title", "draft", "coverage"],
+      "properties": {
+        "framework_id": { "type": "string", "pattern": "^FW-[A-Z0-9-]{1,60}$", "maxLength": 64 },
+        "semver": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$", "maxLength": 32 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Catalogue-authored pack title." },
+        "draft": { "type": "boolean" },
+        "coverage": { "$ref": "#/definitions/Coverage" },
+        "applicability": {
+          "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_applicability_schema.json#/definitions/ApplicabilitySummary",
+          "description": "Counts of the pack's obligations by effective applicability decision, and when the current screen was recorded. Never carries the screening answers or a rationale."
+        }
+      }
+    },
+    "Measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "value", "interval_low", "interval_high", "confidence", "target", "method", "observation_basis"],
+      "description": "One measured value. interval_low, interval_high, confidence and target are null when the platform records none; they are never invented.",
+      "properties": {
+        "metric": { "type": "string", "enum": ["ACCURACY", "COST_USD", "LATENCY_MS"] },
+        "value": { "type": "number" },
+        "interval_low": { "type": ["number", "null"] },
+        "interval_high": { "type": ["number", "null"] },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "target": { "type": ["number", "null"], "description": "The manager-declared target, or null when none is declared." },
+        "method": {
+          "type": "string",
+          "enum": ["clt_mean_standard_error", "wilson_score_binary", "point_mean"],
+          "description": "How value (and the interval, when present) was computed. point_mean: a reported point value with no interval."
+        },
+        "observation_basis": {
+          "type": "string",
+          "enum": ["client_reported"],
+          "description": "Who observed the value. Closed to the only basis the Backend emits today: the value was reported by the client SDK and has not been independently re-observed."
+        }
+      }
+    },
+    "RequirementLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework_id", "obligation_id", "requirement_id", "relation", "criterion_addressed", "limitations"],
+      "description": "One catalogue obligation this ingredient may contribute to. A link is a possible contribution with stated limits, never a claim that the obligation is met.",
+      "properties": {
+        "framework_id": { "type": "string", "pattern": "^FW-[A-Z0-9-]{1,60}$", "maxLength": 64 },
+        "obligation_id": { "type": "string", "pattern": "^OBL-[A-Z0-9-]{1,100}$", "maxLength": 110 },
+        "requirement_id": { "type": "string", "pattern": "^REQ-[0-9]{4}$", "maxLength": 8 },
+        "relation": { "type": "string", "enum": ["exact", "partial", "related"] },
+        "criterion_addressed": { "type": "string", "minLength": 1, "maxLength": 400, "description": "Catalogue-authored wording." },
+        "limitations": {
+          "type": "array",
+          "maxItems": 10,
+          "description": "Catalogue-authored limits of the contribution.",
+          "items": { "type": "string", "minLength": 1, "maxLength": 400 }
+        }
+      }
+    },
+    "Ingredient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "group", "title", "state", "links"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Z][0-9]{1,2}[a-z]?$", "maxLength": 4 },
+        "kind": { "type": "string", "enum": ["M", "A", "D", "L"], "description": "M measured, A attestation, D document, L log or record." },
+        "group": { "type": "string", "enum": ["Performance", "Security", "Accountability", "Transparency", "Records"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 300, "description": "Catalogue-authored ingredient title." },
+        "state": { "$ref": "#/definitions/IngredientState" },
+        "measurements": {
+          "type": "array",
+          "maxItems": 4,
+          "description": "Present only for a measured ingredient that has recorded values. An ingredient may carry several measured quantities (for example cost and latency).",
+          "items": { "$ref": "#/definitions/Measurement" }
+        },
+        "producer_ref": {
+          "type": "string",
+          "enum": ["ACCURACY_INTERVAL_V1", "ANCHOR_RUN_METRICS_V1", "CHANGE_RECORDS_V1", "ATTESTATION_RECORDS_V1", "DOCUMENT_REFERENCES_V1"],
+          "description": "Which Backend producer computed this state. Absent when the ingredient has no producer (state NOT_ASSESSED)."
+        },
+        "attestation": {
+          "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_attestation_schema.json#/definitions/AttestationSummary",
+          "description": "Present only on an `A` ingredient that has a standing (latest non-revoked) authenticated attestation. Never carries the note."
+        },
+        "document_reference": {
+          "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_document_ref_schema.json#/definitions/DocumentReferenceSummary",
+          "description": "Present only on a `D` ingredient that has a standing (latest non-withdrawn) customer-declared document reference. Never carries the URL or the digest."
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 100,
+          "description": "Obligations of the visible packs this ingredient may contribute to. Empty when no pack is visible.",
+          "items": { "$ref": "#/definitions/RequirementLink" }
+        }
+      }
+    }
+  }
+}

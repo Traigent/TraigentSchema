@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_membership_proposal_list_response_schema.json",
+  "title": "Crew Membership Proposal List Response",
+  "description": "200 body of GET /api/v1beta/projects/{project_id}/crews/{crew_id}/proposals. Nested pagination.",
+  "type": "object",
+  "x-wrap-status": "wrapped",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "./crew_membership_proposal_schema.json"
+          }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json"
+        }
+      }
+    }
+  }
+}

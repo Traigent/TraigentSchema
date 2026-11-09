@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_membership_query_request_schema.json",
+  "title": "Crew Membership Query Request",
+  "description": "POST /api/v1beta/projects/{project_id}/crews/memberships/query. Same read model as the GET, with the agent filter in the JSON body because agent ids are CONTENT and must never appear in a URL (traced as http.target/http.url). Page and per_page stay query parameters (not content). Read-only POST: never replayed from the idempotency store.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "agent_ids": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "./crew_common_schema.json#/definitions/AgentId"
+      },
+      "description": "Agent filter (max 100 raw values, duplicates counted). CONTENT: never logged, never in a URL."
+    },
+    "include_archived": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

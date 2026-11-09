@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_create_request_schema.json",
+  "title": "Crew Create Request",
+  "description": "POST /api/v1beta/projects/{project_id}/crews. Idempotent by crew_key: replaying the same crew_key with identical name/description returns the existing crew (200); a different payload for an existing crew_key is 409 crew_key_conflict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "crew_key",
+    "name"
+  ],
+  "properties": {
+    "crew_key": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewKey",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Registration key; idempotency key."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Mutable display name. CONTENT."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Mutable description. CONTENT."
+    }
+  }
+}

@@ -1,0 +1,224 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_common_schema.json",
+  "title": "Crew Common Definitions",
+  "description": "Shared identifiers, closed enums and error codes for the crew domain (CREW-11, design: Crews v1 sections 1-3). A crew is a named set of agents that cooperate on one job; a fleet is all agents of a project. IDENTIFIERS vs CONTENT: crew_id, crew_revision_id, role_id, role_token and crew_run_id are server-issued or SDK-minted opaque identifiers (x-identifier) and are the only crew values that may appear in traces, baggage, optimizer parameter keys or Director inputs. crew_key, name, description and role_key are CONTENT (x-content + x-privacy-classification user_content): they live in crew tables and the portal only. Every string pattern ends with the portable end anchor (?![\\s\\S]) (see agents/agent_version_manifest_v1_schema.json for why).",
+  "definitions": {
+    "CrewId": {
+      "type": "string",
+      "pattern": "^crew_[0-9a-f]{8,64}(?![\\s\\S])",
+      "description": "Opaque, immutable, server-issued crew id: 'crew_' + lowercase hex."
+    },
+    "CrewRevisionId": {
+      "type": "string",
+      "pattern": "^crev_[0-9a-f]{8,64}(?![\\s\\S])",
+      "description": "Opaque server-issued crew revision id: 'crev_' + lowercase hex."
+    },
+    "CrewRoleId": {
+      "type": "string",
+      "pattern": "^crol_[0-9a-f]{8,64}(?![\\s\\S])",
+      "description": "Opaque server-issued role id, stable across revisions: 'crol_' + lowercase hex."
+    },
+    "RoleToken": {
+      "type": "string",
+      "pattern": "^rtk_[a-z2-7]{26}(?![\\s\\S])",
+      "description": "Opaque server-issued role token, unique within a crew: 'rtk_' + 26 lowercase unpadded base32 chars (128 random bits). A single underscore never forms '__'; the joint-optimization key '<role_token>__<param>' is split on the FIRST '__'. This is the only role label allowed on traces, baggage and smartopt keys; the customer's role_key never leaves the crew tables."
+    },
+    "CrewRunId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])",
+      "description": "SDK-minted UUIDv7 (lowercase) identifying one end-to-end crew run; unique per tenant, project and crew."
+    },
+    "AgentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Existing project agent id (agents/agent_schema.json#/properties/id). Client-supplied, therefore CONTENT for Director inputs and exports (GNFR-PRIV-003): exports use the backend agent_ref instead.",
+      "x-reference": "../agents/agent_schema.json#/properties/id"
+    },
+    "Sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+      "x-content-class": "digest",
+      "description": "'sha256:' + 64 lowercase hex."
+    },
+    "CrewKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
+      "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Same rules as agent_key (BE src/models/agent.py AGENT_KEY_PATTERN, ForeignKeyId): [A-Za-z0-9_-]{1,128}, case-sensitive, unique among ACTIVE crews per project (per creator on the default tenant), reusable after archive; unarchive is 409 crew_key_conflict while an active crew holds the key."
+    },
+    "RoleKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Customer alias of a role (portal only). CONTENT. Identity is role_id/role_token, never role_key."
+    },
+    "BindingKind": {
+      "type": "string",
+      "enum": [
+        "agent",
+        "agent_unit"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "agent = a whole project agent; agent_unit = an in-function unit (reserved, slice 4)."
+    },
+    "BindingState": {
+      "type": "string",
+      "enum": [
+        "unbound",
+        "bound",
+        "retired"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "BindingProvenance": {
+      "type": "string",
+      "enum": [
+        "portal",
+        "sdk_declared",
+        "inferred_suggestion"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "inferred_suggestion never grants membership."
+    },
+    "RevisionSource": {
+      "type": "string",
+      "enum": [
+        "portal",
+        "sdk_declared"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "TransferStatus": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "dropped",
+        "schema_error",
+        "timeout",
+        "loop_halted"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed outcome of one handoff."
+    },
+    "HaltReason": {
+      "type": "string",
+      "enum": [
+        "max_handoffs_exceeded",
+        "loop_detected",
+        "budget_exceeded",
+        "timeout",
+        "policy_halt",
+        "operator_halt"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed reason a crew run was halted by policy."
+    },
+    "RunStatus": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "halted"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "RunCompleteness": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Whether every expected member execution and handoff was ingested."
+    },
+    "ExperimentRunId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "description": "Server-issued experiment run id: lowercase UUID, the backend's real id shape (BE src/models/experiment_run.py id = str(uuid.uuid4()), String(100)). Content (names, agent ids) can never match."
+    },
+    "ConfigurationRunId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
+      "description": "Server-issued configuration run id: lowercase UUID (BE src/models/configuration_run.py:37 id = str(uuid.uuid4()))."
+    },
+    "ScenarioRef": {
+      "type": "string",
+      "pattern": "^scn_[0-9a-f]{8,64}(?![\\s\\S])",
+      "x-content-class": "opaque_ref",
+      "description": "Server-issued scenario reference only; never a customer example id or label."
+    },
+    "RoleIcon": {
+      "type": "string",
+      "x-content-class": "closed_enum",
+      "enum": [
+        "agent",
+        "user",
+        "search",
+        "pen",
+        "check",
+        "shield",
+        "bolt",
+        "book",
+        "code",
+        "chat"
+      ],
+      "description": "Closed icon vocabulary (documented in the domain README)."
+    },
+    "CrewErrorCode": {
+      "type": "string",
+      "x-content-class": "closed_enum",
+      "enum": [
+        "crew_validation_failed",
+        "crew_not_found",
+        "crew_archived",
+        "crew_key_conflict",
+        "crew_role_conflict",
+        "crew_binding_conflict",
+        "crew_entry_role_conflict",
+        "crew_revision_conflict",
+        "crew_internal_error"
+      ],
+      "description": "Closed error vocabulary. crew_binding_conflict (409) = a binding contradicts an existing binding (same revision/role bound to a different agent, or an agent already bound to the same role differently). The error body never echoes client-supplied keys or values."
+    },
+    "CrewProposalId": {
+      "type": "string",
+      "pattern": "^cmp_[0-9a-f]{32}(?![\\s\\S])",
+      "description": "Opaque server-issued crew membership proposal id: 'cmp_' + 32 lowercase hex."
+    },
+    "ProposalStatus": {
+      "type": "string",
+      "enum": [
+        "open",
+        "accepted",
+        "dismissed"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed lifecycle of a membership proposal. dismissed is durable: a later SDK declaration never reopens it."
+    },
+    "ProposalSource": {
+      "type": "string",
+      "enum": [
+        "sdk_declared"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Where the proposal came from. Only sdk_declared exists in slice 2."
+    },
+    "CrewBindingStatus": {
+      "type": "string",
+      "enum": [
+        "bound",
+        "pending_portal",
+        "conflict",
+        "disabled",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed outcome of a crew declaration on session create. unknown = mock mode or the crew step failed; the session itself never fails because of crews."
+    }
+  }
+}

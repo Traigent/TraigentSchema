@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_membership_proposal_schema.json",
+  "title": "Crew Membership Proposal",
+  "description": "A pending suggestion, from an SDK declaration, that an agent fills a role of a crew. One durable row per (crew_id, role_id, agent_id) across statuses: dismissed stays dismissed when the SDK declares again (seen_count still increments). Accept appends a full-snapshot revision via the normal revision path; the proposal never writes a revision by itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "proposal_id",
+    "crew_id",
+    "role_id",
+    "agent_id",
+    "source",
+    "status",
+    "first_seen_at",
+    "last_seen_at",
+    "seen_count",
+    "decided_by",
+    "decided_at"
+  ],
+  "properties": {
+    "proposal_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewProposalId",
+      "x-identifier": true
+    },
+    "crew_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewId",
+      "x-identifier": true,
+      "description": "Owning crew."
+    },
+    "role_id": {
+      "$ref": "./crew_common_schema.json#/definitions/CrewRoleId",
+      "x-identifier": true,
+      "description": "Proposed role."
+    },
+    "agent_id": {
+      "$ref": "./crew_common_schema.json#/definitions/AgentId"
+    },
+    "source": {
+      "$ref": "./crew_common_schema.json#/definitions/ProposalSource"
+    },
+    "status": {
+      "$ref": "./crew_common_schema.json#/definitions/ProposalStatus"
+    },
+    "first_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "seen_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "decided_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 255,
+      "x-identifier": true,
+      "description": "Opaque user id; null while open."
+    },
+    "decided_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "open"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decided_by": {
+            "type": "null"
+          },
+          "decided_at": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted",
+              "dismissed"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decided_by": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

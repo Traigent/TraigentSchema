@@ -9143,6 +9143,23 @@
       "reason": "API refactor Phase 1 replaces the eight planned, name-addressed /api/v1beta prompts routes (never served; no external clients, owner ruling) with the eleven /api/v1/projects/{project_id}/prompts operations addressed by server-minted prompt_ref, with POST search and resolve and cursor pagination. The removed routes were retired in the backend; the replacement operations are declared in the same file.",
       "version": "8.0.0",
       "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
+    },
+    {
+      "file": "prompts/prompts_list_endpoints.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8018d97209be571307c81ea1ed0d696cc66efc2d2617727cf1c881c2d91b928e"
+        }
+      ],
+      "reason": "API refactor Phase 1 retires the two v1beta prompt list GETs (GET /api/v1beta/prompts and GET /api/v1beta/projects/{project_id}/prompts) that prompts/prompts_list_endpoints.json declared on develop (#720). They are replaced by prompt_management.list_prompts (GET /api/v1/projects/{project_id}/prompts, cursor pagination with limit and cursor, prompt_type filter) and prompt_management.search_prompts (POST .../prompts/search, which carries search, label and prompt_type in its body), both declared in prompts/prompts_endpoints.json. The file is removed outright, not deprecated: there are no external clients (owner ruling), and its mep_endpoints.json index entry is removed in the same change. The sort_by and sort_order parameters of the retired list are not carried into either replacement; that is a declared gap in the new contract, not an accidental drop.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
     }
   ]
 }

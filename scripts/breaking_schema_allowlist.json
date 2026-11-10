@@ -9070,6 +9070,79 @@
       "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
       "version": "7.1.0",
       "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "prompts/prompts_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ed02bcd1d9870b7619c5e55838d15245ee2962a0e02cfd87f8221cd1cd5da6ec"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/labels/patch",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "fbea68b9670f4a07e99034ed2f2ce0296c7b70191227d88a90401783272ee207"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/playground/run/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "21de76bb73fc9204e7790180a48d80654c862a49fe96f7b170111b6e9dc827c2"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/versions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "893fa0f26171d187f758299700c0ec8b88db5c3acdc52c42d406beb7f674862b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dc90e88e8f0886097fe46085f66a3f93602a15c08db5b23a830d618513e195b4"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/labels/patch",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "b86574f1ab88927cd0acb0bf998fd3b1818bca5d6cd1d81d2cc9be88d5809e19"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/playground/run/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0ea49e5c73901ef79f8d0159ed9f0fe7e1fd26ff66b060057faad88cfd39189a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/versions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "38a0a80e12f37e8fd97fe378067152bef06e0ff965c424e257741925c2ab72a5"
+        }
+      ],
+      "reason": "API refactor Phase 1 replaces the eight planned, name-addressed /api/v1beta prompts routes (never served; no external clients, owner ruling) with the eleven /api/v1/projects/{project_id}/prompts operations addressed by server-minted prompt_ref, with POST search and resolve and cursor pagination. The removed routes were retired in the backend; the replacement operations are declared in the same file.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
     }
   ]
 }

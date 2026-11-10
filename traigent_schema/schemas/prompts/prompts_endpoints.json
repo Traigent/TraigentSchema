@@ -1,14 +1,114 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Prompt Management Beta Routes",
-    "version": "1.0.0",
-    "description": "Planned project-scoped and tenant-scoped prompt management and playground routes used by the beta SDK surface."
+    "title": "Traigent Prompt Management Routes",
+    "version": "2.0.0",
+    "description": "Project-scoped prompt management: server-minted prompt_ref paths, POST search and resolve (customer text stays out of URLs), cursor pagination, problem+json errors. Replaces the retired planned /api/v1beta prompts routes."
   },
   "paths": {
-    "/api/v1beta/prompts": {
+    "/api/v1/projects/{project_id}/prompts": {
+      "get": {
+        "operationId": "prompt_management.list_prompts",
+        "summary": "List the project's prompts, newest update first",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size: default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from a previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "prompt_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "text",
+                "chat"
+              ]
+            }
+          }
+        ],
+        "description": "Cursor pagination (API-R13). The query string carries only bounded pagination and the closed prompt_type enum; to filter by name, label or text use prompt_management.search_prompts.",
+        "responses": {
+          "200": {
+            "description": "One page of prompts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptPageEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PromptsBadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
-        "summary": "Create prompt",
+        "operationId": "prompt_management.create_prompt",
+        "summary": "Create a prompt with its first version; the response carries its server-minted id",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "The name is a body field, unique per project (and owner in the shared default tenant). The returned id is the prompt_ref used in every other path.",
         "requestBody": {
           "required": true,
           "content": {
@@ -21,17 +121,32 @@
         },
         "responses": {
           "201": {
-            "description": "Prompt created successfully",
+            "description": "The created prompt",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_detail_schema.json"
+                  "$ref": "#/components/schemas/PromptDetailEnvelope"
                 }
               }
             }
           },
+          "403": {
+            "$ref": "#/components/responses/PromptsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/PromptsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -43,32 +158,59 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/prompts": {
+    "/api/v1/projects/{project_id}/prompts/search": {
       "post": {
-        "summary": "Create project prompt",
+        "operationId": "prompt_management.search_prompts",
+        "summary": "Search the project's prompts by name, text or label",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "A read served as POST so that customer-chosen search terms stay out of URLs, access logs and traces (API-R5). Same page shape and caps as list; the cursor is bound to the filters.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./prompt_create_request_schema.json"
+                "$ref": "#/components/schemas/PromptSearchRequest"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Prompt created successfully",
+          "200": {
+            "description": "One page of matching prompts",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_detail_schema.json"
+                  "$ref": "#/components/schemas/PromptPageEnvelope"
                 }
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/PromptsBadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -80,9 +222,300 @@
         }
       }
     },
-    "/api/v1beta/prompts/{prompt_name}/versions": {
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}": {
+      "get": {
+        "operationId": "prompt_management.get_prompt",
+        "summary": "Get one prompt with its versions",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The prompt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptDetailEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "prompt_management.delete_prompt",
+        "summary": "Delete a prompt and all its versions and labels",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted; no body"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/analytics": {
+      "get": {
+        "operationId": "prompt_management.get_prompt_analytics",
+        "summary": "Usage analytics of one prompt, with a cursor page of recent links",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size: default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from a previous page.",
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          }
+        ],
+        "description": "recent_links is paged by cursor (newest first), replacing the former recent_limit/recent_page offsets (API-R13).",
+        "responses": {
+          "200": {
+            "description": "Analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptAnalyticsEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/PromptsBadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/resolve": {
       "post": {
-        "summary": "Create prompt version",
+        "operationId": "prompt_management.resolve_prompt",
+        "summary": "Resolve one version by number or by label",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "A read served as POST so that the label (customer-chosen text) stays out of URLs, access logs and traces (API-R5). Nothing is written. Unknown body fields are rejected with the closed validation error.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptResolveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The resolved version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedPromptEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/versions": {
+      "post": {
+        "operationId": "prompt_management.create_prompt_version",
+        "summary": "Add a version to a prompt",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -95,17 +528,32 @@
         },
         "responses": {
           "201": {
-            "description": "Prompt version created successfully",
+            "description": "The prompt with the new version",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_version_schema.json"
+                  "$ref": "#/components/schemas/PromptDetailEnvelope"
                 }
               }
             }
           },
+          "403": {
+            "$ref": "#/components/responses/PromptsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/PromptsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -117,32 +565,62 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/versions": {
-      "post": {
-        "summary": "Create project prompt version",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./prompt_version_create_request_schema.json"
-              }
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/versions/{version}": {
+      "get": {
+        "operationId": "prompt_management.get_prompt_version",
+        "summary": "Get one version by number",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
             }
           }
-        },
+        ],
         "responses": {
-          "201": {
-            "description": "Prompt version created successfully",
+          "200": {
+            "description": "The version",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_version_schema.json"
+                  "$ref": "#/components/schemas/ResolvedPromptEnvelope"
                 }
               }
             }
           },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -154,9 +632,34 @@
         }
       }
     },
-    "/api/v1beta/prompts/{prompt_name}/labels": {
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/labels": {
       "patch": {
-        "summary": "Update prompt labels",
+        "operationId": "prompt_management.update_prompt_labels",
+        "summary": "Point labels at versions",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -169,17 +672,29 @@
         },
         "responses": {
           "200": {
-            "description": "Prompt labels updated successfully",
+            "description": "The prompt with updated labels",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_detail_schema.json"
+                  "$ref": "#/components/schemas/PromptDetailEnvelope"
                 }
               }
             }
           },
+          "403": {
+            "$ref": "#/components/responses/PromptsForbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -191,46 +706,35 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/labels": {
-      "patch": {
-        "summary": "Update project prompt labels",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./prompt_labels_update_request_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Prompt labels updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./prompt_detail_schema.json"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1beta/prompts/{prompt_name}/playground/run": {
+    "/api/v1/projects/{project_id}/prompts/{prompt_ref}/playground/run": {
       "post": {
-        "summary": "Run prompt in playground",
+        "operationId": "prompt_management.run_prompt_playground",
+        "summary": "Render a version, and unless dry_run run it on a hosted model",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "prompt_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque, stable id of the prompt definition (the id returned by create and list). Never derived from the name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "Entitlement is decided before the body is validated; a denied or invalid request makes no provider call.",
         "requestBody": {
           "required": true,
           "content": {
@@ -243,17 +747,35 @@
         },
         "responses": {
           "200": {
-            "description": "Playground run completed successfully",
+            "description": "The run",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./prompt_playground_result_schema.json"
+                  "$ref": "#/components/schemas/PromptPlaygroundEnvelope"
                 }
               }
             }
           },
+          "402": {
+            "$ref": "#/components/responses/PromptsPaymentRequired"
+          },
+          "403": {
+            "$ref": "#/components/responses/PromptsForbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/PromptsValidationFailed"
+          },
+          "502": {
+            "$ref": "#/components/responses/PromptsUpstreamFailed"
+          },
+          "401": {
+            "$ref": "#/components/responses/PromptsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/PromptsNotFound"
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -264,39 +786,421 @@
           }
         }
       }
-    },
-    "/api/v1beta/projects/{project_id}/prompts/{prompt_name}/playground/run": {
-      "post": {
-        "summary": "Run project prompt in playground",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./prompt_playground_request_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Playground run completed successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./prompt_playground_result_schema.json"
+    }
+  },
+  "components": {
+    "schemas": {
+      "PromptAnalytics": {
+        "type": "object",
+        "description": "Per-version metrics plus one cursor page of the newest observability links.",
+        "required": [
+          "prompt_id",
+          "prompt_name",
+          "prompt_type",
+          "totals",
+          "versions",
+          "recent_links",
+          "recent_links_pagination"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "prompt_id": {
+            "type": "string",
+            "description": "The prompt_ref."
+          },
+          "prompt_name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "prompt_type": {
+            "enum": [
+              "text",
+              "chat"
+            ]
+          },
+          "totals": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "version"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
           },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
+          "recent_links": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "recent_links_pagination": {
+            "$ref": "#/components/schemas/PromptsPagination"
+          }
+        }
+      },
+      "PromptAnalyticsEnvelope": {
+        "type": "object",
+        "description": "Success envelope around prompt analytics.",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PromptAnalytics"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PromptDetailEnvelope": {
+        "type": "object",
+        "description": "Success envelope around a prompt with its versions.",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "./prompt_detail_schema.json"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PromptPageEnvelope": {
+        "type": "object",
+        "description": "Success envelope around one cursor page of prompt summaries.",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PromptsPage"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PromptPlaygroundEnvelope": {
+        "type": "object",
+        "description": "Success envelope around a playground run.",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "./prompt_playground_result_schema.json"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PromptSearchRequest": {
+        "type": "object",
+        "description": "Search body. The terms are customer text, so they never appear in a URL (API-R5).",
+        "additionalProperties": false,
+        "properties": {
+          "search": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 255,
+            "description": "Matches the prompt name or description."
+          },
+          "prompt_type": {
+            "enum": [
+              "text",
+              "chat",
+              null
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Default 20. Above 100 is rejected with a 400 problem, never clamped."
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          }
+        }
+      },
+      "PromptsPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "./prompt_summary_schema.json"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PromptsPagination"
+          }
+        }
+      },
+      "PromptsPagination": {
+        "type": "object",
+        "description": "Cursor pagination (API-R13): the cursor is opaque and bound to scope, filter and sort.",
+        "required": [
+          "limit",
+          "next_cursor",
+          "has_more"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PromptsProblem": {
+        "type": "object",
+        "description": "RFC 9457 problem document. Closed vocabulary: nothing the client sent is echoed.",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "detail",
+          "problem_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "problem_id": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "ResolvedPromptEnvelope": {
+        "type": "object",
+        "description": "Success envelope around one resolved prompt version.",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "./resolved_prompt_schema.json"
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PromptResolveRequest": {
+        "type": "object",
+        "description": "Resolve body. The label is customer-chosen text, so it never appears in a URL (API-R5). An empty body resolves label latest.",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 64,
+            "description": "A label name (default latest)."
+          }
+        }
+      }
+    },
+    "responses": {
+      "PromptsBadRequest": {
+        "description": "invalid_page_size or invalid_cursor",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsConflict": {
+        "description": "prompt_already_exists or prompt_version_conflict",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsForbidden": {
+        "description": "feature_not_entitled or provider_not_allowed: the caller is a member but the plan or policy does not allow it",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsNotFound": {
+        "description": "The closed 404: missing, foreign, or a project the caller is not a member of. Identical in every case",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsPaymentRequired": {
+        "description": "insufficient_balance or spend_blocked",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsUnauthenticated": {
+        "description": "Authentication is required",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsUpstreamFailed": {
+        "description": "upstream_failed: the model call failed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
+            }
+          }
+        }
+      },
+      "PromptsValidationFailed": {
+        "description": "validation_failed: the request is not valid; nothing is echoed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/PromptsProblem"
             }
           }
         }

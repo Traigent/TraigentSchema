@@ -815,9 +815,9 @@ class TestProjectContracts:
         assert "./prompts/prompts_endpoints.json" in paths_files
         assert "./observability/observability_endpoints.json" in paths_files
 
-    def test_prompt_create_request_validates_against_planned_contract(self, validator):
+    def test_prompt_create_request_validates_against_prompts_contract(self, validator):
         errors = validator.validate_request(
-            "/api/v1beta/projects/proj_123/prompts",
+            "/api/v1/projects/proj_123/prompts",
             "POST",
             {
                 "name": "acme.prompt.support",
@@ -829,9 +829,9 @@ class TestProjectContracts:
         )
         assert errors == []
 
-    def test_playground_run_request_validates_against_planned_contract(self, validator):
+    def test_playground_run_request_validates_against_prompts_contract(self, validator):
         errors = validator.validate_request(
-            "/api/v1beta/projects/proj_123/prompts/acme.prompt.support/playground/run",
+            "/api/v1/projects/proj_123/prompts/prm_0123456789abcdef/playground/run",
             "POST",
             {
                 "version": 1,

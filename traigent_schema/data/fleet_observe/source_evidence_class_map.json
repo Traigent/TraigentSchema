@@ -1,0 +1,65 @@
+{
+  "map_version": 1,
+  "rows": [
+    {
+      "source_kind": "cloud_iam_principal",
+      "evidence_class": "independent_observed",
+      "origin_trust_level": "backend_observed",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "credential_inventory",
+      "evidence_class": "independent_observed",
+      "origin_trust_level": "backend_observed",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "kubernetes_workload",
+      "evidence_class": "independent_observed",
+      "origin_trust_level": "backend_observed",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "llm_gateway_log",
+      "evidence_class": "independent_observed",
+      "origin_trust_level": "backend_observed",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "otel_trace_export",
+      "evidence_class": "self_reported",
+      "origin_trust_level": "client_attested",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "sdk_declaration",
+      "evidence_class": "self_reported",
+      "origin_trust_level": "client_attested",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "spawn_parent_report",
+      "evidence_class": "lineage_internal",
+      "origin_trust_level": "client_attested",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "parent_evidence_inherit",
+      "evidence_class": "inherited_conditional",
+      "origin_trust_level": "client_attested",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "vendor_platform_registry",
+      "evidence_class": "vendor_claimed",
+      "origin_trust_level": "client_attested",
+      "producer_state": "observe_v1"
+    },
+    {
+      "source_kind": "mediated_enforcement_connector",
+      "evidence_class": "constraint_enforced",
+      "origin_trust_level": "server_verified",
+      "producer_state": "reserved"
+    }
+  ]
+}

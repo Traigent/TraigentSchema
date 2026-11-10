@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/finding_schema.json",
+  "title": "finding_schema.json",
+  "description": "Observe finding. kind is a closed enum limited to 'identity_conflict' in v1 (F3); further kinds are added later as additive enum members reviewed as a contract change. An identity_conflict says imported members of different identity clusters collide. Only ids, enums and digests are carried; no member names. Cross-cluster bases (credential_shared_across_clusters, member_in_multiple_clusters) name at least two clusters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_ref",
+    "kind",
+    "conflict_basis",
+    "cluster_refs",
+    "detected_at",
+    "finding_state"
+  ],
+  "properties": {
+    "finding_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/FindingRef"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "identity_conflict"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Closed; extensible later by additive enum members."
+    },
+    "conflict_basis": {
+      "type": "string",
+      "enum": [
+        "member_in_multiple_clusters",
+        "credential_shared_across_clusters",
+        "workload_digest_mismatch"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "cluster_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "fleet_observe_common_schema.json#/definitions/ClusterRef"
+      }
+    },
+    "detected_at": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Timestamp"
+    },
+    "finding_state": {
+      "type": "string",
+      "enum": [
+        "open",
+        "folded",
+        "resolved"
+      ],
+      "x-content-class": "closed_enum"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "conflict_basis": {
+            "enum": [
+              "credential_shared_across_clusters",
+              "member_in_multiple_clusters"
+            ]
+          }
+        },
+        "required": [
+          "conflict_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cluster_refs": {
+            "minItems": 2
+          }
+        }
+      }
+    }
+  ]
+}

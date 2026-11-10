@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/source_evidence_class_map_schema.json",
+  "title": "source_evidence_class_map_schema.json",
+  "description": "Shape of the source-to-evidence-class mapping table (F6). The table instance is traigent_schema/data/fleet_observe/source_evidence_class_map.json. Exactly one row per ImportSourceKind. Draft-07 has no key-based uniqueness, so the schema pins one contains clause per source_kind (exact class, trust level and producer_state) and fixes the length at 10: with ten distinct pinned rows required, a duplicate source_kind or a contradictory row cannot validate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "map_version",
+    "rows"
+  ],
+  "properties": {
+    "map_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "x-content-class": "number"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "evidence_class",
+          "origin_trust_level",
+          "producer_state"
+        ],
+        "properties": {
+          "source_kind": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/ImportSourceKind"
+          },
+          "evidence_class": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceClass"
+          },
+          "origin_trust_level": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/TrustLevel"
+          },
+          "producer_state": {
+            "type": "string",
+            "enum": [
+              "observe_v1",
+              "reserved"
+            ],
+            "x-content-class": "closed_enum",
+            "description": "reserved: structurally legal, no producer in Observe v1."
+          }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "cloud_iam_principal"
+              },
+              "evidence_class": {
+                "const": "independent_observed"
+              },
+              "origin_trust_level": {
+                "const": "backend_observed"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "credential_inventory"
+              },
+              "evidence_class": {
+                "const": "independent_observed"
+              },
+              "origin_trust_level": {
+                "const": "backend_observed"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "kubernetes_workload"
+              },
+              "evidence_class": {
+                "const": "independent_observed"
+              },
+              "origin_trust_level": {
+                "const": "backend_observed"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "llm_gateway_log"
+              },
+              "evidence_class": {
+                "const": "independent_observed"
+              },
+              "origin_trust_level": {
+                "const": "backend_observed"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "otel_trace_export"
+              },
+              "evidence_class": {
+                "const": "self_reported"
+              },
+              "origin_trust_level": {
+                "const": "client_attested"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "sdk_declaration"
+              },
+              "evidence_class": {
+                "const": "self_reported"
+              },
+              "origin_trust_level": {
+                "const": "client_attested"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "spawn_parent_report"
+              },
+              "evidence_class": {
+                "const": "lineage_internal"
+              },
+              "origin_trust_level": {
+                "const": "client_attested"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "parent_evidence_inherit"
+              },
+              "evidence_class": {
+                "const": "inherited_conditional"
+              },
+              "origin_trust_level": {
+                "const": "client_attested"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "vendor_platform_registry"
+              },
+              "evidence_class": {
+                "const": "vendor_claimed"
+              },
+              "origin_trust_level": {
+                "const": "client_attested"
+              },
+              "producer_state": {
+                "const": "observe_v1"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "const": "mediated_enforcement_connector"
+              },
+              "evidence_class": {
+                "const": "constraint_enforced"
+              },
+              "origin_trust_level": {
+                "const": "server_verified"
+              },
+              "producer_state": {
+                "const": "reserved"
+              }
+            },
+            "required": [
+              "source_kind",
+              "evidence_class",
+              "origin_trust_level",
+              "producer_state"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
+    }
+  }
+}

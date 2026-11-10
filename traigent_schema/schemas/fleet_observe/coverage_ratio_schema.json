@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/fleet_observe/coverage_ratio_schema.json",
   "title": "coverage_ratio_schema.json",
-  "description": "Coverage ratio with an explicit unknown and a denominator field (D6, A9, section 8). A ratio is bounded to a boundary and period. coverage_state 'measured' requires an independent external denominator (denominator_basis 'independent_inventory') and a non-null denominator; otherwise coverage_state is 'unknown' and denominator is null: an internal-import denominator never produces a measured ratio. unknown_count is one bucket for members that could not be classified, counted apart from observed_count. Composite health scores and whole-fleet badges are not expressible here.",
+  "description": "Coverage ratio with an explicit unknown and a denominator field (D6, A9, section 8). A ratio is bounded to a boundary and period. coverage_state 'measured' requires an independent external denominator (denominator_basis 'independent_inventory') and a non-null denominator; otherwise coverage_state is 'unknown' and denominator is null: an internal-import denominator never produces a measured ratio. unknown_count is one bucket for members that could not be classified, counted apart from observed_count. Composite health scores and whole-fleet badges are not expressible here. A measured ratio needs denominator >= 1. observed_count + unknown_count <= denominator cannot be expressed in JSON Schema draft-07 (no cross-field comparison); it is a consumer-side invariant, checked by check_coverage_counts in tests/test_fleet_observe_contract.py, which consumers must apply before computing or displaying a ratio.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -78,7 +78,8 @@
             "const": "independent_inventory"
           },
           "denominator": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 1
           }
         }
       }

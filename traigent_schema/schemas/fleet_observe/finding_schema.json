@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/fleet_observe/finding_schema.json",
   "title": "finding_schema.json",
-  "description": "Observe finding. kind is a closed enum limited to 'identity_conflict' in v1 (F3); further kinds are added later as additive enum members reviewed as a contract change. An identity_conflict says imported members of different identity clusters collide. Only ids, enums and digests are carried; no member names.",
+  "description": "Observe finding. kind is a closed enum limited to 'identity_conflict' in v1 (F3); further kinds are added later as additive enum members reviewed as a contract change. An identity_conflict says imported members of different identity clusters collide. Only ids, enums and digests are carried; no member names. Cross-cluster bases (credential_shared_across_clusters, member_in_multiple_clusters) name at least two clusters.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -55,5 +55,29 @@
       ],
       "x-content-class": "closed_enum"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "conflict_basis": {
+            "enum": [
+              "credential_shared_across_clusters",
+              "member_in_multiple_clusters"
+            ]
+          }
+        },
+        "required": [
+          "conflict_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cluster_refs": {
+            "minItems": 2
+          }
+        }
+      }
+    }
+  ]
 }

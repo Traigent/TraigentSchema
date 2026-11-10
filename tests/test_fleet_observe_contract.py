@@ -50,7 +50,9 @@ def _validator(rel):
         registry = registry.with_resource(
             uri, Resource.from_contents(doc, default_specification=DRAFT7)
         )
-    return jsonschema.Draft7Validator(_load(rel), registry=registry)
+    return jsonschema.Draft7Validator(
+        _load(rel), registry=registry, format_checker=jsonschema.FormatChecker()
+    )
 
 
 def _ok(rel, body):
@@ -391,3 +393,176 @@ def test_id_patterns_are_kind_specific():
     pats = [v["pattern"] for k, v in _load(COMMON)["definitions"].items() if k.endswith("Ref")]
     assert len(pats) == len(set(pats))
     assert all(re.fullmatch(r"\^[a-z]+ref_\[0-9a-f\]\{32\}\$", p) for p in pats)
+
+
+# --- review fixes (terra) ---------------------------------------------------
+# Finding 1: appended corrections and invalidations
+OLD = "evidenceref_" + "1" * 32
+
+
+def test_evidence_correct_and_invalidate_reference_the_prior_record():
+    _ok(EVIDENCE, _evidence())
+    e = _evidence()
+    e.update(record_operation="assert", supersedes=None, invalidation_reason=None)
+    _ok(EVIDENCE, e)
+    e = _evidence()
+    e.update(record_operation="correct", supersedes=OLD)
+    _ok(EVIDENCE, e)
+    e = _evidence()
+    e.update(record_operation="invalidate", supersedes=OLD,
+             invalidation_reason="model_or_template_changed")
+    _ok(EVIDENCE, e)
+
+
+def test_evidence_correction_without_supersedes_or_reason_is_rejected():
+    for op in ("correct", "invalidate"):
+        e = _evidence()
+        e.update(record_operation=op, invalidation_reason="source_changed")
+        _bad(EVIDENCE, e)  # no supersedes
+        e["supersedes"] = None
+        _bad(EVIDENCE, e)
+    e = _evidence()
+    e.update(record_operation="invalidate", supersedes=OLD)
+    _bad(EVIDENCE, e)  # invalidate needs a reason
+    e["invalidation_reason"] = None
+    _bad(EVIDENCE, e)
+    e["invalidation_reason"] = "because I said so"
+    _bad(EVIDENCE, e)  # reason is a closed enum
+    e = _evidence()
+    e.update(record_operation="correct", supersedes=OLD, invalidation_reason="source_changed")
+    _bad(EVIDENCE, e)  # reason only with invalidate
+    e = _evidence()
+    e.update(record_operation="delete", supersedes=OLD)
+    _bad(EVIDENCE, e)
+    e = _evidence()
+    e["supersedes"] = OLD
+    _bad(EVIDENCE, e)  # supersedes without an operation
+    e["record_operation"] = "assert"
+    _bad(EVIDENCE, e)
+
+
+# Finding 2: coverage ratio impossible values
+def check_coverage_counts(record):
+    """Consumer-side check for what draft-07 cannot express (coverage_ratio_schema.json).
+
+    A measured record needs denominator >= 1 and observed_count + unknown_count <=
+    denominator. Consumers apply this after schema validation and before computing or
+    displaying a ratio. Returns a list of problems (empty means consistent).
+    """
+    if record.get("coverage_state") != "measured":
+        return []
+    denominator = record.get("denominator")
+    if not isinstance(denominator, int) or denominator < 1:
+        return ["denominator must be an integer >= 1"]
+    if record["observed_count"] + record["unknown_count"] > denominator:
+        return ["observed_count + unknown_count exceeds denominator"]
+    return []
+
+
+def _measured(**kw):
+    c = _coverage()
+    c.update(coverage_state="measured", denominator_basis="independent_inventory",
+             observed_count=40, unknown_count=3, denominator=50)
+    c.update(kw)
+    return c
+
+
+def test_coverage_measured_denominator_zero_is_rejected():
+    c = _measured(denominator=0)
+    _bad(COVERAGE, c)
+    assert check_coverage_counts(c)
+
+
+def test_coverage_counts_above_denominator_are_rejected_by_the_helper():
+    c = _measured(denominator=10)
+    _ok(COVERAGE, c)  # structurally valid: draft-07 cannot compare fields
+    assert check_coverage_counts(c) == ["observed_count + unknown_count exceeds denominator"]
+    assert check_coverage_counts(_measured()) == []
+    assert check_coverage_counts(_measured(denominator=43)) == []
+    assert check_coverage_counts(_coverage()) == []
+
+
+# Finding 3: source map enforces its own contract
+def _table():
+    return json.loads(MAP_PATH.read_text(encoding="utf-8"))
+
+
+def test_source_map_schema_rejects_duplicate_source_and_contradictory_row():
+    _ok(MAPSCHEMA, _table())
+    t = _table()
+    t["rows"][5]["source_kind"] = "otel_trace_export"  # duplicate, sdk_declaration missing
+    _bad(MAPSCHEMA, t)
+    t = _table()
+    t["rows"].append(dict(t["rows"][5], evidence_class="independent_observed",
+                          origin_trust_level="backend_observed"))
+    _bad(MAPSCHEMA, t)  # contradictory second sdk_declaration row (length too)
+    t = _table()
+    t["rows"][5].update(evidence_class="independent_observed",
+                        origin_trust_level="backend_observed")
+    _bad(MAPSCHEMA, t)  # in place contradiction
+    t = _table()
+    t["rows"][9]["producer_state"] = "observe_v1"
+    _bad(MAPSCHEMA, t)
+
+
+# Finding 4: timestamps
+@pytest.mark.parametrize("bad", [
+    "2026-99-99T99:99:99Z", "2026-13-01T00:00:00Z", "2026-00-10T00:00:00Z",
+    "2026-02-30T00:00:00Z", "2026-04-31T00:00:00Z", "2026-11-10T24:00:00Z",
+    "2026-11-10T09:60:00Z", "2026-11-10T09:00:61Z",
+])
+def test_timestamp_rejects_impossible_calendar_values(bad):
+    c = _cluster()
+    c["first_observed_at"] = bad
+    _bad(CLUSTER, c)
+
+
+def test_timestamp_accepts_valid_and_format_checker_is_enabled():
+    c = _cluster()
+    c["first_observed_at"] = "2024-02-29T23:59:59.123456Z"
+    _ok(CLUSTER, c)
+    assert _validator(CLUSTER).format_checker is not None
+
+
+# Finding 5: cross-cluster findings name at least two clusters
+@pytest.mark.parametrize("basis", ["credential_shared_across_clusters",
+                                   "member_in_multiple_clusters"])
+def test_cross_cluster_finding_needs_two_clusters(basis):
+    f = _finding()
+    f["conflict_basis"] = basis
+    f["cluster_refs"] = ["clusterref_" + H]
+    _bad(FINDING, f)
+    f["cluster_refs"].append("clusterref_" + "1" * 32)
+    _ok(FINDING, f)
+
+
+# Finding 6: independent literal per-source expectations (not derived from the map)
+PINNED = {
+    "cloud_iam_principal": ("independent_observed", "backend_observed", "observe_v1"),
+    "credential_inventory": ("independent_observed", "backend_observed", "observe_v1"),
+    "kubernetes_workload": ("independent_observed", "backend_observed", "observe_v1"),
+    "llm_gateway_log": ("independent_observed", "backend_observed", "observe_v1"),
+    "otel_trace_export": ("self_reported", "client_attested", "observe_v1"),
+    "sdk_declaration": ("self_reported", "client_attested", "observe_v1"),
+    "spawn_parent_report": ("lineage_internal", "client_attested", "observe_v1"),
+    "parent_evidence_inherit": ("inherited_conditional", "client_attested", "observe_v1"),
+    "vendor_platform_registry": ("vendor_claimed", "client_attested", "observe_v1"),
+    "mediated_enforcement_connector": ("constraint_enforced", "server_verified", "reserved"),
+}
+
+
+def test_pinned_expectations_cover_every_source_kind():
+    assert sorted(PINNED) == sorted(_load(COMMON)["definitions"]["ImportSourceKind"]["enum"])
+
+
+@pytest.mark.parametrize("source", sorted(PINNED))
+def test_every_source_is_pinned_in_table_and_evidence_schema(source):
+    cls, trust, state = PINNED[source]
+    row = next(r for r in _table()["rows"] if r["source_kind"] == source)
+    got = (row["evidence_class"], row["origin_trust_level"], row["producer_state"])
+    assert got == PINNED[source]
+    _ok(EVIDENCE, _evidence(source, cls, trust))
+    for other_cls in _load(COMMON)["definitions"]["EvidenceClass"]["enum"]:
+        for other_trust in _load(COMMON)["definitions"]["TrustLevel"]["enum"]:
+            if (other_cls, other_trust) != (cls, trust):
+                _bad(EVIDENCE, _evidence(source, other_cls, other_trust))

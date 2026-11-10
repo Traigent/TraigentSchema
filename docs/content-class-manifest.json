@@ -167,6 +167,8 @@
   "fleet_observe/agent_observation_record_schema.json#/properties/review_state": "closed_enum",
   "fleet_observe/coverage_ratio_schema.json#/properties/coverage_state": "closed_enum",
   "fleet_observe/coverage_ratio_schema.json#/properties/denominator_basis": "closed_enum",
+  "fleet_observe/evidence_record_schema.json#/properties/invalidation_reason/oneOf/1": "closed_enum",
+  "fleet_observe/evidence_record_schema.json#/properties/record_operation": "closed_enum",
   "fleet_observe/finding_schema.json#/properties/conflict_basis": "closed_enum",
   "fleet_observe/finding_schema.json#/properties/finding_state": "closed_enum",
   "fleet_observe/finding_schema.json#/properties/kind": "closed_enum",

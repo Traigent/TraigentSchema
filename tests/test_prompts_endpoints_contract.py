@@ -57,3 +57,10 @@ def test_cursor_pagination_block_is_closed_and_shared() -> None:
     analytics = DOC["components"]["schemas"]["PromptAnalytics"]
     assert analytics["properties"]["recent_links_pagination"]["$ref"].endswith("PromptsPagination")
     assert "recent_links_pagination" in analytics["required"]
+
+
+def test_search_request_carries_sort_fields() -> None:
+    props = DOC["components"]["schemas"]["PromptSearchRequest"]["properties"]
+    assert props["sort_by"]["enum"] == ["updated_at", "name", "version_count"]
+    assert props["sort_by"]["default"] == "updated_at"
+    assert props["sort_order"]["enum"] == ["asc", "desc", None]

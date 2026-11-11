@@ -974,6 +974,23 @@
             ],
             "maxLength": 64
           },
+          "sort_by": {
+            "enum": [
+              "updated_at",
+              "name",
+              "version_count"
+            ],
+            "default": "updated_at",
+            "description": "Sort key. A cursor is bound to the sort: using it with another sort is a 400 invalid_cursor problem."
+          },
+          "sort_order": {
+            "enum": [
+              "asc",
+              "desc",
+              null
+            ],
+            "description": "Null means the key's default: desc for updated_at and version_count, asc for name."
+          },
           "limit": {
             "type": [
               "integer",

@@ -95,7 +95,15 @@ def test_search_prompts_is_a_post_whose_body_carries_the_filters() -> None:
         doc,
         operation["requestBody"]["content"]["application/json"]["schema"],
     )
-    assert set(body_schema["properties"]) == {"search", "label", "prompt_type", "cursor", "limit"}
+    assert set(body_schema["properties"]) == {
+        "search",
+        "label",
+        "prompt_type",
+        "sort_by",
+        "sort_order",
+        "cursor",
+        "limit",
+    }
     assert body_schema.get("additionalProperties") is False
 
 

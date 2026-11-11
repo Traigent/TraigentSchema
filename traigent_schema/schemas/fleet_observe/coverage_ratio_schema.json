@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/coverage_ratio_schema.json",
+  "title": "coverage_ratio_schema.json",
+  "description": "Coverage ratio with an explicit unknown and a denominator field (D6, A9, section 8). A ratio is bounded to a boundary and period. coverage_state 'measured' requires an independent external denominator (denominator_basis 'independent_inventory') and a non-null denominator; otherwise coverage_state is 'unknown' and denominator is null: an internal-import denominator never produces a measured ratio. unknown_count is one bucket for members that could not be classified, counted apart from observed_count. Composite health scores and whole-fleet badges are not expressible here. A measured ratio needs denominator >= 1. observed_count + unknown_count <= denominator cannot be expressed in JSON Schema draft-07 (no cross-field comparison); it is a consumer-side invariant, checked by check_coverage_counts in tests/test_fleet_observe_contract.py, which consumers must apply before computing or displaying a ratio.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "coverage_state",
+    "observed_count",
+    "unknown_count",
+    "denominator",
+    "denominator_basis",
+    "boundary",
+    "period_start",
+    "period_end"
+  ],
+  "properties": {
+    "coverage_state": {
+      "type": "string",
+      "enum": [
+        "measured",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "observed_count": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Count"
+    },
+    "unknown_count": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Count"
+    },
+    "denominator": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "fleet_observe_common_schema.json#/definitions/Count"
+        }
+      ]
+    },
+    "denominator_basis": {
+      "type": "string",
+      "enum": [
+        "independent_inventory",
+        "internal_import",
+        "none"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Where the denominator comes from. Only independent_inventory (a system the fleet does not control) can support a measured ratio."
+    },
+    "boundary": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ObservationBoundary"
+    },
+    "period_start": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Timestamp"
+    },
+    "period_end": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "coverage_state": {
+            "const": "measured"
+          }
+        },
+        "required": [
+          "coverage_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "denominator_basis": {
+            "const": "independent_inventory"
+          },
+          "denominator": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "coverage_state": {
+            "const": "unknown"
+          }
+        },
+        "required": [
+          "coverage_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "denominator": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "denominator_basis": {
+            "enum": [
+              "internal_import",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "denominator_basis"
+        ]
+      },
+      "then": {
+        "properties": {
+          "coverage_state": {
+            "const": "unknown"
+          }
+        }
+      }
+    }
+  ]
+}

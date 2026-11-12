@@ -118,3 +118,12 @@ def test_version_matches_newest_dated_changelog_section() -> None:
         f"version.py is {version} but the newest dated CHANGELOG section is "
         f"[{dated[0]}] (#131: reconcile version.py with a dated CHANGELOG entry)"
     )
+
+
+def test_changelog_release_date_matches_version_bump_commit() -> None:
+    """The [7.1.0] header date is the version-bump date (commit 2616b2b, 2026-11-03), the
+    same convention as [7.0.0] and [6.1.0] (both dated their bump commit's day)."""
+    changelog = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    match = re.search(r"^## \[7\.1\.0\] - (\d{4}-\d{2}-\d{2})", changelog, re.MULTILINE)
+    assert match, "CHANGELOG has no [7.1.0] dated header"
+    assert match.group(1) == "2026-11-03"

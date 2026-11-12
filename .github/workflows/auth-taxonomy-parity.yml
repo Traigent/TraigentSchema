@@ -30,10 +30,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   auth-taxonomy-parity:
     name: Auth-taxonomy parity (DETECT, non-blocking)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Non-blocking: surface drift as a signal, never fail the PR on it.
     continue-on-error: true
 

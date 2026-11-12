@@ -1,7 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Evaluation Schema",
-  "description": "Schema for evaluation requests and results in the Traigent platform",
   "version": "1.0.0",
   "definitions": {
     "EvaluationStatus": {

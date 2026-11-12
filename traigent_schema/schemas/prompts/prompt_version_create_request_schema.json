@@ -11,7 +11,7 @@
         "null"
       ],
       "minLength": 1,
-      "maxLength": 50000
+      "maxLength": 10000
     },
     "chat_messages": {
       "type": [

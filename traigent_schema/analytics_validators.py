@@ -92,6 +92,7 @@ class AnalyticsValidator:
             List of validation error messages. Empty if valid.
 
         Example:
+            >>> validator = AnalyticsValidator()
             >>> validator.validate_example_metrics({
             ...     "example_id": "ex_abc12345_0",
             ...     "metrics": {"score": 0.85, "cost": 0.05}
@@ -125,6 +126,7 @@ class AnalyticsValidator:
             True if valid format, False otherwise
 
         Example:
+            >>> validator = AnalyticsValidator()
             >>> validator.validate_example_id_format("ex_abc12345_0")
             True
             >>> validator.validate_example_id_format("invalid")
@@ -145,6 +147,7 @@ class AnalyticsValidator:
             True if valid format, False otherwise
 
         Example:
+            >>> validator = AnalyticsValidator()
             >>> validator.validate_job_id_format("score_exp_run_abc123_1705320600")
             True
             >>> validator.validate_job_id_format("invalid_job")
@@ -173,6 +176,7 @@ class AnalyticsValidator:
             True if valid semver (MAJOR.MINOR.PATCH), False otherwise
 
         Example:
+            >>> validator = AnalyticsValidator()
             >>> validator.validate_algorithm_version("1.0.0")
             True
             >>> validator.validate_algorithm_version("v1.0.0")

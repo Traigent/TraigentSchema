@@ -445,6 +445,41 @@
     "/api/v1/analytics/runs/{run_id}/pareto": {
       "get": {
         "summary": "Get the Pareto-frontier analysis for a run",
+        "parameters": [
+          {
+            "name": "x_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "cost"
+            }
+          },
+          {
+            "name": "y_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality"
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Run Pareto analysis returned",
@@ -522,6 +557,32 @@
     "/api/v1/analytics/runs/{run_id}/correlations": {
       "get": {
         "summary": "Get the correlation analysis for a run",
+        "parameters": [
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pearson",
+                "spearman"
+              ],
+              "default": "pearson"
+            }
+          },
+          {
+            "name": "min_sample",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 3
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Run correlation analysis returned",
@@ -599,6 +660,63 @@
     "/api/v1/analytics/runs/{run_id}/leaderboard": {
       "get": {
         "summary": "Get the ranked configuration leaderboard for a run",
+        "parameters": [
+          {
+            "name": "objective",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "weighted",
+                "quality",
+                "cost",
+                "latency"
+              ],
+              "default": "weighted"
+            }
+          },
+          {
+            "name": "weights",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
+            }
+          },
+          {
+            "name": "constraints",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Run leaderboard returned",
@@ -676,6 +794,41 @@
     "/api/v1/analytics/runs/{run_id}/parameter-insights": {
       "get": {
         "summary": "Get parameter-importance insights for a run",
+        "parameters": [
+          {
+            "name": "target_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality"
+            }
+          },
+          {
+            "name": "min_trials",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 10
+            }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Run parameter insights returned",

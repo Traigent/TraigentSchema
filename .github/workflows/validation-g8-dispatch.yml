@@ -13,6 +13,7 @@ jobs:
   dispatch:
     name: Dispatch validation-spine G8
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # TraigentSchema is a PUBLIC repo, so org-level secrets with
       # visibility:private (SPINE_RO_TOKEN / VALIDATION_CI_PAT) are invisible

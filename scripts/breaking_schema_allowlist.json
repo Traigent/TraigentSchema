@@ -9070,6 +9070,628 @@
       "reason": "Same change as the certificate_unsigned_manifest_v0 entry above (owner decision cards security-policy-2026-10-29-certify-private-runs = A and security-policy-2026-10-29-private-mode-label = A, 2026-10-29). The prepare 200 response and the get-certificate 200 response embed the unsigned manifest, so the declared_mode enum they echo gains the additive value private_online so a privacy-mode run is certified truthfully. Verifiers pinned to 7.0.0 fail closed on the unknown value rather than reading it as a stronger claim; private_online does not attest complete SDK egress, customer-content confinement or zero egress; offline stays reserved for the D2 zero-egress witness, unsupported in frozen v0. The bind-g1 request enum widens identically (a request-side widening, not a breaking finding).",
       "version": "7.1.0",
       "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "0fba9cfb20992e0f0a28b2ba55f07b1133e7e9669885801f84a4f60d1b34398b"
+        }
+      ],
+      "reason": "#584: the evaluator backfill request body declared target_ids and force, which the backend EvaluatorBackfillRequest (extra=forbid, evaluation_ops.py) rejects with 422. The body now $refs evaluator_backfill_request_schema.json, closed, declaring the fields the backend accepts (target_type, filters, limit, skip_existing_scores). No request the backend accepts is removed.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/force",
+          "role": "request",
+          "subject": "force",
+          "old": true,
+          "new": false,
+          "fingerprint": "9b190f9978ce1e715b34c7d0f176763dea47643368fd54aca10fdf779005ca61"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/target_ids",
+          "role": "request",
+          "subject": "target_ids",
+          "old": true,
+          "new": false,
+          "fingerprint": "224f3d9950c6a8458000106fbb5bead6fd9edb12ad9588832ed1cc238c14ab00"
+        }
+      ],
+      "reason": "#584: the evaluator backfill request body declared target_ids and force, which the backend EvaluatorBackfillRequest (extra=forbid, evaluation_ops.py) rejects with 422. The body now $refs evaluator_backfill_request_schema.json, closed, declaring the fields the backend accepts (target_type, filters, limit, skip_existing_scores). No request the backend accepts is removed.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/threshold",
+          "role": "request",
+          "subject": "maximum",
+          "old": null,
+          "new": 1,
+          "fingerprint": "1dad7b5c2943a26f07679535ed5b7f21f5a55f6f69da40121cbc606fa3e55178"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/threshold",
+          "role": "request",
+          "subject": "maximum",
+          "old": null,
+          "new": 1,
+          "fingerprint": "05f85c26787980e2fa3d5115f99949d29ff9625fea10055f2be5ba89a990aee2"
+        }
+      ],
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #580; PR not yet opened)"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/threshold",
+          "role": "request",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "e3fefb2f4bb20e45f6eb363befb4ff2ecb7efa932a43f818561838490e4499ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/hybrid/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "request",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "985336213c3c6a34e12ab50369fa92e648708df11f5a74a1999c206951d01122"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/chance_constraints/items/properties/threshold",
+          "role": "request",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "c8e5bb3eff73a939f730522f62bba7e102a3cb46f3dfb0800f6d15ae5093a149"
+        },
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/properties/promotion_policy/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "request",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "6d46aea554bb7db1f7d5a0e574ba7caad553bde7a468a7c9f798760de2366bbc"
+        }
+      ],
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #580; PR not yet opened)"
+    },
+    {
+      "file": "optimization/promotion_policy_schema.json",
+      "rule": "maximum",
+      "findings": [
+        {
+          "pointer": "#/properties/alpha",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "7b7a968a08bfb7d2c90e1c85ac6554857fd816599427ffd18355a1595ead2cb5"
+        },
+        {
+          "pointer": "#/properties/chance_constraints/items/properties/confidence",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": 1,
+          "new": null,
+          "fingerprint": "569e1f8821d7ceab7e52a669e85a83826b368ddee60a8caf8bc22f3e29dc0e10"
+        },
+        {
+          "pointer": "#/properties/chance_constraints/items/properties/threshold",
+          "role": "conservative",
+          "subject": "maximum",
+          "old": null,
+          "new": 1,
+          "fingerprint": "8bb9a5db98e8c5850b579072f86e62595e9952c84a8d782594c2b5c0b790b57d"
+        }
+      ],
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #580; PR not yet opened)"
+    },
+    {
+      "file": "optimization/promotion_policy_schema.json",
+      "rule": "minimum",
+      "findings": [
+        {
+          "pointer": "#/properties/alpha",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "4a15d9da9ab623e0900f8d074d3de6dcec719f86c41c622d902664f72ee13553"
+        },
+        {
+          "pointer": "#/properties/chance_constraints/items/properties/confidence",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": 0,
+          "new": null,
+          "fingerprint": "292ab0d36caa9b6996d6424924d68bf6b4abf99a80f15a8bf4649aaee8a3b92b"
+        },
+        {
+          "pointer": "#/properties/chance_constraints/items/properties/threshold",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "047911f3d4a24c5df793bd174a4a2e8750ae60a696f9f0447d9a7b28aba552c7"
+        },
+        {
+          "pointer": "#/properties/min_effect/patternProperties/^[a-zA-Z_][a-zA-Z0-9_.-]*$",
+          "role": "conservative",
+          "subject": "minimum",
+          "old": null,
+          "new": 0,
+          "fingerprint": "9d8b557629c97d0a260e46fc2823a0f1da959df2fe030cee8a402466ee522578"
+        }
+      ],
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #580; PR not yet opened)"
+    },
+    {
+      "file": "datasets/example_set_create_request_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/tags",
+          "role": "request",
+          "subject": "maxItems",
+          "old": null,
+          "new": 100,
+          "fingerprint": "bd4ce8779396184bc40c3fc9b1b2453e7481a3b8492a5752a198e7af8c67bc45"
+        }
+      ],
+      "reason": "Example-set create now caps tags at 100 entries, matching the backend AddExampleSetRequest limit (MAX_AGENT_LIST_ITEMS = 100). The schema previously accepted an uncapped tags array that the service refuses, so this closes a false pass for clients validating against the contract (issue #671).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #671; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_create_request_schema.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/properties/description",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "4cee28efe702bb03a67c03ef684a8af22910444ee76870e994eacfe9be4809f2"
+        }
+      ],
+      "reason": "Annotation-queue create lowers the description cap from 5000 to 2000 characters to match AnnotationQueueCreateRequest (max_length=2000, annotation_queue.py). The backend measures the description after trimming surrounding whitespace, so the schema is stricter only for a value padded past 2000 whose trimmed length is 2000 or less. Descriptions of 2001-5000 characters after trimming passed the schema and were refused by the service with a 422 (issue #640).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #640; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_update_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "c353388263d0d14f0ce120f7867810cc29f4069c8ed7a57156660fe8d1658cfd"
+        }
+      ],
+      "reason": "Annotation-queue update closes additionalProperties. The backend update model forbids unknown fields, so an unknown key was a false pass on the contract. Clients that send extra keys will now fail schema validation as the service already does (issue #645).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #645; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_update_request_schema.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/properties/description",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "6096f72acfa012ef17a2a4872c4cd5a905efa09b0c2d201806efdbbb56b9b06d"
+        }
+      ],
+      "reason": "Annotation-queue update lowers the description cap from 5000 to 2000 characters to match AnnotationQueueUpdateRequest (max_length=2000, annotation_queue.py). The backend measures the description after trimming surrounding whitespace, so the schema is stricter only for a value padded past 2000 whose trimmed length is 2000 or less. Descriptions of 2001-5000 characters after trimming passed the schema and were refused by the service with a 422 (issue #640).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #640; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_update_request_schema.json",
+      "rule": "minProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "minProperties",
+          "old": null,
+          "new": 1,
+          "fingerprint": "981587ad2bce6d7ab69c2a33acda53209da3ef7c4c92717b74b811ab3390ce50"
+        }
+      ],
+      "reason": "Annotation-queue update requires at least one property. The backend rejects an update with no fields, so an empty PATCH body was a false pass on the contract (issue #645). A body whose only field is null or blank is refused (description and target_type by the #723 anyOf, other fields by their non-null types) (see the anyOf entries below); this entry covers the empty body.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #645; PR not yet opened)"
+    },
+    {
+      "file": "prompts/prompt_create_request_schema.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/properties/prompt_text",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 50000,
+          "new": 10000,
+          "fingerprint": "372adf6a7bbd01207dc8bc032675c0b1a9425998d99562df1798efeeeeb85abe"
+        }
+      ],
+      "reason": "Prompt create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less. Chat message content is unchanged pending the owner decision on that field.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #650; PR not yet opened)"
+    },
+    {
+      "file": "prompts/prompt_playground_request_schema.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/properties/prompt_text",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 50000,
+          "new": 10000,
+          "fingerprint": "a466116c6a689c01f23622d54b4120e95a364791d964860c2b6b9f0ba4a46fb4"
+        }
+      ],
+      "reason": "Prompt playground lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #650; PR not yet opened)"
+    },
+    {
+      "file": "prompts/prompt_version_create_request_schema.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/properties/prompt_text",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 50000,
+          "new": 10000,
+          "fingerprint": "0db7f5dc93c96b5a4fb035c2792aeec8ad222d7312360b97490a268e410f8ed4"
+        }
+      ],
+      "reason": "Prompt version create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #650; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/{queue_id}/patch/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "e943d3b039024bbdc4a5ba609e7c0821beb6a316d05ee85b325ec9486c943e8a"
+        }
+      ],
+      "reason": "#645: the annotation-queue PATCH request body in the endpoint catalog now closes additionalProperties, matching the update request schema entry above (the backend update model forbids unknown keys).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #645; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "maxLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/post/requestBody/content/application/json/schema/properties/description",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "080cd44730b9e7595c81a98204d9bf666b83d3391e2c195165ad8b8969799bc5"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/{queue_id}/patch/requestBody/content/application/json/schema/properties/description",
+          "role": "request",
+          "subject": "maxLength",
+          "old": 5000,
+          "new": 2000,
+          "fingerprint": "479469a545cadf22f6e7f9c4ae828fb70c734e40530827d791eedecdb98abe83"
+        }
+      ],
+      "reason": "#640: the annotation-queue request description cap in the endpoint catalog is lowered from 5000 to 2000 characters, matching the create/update schema entries above and the backend limit, which the backend applies after trimming whitespace.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #640; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "minProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/{queue_id}/patch/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "minProperties",
+          "old": null,
+          "new": 1,
+          "fingerprint": "ae2460b2c40b743e5daad7eccae4663d7d0249c8a88522f7f7469f6cbb3d8d15"
+        }
+      ],
+      "reason": "#645: the annotation-queue PATCH request body in the endpoint catalog requires at least one property, matching the update request schema entry above (the backend rejects an empty update).",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #645; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_execute_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "c4d85afdcb2c319636390162c53264e380e0010175fb67021eff276607954f0d"
+        }
+      ],
+      "reason": "#584: the evaluator execute request schema is closed (additionalProperties false). The backend EvaluatorExecuteRequest inherits extra=\"forbid\" from EvaluationTargetRef (backend evaluation_ops.py), so the service already rejects any unknown key with 422. Bodies that use only target_type, target_id and override_judge_config are unchanged.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_execute_request_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/source",
+          "role": "request",
+          "subject": "source",
+          "old": true,
+          "new": false,
+          "fingerprint": "d575f85ad04cb91e02c421cb8a8571ab2fc7475b3d5ff2bb324aa1d4689bc370"
+        }
+      ],
+      "reason": "#584: the source field is removed from the evaluator execute request. EvaluationTargetRef and EvaluatorExecuteRequest (backend evaluation_ops.py) have no source field and forbid extra keys, so a body carrying source already got a 422 from the service. Bodies without source are unchanged.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "e856235cd0b071a5ac2b1233a66b685bb3daae215b021e86c0cdfeb735bfa00d"
+        }
+      ],
+      "reason": "#584: the evaluator update request schema is closed (additionalProperties false). EvaluatorDefinitionUpdateRequest sets extra=\"forbid\" (backend evaluation_ops.py), so the service already rejects any unknown key with 422. Bodies made only of fields the backend accepts are unchanged.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "minProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "minProperties",
+          "old": null,
+          "new": 1,
+          "fingerprint": "5ac2b8b4fb647087904f08c48edab92515ea447193fc75dde8ede12af78ebdd2"
+        }
+      ],
+      "reason": "#584: the evaluator update request requires at least one property. EvaluatorDefinitionUpdateRequest.ensure_update_has_fields (backend evaluation_ops.py) rejects an update with no fields, so an empty PATCH already got a 422. A body whose only fields are null is refused (description and target_type by the #723 anyOf, other fields by their non-null types) (see the anyOf entries below); this entry covers the empty body.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/primary_measure_id",
+          "role": "request",
+          "subject": "primary_measure_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "88ae28400dfeb9ea93d0530cc38005d45be740106f3c4db6a4f214a428d81a56"
+        }
+      ],
+      "reason": "#584: primary_measure_id is removed from the evaluator update request. EvaluatorDefinitionUpdateRequest (backend evaluation_ops.py) has no such field and forbids extra keys, so a PATCH carrying it already got a 422. measure_id is the field the backend accepts.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/patch/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "01caefa58b268facdd3217becfdf0edf590b230437a96b2ec4ac718107a966b9"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/execute/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "f0e7abe61c40a4af4b6ff3dece50985772de29b62c6c311797bb1c0d2c79dd8c"
+        }
+      ],
+      "reason": "#584: the PATCH evaluator and POST execute request bodies in the endpoint catalog $ref evaluator_update_request_schema.json and evaluator_execute_request_schema.json, which close them as the schema-file entries above do. This matches the backend models (evaluation_ops.py, extra=\"forbid\"), so unknown keys already got a 422 from the service.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "minProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/patch/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "minProperties",
+          "old": null,
+          "new": 1,
+          "fingerprint": "a274260faece1cb4ac7c8e82e168663a038cff1027ab5f372a680f25ca700e2d"
+        }
+      ],
+      "reason": "#584: the PATCH evaluator request body in the endpoint catalog ($ref to evaluator_update_request_schema.json) requires at least one property, matching evaluator_update_request_schema.json and EvaluatorDefinitionUpdateRequest.ensure_update_has_fields (backend evaluation_ops.py). An empty PATCH already got a 422. A body whose only fields are null is refused (description and target_type by the #723 anyOf, other fields by their non-null types) (see the anyOf entries below); this entry covers the empty body.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/patch/requestBody/content/application/json/schema/properties/primary_measure_id",
+          "role": "request",
+          "subject": "primary_measure_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "1073de8db3b257eeaa95bb90c7da66189815cbdbbfeb6fcd58a172c1de1219b8"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/execute/post/requestBody/content/application/json/schema/properties/source",
+          "role": "request",
+          "subject": "source",
+          "old": true,
+          "new": false,
+          "fingerprint": "7d86c865efa1d98bef98fc36eae27981c7d08af6a4395d150ae583911674cf46"
+        }
+      ],
+      "reason": "#584: primary_measure_id is removed from the PATCH evaluator body and source from the POST execute body in the endpoint catalog, matching the schema files above. The backend models have neither field (backend evaluation_ops.py) and forbid extra keys, so both already got a 422 from the service.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #584; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_create_request_schema.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "f3889dd45e10668195386e0107e917a6e0621a85191aa65007c1b2dd54dd0861"
+        }
+      ],
+      "reason": "#640: the annotation-queue create request schema is closed (additionalProperties false). AnnotationQueueCreateRequest is extra=\"forbid\" (backend annotation_queue.py) and the route validates the raw body with model_validate (backend annotation_queue_routes.py), so the service already rejects unknown keys with 422. Bodies that use only name, description, target_type, measure_ids and status are unchanged.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #640; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "additionalProperties",
+          "old": "open (true/absent)",
+          "new": "closed (false)",
+          "fingerprint": "13555f5c6cc8843bcaa8d298c8578fb32688aea71a87529954c59a063b3465b9"
+        }
+      ],
+      "reason": "#640: the annotation-queue create request body in the endpoint catalog is closed, matching annotation_queue_create_request_schema.json and the backend model AnnotationQueueCreateRequest (backend annotation_queue.py, extra=\"forbid\"). The service already rejects unknown keys with 422 on this route.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #640; PR not yet opened)"
+    },
+    {
+      "file": "observability/annotation_queue_update_request_schema.json",
+      "rule": "anyOf_added",
+      "findings": [
+        {
+          "pointer": "#/anyOf",
+          "role": "request",
+          "subject": "anyOf",
+          "old": 0,
+          "new": 4,
+          "fingerprint": "e8e387ad51e7a028f26cd3f2d6e27a1627128115d85d8ced4ae3ddce6b7451bb"
+        }
+      ],
+      "reason": "#723: the annotation-queue update body must carry one field the service keeps. The service strips blank strings to None and rejects an update with no fields left, so a body whose only field is a null description, a blank name or a blank description is refused with a 422. The root anyOf makes the schema refuse the same bodies; a body with measure_ids or status alone still passes.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #723; PR not yet opened)"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "anyOf_added",
+      "findings": [
+        {
+          "pointer": "#/anyOf",
+          "role": "request",
+          "subject": "anyOf",
+          "old": 0,
+          "new": 8,
+          "fingerprint": "c639b8496965cb6bf2a7be53a71cf35838fcf5d1b1d1375717aa47d1819843c4"
+        }
+      ],
+      "reason": "#723: the evaluator update body must carry one field the service keeps. The service drops null values before its empty-body check, so a body whose only field is a null description or a null target_type is refused with a 422. The root anyOf requires one property, and description and target_type must be strings, so the schema refuses the same bodies.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #723; PR not yet opened)"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "anyOf_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/annotation-queues/{queue_id}/patch/requestBody/content/application/json/schema/anyOf",
+          "role": "request",
+          "subject": "anyOf",
+          "old": 0,
+          "new": 4,
+          "fingerprint": "bed45d6bf4ff6135628f57661ff48408353016d56f66d4217153d91725a74241"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/patch/requestBody/content/application/json/schema/anyOf",
+          "role": "request",
+          "subject": "anyOf",
+          "old": 0,
+          "new": 8,
+          "fingerprint": "d38db1896de6dcdce625ce53cf493e8642fb8120f0b21e967f9f8312b62919c7"
+        }
+      ],
+      "reason": "#723: a root anyOf matching the two update request schemas above, seen through their $ref copies in the endpoint catalog. The service already rejects these PATCH bodies with a 422 when the only field is a null description (evaluator) or a null description or blank name or description (annotation queue), so the catalog now matches the service.",
+      "version": "unreleased (next schema release)",
+      "pr": "pending (issues #723; PR not yet opened)"
     }
   ]
 }

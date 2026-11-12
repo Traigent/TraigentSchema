@@ -109,3 +109,68 @@ def test_example_set_similarity_threshold_matches_backend_bounds():
         "POST",
         {**base, "similarity_threshold": 1.01},
     )
+
+
+# Backend AddExampleSetRequest (agent.py enums, selection_method, type,
+# tags max_length=MAX_AGENT_LIST_ITEMS=100).
+EXAMPLE_SET_SELECTION_METHODS = {
+    "all",
+    "random",
+    "semantic_similarity",
+    "similarity",
+    "sequential",
+    "manual",
+    "diversity-based",
+    "difficulty-based",
+    "difficulty_weighted",
+}
+EXAMPLE_SET_TYPES = {
+    "input-only",
+    "input-output",
+    "multi-turn conversation",
+    "conversation",
+    "classification",
+    "structured",
+    "generation",
+    "evaluation",
+    "other",
+}
+EXAMPLE_SET_ROUTE = "/api/v1/agents/{agent_id}/example-sets"
+
+
+def test_example_set_create_enums_and_tag_cap_match_backend():
+    props = json.loads(
+        (S / "datasets" / "example_set_create_request_schema.json").read_text(encoding="utf-8")
+    )["properties"]
+    assert set(props["selection_method"]["enum"]) == EXAMPLE_SET_SELECTION_METHODS
+    assert set(props["type"]["enum"]) == EXAMPLE_SET_TYPES
+    assert props["tags"]["maxItems"] == 100
+
+
+@pytest.mark.parametrize("selection_method", sorted(EXAMPLE_SET_SELECTION_METHODS))
+def test_example_set_create_accepts_every_backend_selection_method(selection_method):
+    v = SchemaValidator(contract="backend")
+    assert v.validate_request(
+        EXAMPLE_SET_ROUTE,
+        "POST",
+        {"name": "set", "selection_method": selection_method},
+    ) == []
+
+
+@pytest.mark.parametrize("example_type", sorted(EXAMPLE_SET_TYPES))
+def test_example_set_create_accepts_every_backend_type(example_type):
+    v = SchemaValidator(contract="backend")
+    assert v.validate_request(
+        EXAMPLE_SET_ROUTE,
+        "POST",
+        {"name": "set", "selection_method": "all", "type": example_type},
+    ) == []
+
+
+def test_example_set_create_rejects_unknown_selection_method_type_and_too_many_tags():
+    v = SchemaValidator(contract="backend")
+    base = {"name": "set", "selection_method": "all"}
+    assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "selection_method": "bogus"})
+    assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "type": "bogus"})
+    assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "tags": ["t"] * 101})
+    assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "tags": ["t"] * 100}) == []

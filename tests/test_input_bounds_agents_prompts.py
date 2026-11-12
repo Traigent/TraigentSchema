@@ -8,17 +8,20 @@ from traigent_schema.utils import get_schemas_dir
 
 SCHEMAS_DIR = get_schemas_dir()
 
+# Backend MAX_AGENT_LIST_ITEMS = 100 (src/shared_infrastructure/input_limits.py:33) is
+# applied to every agent list field (src/shared_infrastructure/schemas/agent.py).
 AGENT_ARRAY_LIMITS = {
     "custom_validations": 100,
     "custom_tools": 100,
     "custom_responses": 100,
     "tags": 100,
     "example_sets": 100,
-    "retrieval_configs": 50,
-    "model_parameters": 50,
+    "retrieval_configs": 100,
+    "model_parameters": 100,
     "measure_ids": 100,
 }
 
+PROMPT_TEXT_LIMIT = 10000
 PROMPT_CHAT_MESSAGE_LIMIT = 50000
 PROMPT_CHAT_MESSAGES_LIMIT = 200
 PROMPT_LABEL_TAG_LIMIT = 100
@@ -65,6 +68,45 @@ def test_agent_create_array_bounds_are_declared_and_enforced() -> None:
             payload,
             field,
         )
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "schema_name", "payload"),
+    [
+        (
+            "prompts/prompt_create_request_schema.json",
+            "prompt_create_request_schema",
+            {"name": "support.prompt", "prompt_type": "text", "prompt_text": "x"},
+        ),
+        (
+            "prompts/prompt_version_create_request_schema.json",
+            "prompt_version_create_request_schema",
+            {"prompt_text": "x"},
+        ),
+        (
+            "prompts/prompt_playground_request_schema.json",
+            "prompt_playground_request_schema",
+            {"prompt_text": "x"},
+        ),
+    ],
+)
+def test_prompt_text_bound_matches_backend_and_is_enforced(
+    relative_path: str,
+    schema_name: str,
+    payload: dict[str, Any],
+) -> None:
+    # Backend PROMPT_TEXT_MAX_LENGTH = 10_000 (src/utils/prompt_validation.py:6), applied
+    # to prompt_create / prompt_version_create / prompt_playground (hybrid/prompt schemas).
+    schema = _load_schema(relative_path)
+    assert schema["properties"]["prompt_text"]["maxLength"] == PROMPT_TEXT_LIMIT
+
+    validator = SchemaValidator(contract="planned_projects")
+    at_limit = {**payload, "prompt_text": "x" * PROMPT_TEXT_LIMIT}
+    errors = validator.validate_json(at_limit, schema_name)
+    assert not any("prompt_text" in error for error in errors), errors
+
+    over_limit = {**payload, "prompt_text": "x" * (PROMPT_TEXT_LIMIT + 1)}
+    _assert_schema_validation_fails(validator, schema_name, over_limit, "prompt_text")
 
 
 def test_chat_prompt_message_content_bound_is_declared_and_enforced() -> None:

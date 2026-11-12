@@ -2111,19 +2111,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "properties": {
-                  "target_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "force": {
-                    "type": "boolean"
-                  }
-                }
+                "$ref": "./evaluator_backfill_request_schema.json"
               }
             }
           }

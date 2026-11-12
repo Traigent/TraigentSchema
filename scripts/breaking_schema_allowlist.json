@@ -9134,7 +9134,7 @@
           "fingerprint": "05f85c26787980e2fa3d5115f99949d29ff9625fea10055f2be5ba89a990aee2"
         }
       ],
-      "reason": "#580: the server already rejects these values with 400 (interactive_session_service.py normalizers: threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals), and TVL's validator (python/tvl/lints.py) rejects them too. The contract now matches, so no request the server accepts is refused.",
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #580; PR not yet opened)"
     },
@@ -9175,7 +9175,7 @@
           "fingerprint": "6d46aea554bb7db1f7d5a0e574ba7caad553bde7a468a7c9f798760de2366bbc"
         }
       ],
-      "reason": "#580: the server already rejects these values with 400 (interactive_session_service.py normalizers: threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals), and TVL's validator (python/tvl/lints.py) rejects them too. The contract now matches, so no request the server accepts is refused.",
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #580; PR not yet opened)"
     },
@@ -9208,7 +9208,7 @@
           "fingerprint": "8bb9a5db98e8c5850b579072f86e62595e9952c84a8d782594c2b5c0b790b57d"
         }
       ],
-      "reason": "#580: the server already rejects these values with 400 (interactive_session_service.py normalizers: threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals), and TVL's validator (python/tvl/lints.py) rejects them too. The contract now matches, so no request the server accepts is refused.",
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #580; PR not yet opened)"
     },
@@ -9249,7 +9249,7 @@
           "fingerprint": "9d8b557629c97d0a260e46fc2823a0f1da959df2fe030cee8a402466ee522578"
         }
       ],
-      "reason": "#580: the server already rejects these values with 400 (interactive_session_service.py normalizers: threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals), and TVL's validator (python/tvl/lints.py) rejects them too. The contract now matches, so no request the server accepts is refused.",
+      "reason": "#580: the server already rejects these values with 400. On /api/v1/sessions the interactive_session_service.py normalizers refuse them (threshold in [0, 1], min_effect non-negative, alpha and confidence open intervals). On /api/v1/hybrid/sessions HybridSessionCreate (extra=\"forbid\", hybrid_schemas.py) refuses any promotion_policy key. TVL's validator (python/tvl/lints.py) rejects the same values. No request the server accepts is refused.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #580; PR not yet opened)"
     },
@@ -9283,7 +9283,7 @@
           "fingerprint": "4cee28efe702bb03a67c03ef684a8af22910444ee76870e994eacfe9be4809f2"
         }
       ],
-      "reason": "Annotation-queue create lowers the description cap from 5000 to 2000 characters to match the backend create model, which rejects anything over 2000. Clients previously validated 2001-5000 character descriptions that the service then refused with a 422 (issue #640).",
+      "reason": "Annotation-queue create lowers the description cap from 5000 to 2000 characters to match AnnotationQueueCreateRequest (max_length=2000, annotation_queue.py). The backend measures the description after trimming surrounding whitespace, so the schema is stricter only for a value padded past 2000 whose trimmed length is 2000 or less. Descriptions of 2001-5000 characters after trimming passed the schema and were refused by the service with a 422 (issue #640).",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #640; PR not yet opened)"
     },
@@ -9317,7 +9317,7 @@
           "fingerprint": "6096f72acfa012ef17a2a4872c4cd5a905efa09b0c2d201806efdbbb56b9b06d"
         }
       ],
-      "reason": "Annotation-queue update lowers the description cap from 5000 to 2000 characters to match the backend update model. Values from 2001 to 5000 characters passed schema validation and were then refused by the service (issue #640).",
+      "reason": "Annotation-queue update lowers the description cap from 5000 to 2000 characters to match AnnotationQueueUpdateRequest (max_length=2000, annotation_queue.py). The backend measures the description after trimming surrounding whitespace, so the schema is stricter only for a value padded past 2000 whose trimmed length is 2000 or less. Descriptions of 2001-5000 characters after trimming passed the schema and were refused by the service with a 422 (issue #640).",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #640; PR not yet opened)"
     },
@@ -9351,7 +9351,7 @@
           "fingerprint": "372adf6a7bbd01207dc8bc032675c0b1a9425998d99562df1798efeeeeb85abe"
         }
       ],
-      "reason": "Prompt create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000). Prompts of 10001-50000 characters were accepted by the schema and refused by the service (issue #650). Chat message content is unchanged pending the owner decision on that field.",
+      "reason": "Prompt create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less. Chat message content is unchanged pending the owner decision on that field.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #650; PR not yet opened)"
     },
@@ -9368,7 +9368,7 @@
           "fingerprint": "a466116c6a689c01f23622d54b4120e95a364791d964860c2b6b9f0ba4a46fb4"
         }
       ],
-      "reason": "Prompt playground lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000). Prompts of 10001-50000 characters were accepted by the schema and refused by the service (issue #650).",
+      "reason": "Prompt playground lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #650; PR not yet opened)"
     },
@@ -9385,7 +9385,7 @@
           "fingerprint": "0db7f5dc93c96b5a4fb035c2792aeec8ad222d7312360b97490a268e410f8ed4"
         }
       ],
-      "reason": "Prompt version create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000). Prompts of 10001-50000 characters were accepted by the schema and refused by the service (issue #650).",
+      "reason": "Prompt version create lowers prompt_text from 50000 to 10000 characters to match the backend cap (PROMPT_TEXT_MAX_LENGTH = 10000, applied after validate_prompt_text trims whitespace). Prompts of 10001-50000 characters after trimming were accepted by the schema and refused by the service with a 422 (issue #650); the schema is stricter only for text padded past 10000 whose trimmed length is 10000 or less.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #650; PR not yet opened)"
     },
@@ -9427,7 +9427,7 @@
           "fingerprint": "479469a545cadf22f6e7f9c4ae828fb70c734e40530827d791eedecdb98abe83"
         }
       ],
-      "reason": "#640: the annotation-queue request description cap in the endpoint catalog is lowered from 5000 to 2000 characters, matching the create/update schema entries above and the backend limit.",
+      "reason": "#640: the annotation-queue request description cap in the endpoint catalog is lowered from 5000 to 2000 characters, matching the create/update schema entries above and the backend limit, which the backend applies after trimming whitespace.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #640; PR not yet opened)"
     },
@@ -9554,7 +9554,7 @@
           "fingerprint": "f0e7abe61c40a4af4b6ff3dece50985772de29b62c6c311797bb1c0d2c79dd8c"
         }
       ],
-      "reason": "#584: the PATCH evaluator and POST execute request bodies in the endpoint catalog $ref evaluator_update_request_schema.json and evaluator_execute_request_schema.json, so the schema files above close them and the backend models (evaluation_ops.py, extra=\"forbid\"). Unknown keys already got a 422 from the service.",
+      "reason": "#584: the PATCH evaluator and POST execute request bodies in the endpoint catalog $ref evaluator_update_request_schema.json and evaluator_execute_request_schema.json, which close them as the schema-file entries above do. This matches the backend models (evaluation_ops.py, extra=\"forbid\"), so unknown keys already got a 422 from the service.",
       "version": "unreleased (next schema release)",
       "pr": "pending (issues #584; PR not yet opened)"
     },

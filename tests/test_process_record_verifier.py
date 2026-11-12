@@ -19,7 +19,7 @@ import sys
 import tempfile
 import traceback
 from dataclasses import FrozenInstanceError, asdict, fields, replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -93,7 +93,7 @@ def _shift_timestamp(timestamp: str, *, seconds: float = 0, microseconds: int = 
     inference" note) rather than through ``datetime``; this helper builds
     fixtures, it is not the code under test.
     """
-    base = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    base = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=UTC)
     shifted = base + timedelta(seconds=seconds, microseconds=microseconds)
     return shifted.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
 

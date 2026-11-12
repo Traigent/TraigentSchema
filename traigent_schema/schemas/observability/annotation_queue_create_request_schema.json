@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/observability/annotation_queue_create_request_schema.json",
   "title": "Annotation Queue Create Request Schema",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "name": {
       "type": "string",
@@ -15,7 +15,7 @@
         "string",
         "null"
       ],
-      "maxLength": 5000
+      "maxLength": 2000
     },
     "target_type": {
       "type": "string",

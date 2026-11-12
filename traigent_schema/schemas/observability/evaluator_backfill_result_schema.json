@@ -21,6 +21,16 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "skipped_reasons": {
+      "type": "object",
+      "description": "Skip reason per skipped target id (target_id -> reason).",
+      "additionalProperties": { "type": "string" }
+    },
+    "skipped_reason_counts": {
+      "type": "object",
+      "description": "Number of skipped targets per skip reason (reason -> count).",
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
     "items": {
       "type": "array",
       "items": { "$ref": "./evaluator_run_schema.json" }

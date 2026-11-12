@@ -538,3 +538,60 @@ class TestSchemaDiscovery:
         }
         errors = validator.validate_json(data, "scoring_job_status_schema")
         assert errors == [], f"Unexpected errors: {errors}"
+
+
+# #641: the single-run analytics GET endpoints must declare the query parameters
+# the backend accepts (its run analytics request models,
+# every model extra="forbid"), so a schema-built request can carry a valid objective/limit.
+RUN_ANALYTICS_QUERY_PARAMS = {
+    "/api/v1/analytics/runs/{run_id}/pareto": {"x_measure", "y_measure", "request_count"},
+    "/api/v1/analytics/runs/{run_id}/correlations": {"method", "min_sample"},
+    "/api/v1/analytics/runs/{run_id}/leaderboard": {
+        "objective", "weights", "constraints", "request_count", "limit",
+    },
+    "/api/v1/analytics/runs/{run_id}/parameter-insights": {
+        "target_measure", "min_trials", "top_k",
+    },
+}
+
+
+def _run_analytics_params(path: str) -> dict:
+    endpoints = json.loads(
+        (Path(__file__).resolve().parent.parent / "traigent_schema" / "schemas" / "analytics"
+         / "analytics_endpoints.json").read_text(encoding="utf-8")
+    )
+    params = endpoints["paths"][path]["get"].get("parameters", [])
+    assert all(p["in"] == "query" for p in params), path
+    return {p["name"]: p["schema"] for p in params}
+
+
+@pytest.mark.parametrize("path", sorted(RUN_ANALYTICS_QUERY_PARAMS))
+def test_run_analytics_get_declares_backend_query_parameters(path: str) -> None:
+    assert set(_run_analytics_params(path)) == RUN_ANALYTICS_QUERY_PARAMS[path]
+
+
+def test_leaderboard_objective_enum_matches_backend() -> None:
+    from jsonschema import Draft7Validator
+
+    objective = _run_analytics_params("/api/v1/analytics/runs/{run_id}/leaderboard")["objective"]
+    assert set(objective["enum"]) == {"weighted", "quality", "cost", "latency"}
+    assert objective["default"] == "weighted"
+    validator = Draft7Validator(objective)
+    assert all(validator.is_valid(v) for v in ("weighted", "quality", "cost", "latency"))
+    assert not validator.is_valid("bogus")
+
+
+@pytest.mark.parametrize(
+    ("param", "accepted", "rejected"),
+    [
+        ("limit", (1, 200), (0, 201)),
+        ("request_count", (1, 1_000_000), (0, 1_000_001)),
+    ],
+)
+def test_leaderboard_numeric_bounds_match_backend(param: str, accepted, rejected) -> None:
+    from jsonschema import Draft7Validator
+
+    schema = _run_analytics_params("/api/v1/analytics/runs/{run_id}/leaderboard")[param]
+    validator = Draft7Validator(schema)
+    assert all(validator.is_valid(v) for v in accepted)
+    assert not any(validator.is_valid(v) for v in rejected)

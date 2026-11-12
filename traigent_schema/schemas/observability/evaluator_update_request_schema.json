@@ -3,7 +3,8 @@
   "$id": "https://schemas.traigent.ai/observability/evaluator_update_request_schema.json",
   "title": "Evaluator Update Request Schema",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
+  "minProperties": 1,
   "properties": {
     "name": {
       "type": "string",
@@ -22,10 +23,18 @@
       "minLength": 1,
       "maxLength": 100
     },
-    "primary_measure_id": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
+    "target_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "observability_trace",
+        "observability_observation",
+        "configuration_run",
+        "experiment_run",
+        null
+      ]
     },
     "judge_config": {
       "$ref": "./evaluator_definition_schema.json#/definitions/JudgeConfig"
@@ -41,5 +50,64 @@
     "is_active": {
       "type": "boolean"
     }
-  }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "required": [
+        "measure_id"
+      ]
+    },
+    {
+      "required": [
+        "target_type"
+      ],
+      "properties": {
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "observability_trace",
+            "observability_observation",
+            "configuration_run",
+            "experiment_run"
+          ]
+        }
+      }
+    },
+    {
+      "required": [
+        "judge_config"
+      ]
+    },
+    {
+      "required": [
+        "sampling_rate"
+      ]
+    },
+    {
+      "required": [
+        "target_filters"
+      ]
+    },
+    {
+      "required": [
+        "is_active"
+      ]
+    },
+    {
+      "required": [
+        "description"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        }
+      }
+    }
+  ]
 }

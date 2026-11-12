@@ -689,6 +689,7 @@
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1finalize/post/requestBody/content/application~1json/schema/properties/include_full_history": "closed_enum",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1finalize/post/requestBody/content/application~1json/schema/properties/metadata": "legacy_content",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1finalize/post/requestBody/content/application~1json/schema/properties/metadata [keys]": "legacy_content",
+  "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1finalize/post/requestBody/content/application~1json/schema/properties/optimization_outcome": "closed_enum",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1identity-binding/get/parameters/0/schema": "opaque_ref",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1intermediate-report/post/parameters/0/schema": "opaque_ref",
   "optimization/optimization_endpoints.json#/paths/~1api~1v1~1sessions~1{session_id}~1next-trial/post/parameters/0/schema": "opaque_ref",

@@ -10,10 +10,8 @@ and the finalize response's fail-closed no-winner contract.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-import traigent_schema
-from traigent_schema import SchemaValidator
+from traigent_schema import SchemaValidator, get_schemas_dir
 
 # The REAL package validator and registry — review round 1 found a custom
 # filename-keyed registry here hid an unresolvable $ref; using the package
@@ -76,12 +74,7 @@ class TestPromotionPolicyBoundsMatchTvl:
         assert not _errors(POLICY, cc(0.95))
 
     def test_threshold_is_described_as_violation_rate(self) -> None:
-        path = (
-            Path(traigent_schema.__file__).parent
-            / "schemas"
-            / "optimization"
-            / "promotion_policy_schema.json"
-        )
+        path = get_schemas_dir() / "optimization" / "promotion_policy_schema.json"
         schema = json.loads(path.read_text(encoding="utf-8"))
         threshold = schema["definitions"]["ChanceConstraint"]["properties"]["threshold"]
         assert "violation" in threshold["description"].lower()
@@ -274,10 +267,5 @@ class TestWirePathBindings:
 def test_promotion_policy_version_bumped_for_580_constraint_tightening() -> None:
     """#580 tightened alpha, min_effect, threshold and confidence, a contract change that must
     move the schema's own version field (0.10.0 predates it; bumped to 0.11.0)."""
-    schema_path = (
-        Path(traigent_schema.__file__).parent
-        / "schemas"
-        / "optimization"
-        / "promotion_policy_schema.json"
-    )
+    schema_path = get_schemas_dir() / "optimization" / "promotion_policy_schema.json"
     assert json.loads(schema_path.read_text(encoding="utf-8"))["version"] == "0.11.0"

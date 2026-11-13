@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/audit/security_incidents_response_schema.json",
   "title": "Security Incidents Response",
-  "description": "Response shape for GET /api/v1/audit/security/incidents and GET /api/v1/audit/soc2/security-incidents. Mirrors TraigentBackend SecurityMonitor.get_recent_incidents, including both canonical fields (`timestamp`, `severity`) and dashboard aliases (`detected_at`, `threat_level`) so backend/frontend drift is caught by contract tests.",
+  "description": "Response shape for GET /api/v1/audit/security/incidents. Mirrors TraigentBackend SecurityMonitor.get_recent_incidents, including both canonical fields (`timestamp`, `severity`) and dashboard aliases (`detected_at`, `threat_level`) so backend/frontend drift is caught by contract tests.",
   "type": "object",
   "required": [
     "success",

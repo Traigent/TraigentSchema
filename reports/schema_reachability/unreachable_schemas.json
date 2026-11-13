@@ -9,11 +9,11 @@
   "totals": {
     "reachableByRule": {
       "allowlist": 0,
-      "consumerReference": 33,
+      "consumerReference": 32,
       "refOrEndpointGraph": 488
     },
-    "reachableCount": 521,
-    "schemaFileCount": 581,
+    "reachableCount": 520,
+    "schemaFileCount": 580,
     "unreachableCount": 60
   },
   "unreachableSchemas": [

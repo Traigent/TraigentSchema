@@ -9177,6 +9177,23 @@
       "reason": "API refactor Phase 1 retires the legacy SOC2-scoped alias GET /api/v1/audit/soc2/security-incidents, which returned the same response as the canonical GET /api/v1/audit/security/incidents (kept, unchanged). TraigentBackend #6097 deletes the alias route (batch 1d); there are no external clients (owner ruling). The description of security_incidents_response_schema.json no longer names the alias.",
       "version": "8.0.0",
       "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract; backend TraigentBackend#6097)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/packs/items/properties/coverage_ingredient_ids",
+          "role": "response",
+          "subject": "coverage_ingredient_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "f33fc24de8c7e4d85d09cb0b49656e9e8a88870ed7bc1c60b88d6944b8453b83"
+        }
+      ],
+      "reason": "Owner decision (2026-11-13): a client must be able to drill down from each compliance pack's coverage counts to the exact ingredients counted, so a count is never a number without proof. PackSummary gains the optional closed object coverage_ingredient_ids (four arrays of catalogue ingredient ids). PackSummary is additionalProperties:false, so a strict reader built from the previous schema rejects a pack that carries the new field. Rollout rule: strict readers of the compliance-evidence response must upgrade to this schema before the Backend starts emitting coverage_ingredient_ids; the Backend must not emit the field until then. Payloads without the field still validate, and an omitted field means drill-down is unavailable, not that the counts are zero.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/compliance-coverage-ingredient-ids)"
     }
   ]
 }

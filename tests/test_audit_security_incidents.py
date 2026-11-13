@@ -123,13 +123,12 @@ def test_audit_endpoints_references_security_incidents_schema() -> None:
     with open(path, encoding="utf-8") as handle:
         spec = json.load(handle)
 
-    for route in (
-        "/api/v1/audit/security/incidents",
-        "/api/v1/audit/soc2/security-incidents",
-    ):
-        response = spec["paths"][route]["get"]["responses"]["200"]
-        schema_ref = response["content"]["application/json"]["schema"]["$ref"]
-        assert schema_ref.endswith("security_incidents_response_schema.json")
+    route = "/api/v1/audit/security/incidents"
+    response = spec["paths"][route]["get"]["responses"]["200"]
+    schema_ref = response["content"]["application/json"]["schema"]["$ref"]
+    assert schema_ref.endswith("security_incidents_response_schema.json")
+    # The SOC2-scoped alias was retired (backend #6097).
+    assert "/api/v1/audit/soc2/security-incidents" not in spec["paths"]
 
 
 def test_backend_payload_validates() -> None:

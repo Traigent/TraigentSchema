@@ -9160,6 +9160,23 @@
       "reason": "API refactor Phase 1 retires the two v1beta prompt list GETs (GET /api/v1beta/prompts and GET /api/v1beta/projects/{project_id}/prompts) that prompts/prompts_list_endpoints.json declared on develop (#720). They are replaced by prompt_management.list_prompts (GET /api/v1/projects/{project_id}/prompts, cursor pagination with limit and cursor, prompt_type filter) and prompt_management.search_prompts (POST .../prompts/search, which carries search, label and prompt_type in its body), both declared in prompts/prompts_endpoints.json. The file is removed outright, not deprecated: there are no external clients (owner ruling), and its mep_endpoints.json index entry is removed in the same change. The sort_by and sort_order parameters of the retired list are carried by prompt_management.search_prompts (sort_by: updated_at, name, version_count; sort_order: asc, desc, null for the key default).",
       "version": "8.0.0",
       "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
+    },
+    {
+      "file": "audit/audit_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/audit/soc2/security-incidents/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "6c7d0432ad0e4a0b3cd5531c2958665a144a50d72efb5f69e251ec9085677666"
+        }
+      ],
+      "reason": "API refactor Phase 1 retires the legacy SOC2-scoped alias GET /api/v1/audit/soc2/security-incidents, which returned the same response as the canonical GET /api/v1/audit/security/incidents (kept, unchanged). TraigentBackend #6097 deletes the alias route (batch 1d); there are no external clients (owner ruling). The description of security_incidents_response_schema.json no longer names the alias.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract; backend TraigentBackend#6097)"
     }
   ]
 }

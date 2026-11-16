@@ -58,7 +58,7 @@
           },
           "unit_ref": {
             "type": "null",
-            "description": "Reserved (slice 4). MUST be null until slice 4 widens it to a versioned code-identifier reference (GNFR-PRIV-003)."
+            "description": "Reserved for a later version. MUST be null until a later version widens it to a versioned code-identifier reference."
           },
           "pinned_agent_revision": {
             "type": [
@@ -67,7 +67,9 @@
             ],
             "minLength": 1,
             "maxLength": 128,
-            "description": "Pinned agent revision; null = follow the agent's latest."
+            "pattern": "^[A-Za-z0-9_.:-]{1,128}(?![\\s\\S])",
+            "x-identifier": true,
+            "description": "Pinned agent revision: the identifier of an existing, server-registered revision of the bound agent (an identifier, not a customer-written label); null = follow the agent's latest."
           },
           "pinned_config_digest": {
             "anyOf": [

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_handoff_schema.json",
   "title": "Crew Handoff",
-  "description": "Contract only (slice 3, no API yet). One directed transfer of work between two roles inside a crew run. Carries counts and enums only, never message content. Not related to agent_handoff (team-ownership transfer).",
+  "description": "Contract only (no API yet). One directed transfer of work between two roles inside a crew run. Carries counts and enums only, never message content. Not related to agent_handoff (team-ownership transfer).",
   "type": "object",
   "additionalProperties": false,
   "required": [

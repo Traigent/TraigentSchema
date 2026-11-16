@@ -797,3 +797,89 @@ def test_proposal_ops_are_closed_and_declared() -> None:
         )
     accept = doc["paths"][f"{base}/{{proposal_id}}/accept"]["post"]
     assert "409" in accept["responses"]
+
+
+# --- customer-chosen text carries the content annotations ----------------------------------
+_CONTENT_PROPERTY_NAMES = {"crew_key", "role_key", "name", "description"}
+_CONTENT_REF_TARGETS = ("CrewKey", "RoleKey", "AgentId")
+
+
+def _walk_schema_nodes(node, path=""):
+    if isinstance(node, dict):
+        yield path, node
+        for key, value in node.items():
+            yield from _walk_schema_nodes(value, f"{path}/{key}")
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from _walk_schema_nodes(value, f"{path}/{index}")
+
+
+def _resolve_local_ref(doc_name: str, ref: str) -> dict:
+    file_part, _, fragment = ref.partition("#")
+    target = _load(file_part.removeprefix("./")) if file_part else _load(doc_name)
+    for token in [t for t in fragment.split("/") if t]:
+        target = target[token]
+    return target
+
+
+def _has_content_annotations(node: dict) -> bool:
+    return node.get("x-content") is True and node.get("x-privacy-classification") == "user_content"
+
+
+def _content_annotated(doc_name: str, node: dict) -> bool:
+    if _has_content_annotations(node):
+        return True
+    ref = node.get("$ref")
+    return bool(ref) and _has_content_annotations(_resolve_local_ref(doc_name, ref))
+
+
+def test_every_customer_chosen_text_field_carries_content_annotations() -> None:
+    missing = []
+    checked = 0
+    for path in sorted(CREW_DIR.glob("*_schema.json")):
+        doc = _load(path.name)
+        for where, node in _walk_schema_nodes(doc):
+            if where.endswith("/properties") or where == "/properties":
+                for name, prop in node.items():
+                    if name in _CONTENT_PROPERTY_NAMES and isinstance(prop, dict):
+                        checked += 1
+                        if not _content_annotated(path.name, prop):
+                            missing.append(f"{path.name}#{where}/{name}")
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.rsplit("/", 1)[-1] in _CONTENT_REF_TARGETS:
+                checked += 1
+                if not _content_annotated(path.name, node):
+                    missing.append(f"{path.name}#{where} -> {ref}")
+    assert checked >= 15
+    assert not missing, missing
+
+
+def test_shared_content_definitions_are_annotated_directly() -> None:
+    definitions = _load("crew_common_schema.json")["definitions"]
+    for name in _CONTENT_REF_TARGETS:
+        assert _has_content_annotations(definitions[name]), name
+
+
+def test_pinned_agent_revision_is_a_constrained_identifier() -> None:
+    for name in ("crew_role_binding_schema.json", "crew_revision_create_request_schema.json"):
+        found = [
+            node["properties"]["pinned_agent_revision"]
+            for _, node in _walk_schema_nodes(_load(name))
+            if isinstance(node.get("properties"), dict)
+            and "pinned_agent_revision" in node["properties"]
+        ]
+        assert found, name
+        for prop in found:
+            assert prop["x-identifier"] is True and "pattern" in prop and prop["maxLength"] == 128
+    binding = _binding(pinned_agent_revision="r7")
+    _ok("crew_role_binding_schema.json", binding)
+    _bad("crew_role_binding_schema.json", _binding(pinned_agent_revision="free text with spaces"))
+
+
+def test_every_error_code_named_in_the_endpoints_is_in_the_error_enum() -> None:
+    import re
+
+    enum = set(_load("crew_common_schema.json")["definitions"]["CrewErrorCode"]["enum"])
+    text = (CREW_DIR / "crew_endpoints.json").read_text(encoding="utf-8")
+    mentioned = set(re.findall(r"[a-z_]+", " ".join(re.findall(r"closed error_code: ([^\"]*)", text))))
+    assert mentioned and mentioned <= enum, mentioned - enum

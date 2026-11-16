@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_member_execution_schema.json",
   "title": "Crew Member Execution",
-  "description": "Contract only (slice 3, no API yet). One invocation of a role's agent inside a crew run. Cost, latency and tokens are split: exclusive = self only (additive), inclusive = self plus nested children (a view, never summed). Unknown stays null, never 0.",
+  "description": "Contract only (no API yet). One invocation of a role's agent inside a crew run. Cost, latency and tokens are split: exclusive = self only (additive), inclusive = self plus nested children (a view, never summed). Unknown stays null, never 0.",
   "type": "object",
   "additionalProperties": false,
   "required": [

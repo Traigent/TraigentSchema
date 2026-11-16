@@ -204,7 +204,7 @@
     },
     {
       "name": "Crews",
-      "description": "Crew catalog (slice 1): a named set of agents that cooperate on one job; roles, immutable revisions with bindings, archive. Declared ahead of the backend (x-asserted-against-backend false).",
+      "description": "Crew catalog: a named set of agents that cooperate on one job; roles, immutable revisions with bindings, archive. Declared ahead of the backend (x-asserted-against-backend false).",
       "paths_file": "./crew/crew_endpoints.json"
     },
     {

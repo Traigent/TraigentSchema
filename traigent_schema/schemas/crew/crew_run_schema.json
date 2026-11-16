@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_run_schema.json",
   "title": "Crew Run",
-  "description": "Contract only (slice 3, no API yet). One end-to-end execution of a crew revision for one input. Totals are exclusive (additive) sums over member executions; unknown stays null. Metrics aggregate by crew_run membership, never by agent_id IN crew.",
+  "description": "Contract only (no API yet). One end-to-end execution of a crew revision for one input. Totals are exclusive (additive) sums over member executions; unknown stays null. Metrics aggregate by crew_run membership, never by agent_id IN crew.",
   "type": "object",
   "additionalProperties": false,
   "required": [

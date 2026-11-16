@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_common_schema.json",
   "title": "Crew Common Definitions",
-  "description": "Shared identifiers, closed enums and error codes for the crew domain (initial contract slice). A crew is a named set of agents that cooperate on one job; a fleet is all agents of a project. IDENTIFIERS vs CONTENT: crew_id, crew_revision_id, role_id, role_token and crew_run_id are server-issued or SDK-minted opaque identifiers (x-identifier) and are the only crew values that may appear in traces, baggage, optimizer parameter keys or Director inputs. crew_key, name, description and role_key are CONTENT (x-content + x-privacy-classification user_content): they live in crew tables and the portal only. Every string pattern ends with the portable end anchor (?![\\s\\S]) (see agents/agent_version_manifest_v1_schema.json for why).",
+  "description": "Shared identifiers, closed enums and error codes for the crew domain (crew domain contract). A crew is a named set of agents that cooperate on one job; a fleet is all agents of a project. IDENTIFIERS vs CONTENT: crew_id, crew_revision_id, role_id, role_token and crew_run_id are server-issued or SDK-minted opaque identifiers (x-identifier) and are the only crew values that may appear in traces, baggage, optimizer parameter keys or Director inputs. crew_key, name, description and role_key are CONTENT (x-content + x-privacy-classification user_content): they live in crew tables and the portal only. Every string pattern ends with the portable end anchor (?![\\s\\S]) (see agents/agent_version_manifest_v1_schema.json for why).",
   "definitions": {
     "CrewId": {
       "type": "string",
@@ -35,7 +35,7 @@
       "maxLength": 512,
       "x-content": true,
       "x-privacy-classification": "user_content",
-      "description": "Existing project agent id (agents/agent_schema.json#/properties/id). Client-supplied, therefore CONTENT for Director inputs and exports (GNFR-PRIV-003): exports use the backend agent_ref instead.",
+      "description": "Existing project agent id (agents/agent_schema.json#/properties/id). Client-supplied, therefore treated as CONTENT (customer-chosen identifiers are content): exports use the backend agent_ref instead.",
       "x-reference": "../agents/agent_schema.json#/properties/id"
     },
     "Sha256Digest": {
@@ -46,6 +46,8 @@
     },
     "CrewKey": {
       "type": "string",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
       "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
       "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Same rules as agent_key (the same pattern as agent_key): [A-Za-z0-9_-]{1,128}, case-sensitive, unique among ACTIVE crews per project (per creator on the default tenant), reusable after archive; unarchive is 409 crew_key_conflict while an active crew holds the key."
     },
@@ -64,7 +66,7 @@
         "agent_unit"
       ],
       "x-content-class": "closed_enum",
-      "description": "agent = a whole project agent; agent_unit = an in-function unit (reserved, slice 4)."
+      "description": "agent = a whole project agent; agent_unit = an in-function unit (reserved for a later version)."
     },
     "BindingState": {
       "type": "string",
@@ -208,7 +210,7 @@
         "sdk_declared"
       ],
       "x-content-class": "closed_enum",
-      "description": "Where the proposal came from. Only sdk_declared exists in slice 2."
+      "description": "Where the proposal came from. Only sdk_declared exists in this version."
     },
     "CrewBindingStatus": {
       "type": "string",

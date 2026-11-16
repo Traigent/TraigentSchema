@@ -213,6 +213,16 @@ EXTRA_ROOT_FILES = (
     "agent_decision/agent_decision_latest_response_schema.json",
     "agent_decision/agent_decision_error_schema.json",
     "agent_decision/agent_decision_rate_limited_error_schema.json",
+    # TRAIG-179: fleet Observe v1 contracts are closed (enums, server refs, digests, counts, timestamps).
+    "fleet_observe/fleet_observe_common_schema.json",
+    "fleet_observe/identity_cluster_schema.json",
+    "fleet_observe/agent_observation_record_schema.json",
+    "fleet_observe/evidence_record_schema.json",
+    "fleet_observe/source_evidence_class_map_schema.json",
+    "fleet_observe/spawn_tree_schema.json",
+    "fleet_observe/import_event_schema.json",
+    "fleet_observe/coverage_ratio_schema.json",
+    "fleet_observe/finding_schema.json",
 )
 # NOTE: agent_decision_endpoints.json is deliberately NOT a lint root: its {agent_id} path parameter
 # is the customer's own agent id (free text, request path only, never echoed), like every agent

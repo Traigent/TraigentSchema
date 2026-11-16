@@ -1,0 +1,357 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Compliance Document Reference Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped customer-declared document references (AGB-74 slice 3). Ships dark behind the same operator flag as the evidence view: while off, every route answers the standard not-found envelope as if it did not exist. The URL is customer content and travels in bodies only."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/compliance-document-refs": {
+      "post": {
+        "summary": "Record a customer-declared document reference (project member with write access, human session)",
+        "operationId": "createComplianceDocumentReference",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reference recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed-request violation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or the feature is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/compliance-document-refs/{reference_id}/withdrawals": {
+      "post": {
+        "summary": "Withdraw a document reference (the member who recorded it, or a project admin)",
+        "operationId": "withdrawComplianceDocumentReference",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "reference_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceWithdrawRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Withdrawal recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed-request violation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or the feature is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "success",
+                    "message",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "message": {
+                      "type": "string",
+                      "enum": [
+                        "This document reference was already withdrawn."
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "already_withdrawn"
+                      ]
+                    },
+                    "error_code": {
+                      "type": "string",
+                      "enum": [
+                        "already_withdrawn"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/compliance-document-refs/agents/{agent_id}": {
+      "get": {
+        "summary": "List the document references of one Agent (project members only; the URL is returned here and nowhere else)",
+        "operationId": "listComplianceDocumentReferences",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "include_withdrawn",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document references, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid filter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or the feature is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

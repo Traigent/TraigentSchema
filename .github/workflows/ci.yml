@@ -18,6 +18,9 @@ concurrency:
   group: schema-ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
   # Classifies whether this run's diff (if any) touches the breaking-schema-check
   # gate's inputs, so that job can be conditionally gated INSIDE this workflow --

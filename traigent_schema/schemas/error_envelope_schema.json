@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/error_envelope_schema.json",
   "title": "Error Envelope DTO",
-  "description": "Canonical error response envelope (Shape A) returned for 4xx/5xx responses. FE consumes the top-level `message` / `error` fields directly. Domain-specific error bodies (e.g. billing/quota_exceeded) may keep their own schema; generic errors emit exactly this envelope.",
+  "description": "Canonical error response envelope (Shape A) returned for 4xx/5xx responses. FE consumes the top-level `message` / `error` fields directly. Domain-specific error bodies (e.g. billing/quota_exceeded) may keep their own schema; generic errors emit exactly this envelope. The API's catch-all handler (unhandled 5xx and framework errors) emits a different, closed body `{success, error, code}` with no `message`: see global_error_schema.json.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

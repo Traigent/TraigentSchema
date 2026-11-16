@@ -31,6 +31,26 @@
           "201": {
             "description": "Agent created successfully"
           },
+          "409": {
+            "description": "An active agent with the same key already exists in the project (error_code AGENT_ALREADY_EXISTS).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_conflict_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Project-scoped write sent without an explicit project: send the `X-Project-Id` header or use a project-bound API key. Closed body, nothing from the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../projects/write_scope_error_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Subscription quota exceeded",
             "content": {
@@ -84,6 +104,26 @@
         "responses": {
           "204": {
             "description": "Agent deleted successfully"
+          },
+          "409": {
+            "description": "The agent cannot be hard-deleted because it has registered builds, bound runs, readiness declarations or referencing experiments (error_code AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING or the experiment-specific closed code). `can_archive` is true and `archive_url_template` is a server-built template, never a client value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_conflict_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Project-scoped write sent without an explicit project: send the `X-Project-Id` header or use a project-bound API key. Closed body, nothing from the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../projects/write_scope_error_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -114,6 +154,31 @@
         "responses": {
           "201": {
             "description": "Agent imported successfully"
+          },
+          "400": {
+            "description": "Import refused. Either the closed per-item validation list (details are `{index, code}`; code IMPORT_TOO_LARGE is returned here as a 400, not a 413), or the closed `provider_credential_not_accepted` problem document when the request carries a provider credential or is too large to scan. The credential refusal is served as `application/problem+json`; the validation list as `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_import_validation_error_schema.json"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./agent_import_credential_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Project-scoped write sent without an explicit project: send the `X-Project-Id` header or use a project-bound API key. Closed body, nothing from the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../projects/write_scope_error_schema.json"
+                }
+              }
+            }
           }
         }
       }

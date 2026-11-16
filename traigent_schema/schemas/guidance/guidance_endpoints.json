@@ -26,13 +26,45 @@
               }
             }
           },
-          "400": {"description": "Invalid request."},
+          "400": {
+            "description": "Invalid request: the closed `{loc, type, msg}` validation list (no submitted value or client key is echoed); this route omits `error_code`.",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "../validation_error_loc_type_schema.json"}
+              }
+            }
+          },
           "401": {"description": "Authentication required."},
           "403": {"description": "Insufficient permissions."},
-          "422": {"description": "Descriptor is schema-valid but declares no local scoring authority (or no local generation capability), so no plan is issued and cold start is discovery-only."},
+          "422": {
+            "description": "Descriptor is schema-valid but declares no local scoring authority (or no local generation capability), so no plan is issued and cold start is discovery-only. Body is `{error, reason}` with a fixed phrase and a closed `reason` code. A write sent with no explicit project is also refused with 422 (`code` PROJECT_CONTEXT_REQUIRED, see projects/write_scope_error_schema.json).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["error", "reason"],
+                  "properties": {
+                    "error": {"type": "string", "minLength": 1},
+                    "reason": {"type": "string", "minLength": 1}
+                  }
+                }
+              }
+            }
+          },
           "429": {"description": "Too many requests — rate limit exceeded."},
           "501": {"description": "Cold-start generation feature is disabled."},
-          "503": {"description": "Cold-start generation is temporarily unavailable."}
+          "503": {"description": "Cold-start generation is temporarily unavailable."},
+          "500": {
+            "description": "Unhandled failure. The catch-all handler returns the closed `{success, error, code}` body with a fixed phrase; no exception text, no request id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../global_error_schema.json"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -73,7 +105,14 @@
             }
           },
           "400": {
-            "description": "Invalid request."
+            "description": "Invalid request: the closed `{loc, type}` validation list with error_code VALIDATION_ERROR (no submitted value or client key is echoed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_loc_type_schema.json"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required."
@@ -84,6 +123,16 @@
           "404": {
             "description": "Session not found for the canonical tenant context."
           },
+          "422": {
+            "description": "Write sent with no explicit project: send the `X-Project-Id` header or use a project-bound API key. Closed body, nothing from the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../projects/write_scope_error_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests — rate limit exceeded."
           },
@@ -92,6 +141,16 @@
           },
           "503": {
             "description": "Guided generation is temporarily unavailable."
+          },
+          "500": {
+            "description": "Unhandled failure. The catch-all handler returns the closed `{success, error, code}` body with a fixed phrase; no exception text, no request id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../global_error_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -148,7 +207,14 @@
             }
           },
           "400": {
-            "description": "Invalid request."
+            "description": "Invalid request: the closed `{loc, type}` validation list with error_code VALIDATION_ERROR (no submitted value or client key is echoed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_loc_type_schema.json"
+                }
+              }
+            }
           },
           "401": {
             "description": "Authentication required."
@@ -162,11 +228,31 @@
           "409": {
             "description": "plan_token invalid, expired, does not match the session, or results do not match the signed plan."
           },
+          "422": {
+            "description": "Write sent with no explicit project: send the `X-Project-Id` header or use a project-bound API key. Closed body, nothing from the request is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../projects/write_scope_error_schema.json"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests — rate limit exceeded."
           },
           "501": {
             "description": "Guided generation feature is disabled."
+          },
+          "500": {
+            "description": "Unhandled failure. The catch-all handler returns the closed `{success, error, code}` body with a fixed phrase; no exception text, no request id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../global_error_schema.json"
+                }
+              }
+            }
           }
         }
       }

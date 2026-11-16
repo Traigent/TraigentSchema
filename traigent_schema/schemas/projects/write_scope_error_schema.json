@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/projects/write_scope_error_schema.json",
+  "title": "Write Scope Required Error (422)",
+  "description": "422 body when a project-scoped write arrives without an explicit project: send the `X-Project-Id` header or use a project-bound API key. It is the catch-all handler's closed shape (see global_error_schema.json), with `code` \"PROJECT_CONTEXT_REQUIRED\" and `error` one of four fixed sentences. No client-supplied value is echoed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "error", "code"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "enum": [
+        "Explicit project scope is required for this write: send the X-Project-Id header or use a project-bound API key.",
+        "write scope does not match the request context",
+        "write scope project not found for tenant",
+        "bootstrap write scope is not available inside a request"
+      ],
+      "description": "Fixed sentence naming why the write scope was refused."
+    },
+    "code": {
+      "type": "string",
+      "const": "PROJECT_CONTEXT_REQUIRED"
+    }
+  }
+}

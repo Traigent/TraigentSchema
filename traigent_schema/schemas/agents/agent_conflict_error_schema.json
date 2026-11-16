@@ -2,10 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agents/agent_conflict_error_schema.json",
   "title": "Agent Conflict Error (409)",
-  "description": "409 body for an agent write that conflicts with current state. Two families share it. (1) AGENT_ALREADY_EXISTS: an active agent with the same key already exists in the project (create, or unarchive after the key was taken); `details` carries closed placeholders, not the agent id (the id is not disclosed in this version); the submitted name and key are never echoed. (2) Deletion refusals (AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING, or the closed code explaining why experiments block deletion): the agent can only be archived, so `can_archive` is true and `archive_url_template` is a SERVER-BUILT path template, never a value the client sent. The client substitutes its own agent id for the `{agent_id}` placeholder and POSTs to it.",
+  "description": "409 body for an agent write that conflicts with current state. Two families share it. (1) AGENT_ALREADY_EXISTS: an active agent with the same key already exists in the project (create, or unarchive after the key was taken); no id is returned: `details` is absent. Clients resolve the existing agent via the agents list/search; the submitted name and key are never echoed. (2) Deletion refusals (AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING, or the closed code explaining why experiments block deletion): the agent can only be archived, so `can_archive` is true and `archive_url_template` is a SERVER-BUILT path template, never a value the client sent. The client substitutes its own agent id for the `{agent_id}` placeholder and POSTs to it.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["success", "error", "message", "error_code"],
+  "required": [
+    "success",
+    "error",
+    "message",
+    "error_code"
+  ],
   "properties": {
     "success": {
       "type": "boolean",
@@ -24,21 +29,6 @@
       "type": "string",
       "minLength": 1,
       "description": "Closed code, for example AGENT_ALREADY_EXISTS, AGENT_HAS_BUILDS or AGENT_DELETE_BLOCKED_TRACKING."
-    },
-    "details": {
-      "type": "object",
-      "description": "AGENT_ALREADY_EXISTS only. In this version each value is a closed placeholder (the server's fixed text \"Invalid request\", or null when no existing agent was found), not an agent id: the id of the active agent that holds the key is not disclosed. Clients identify the existing agent by listing agents. The submitted name and key are never echoed.",
-      "additionalProperties": false,
-      "properties": {
-        "existing_agent_id": {
-          "type": ["string", "null"],
-          "description": "Closed placeholder in this version, not an agent id. Null when no existing agent was found."
-        },
-        "agent_id": {
-          "type": ["string", "null"],
-          "description": "Closed placeholder in this version, not an agent id. Same placeholder as `existing_agent_id`."
-        }
-      }
     },
     "can_archive": {
       "type": "boolean",

@@ -9194,6 +9194,40 @@
       "reason": "Owner decision (2026-11-13): a client must be able to drill down from each compliance pack's coverage counts to the exact ingredients counted, so a count is never a number without proof. PackSummary gains the optional closed object coverage_ingredient_ids (four arrays of catalogue ingredient ids). PackSummary is additionalProperties:false, so a strict reader built from the previous schema rejects a pack that carries the new field. Rollout rule: strict readers of the compliance-evidence response must upgrade to this schema before the Backend starts emitting coverage_ingredient_ids; the Backend must not emit the field until then. Payloads without the field still validate, and an omitted field means drill-down is unavailable, not that the counts are zero.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feat/compliance-coverage-ingredient-ids)"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/example-sets/get/responses/200/content/application/json/schema/properties/data/properties/items/items",
+          "role": "response",
+          "subject": "examples",
+          "old": true,
+          "new": false,
+          "fingerprint": "476b92e49bf1f5e839c85cde27bafabb26d55534c1cfd9c935f8f8ef24804293"
+        }
+      ],
+      "reason": "API revision Phase 2 (TraigentBackend #6114, merged to develop) makes the example-set list summary-only: GET /api/v1/example-sets no longer serializes example rows (input, output, explanation text) and returns num_examples only. The previously required `examples` field is removed from the list item so the schema matches what the backend emits; nothing reads `examples` from the list (the per-set GET /api/v1/example-sets/{set_id}/examples is unchanged and remains the way to read rows). Response narrowing is intentional and was reviewed against the backend change.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/api-p2-contract-declarations; backend TraigentBackend#6114)"
+    },
+    {
+      "file": "datasets/example_set_list_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/data/properties/items/items",
+          "role": "response",
+          "subject": "examples",
+          "old": true,
+          "new": false,
+          "fingerprint": "34b0bf8fb8e86dfbc860a4e7039ce759746c4650927f40d7e2302c1275a593fd"
+        }
+      ],
+      "reason": "API revision Phase 2 (TraigentBackend #6114, merged to develop) makes the example-set list summary-only: GET /api/v1/example-sets no longer serializes example rows (input, output, explanation text) and returns num_examples only. The previously required `examples` field is removed from the list item so the schema matches what the backend emits; nothing reads `examples` from the list (the per-set GET /api/v1/example-sets/{set_id}/examples is unchanged and remains the way to read rows). Response narrowing is intentional and was reviewed against the backend change.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/api-p2-contract-declarations; backend TraigentBackend#6114)"
     }
   ]
 }

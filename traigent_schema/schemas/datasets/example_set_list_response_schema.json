@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/datasets/example_set_list_response_schema.json",
   "title": "Example Set List Response Schema",
-  "description": "200 body of GET /api/v1/example-sets after TraigentBackend#3353. The route now returns `response_handler.paginated_response(...)`, whose shape is strict nested-only — {success, message, data: {items, pagination}} (src/utils/response_handler.py:288-296 documents it, :349-356 emits it). Before #3353 the route emitted a top-level `pagination` with a `pages` key and no has_next/has_prev; that form is gone. x-wrap-status: wrapped — this is one of the two enveloped operations in the otherwise-bare `example_set_routes` (see success_envelope_schema.json#/x-wrap-map/mixed). The item shape is ExampleSet.to_dict() (src/models/agent.py:287-305) and is deliberately NOT a $ref to example_set_schema.json: that file's closed resource definition requires only {id, name, description, examples} with additionalProperties:false and declares none of agent_id / example_set_id / tenant_id / project_id / type / selection_method / num_examples / similarity_threshold / tags, so $ref'ing it would declare a contract this serializer violates on every row.",
+  "description": "200 body of GET /api/v1/example-sets after TraigentBackend#3353. The route now returns `response_handler.paginated_response(...)`, whose shape is strict nested-only — {success, message, data: {items, pagination}} (src/utils/response_handler.py:288-296 documents it, :349-356 emits it). Before #3353 the route emitted a top-level `pagination` with a `pages` key and no has_next/has_prev; that form is gone. x-wrap-status: wrapped — this is one of the two enveloped operations in the otherwise-bare `example_set_routes` (see success_envelope_schema.json#/x-wrap-map/mixed). The list is SUMMARY-ONLY: each item is ExampleSet.to_dict(include_examples=False), so it carries `num_examples` but never the example rows; read rows from GET /api/v1/example-sets/{set_id}/examples. The item shape is deliberately NOT a $ref to example_set_schema.json: that file's closed resource definition requires only {id, name, description, examples} with additionalProperties:false and declares none of agent_id / example_set_id / tenant_id / project_id / type / selection_method / num_examples / similarity_threshold / tags, so $ref'ing it would declare a contract this serializer violates on every row.",
   "type": "object",
   "x-wrap-status": "wrapped",
   "required": ["success", "message", "data"],
@@ -25,12 +25,12 @@
       "properties": {
         "items": {
           "type": "array",
-          "description": "Page of example sets, each `ExampleSet.to_dict()`.",
+          "description": "Page of example sets, each a summary (`ExampleSet.to_dict(include_examples=False)`).",
           "items": { "$ref": "#/definitions/SerializedExampleSet" }
         },
         "pagination": {
           "$ref": "../pagination_schema.json",
-          "description": "Canonical {page, per_page, total, total_pages, has_next, has_prev}. `per_page` is clamped to [1, 100] by the route (MAX_EXAMPLE_SET_PER_PAGE, src/routes/example_set_routes.py:34, 105-108)."
+          "description": "Canonical {page, per_page, total, total_pages, has_next, has_prev}. `per_page` above 100 is rejected with a 400 `invalid_page_size` (see the operation's 400), never clamped."
         }
       }
     }
@@ -38,7 +38,7 @@
   "definitions": {
     "SerializedExampleSet": {
       "type": "object",
-      "description": "Exactly what ExampleSet.to_dict() emits (src/models/agent.py:287-305). Every key is always present; nullability below follows the column definitions at src/models/agent.py:232-266.",
+      "description": "Exactly what ExampleSet.to_dict(include_examples=False) emits: a summary without example rows. Every key is always present; nullability below follows the column definitions at src/models/agent.py:232-266.",
       "required": [
         "id",
         "example_set_id",
@@ -53,8 +53,7 @@
         "similarity_threshold",
         "tags",
         "created_at",
-        "updated_at",
-        "examples"
+        "updated_at"
       ],
       "additionalProperties": false,
       "properties": {
@@ -107,11 +106,6 @@
         "updated_at": {
           "type": ["string", "null"],
           "description": "ISO-8601 from `datetime.isoformat()`, naive; see created_at."
-        },
-        "examples": {
-          "type": "array",
-          "description": "FULL example rows, eagerly serialized for every set in the page (src/models/agent.py:304). This list is NOT paginated here — GET /api/v1/example-sets/{set_id}/examples is the paginated surface.",
-          "items": { "$ref": "./example_set_examples_list_response_schema.json#/definitions/SerializedExample" }
         }
       }
     }

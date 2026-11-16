@@ -169,7 +169,7 @@
     "/api/v1/example-sets": {
       "get": {
         "summary": "List example sets (paginated)",
-        "description": "TraigentBackend src/routes/example_set_routes.py:96 `get_example_sets`, blueprint url_prefix `/example-sets` registered under /api/v1 at src/routes/api_v1.py:119. Previously undeclared in this repo — which is why TraigentBackend#3353 could change its pagination shape with no schema lane objecting. Query parameters: `page` (default 1), `per_page` (default 20, clamped to [1, 100] by MAX_EXAMPLE_SET_PER_PAGE, src/routes/example_set_routes.py:34, 104-108), and the `name` / `created_after` / `created_before` filters (:111-136).",
+        "description": "TraigentBackend src/routes/example_set_routes.py:96 `get_example_sets`, blueprint url_prefix `/example-sets` registered under /api/v1 at src/routes/api_v1.py:119. Previously undeclared in this repo — which is why TraigentBackend#3353 could change its pagination shape with no schema lane objecting. Query parameters: `page` (default 1), `per_page` (default 20; a value above 100 is rejected with a 400 `invalid_page_size`, never clamped), and the `name` / `created_after` / `created_before` filters (:111-136).",
         "operationId": "listExampleSets",
         "x-wrap-status": "wrapped",
         "responses": {
@@ -179,6 +179,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "./example_set_list_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Rejected query. Pagination: `page` or `per_page` out of range returns the canonical envelope with error_code `invalid_page` or `invalid_page_size` (an oversized `per_page` is rejected, not clamped) and an empty `details`. Filters: an unparseable `created_after` / `created_before` returns error_code VALIDATION_ERROR with field-attributed `details`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
                 }
               }
             }

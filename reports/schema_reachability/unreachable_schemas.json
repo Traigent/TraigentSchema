@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 32,
-      "refOrEndpointGraph": 488
+      "refOrEndpointGraph": 512
     },
-    "reachableCount": 520,
-    "schemaFileCount": 580,
-    "unreachableCount": 60
+    "reachableCount": 544,
+    "schemaFileCount": 610,
+    "unreachableCount": 66
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -41,6 +41,12 @@
     "connectors/connector_run_summary.json",
     "connectors/correlation_summary.json",
     "connectors/dataset_revision_summary.json",
+    "crew/crew_binding_schema.json",
+    "crew/crew_declaration_schema.json",
+    "crew/crew_handoff_schema.json",
+    "crew/crew_member_execution_schema.json",
+    "crew/crew_run_schema.json",
+    "crew/crew_trial_allocation_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",

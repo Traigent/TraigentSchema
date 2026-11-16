@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/crew/crew_common_schema.json",
   "title": "Crew Common Definitions",
-  "description": "Shared identifiers, closed enums and error codes for the crew domain (CREW-11, design: Crews v1 sections 1-3). A crew is a named set of agents that cooperate on one job; a fleet is all agents of a project. IDENTIFIERS vs CONTENT: crew_id, crew_revision_id, role_id, role_token and crew_run_id are server-issued or SDK-minted opaque identifiers (x-identifier) and are the only crew values that may appear in traces, baggage, optimizer parameter keys or Director inputs. crew_key, name, description and role_key are CONTENT (x-content + x-privacy-classification user_content): they live in crew tables and the portal only. Every string pattern ends with the portable end anchor (?![\\s\\S]) (see agents/agent_version_manifest_v1_schema.json for why).",
+  "description": "Shared identifiers, closed enums and error codes for the crew domain (initial contract slice). A crew is a named set of agents that cooperate on one job; a fleet is all agents of a project. IDENTIFIERS vs CONTENT: crew_id, crew_revision_id, role_id, role_token and crew_run_id are server-issued or SDK-minted opaque identifiers (x-identifier) and are the only crew values that may appear in traces, baggage, optimizer parameter keys or Director inputs. crew_key, name, description and role_key are CONTENT (x-content + x-privacy-classification user_content): they live in crew tables and the portal only. Every string pattern ends with the portable end anchor (?![\\s\\S]) (see agents/agent_version_manifest_v1_schema.json for why).",
   "definitions": {
     "CrewId": {
       "type": "string",
@@ -47,10 +47,12 @@
     "CrewKey": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,128}(?![\\s\\S])",
-      "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Same rules as agent_key (BE src/models/agent.py AGENT_KEY_PATTERN, ForeignKeyId): [A-Za-z0-9_-]{1,128}, case-sensitive, unique among ACTIVE crews per project (per creator on the default tenant), reusable after archive; unarchive is 409 crew_key_conflict while an active crew holds the key."
+      "description": "Immutable registration key; the idempotency key of create-crew. CONTENT. Same rules as agent_key (the same pattern as agent_key): [A-Za-z0-9_-]{1,128}, case-sensitive, unique among ACTIVE crews per project (per creator on the default tenant), reusable after archive; unarchive is 409 crew_key_conflict while an active crew holds the key."
     },
     "RoleKey": {
       "type": "string",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
       "minLength": 1,
       "maxLength": 128,
       "description": "Customer alias of a role (portal only). CONTENT. Identity is role_id/role_token, never role_key."
@@ -139,12 +141,12 @@
     "ExperimentRunId": {
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
-      "description": "Server-issued experiment run id: lowercase UUID, the backend's real id shape (BE src/models/experiment_run.py id = str(uuid.uuid4()), String(100)). Content (names, agent ids) can never match."
+      "description": "Server-issued experiment run id: lowercase UUID, the backend's real id shape. Content (names, agent ids) can never match."
     },
     "ConfigurationRunId": {
       "type": "string",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])",
-      "description": "Server-issued configuration run id: lowercase UUID (BE src/models/configuration_run.py:37 id = str(uuid.uuid4()))."
+      "description": "Server-issued configuration run id: lowercase UUID."
     },
     "ScenarioRef": {
       "type": "string",

@@ -103,7 +103,7 @@
         ]
       },
       "disposition": "planned",
-      "rationale": "Neither SDK implements crew declarations yet. Slice 0 (CREW-11) defines the contract in traigent_schema/schemas/crew/; SDK declarations are slice 2 of the Crews program (Python crew=/role= for whole agents, JS crew/role for whole agents). Neither SDK exports a bare Crew class (import clash with crewai.Crew).",
+      "rationale": "Neither SDK implements crew declarations yet. The crew domain contract is defined in traigent_schema/schemas/crew/; SDK declarations are a later step (Python crew=/role= for whole agents, JS crew/role for whole agents). Neither SDK exports a bare Crew class (import clash with crewai.Crew).",
       "owner": "sdk-maintainers",
       "targetMilestone": "crews-slice-2",
       "fixtures": []

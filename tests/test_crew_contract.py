@@ -1,4 +1,4 @@
-"""Contract tests for the crew domain (CREW-11): schemas validate, closed enums and
+"""Contract tests for the crew domain (crew domain contract): schemas validate, closed enums and
 closed objects reject bad input, content/identifier annotations are present."""
 
 from __future__ import annotations
@@ -651,7 +651,7 @@ def test_content_vs_identifier_annotations() -> None:
     assert _load("crew_common_schema.json")["definitions"]["AgentId"]["maxLength"] == 512
 
 
-# --- slice 2: declarations from code (CREW-20) -------------------------------------------
+# --- declarations from code -------------------------------------------
 CMP = "cmp_" + "ab" * 16
 PROPOSAL_DOC = {
     "proposal_id": CMP,

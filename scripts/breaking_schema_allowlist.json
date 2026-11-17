@@ -9228,6 +9228,169 @@
       "reason": "API revision Phase 2 (TraigentBackend #6114, merged to develop) makes the example-set list summary-only: GET /api/v1/example-sets no longer serializes example rows (input, output, explanation text) and returns num_examples only. The previously required `examples` field is removed from the list item so the schema matches what the backend emits; nothing reads `examples` from the list (the per-set GET /api/v1/example-sets/{set_id}/examples is unchanged and remains the way to read rows). Response narrowing is intentional and was reviewed against the backend change.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feat/api-p2-contract-declarations; backend TraigentBackend#6114)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2ebbe7c7ac3c816eea3fc6e6a3b18e1fe1a7107f82d409d6ebda513c89b27dbb"
+        }
+      ],
+      "reason": "Owner decision product-2026-11-16-api-p3-agents-identity = A: fleet-posture definitions are private and are removed from the public schema. The GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture route was declared contract-first (x-asserted-against-backend false) and is not part of the agents Phase 3 mount. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "5b760cdcf3a380dad294cbd872f0fe11b1de8871d8579b7f911b0e45cf63ff97"
+        }
+      ],
+      "reason": "Owner decision product-2026-11-16-api-p3-agents-identity = A: fleet-posture definitions are private and are removed from the public schema. The GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture route was declared contract-first (x-asserted-against-backend false) and is not part of the agents Phase 3 mount. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/agents/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e34680829f7569a44eb3ca93600cf893bdd264bad242cfbebd14da52fa2e6478"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "196d0b4f540e5cdd9e987b4c9b1928ccdb33d96d38d34db18bf9b5d6226fb41f"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/agent-types/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7f59b6b046e3a11a878068a7bb5a7e3dcfa331c637cb7be5c8433023ddad5c10"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/import/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7029a084f52014513907971e2f39e14a012802f0026911fe9ef3fae9f63bca19"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/delete",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3dfe96e6fd617352e9c98e1f822762a369870e9d26e2147d6161d3bd2fb06480"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "41272195514c7125ac7f1270817763618d132e6a604cf24c72f0039ff6ada0a0"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9ab460b3b45dd8b1985c0870a4a3cd2947cfc03f5b2cfb8d72739b87270a7b38"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/check-deletion/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e2e38a2d5f862b87440d5688433bf701902a4ba825718ec64b990a715f371144"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/example-sets/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9bff536f5ad7edeeb0e5b074021f71de262d29a1d6d194ba6f70319ec20bb3f5"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/experiments/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "146830bd0a47a2e312dcdbcb119fda275f88a2234c7c6da41a6dd7e45e8b1b58"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/export/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dda0732ddc33c7084362c227a884a0a1a7a83263cbbbff13dc46c8f59c5b25bd"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "b4e176c0b090095b2d6fdb87f86137a6414071ce69046fa88202b8fd90feafd8"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c2abbe0831e71b84266b8d7747b973d887226b87d6803d102f970a87f4233e6e"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/{param_id}/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "85fcb2ad15e7e669ff5ecdb0582a47f08eace62c0d8f7c793e0f5313e3017b21"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/retrieval-configs/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "18b5105b65a0bc4e5bf0d5806fe480d1a65cf17b62196354a641af8b94005fad"
+        }
+      ],
+      "reason": "API revision Phase 3 (TraigentBackend #6193): the agents family is served only at /api/v1/projects/{project_id}/agents[...] with opaque agent_ref paths; GET /api/v1/agent-types replaces /api/v1/agents/agent-types; agent search and optimization-summaries are POST .../search with JSON bodies; create ignores client ids. The retired /api/v1/agents/... (and /api/v1beta/projects/{project_id}/agents) routes answer a closed 404 and are no longer declared. GET /api/v1/agents/admin/stats and POST /api/v1/model-parameters are unchanged. Pre-release contract and no external clients, so no consumer is affected; consumers regenerate from the new paths.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
     }
   ]
 }

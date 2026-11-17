@@ -23,14 +23,14 @@ CREATE_REQUESTS = [
 
 # (path, valid backend body, invalid backend body) — required fields mirror the BE create DTOs.
 CASES = [
-    ("/api/v1/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
-    ("/api/v1/agents/import", {"name": "a", "agent_type_id": "qa"}, {"agent_type_id": "qa"}),
-    ("/api/v1/agents/{agent_id}/example-sets",
+    ("/api/v1/projects/{project_id}/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
+    ("/api/v1/projects/{project_id}/agents/import", {"name": "a", "agent_type_id": "qa"}, {"agent_type_id": "qa"}),
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
      {"name": "s", "selection_method": "all"}, {"name": "s"}),
-    ("/api/v1/agents/{agent_id}/retrieval-configs",
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/retrieval-configs",
      {"name": "r", "vector_store": {}, "k": 1, "retrieval_k": 1, "chunk_size": 100, "overlap": 0},
      {"name": "r", "vector_store": {}}),
-    ("/api/v1/agents/{agent_id}/model-parameters", {}, None),
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters", {}, None),
     ("/api/v1/experiments",
      {"name": "e", "dataset_id": "d", "agent_id": "a"}, {"name": "e"}),
     ("/api/v1/experiment-runs/runs/{experiment_run_id}/configurations",
@@ -85,27 +85,27 @@ def test_example_set_similarity_threshold_matches_backend_bounds():
     base = {"name": "set", "selection_method": "all"}
 
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 0.7},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 0},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 1},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": -0.01},
     )
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 1.01},
     )

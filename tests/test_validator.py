@@ -231,20 +231,20 @@ class TestValidateRequest:
         for policy in ("strict", "warn", "allow"):
             v = SchemaValidator(unknown_endpoint_policy=policy)
             errors = v.validate_request(
-                "/api/v1/agents", "POST", {"name": "Test Agent"}
+                "/api/v1/projects/{project_id}/agents", "POST", {"name": "Test Agent"}
             )
             assert errors, f"registered-endpoint validation should still run under policy={policy}"
 
     def test_returns_list(self, validator):
         """Should always return a list."""
         data = {"test": "data"}
-        errors = validator.validate_request("/api/v1/agents", "POST", data)
+        errors = validator.validate_request("/api/v1/projects/{project_id}/agents", "POST", data)
         assert isinstance(errors, list)
 
     def test_agent_request_uses_endpoint_module_mapping(self, validator):
         """Agent validation should resolve through the modular endpoint catalog."""
         errors = validator.validate_request(
-            "/api/v1/agents",
+            "/api/v1/projects/{project_id}/agents",
             "POST",
             {
                 "name": "Test Agent",
@@ -255,7 +255,7 @@ class TestValidateRequest:
     def test_agent_request_reports_validation_errors(self, validator):
         """Invalid agent payloads should fail request validation."""
         errors = validator.validate_request(
-            "/api/v1/agents",
+            "/api/v1/projects/{project_id}/agents",
             "POST",
             {"name": "Test Agent"},
         )

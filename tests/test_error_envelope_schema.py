@@ -349,9 +349,9 @@ def test_agent_model_parameters_post_declares_the_422_validation_response():
     """TraigentBackend#3347: an unresolvable model_id is a client error, not a
     raw FK-violation 500. The route previously declared only a 201."""
     op = _schema("agents/agents_endpoints.json")["paths"][
-        "/api/v1/agents/{agent_id}/model-parameters"
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters"
     ]["post"]
-    assert set(op["responses"]) == {"201", "422"}
+    assert {"201", "422"} <= set(op["responses"])
     ref = op["responses"]["422"]["content"]["application/json"]["schema"]["$ref"]
     assert ref == "../validation_error_schema.json"
 

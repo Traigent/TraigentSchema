@@ -45,7 +45,7 @@ def test_wrapped_detail_response_wraps_resource_in_envelope():
 # ---- #128 ----
 
 DETAIL_GETS = {
-    "agents/agents_endpoints.json": ["/api/v1/agents/{agent_id}"],
+    "agents/agents_endpoints.json": ["/api/v1/projects/{project_id}/agents/{agent_ref}"],
     "datasets/datasets_endpoints.json": ["/api/v1/datasets/{dataset_id}"],
     "execution/execution_endpoints.json": [
         "/api/v1/experiments/{experiment_id}",
@@ -69,8 +69,14 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     # GET /agents/{id} must reference the AGENT resource, not agent_response_schema
     # (which is an execution/run response with required input/status/result).
     agents = _load("agents/agents_endpoints.json")
-    ref = agents["paths"]["/api/v1/agents/{agent_id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
-    assert ref.endswith("agent_schema.json"), ref
+    # The wire is the success envelope {success, message, data: <agent>}
+    # (agent_routes.get_agent -> success_response), so the 200 is an envelope
+    # whose data is the agent resource.
+    ref = agents["paths"]["/api/v1/projects/{project_id}/agents/{agent_ref}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "#/components/schemas/AgentDetailEnvelope", ref
+    envelope = agents["components"]["schemas"]["AgentDetailEnvelope"]
+    assert envelope["properties"]["data"]["$ref"].endswith("agent_schema.json")
+    assert "data" in envelope["required"]
     # bare detail GETs reference the resource schema directly
     expected = {
         ("execution/execution_endpoints.json", "/api/v1/experiments/{experiment_id}"): "experiment_schema.json",

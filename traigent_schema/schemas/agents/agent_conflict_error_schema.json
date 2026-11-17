@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agents/agent_conflict_error_schema.json",
   "title": "Agent Conflict Error (409)",
-  "description": "409 body for an agent write that conflicts with current state. Two families share it. (1) AGENT_ALREADY_EXISTS: an active agent with the same key already exists in the project (create, or unarchive after the key was taken); no id is returned: `details` is absent. Clients resolve the existing agent via the agents list/search; the submitted name and key are never echoed. (2) Deletion refusals (AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING, or the closed code explaining why experiments block deletion): the agent can only be archived, so `can_archive` is true and `archive_url_template` is a SERVER-BUILT path template, never a value the client sent. The client substitutes its own agent id for the `{agent_id}` placeholder and POSTs to it.",
+  "description": "409 body for an agent write that conflicts with current state. Two families share it. (1) AGENT_ALREADY_EXISTS: an active agent with the same key already exists in the project (create, or unarchive after the key was taken); no id is returned: `details` is absent. Clients resolve the existing agent via the agents list/search; the submitted name and key are never echoed. (2) Deletion refusals (AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING, or the closed code explaining why experiments block deletion): the agent can only be archived, so `can_archive` is true and `archive_url_template` is a SERVER-BUILT path template, never a value the client sent. The client substitutes its own project id and agent reference for the placeholders and POSTs to it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -37,8 +37,8 @@
     },
     "archive_url_template": {
       "type": "string",
-      "const": "/api/v1/agents/{agent_id}/archive",
-      "description": "Deletion refusals only: fixed server-built path template with an `{agent_id}` placeholder the client fills in. Not a resolved URL."
+      "const": "/api/v1/projects/{project_id}/agents/{agent_ref}/archive",
+      "description": "Deletion refusals only: fixed server-built path template with `{project_id}` and `{agent_ref}` placeholders the client fills in. Not a resolved URL."
     },
     "affected_experiments": {
       "type": "array",

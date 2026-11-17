@@ -370,11 +370,11 @@
         },
         "responses": {
           "201": {
-            "description": "The imported agent",
+            "description": "The imported agent (bare {message, agent})",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "$ref": "#/components/schemas/AgentImportResponse"
                 }
               }
             }
@@ -456,7 +456,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "$ref": "#/components/schemas/AgentSummariesEnvelope"
                 }
               }
             }
@@ -526,7 +526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_schema.json"
+                  "$ref": "#/components/schemas/AgentDetailEnvelope"
                 }
               }
             }
@@ -594,11 +594,12 @@
         },
         "responses": {
           "200": {
-            "description": "The updated agent",
+            "description": "The updated agent (the agent object itself, not wrapped)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -662,14 +663,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Deleted",
+            "description": "Deleted; affected experiments were updated (bare tracking body)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "$ref": "#/components/schemas/AgentDeleteTrackingResponse"
                 }
               }
             }
+          },
+          "204": {
+            "description": "Deleted; no experiments were affected (no body)"
           },
           "401": {
             "$ref": "#/components/responses/AgentsUnauthenticated"
@@ -736,11 +740,12 @@
         ],
         "responses": {
           "200": {
-            "description": "The archived agent",
+            "description": "The archived agent (the agent object itself, not wrapped)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -806,11 +811,12 @@
         ],
         "responses": {
           "200": {
-            "description": "The unarchived agent",
+            "description": "The unarchived agent (the agent object itself, not wrapped)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "type": "object",
+                  "additionalProperties": true
                 }
               }
             }
@@ -880,7 +886,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "$ref": "#/components/schemas/AgentDeletionCheck"
                 }
               }
             }
@@ -1008,7 +1014,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentsEnvelope"
+                  "$ref": "#/components/schemas/AgentExperimentsResponse"
                 }
               }
             }
@@ -1706,6 +1712,164 @@
             "label"
           ]
         }
+      },
+      "AgentDetailEnvelope": {
+        "type": "object",
+        "description": "Success envelope {success, message, data} from response_handler.success_response; data is the agent (agent_routes.py get_agent).",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "./agent_schema.json"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentSummariesEnvelope": {
+        "type": "object",
+        "description": "Success envelope; data is {items, total} (get_agent_optimization_summaries).",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "items",
+              "total"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentImportResponse": {
+        "type": "object",
+        "description": "BARE body {message, agent}, not the success envelope (import_agent).",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "message",
+          "agent"
+        ],
+        "additionalProperties": true
+      },
+      "AgentDeleteTrackingResponse": {
+        "type": "object",
+        "description": "BARE body returned with 200 when deleting affected experiment tracking (delete_agent); otherwise the delete is 204 with no body.",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "tracking": {
+            "type": "object",
+            "properties": {
+              "affected_experiments": {
+                "type": "array",
+                "items": {}
+              },
+              "updated_experiments": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "message",
+          "tracking"
+        ],
+        "additionalProperties": true
+      },
+      "AgentDeletionCheck": {
+        "type": "object",
+        "description": "BARE body (check_agent_deletion).",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "affected_experiments": {
+            "type": "array",
+            "items": {}
+          },
+          "active_experiments": {
+            "type": "array",
+            "items": {}
+          },
+          "warning": {}
+        },
+        "required": [
+          "allowed"
+        ],
+        "additionalProperties": true
+      },
+      "AgentExperimentsResponse": {
+        "type": "object",
+        "description": "BARE body (get_agent_experiments).",
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "experiments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "agent_id",
+          "total",
+          "experiments"
+        ],
+        "additionalProperties": true
       }
     },
     "responses": {

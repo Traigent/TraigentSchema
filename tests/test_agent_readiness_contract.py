@@ -1084,12 +1084,16 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
         for operation in path.values():
             if not isinstance(operation, dict) or "responses" not in operation:
                 continue
-            for response in operation["responses"].values():
+            for status, response in operation["responses"].items():
                 if response.get("content"):
                     schema = response["content"]["application/json"]["schema"]
                     if "$ref" in schema:
                         assert (
-                            schema["$ref"] == "./agent_readiness_error_schema.json"
+                            (
+                                status == "429"
+                                and schema["$ref"] == "../rate_limit_info_schema.json"
+                            )
+                            or schema["$ref"] == "./agent_readiness_error_schema.json"
                             or schema["$ref"].endswith(
                                 "agent_readiness_portfolio_response_schema.json"
                             )

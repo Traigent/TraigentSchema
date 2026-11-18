@@ -37,7 +37,7 @@
     },
     "problem_id": {
       "type": "string",
-      "pattern": "^[0-9a-f]{32}$",
+      "pattern": "^[0-9a-f]{32}(?![\\s\\S])",
       "x-content-class": "opaque_ref"
     }
   }

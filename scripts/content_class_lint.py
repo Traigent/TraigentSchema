@@ -54,6 +54,16 @@ CONTENT_CLASSES = frozenset(
     }
 )
 LEGACY = "legacy_content"
+SERVER_TEXT = "server_text"
+# ``server_text`` is an assertion by the contract owner, not something keywords can prove, so it is
+# accepted ONLY at these exact (schema file, JSON pointer) locations, never in a request, a
+# parameter or a map key, and never through a ``$ref`` from anywhere else.
+SERVER_TEXT_LOCATIONS = frozenset(
+    {
+        "audit_evaluate/audit_evaluate_response_schema.json"
+        "#/definitions/Result/properties/instructions/items/properties/text",
+    }
+)
 
 # --- class semantics ------------------------------------------------------------------
 # A class name alone proves nothing: each content-free class must be backed by a schema
@@ -98,7 +108,7 @@ _FIXED_REF_PATTERNS = frozenset(
         "^xr_[0-9a-f]{32}$",
         "^dr_[0-9a-f]{32}$",  # host-prompt decision id
         "^rn_[0-9a-f]{32}$",  # client retry nonce for one answer attempt
-        "^[0-9a-f]{32}$",  # per-request problem id (uuid4 hex) of a closed problem body
+        "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
     }
 )
 
@@ -178,10 +188,13 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
         if rx is None or not isinstance(node.get("maxLength"), int):
             return "version needs a dotted-numeric pattern and maxLength"
         if not rx.search("1.2.3") or any(
-            rx.search(x) for x in ("Alice_has_diabetes", "1.2.3-alice", "1.2.3 ", "", "a.b.c")
+            rx.search(x)
+            for x in ("Alice_has_diabetes", "1.2.3-alice", "1.2.3 ", "1.2.3\n", "", "a.b.c")
         ):
             return "version pattern must accept 1.2.3 and reject free text"
-        if not re.fullmatch(r"\^\[0-9\]\{\d+,\d+\}(\\\.\[0-9\]\{\d+,\d+\})+\$", pattern):
+        if not re.fullmatch(
+            r"\^\[0-9\]\{\d+,\d+\}(\\\.\[0-9\]\{\d+,\d+\})+\(\?!\[\\s\\S\]\)", pattern
+        ):
             return "version pattern must be anchored digit groups joined by dots"
         return None
     if cls == "server_text":
@@ -540,6 +553,13 @@ class Linter:
         return isinstance(b, dict) and self._is_container(doc, scope, b)
 
     # -- recording ----------------------------------------------------
+    def _check_server_text_site(self, loc: str, cls: str | None, kind: str = "value") -> None:
+        if cls == SERVER_TEXT and (kind != "value" or loc not in SERVER_TEXT_LOCATIONS):
+            self.result.invalid.append(
+                f"{loc}: server_text is accepted only at an allow-listed response location "
+                "(never a request, parameter, map key or $ref from elsewhere)"
+            )
+
     def _record_value(self, loc: str, node: dict, doc, scope, kind: str = "value") -> None:
         own = node.get(CLASS_KEY)
         if own is not None:
@@ -547,6 +567,7 @@ class Linter:
                 self.result.invalid.append(f"{loc}: unknown class {own!r}")
                 return
             self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
+            self._check_server_text_site(loc, own, kind)
             if own == LEGACY and not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
             if own != LEGACY:
@@ -554,6 +575,7 @@ class Linter:
             return
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
+            self._check_server_text_site(loc, eff)
             return  # inherited from a classed definition
         if self._is_container(doc, scope, node) and not self._open_extras(node, doc):
             return
@@ -650,6 +672,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown class {own!r}")
             return
         self.result.findings.append(Finding(loc, "value", own, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc, own)
         if own == LEGACY:
             if not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
@@ -677,6 +700,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls == LEGACY and not node.get(NOTE_KEY):
             self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
         elif key_cls != LEGACY:
@@ -712,6 +736,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls != LEGACY:
             why = semantic_problem(key_cls, pn if isinstance(pn, dict) else {}, doc)
             if why:

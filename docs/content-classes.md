@@ -42,8 +42,8 @@ a looser class.
 | `timestamp` | `format: date-time`/`date`, or a timestamp pattern |
 | `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference resolved within tenant/project, distinct from the Backend primary key), key id, or one of the fixed derived-token patterns listed in the lint |
 | `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
-| `version` | an anchored pattern of digit groups joined by dots (`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`) that accepts `1.2.3` and rejects text, and a `maxLength` |
-| `server_text` | a `maxLength` and an `x-content-note` naming the fixed-template source. Keywords cannot prove it (prose is prose), so it is an assertion by the contract owner, for server-to-client bodies only |
+| `version` | an anchored pattern of digit groups joined by dots (`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?![\s\S])`, an absolute end that a trailing newline cannot pass) that accepts `1.2.3` and rejects text, and a `maxLength` |
+| `server_text` | a `maxLength` and an `x-content-note` naming the fixed-template source. Keywords cannot prove it (prose is prose), so it is an assertion by the contract owner, accepted only at the exact (file, JSON pointer) locations in the lint's `SERVER_TEXT_LOCATIONS` allow-list (today one response field); never in a request, a parameter, a map key (it is not a key class) or through a `$ref` from elsewhere |
 | `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
 
 Map-key classes are checked against `propertyNames` the same way.

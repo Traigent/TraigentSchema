@@ -64,6 +64,84 @@ def _minimal(schema, defs):
     return "1.2.3"
 
 
+# The identities (not only the counts) of the closed vocabularies, as the backend declares them
+# (SEVERITY in src/services/audit/ruleset.py, STEP_TEMPLATES in src/services/audit/templates.py).
+FINDING_IDS = (
+    "AGT_NO_ENTRY_POINT",
+    "AGT_BLANK_SPACE",
+    "AGT_ALL_KNOBS_UNREAD",
+    "AGT_SOME_KNOBS_UNREAD",
+    "AGT_SPACE_NOT_INVENTORIED",
+    "AGT_KNOBS_MAYBE_READ",
+    "INV_PARSE_GAP",
+    "INV_TRUNCATED",
+    "SCR_NONE_FOUND",
+    "SCR_NOT_MEASURED",
+    "SCR_PROBE_UNSTABLE",
+    "SCR_PROBE_MISORDERED",
+    "SCR_PROBE_ERRORS",
+    "SCR_PROBE_NONFINITE",
+    "SCR_PROBE_FAILED",
+    "SCR_PROBE_BLOCKED",
+    "SCR_PROBE_SYNTHETIC",
+    "DS_NONE_FOUND",
+    "DS_UNREADABLE",
+    "DS_ROWS_NO_SDK_INPUT",
+    "DS_GOLD_ABSENT",
+    "DS_GOLD_UNUSABLE",
+    "DS_BELOW_SMOKE",
+    "DS_BELOW_TUNING",
+    "DS_NO_HOLDOUT",
+    "DS_HOLDOUT_SHORT",
+    "DS_HOLDOUT_OVERLAP",
+    "DS_EXACT_DUPES",
+    "DS_NEAR_DUPES",
+    "DS_NEAR_DUPES_UNCHECKED",
+    "DS_CROSS_SPLIT_NEAR",
+    "DS_CROSS_SPLIT_UNCHECKED",
+    "DS_LABEL_DOMINANT",
+    "DS_LABEL_FIELD_MISSING",
+    "DS_LABEL_FIELD_SINGLE_VALUE",
+    "DS_LABEL_MINORITY_SHORT",
+    "DS_STRUCTURED_GOLD_UNCHECKED",
+    "DS_JSON_CONSTANTS",
+    "DS_LINES_SKIPPED",
+    "DS_ROWS_TRUNCATED",
+    "DS_FILES_TRUNCATED",
+    "DS_SPLIT_MARKER_CONFLICT",
+    "EVAL_INCOMPLETE",
+    "ALL_CLEAR",
+)
+
+TEMPLATE_IDS = (
+    "step.a.no_entry_point",
+    "step.b.all_unread",
+    "step.b.blank",
+    "step.c.no_scorer",
+    "step.d.probe_not_ready",
+    "step.e.not_measured",
+    "step.e.placeholder_probe",
+    "step.f.fact",
+    "step.f.holdout_overlap",
+    "step.f.missing_gold",
+    "step.f.no_dataset",
+    "step.f.only_unread_facts",
+    "step.f.scan_truncated",
+    "step.f.short",
+    "step.f.short_holdout_named",
+    "step.f.unloadable",
+    "step.f.unread_beside_analysed",
+    "step.f.unread_none_analysed",
+    "step.g.all_clear",
+    "step.h.not_inventoried",
+    "step.h.partly_unread",
+    "step.h.possibly_read",
+    "step.i.incomplete",
+    "step.i.parse_gap",
+    "step.i.truncated",
+)
+
+
 _REQ = _load(REQUEST)
 REQUEST_OK = _minimal(_REQ, _REQ["definitions"])
 
@@ -113,7 +191,7 @@ def test_the_request_accepts_a_minimal_summary_and_rejects_extras_and_bad_versio
     extra = copy.deepcopy(REQUEST_OK)
     extra["note"] = "free text"
     assert list(v.iter_errors(extra))
-    for bad in ("1.2", "1.2.3-x", "v1.2.3", "Alice has diabetes", "1000.1.1"):
+    for bad in ("1.2", "1.2.3-x", "v1.2.3", "Alice has diabetes", "1000.1.1", "1.2.3\n", "1.2.3\r\n"):
         broken = copy.deepcopy(REQUEST_OK)
         broken["collector_version"] = bad
         assert list(v.iter_errors(broken)), bad
@@ -131,7 +209,8 @@ def test_the_three_fields_that_needed_a_vocabulary_decision():
     assert text["x-content-note"]
     pid = _load(PROBLEM)["properties"]["problem_id"]
     assert pid["x-content-class"] == "opaque_ref"
-    assert pid["pattern"] == "^[0-9a-f]{32}$"
+    assert pid["pattern"] == "^[0-9a-f]{32}(?![\\s\\S])"
+    assert cv["pattern"] == "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?![\\s\\S])"
     uses = {
         (rel, node["x-content-class"])
         for rel in BODIES
@@ -151,6 +230,10 @@ def test_the_finding_and_template_vocabularies_are_closed_lists():
     assert len(set(finding_ids)) == 44
     assert len(template_ids) == 25
     assert len(set(template_ids)) == 25
+    assert sorted(finding_ids) == sorted(FINDING_IDS)
+    assert sorted(template_ids) == sorted(TEMPLATE_IDS)
+    assert len(set(FINDING_IDS)) == 44
+    assert len(set(TEMPLATE_IDS)) == 25
 
 
 def test_no_schema_carries_a_description_beyond_the_field_meaning():
@@ -183,8 +266,9 @@ def test_the_response_and_error_bodies_validate_real_shapes():
         "problem_id": "0" * 32,
     }
     assert not list(_validator(PROBLEM).iter_errors(problem))
-    problem["problem_id"] = "request failed for acme"
-    assert list(_validator(PROBLEM).iter_errors(problem))
+    for bad in ("request failed for acme", "0" * 32 + "\n"):
+        problem["problem_id"] = bad
+        assert list(_validator(PROBLEM).iter_errors(problem)), bad
     err = {"success": False, "error": "Too many requests", "error_code": "RATE_LIMIT_EXCEEDED"}
     assert not list(_validator(ERROR).iter_errors(err))
     err["error"] = "project acme is missing"

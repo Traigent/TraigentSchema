@@ -12,7 +12,7 @@
     },
     "collector_version": {
       "maxLength": 11,
-      "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$",
+      "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?![\\s\\S])",
       "type": "string",
       "x-content-class": "version"
     },

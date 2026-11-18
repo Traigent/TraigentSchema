@@ -112,8 +112,9 @@ def test_lint_walks_the_best_config_publish_and_rollback_contracts() -> None:
 
 def test_class_vocabulary_matches_the_registered_extension() -> None:
     meta = json.loads(META.read_text(encoding="utf-8"))["properties"]
-    for key in ("x-content-class", "x-content-key-class"):
-        assert set(meta[key]["enum"]) == set(lint.CONTENT_CLASSES)
+    assert set(meta["x-content-class"]["enum"]) == set(lint.CONTENT_CLASSES)
+    # server_text is a value class at one allow-listed location, never a map-key class
+    assert set(meta["x-content-key-class"]["enum"]) == set(lint.CONTENT_CLASSES) - {"server_text"}
     assert "x-content-note" in meta
     assert "legacy_content" in lint.CONTENT_CLASSES
 
@@ -313,7 +314,13 @@ UUID = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 B64 = "^[A-Za-z0-9_-]+$"
 
 
-VERSION = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
+VERSION = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?![\\s\\S])"
+SERVER_TEXT = {
+    "type": "string",
+    "maxLength": 400,
+    "x-content-note": "Server-authored from fixed templates.",
+    "x-content-class": "server_text",
+}
 
 
 def test_version_requires_an_anchored_digit_group_pattern_and_max_length(tmp_path: Path) -> None:
@@ -330,13 +337,35 @@ def test_version_requires_an_anchored_digit_group_pattern_and_max_length(tmp_pat
     assert _bad(
         tmp_path, {"type": "integer", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"}
     )
+    # the `$` end anchor lets a trailing newline through: only the absolute-end form is accepted
+    assert _bad(
+        tmp_path,
+        {
+            "type": "string",
+            "maxLength": 11,
+            "pattern": VERSION.replace("(?![\\s\\S])", "$"),
+            "x-content-class": "version",
+        },
+    )
     _ok(
         tmp_path,
         {"type": "string", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"},
     )
 
 
-def test_server_text_requires_max_length_and_a_source_note(tmp_path: Path) -> None:
+def _mini_at(tmp_path: Path, schema: dict, rel: str):
+    path = tmp_path / "schemas" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(schema), encoding="utf-8")
+    return lint.run_lint(tmp_path / "schemas")
+
+
+def _allow_server_text(monkeypatch, loc: str) -> None:
+    monkeypatch.setattr(lint, "SERVER_TEXT_LOCATIONS", frozenset({loc}))
+
+
+def test_server_text_requires_max_length_and_a_source_note(tmp_path: Path, monkeypatch) -> None:
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/properties/a")
     assert _bad(tmp_path, {"type": "string", "x-content-class": "server_text"})
     assert _bad(tmp_path, {"type": "string", "maxLength": 400, "x-content-class": "server_text"})
     assert _bad(
@@ -347,19 +376,134 @@ def test_server_text_requires_max_length_and_a_source_note(tmp_path: Path) -> No
         tmp_path,
         {"type": "integer", "maxLength": 400, "x-content-note": "n", "x-content-class": "server_text"},
     )
-    _ok(
-        tmp_path,
-        {
-            "type": "string",
-            "maxLength": 400,
-            "x-content-note": "Server-authored from fixed templates.",
-            "x-content-class": "server_text",
+    _ok(tmp_path, SERVER_TEXT)
+
+
+def test_server_text_is_accepted_at_the_allow_listed_location_only(
+    tmp_path: Path, monkeypatch
+) -> None:
+    schema = {"type": "object", "properties": {"a": SERVER_TEXT, "b": SERVER_TEXT}}
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/properties/a")
+    result = _mini(tmp_path, schema)
+    assert [m for m in result.invalid if "#/properties/b" in m], result.invalid
+    assert not [m for m in result.invalid if "#/properties/a:" in m], result.invalid
+
+
+def test_server_text_is_rejected_in_a_request_field(tmp_path: Path) -> None:
+    # nothing allow-listed here: a request field labelled server_text fails
+    rel = "optimization/session_submit_results_request_schema.json"
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"customer_text": SERVER_TEXT},
+    }
+    result = _mini_at(tmp_path, schema, rel)
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+
+
+def _real_audit_lint(mutate) -> list[str]:
+    """Lint the real tree with one audit document mutated in memory; return its invalid list."""
+    linter = lint.Linter()
+    request_rel = "audit_evaluate/audit_evaluate_request_schema.json"
+    response_rel = "audit_evaluate/audit_evaluate_response_schema.json"
+    docs = {r: linter.load(r) for r in (request_rel, response_rel)}
+    mutate(docs[request_rel], docs[response_rel])
+    return linter.run().invalid
+
+
+def test_the_real_tree_has_one_allow_listed_server_text_field_and_it_passes() -> None:
+    assert _real_audit_lint(lambda req, resp: None) == []
+
+
+def test_a_request_field_labelled_server_text_fails_in_the_real_request() -> None:
+    def mutate(req, resp):
+        req["properties"]["customer_text"] = dict(SERVER_TEXT)
+
+    invalid = _real_audit_lint(mutate)
+    assert any("customer_text" in m and "allow-listed" in m for m in invalid), invalid
+
+
+def test_a_second_response_field_labelled_server_text_fails() -> None:
+    def mutate(req, resp):
+        item = resp["definitions"]["Result"]["properties"]["instructions"]["items"]
+        item["properties"]["extra_text"] = dict(SERVER_TEXT)
+
+    invalid = _real_audit_lint(mutate)
+    assert any("extra_text" in m and "allow-listed" in m for m in invalid), invalid
+
+
+def test_a_ref_reuse_of_the_allow_listed_field_from_a_request_fails() -> None:
+    target = next(iter(lint.SERVER_TEXT_LOCATIONS)).split("#", 1)[1]
+
+    def mutate(req, resp):
+        ref = "./audit_evaluate_response_schema.json#" + target
+        req["properties"]["reused"] = {"$ref": ref}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("reused" in m and "allow-listed" in m for m in invalid), invalid
+
+
+def test_server_text_is_rejected_in_a_parameter_and_as_a_map_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/nowhere")
+    doc = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x/{p}": {
+                "get": {
+                    "parameters": [{"name": "p", "in": "path", "required": True, "schema": SERVER_TEXT}],
+                    "responses": {},
+                }
+            }
         },
+    }
+    result = _mini_at(tmp_path, doc, "optimization/t_endpoints.json")
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+    keyed = {
+        "type": "object",
+        "additionalProperties": {"type": "integer", "minimum": 0, "x-content-class": "number"},
+        "x-content-key-class": "server_text",
+        "x-content-note": "n",
+    }
+    result = _mini(tmp_path, {"type": "object", "properties": {"m": keyed}}, "t2_schema.json")
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+
+
+def test_server_text_reached_through_a_ref_from_elsewhere_fails(tmp_path: Path, monkeypatch) -> None:
+    allowed = "optimization/t_defs_schema.json#/definitions/Text"
+    _allow_server_text(monkeypatch, allowed)
+    root = tmp_path / "schemas" / "optimization"
+    root.mkdir(parents=True)
+    (root / "t_defs_schema.json").write_text(
+        json.dumps({"definitions": {"Text": SERVER_TEXT}}), encoding="utf-8"
     )
+    (root / "t_use_schema.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"a": {"$ref": "./t_defs_schema.json#/definitions/Text"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = lint.run_lint(tmp_path / "schemas")
+    assert any("t_use_schema.json#/properties/a" in m and "allow-listed" in m for m in result.invalid)
+
+
+def test_server_text_is_not_a_key_class_in_the_meta_schema() -> None:
+    props = json.loads(META.read_text(encoding="utf-8"))["properties"]
+    assert "server_text" in props["x-content-class"]["enum"]
+    assert "server_text" not in props["x-content-key-class"]["enum"]
 
 
 def test_a_bare_32_hex_problem_id_is_an_opaque_ref_but_free_text_is_not(tmp_path: Path) -> None:
-    _ok(tmp_path, {"type": "string", "pattern": "^[0-9a-f]{32}$", "x-content-class": "opaque_ref"})
+    _ok(
+        tmp_path,
+        {"type": "string", "pattern": "^[0-9a-f]{32}(?![\\s\\S])", "x-content-class": "opaque_ref"},
+    )
+    assert _bad(tmp_path, {"type": "string", "pattern": "^[0-9a-f]{32}$", "x-content-class": "opaque_ref"})
     assert _bad(
         tmp_path, {"type": "string", "pattern": "^[0-9a-f]{1,32}$", "x-content-class": "opaque_ref"}
     )

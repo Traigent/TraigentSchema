@@ -108,7 +108,7 @@ CANONICAL_429_ENVELOPES = {
 # 429s, never raise it. (Catalogs not listed here and not in FULLY_COVERED have 0.)
 KNOWN_UNCOVERED = {
     "agent_readiness/agent_posture_endpoints.json": 1,
-    "agent_readiness/agent_readiness_endpoints.json": 5,
+    "agent_readiness/agent_readiness_endpoints.json": 4,
     "agents/agents_endpoints.json": 2,
     "analytics/analytics_endpoints.json": 9,
     "auth/auth_endpoints.json": 8,
@@ -117,7 +117,6 @@ KNOWN_UNCOVERED = {
     "datasets/content_identity_endpoints.json": 3,
     "economics/economics_endpoints.json": 2,
     "evaluation_system_validation/evaluation_system_validation_endpoints.json": 6,
-    "production_requirements/production_breaches_endpoints.json": 2,
     "smartops_v2/smartops_v2_endpoints.json": 8,
 }
 

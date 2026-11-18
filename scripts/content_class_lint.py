@@ -91,6 +91,9 @@ _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{
 _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 # Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
 # than chosen: they carry no customer text because the pattern admits none.
+PROJECT_ID_PATTERN = (
+    "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])"
+)
 _FIXED_REF_PATTERNS = frozenset(
     {
         UUID_PATTERN,
@@ -109,6 +112,8 @@ _FIXED_REF_PATTERNS = frozenset(
         "^dr_[0-9a-f]{32}$",  # host-prompt decision id
         "^rn_[0-9a-f]{32}$",  # client retry nonce for one answer attempt
         "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
+        # server-minted project id: random, tenant-derived default or personal-workspace form
+        PROJECT_ID_PATTERN,
     }
 )
 
@@ -260,16 +265,12 @@ EXTRA_ROOT_FILES = (
     "fleet_observe/coverage_ratio_schema.json",
     "fleet_observe/finding_schema.json",
     # Audit evaluate: closed project audit summary in, closed findings and next step out.
-    # audit_evaluate_endpoints.json is deliberately NOT a root (see the NOTE below): its
-    # {project_id} path parameter has no approved ref pattern.
+    "audit_evaluate/audit_evaluate_endpoints.json",
     "audit_evaluate/audit_evaluate_request_schema.json",
     "audit_evaluate/audit_evaluate_response_schema.json",
     "audit_evaluate/audit_evaluate_error_schema.json",
     "audit_evaluate/audit_evaluate_problem_schema.json",
 )
-# NOTE: audit_evaluate_endpoints.json is deliberately NOT a lint root: its {project_id} path
-# parameter has no approved ref pattern (the Backend accepts any 1-128 character id), is request
-# path only and is never echoed; its four body schemas above are roots.
 # NOTE: agent_decision_endpoints.json is deliberately NOT a lint root: its {agent_id} path parameter
 # is the customer's own agent id (free text, request path only, never echoed), like every agent
 # endpoint; the ratchet admits no new legacy_content and no content-free class fits it.

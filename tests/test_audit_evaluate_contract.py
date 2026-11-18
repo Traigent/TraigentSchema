@@ -280,6 +280,52 @@ def test_the_validator_binds_the_endpoint():
     assert f"POST:{PATH}" in validator._endpoint_schemas
 
 
+PROJECT_ID_FORMS = (
+    "project_" + "0123456789abcdef" * 2,
+    "project_default_" + "0123456789abcdef",
+    "project_personal_" + "0123456789abcdef" * 2,
+)
+
+
+def test_the_project_id_path_parameter_is_a_fixed_pattern_opaque_ref():
+    (param,) = _load(ENDPOINTS)["paths"][PATH]["post"]["parameters"]
+    schema = param["schema"]
+    assert schema["x-content-class"] == "opaque_ref"
+    assert schema["maxLength"] == 49
+    assert schema["pattern"] == (
+        "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])"
+    )
+    v = jsonschema.Draft7Validator(schema)
+    for ok in PROJECT_ID_FORMS:
+        assert not list(v.iter_errors(ok)), ok
+    for bad in (
+        "Alice has diabetes",
+        "project_" + "0" * 31,
+        "project_" + "0" * 33,
+        "project_" + "A" * 32,
+        PROJECT_ID_FORMS[0] + "\n",
+        PROJECT_ID_FORMS[1] + "\n",
+        PROJECT_ID_FORMS[2] + "\n",
+        "project_default_" + "0" * 32,
+        "",
+    ):
+        assert list(v.iter_errors(bad)), bad
+
+
+def test_the_endpoints_document_is_a_content_class_lint_root():
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "content_class_lint.py"
+    spec = importlib.util.spec_from_file_location("content_class_lint_audit_ep", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    assert ENDPOINTS in module.EXTRA_ROOT_FILES
+    assert module.PROJECT_ID_PATTERN in module._FIXED_REF_PATTERNS
+
+
 @pytest.mark.parametrize("rel", BODIES)
 def test_each_body_schema_is_a_content_class_lint_root(rel):
     import importlib.util

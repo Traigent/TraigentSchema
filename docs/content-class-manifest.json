@@ -50,6 +50,7 @@
   "agents/agent_version_manifest_v1_schema.json#/definitions/ObservedProviderVersionV1/properties/response_model": "legacy_content",
   "agents/agent_version_manifest_v1_schema.json#/definitions/ObservedProviderVersionV1/properties/system_fingerprint": "legacy_content",
   "agents/agent_version_manifest_v1_schema.json#/definitions/Sha256DigestV1": "digest",
+  "audit_evaluate/audit_evaluate_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1audit~1evaluate/post/parameters/0/schema": "opaque_ref",
   "audit_evaluate/audit_evaluate_error_schema.json#/properties/details/properties/limit": "closed_enum",
   "audit_evaluate/audit_evaluate_error_schema.json#/properties/details/properties/reset_time": "timestamp",
   "audit_evaluate/audit_evaluate_error_schema.json#/properties/details/properties/retry_after": "number",

@@ -18,8 +18,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "maxLength": 49,
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "x-content-class": "opaque_ref"
             }
           }
         ],

@@ -1015,47 +1015,48 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
     )
     paths = inventory["paths"]
     assert set(paths) == {
-        "/api/v1beta/projects/{project_id}/agent-readiness",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
+        "/api/v1/projects/{project_id}/agent-readiness/search",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/readiness",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/next-step",
     }
-    assert paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
+    assert paths["/api/v1/projects/{project_id}/agent-readiness/search"]["post"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_portfolio_response_schema.json"
     )
     list_bad_request = paths[
-        "/api/v1beta/projects/{project_id}/agent-readiness"
-    ]["get"]["responses"]["400"]
+        "/api/v1/projects/{project_id}/agent-readiness/search"
+    ]["post"]["responses"]["400"]
     assert all(
         parameter in list_bad_request["description"].lower()
         for parameter in ("pagination", "search", "stage", "attention")
     )
-    assert paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
+    assert paths["/api/v1/projects/{project_id}/agents/{agent_ref}/readiness"]["get"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_detail_response_schema.json"
     )
     assert (
-        paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
+        paths["/api/v1/projects/{project_id}/agent-readiness/search"]["post"][
             "x-asserted-against-backend"
         ]
         is False
     )
     assert (
-        paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
+        paths["/api/v1/projects/{project_id}/agents/{agent_ref}/readiness"]["get"][
             "x-asserted-against-backend"
         ]
         is False
     )
-    target_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions"
+    target_path = "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions"
     assert "post" in paths[target_path]
     assert paths[target_path]["post"]["responses"]["201"]["content"]["application/json"][
         "schema"
     ]["$ref"].endswith("agent_readiness_target_schema.json#/definitions/DeclaredTarget")
 
-    history_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history"
+    history_path = "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history"
     history_get = paths[history_path]["get"]
     assert history_get["x-asserted-against-backend"] is False
     assert history_get["responses"]["200"]["content"]["application/json"]["schema"][
@@ -1100,6 +1101,9 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
                             )
                             or schema["$ref"].endswith(
                                 "agent_lifecycle_history_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_next_step_response_schema.json"
                             )
                         )
                     else:

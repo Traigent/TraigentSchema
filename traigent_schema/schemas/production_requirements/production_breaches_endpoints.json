@@ -1,0 +1,440 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Backend Agent Production Status Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped read-only production status and breach history of one Agent, at /api/v1/projects/{project_id}/agents/{agent_ref}/production-status and .../production-breaches."
+  },
+  "paths": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/production-breaches": {
+      "get": {
+        "summary": "Production breach rows of one agent",
+        "operationId": "project_production_breaches.list_production_breaches",
+        "x-asserted-against-backend": false,
+        "description": "Rows only (the lifecycle is written by the evaluation task). Dark behind PRODUCTION_REQUIREMENTS_ENABLED (closed production_requirements_disabled 404). A grant-scoped key sees only its granted agents; an agent outside its reach is agent_not_found.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Breach rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "breach_id": {
+                            "title": "Breach Id",
+                            "type": "string"
+                          },
+                          "agent_id": {
+                            "title": "Agent Id",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "title": "Kind",
+                            "type": "string"
+                          },
+                          "latency_threshold_ms": {
+                            "title": "Latency Threshold Ms",
+                            "type": "integer"
+                          },
+                          "environment": {
+                            "title": "Environment",
+                            "type": "string"
+                          },
+                          "max_violation_rate": {
+                            "title": "Max Violation Rate",
+                            "type": "number"
+                          },
+                          "confidence": {
+                            "title": "Confidence",
+                            "type": "number"
+                          },
+                          "window_hours": {
+                            "title": "Window Hours",
+                            "type": "integer"
+                          },
+                          "grace_minutes": {
+                            "title": "Grace Minutes",
+                            "type": "integer"
+                          },
+                          "min_samples": {
+                            "title": "Min Samples",
+                            "type": "integer"
+                          },
+                          "max_unresolved_fraction": {
+                            "title": "Max Unresolved Fraction",
+                            "type": "number"
+                          },
+                          "closure_windows": {
+                            "title": "Closure Windows",
+                            "type": "integer"
+                          },
+                          "closure_max_age_hours": {
+                            "title": "Closure Max Age Hours",
+                            "type": "integer"
+                          },
+                          "false_alarm_budget": {
+                            "title": "False Alarm Budget",
+                            "type": "number"
+                          },
+                          "horizon_days": {
+                            "title": "Horizon Days",
+                            "type": "integer"
+                          },
+                          "opened_at": {
+                            "format": "date-time",
+                            "title": "Opened At",
+                            "type": "string"
+                          },
+                          "opening_evaluation_id": {
+                            "title": "Opening Evaluation Id",
+                            "type": "string"
+                          },
+                          "last_breached_evaluation_id": {
+                            "title": "Last Breached Evaluation Id",
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Outcome"
+                          },
+                          "withdrawn_reason": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Withdrawn Reason"
+                          },
+                          "closing_evaluation_ids": {
+                            "anyOf": [
+                              {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Closing Evaluation Ids"
+                          },
+                          "closed_at": {
+                            "anyOf": [
+                              {
+                                "format": "date-time",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "title": "Closed At"
+                          }
+                        },
+                        "required": [
+                          "breach_id",
+                          "agent_id",
+                          "kind",
+                          "latency_threshold_ms",
+                          "environment",
+                          "max_violation_rate",
+                          "confidence",
+                          "window_hours",
+                          "grace_minutes",
+                          "min_samples",
+                          "max_unresolved_fraction",
+                          "closure_windows",
+                          "closure_max_age_hours",
+                          "false_alarm_budget",
+                          "horizon_days",
+                          "opened_at",
+                          "opening_evaluation_id",
+                          "last_breached_evaluation_id",
+                          "outcome",
+                          "withdrawn_reason",
+                          "closing_evaluation_ids",
+                          "closed_at"
+                        ],
+                        "title": "BreachResponse",
+                        "type": "object"
+                      },
+                      "title": "Items",
+                      "type": "array"
+                    },
+                    "has_more": {
+                      "default": false,
+                      "title": "Has More",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "title": "BreachListResponse",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Feature disabled, or the agent is not in the path project or not visible (closed codes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/production-status": {
+      "get": {
+        "summary": "Status of every production requirement that applies to one agent",
+        "operationId": "project_production_breaches.get_production_status",
+        "x-asserted-against-backend": false,
+        "description": "One read for the agent page: rows only, no traces. Dark behind PRODUCTION_REQUIREMENTS_ENABLED.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Production status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../agent_readiness/production_status_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Feature disabled, or the agent is not in the path project or not visible (closed codes)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Closed production_status_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": false
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "error_code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

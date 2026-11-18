@@ -32,7 +32,7 @@ walks the `optimization/` documents (the manifest `docs/content-class-manifest.j
 
 ## Policy read
 
-`GET /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy`
+`GET /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy`
 (response `optimization/tvl_reactive_policy_schema.json`; route in the portal catalog `production_requirements/tvl_reactive_policy_endpoints.json`, registered in `mep_endpoints.json`) is the
 authoritative read of the declared policy: P-human portal read, tenant and project from the
 authenticated context, project and agent authorized before anything is returned. It returns

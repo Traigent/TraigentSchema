@@ -259,10 +259,11 @@ def test_agent_readiness_endpoint_path_set_is_unchanged() -> None:
         )
     )
     assert set(inventory["paths"]) == {
-        "/api/v1beta/projects/{project_id}/agent-readiness",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
+        "/api/v1/projects/{project_id}/agent-readiness/search",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/readiness",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/next-step",
     }
 
 

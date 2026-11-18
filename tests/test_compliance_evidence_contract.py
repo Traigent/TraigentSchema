@@ -1,6 +1,6 @@
 """Contract tests for AGB-74 slice 1: the Agent compliance-evidence response.
 
-New route: GET /api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}
+New route: GET /api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence
 New schema: agent_readiness/compliance_evidence_response_schema.json
 New endpoints module: agent_readiness/compliance_evidence_endpoints.json (registered in
 mep_endpoints.json).
@@ -26,7 +26,7 @@ SCHEMAS = get_schemas_dir()
 READINESS = SCHEMAS / "agent_readiness"
 RESPONSE_PATH = READINESS / "compliance_evidence_response_schema.json"
 ENDPOINTS_PATH = READINESS / "compliance_evidence_endpoints.json"
-ROUTE = "/api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}"
+ROUTE = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence"
 BANNER = "Evidence coverage, not a compliance determination."
 
 _REGISTRY = build_registry(SCHEMAS)
@@ -225,14 +225,14 @@ def test_endpoint_is_registered_and_wired() -> None:
     ).read_text(encoding="utf-8")
     endpoints = load_json(ENDPOINTS_PATH)
     operation = endpoints["paths"][ROUTE]["get"]
-    assert operation["operationId"] == "getProjectAgentComplianceEvidence"
+    assert operation["operationId"] == "project_agent_compliance_evidence.get_agent_compliance_evidence"
     ok = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ok == "./compliance_evidence_response_schema.json"
     for status in ("401", "403", "404"):
         err = operation["responses"][status]["content"]["application/json"]["schema"]["$ref"]
         assert err == "./agent_readiness_error_schema.json"
     param_names = {p["name"] for p in operation["parameters"]}
-    assert param_names == {"project_id", "agent_id"}  # tenant never travels as a parameter
+    assert param_names == {"project_id", "agent_ref"}  # tenant never travels as a parameter
 
 
 _ALL_EMPTY: dict[str, list[str]] = {

@@ -9474,6 +9474,115 @@
       "reason": "Two content classes join the vocabulary for the audit evaluate contract: version joins x-content-class and x-content-key-class (an anchored dotted-digit pattern, proven by the lint) and server_text joins x-content-class only (server-composed text from fixed templates, bounded and noted). Additive: no existing value changes meaning and no existing document uses them; the lint accepts server_text only at one allow-listed response location, never as a map-key class, and tests/test_content_class_lint.py pins both classes.",
       "version": "unreleased (audit evaluate contract, additive)",
       "pr": "#TBD (audit evaluate contract PR, number assigned at publication)"
+    },
+    {
+      "file": "agent_readiness/agent_posture_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2525c335cc58b6cb4c295fafc9befb14637b3ff553cab0e96d199fbfa2b171f1"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the agent posture write moves from /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions to POST /api/v1/projects/{project_id}/agents/{agent_ref}/posture-revisions (operationId project_agent_readiness.create_agent_posture_revision). Request and response bodies are unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8d7fb0cb89848c5dd8f9b054537fee71ea40e8e228d738e639d651593cacb471"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "763f845631cf6b5f78973f3386d4b5b7dbd349fe063a746d2bd7d681ba30bf9a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "70ec10d63c46d20498ee3f8a76273a1f40e2f06f964dfd782bc3649cbcd8e639"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "876a75e705edb577db10208465a2d43b7d5a0d2de4a45b8deb970d927bdc5bd5"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the agent readiness module moves under /api/v1/projects/{project_id}. The list becomes POST /agent-readiness/search with the former query parameters in the request body; readiness detail, lifecycle history and target revisions move to /agents/{agent_ref}/readiness, /lifecycle-history and /target-revisions; operationIds become the backend operation ids. next-step is added. Response shapes are unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "d46d50ad84e1ddea33c78c0d527e2ca43bdf8da88eaed608e831e497271a6090"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): agent compliance evidence moves from /api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id} to GET /api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence (operationId project_agent_compliance_evidence.get_agent_compliance_evidence). Response unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "db686ac623b9362f673c34841edbbd9e76487f635562ceb29f6e0efaa4082583"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the reactive policy read keeps its project-level mount but the agent path parameter is renamed from agent_id to agent_ref and the operationId becomes project_production_reactive_policy.read_policy, matching the backend. Response unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-replay",
+          "role": "conservative",
+          "subject": "x-replay",
+          "old": false,
+          "new": true,
+          "fingerprint": "66334f3bb9b3226273fa3f0af58384b4c3668e04124a5f8f8e77ef724c2a77a8"
+        }
+      ],
+      "reason": "Adds the x-replay vocabulary entry (value 'read') that marks a POST operation as a non-mutating search. The meta schema is a vocabulary document that is not applied to request or response bodies at runtime, so no consumer can observe the new property.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
     }
   ]
 }

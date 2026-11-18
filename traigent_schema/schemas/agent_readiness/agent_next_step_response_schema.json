@@ -1,0 +1,612 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/agent_next_step_response_schema.json",
+  "title": "Agent next step",
+  "description": "The ONE next step for an Agent (AgentNextStep contract v1). Served by GET /api/v1/projects/{project_id}/agents/{agent_ref}/next-step. Content-free: enums and server-issued ids only. Agent and team names, dataset and example ids and labels are customer content and never appear. basis is display freshness, NOT an execution guard: writes keep their own 409 chains and a client that gets a 409 refetches and recomputes, never auto-replays.",
+  "$ref": "#/definitions/AgentNextStep",
+  "definitions": {
+    "AgentNextStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_version",
+        "rule_version",
+        "agent_id",
+        "state",
+        "step",
+        "also_needed",
+        "basis",
+        "basis_digest"
+      ],
+      "properties": {
+        "catalog_version": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        },
+        "rule_version": {
+          "const": "agent-next-step-v1"
+        },
+        "agent_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Server-issued opaque reference, not the customer-chosen id."
+        },
+        "state": {
+          "enum": [
+            "STEP",
+            "NO_STEP"
+          ],
+          "description": "STEP iff step is non-null."
+        },
+        "step": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/Step"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "also_needed": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/definitions/AlsoNeeded"
+          },
+          "description": "Non-executable blockers: shown to the reader, never given a button."
+        },
+        "basis": {
+          "$ref": "#/definitions/Basis"
+        },
+        "basis_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "Step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "actor",
+        "required",
+        "destination"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "RETRY_LATER",
+            "REQUEST_ACCESS",
+            "WAIT_FOR_EVALUATION_RUN",
+            "ESTABLISH_BASELINE_EVALUATION",
+            "ASSIGN_AGENT_OWNER",
+            "RESTORE_PRODUCTION_REQUIREMENT",
+            "INVESTIGATE_CONFIRMED_ISSUE",
+            "RECORD_TARGET_METRIC",
+            "NARROW_TARGET_INTERVAL",
+            "RECONFIRM_ACCURACY_TARGET",
+            "COMPLETE_EVALUATION_RUN",
+            "EVALUATE_DATASET_EXAMPLES",
+            "RECORD_ACCURACY_MEASURE"
+          ]
+        },
+        "actor": {
+          "enum": [
+            "TRAIGENT",
+            "CODING_AGENT",
+            "PERSON"
+          ]
+        },
+        "required": {
+          "$ref": "#/definitions/Required"
+        },
+        "destination": {
+          "$ref": "#/definitions/Destination"
+        }
+      }
+    },
+    "Required": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "human_session_only",
+        "capability"
+      ],
+      "properties": {
+        "role": {
+          "description": "The least role the actor needs; null when none is needed. viewer and editor are the project roles of src/security/project_rbac.py PROJECT_ROLE_RANK (the roles project_role_required checks); tenant_owner_or_admin is a human session whose tenant role is in TENANT_ADMIN_ROLES (owner, admin), as enforced for team-ownership writes by require_tenant_owner_or_admin_human.",
+          "enum": [
+            "viewer",
+            "editor",
+            "tenant_owner_or_admin",
+            null
+          ]
+        },
+        "human_session_only": {
+          "type": "boolean"
+        },
+        "capability": {
+          "description": "A named grant the actor must hold (e.g. an active reviewer grant); null when none.",
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "agent_id",
+        "experiment_id",
+        "run_id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "NONE",
+            "AGENT",
+            "RUN",
+            "AGENT_OWNERSHIP",
+            "ACCESS_REQUEST"
+          ]
+        },
+        "agent_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "experiment_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "run_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "AlsoNeeded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "actor"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "OWNER_NOT_ASSIGNED",
+            "DEPLOYMENT_STAGE_NOT_DECLARED",
+            "CRITICALITY_NOT_DECLARED",
+            "ACCURACY_REQUIREMENT_NOT_DECLARED",
+            "LATEST_RUN_PAUSED_OR_FAILED",
+            "EVALUATION_SYSTEM_VALIDITY_DECAYED",
+            "EVALUATION_PROGRESSION_PENDING",
+            "EVIDENCE_NOT_ASSESSABLE",
+            "CONFIRMED_ISSUE_PENDING",
+            "TARGET_EVIDENCE_INCONCLUSIVE",
+            "DECISION_DECLARATIONS_MISSING",
+            "PRODUCTION_BREACH_OPEN"
+          ]
+        },
+        "actor": {
+          "enum": [
+            "PERSON",
+            "CODING_AGENT"
+          ]
+        }
+      }
+    },
+    "Basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "next_action_code",
+        "anchor_run_id",
+        "active_run",
+        "latest_run_status",
+        "posture_revision_id",
+        "target_revision_ids",
+        "ownership",
+        "validity",
+        "target_outcome",
+        "dataset_updated_at"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "AVAILABLE",
+            "UNAVAILABLE",
+            "ACCESS_DENIED",
+            "NOT_FOUND"
+          ]
+        },
+        "next_action_code": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "anchor_run_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_run": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "run_id",
+                "status"
+              ],
+              "properties": {
+                "run_id": {
+                  "oneOf": [
+                    {
+                      "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "posture_revision_id": {
+          "oneOf": [
+            {
+              "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_revision_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "latency",
+            "accuracy"
+          ],
+          "properties": {
+            "latency": {
+              "oneOf": [
+                {
+                  "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "accuracy": {
+              "oneOf": [
+                {
+                  "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "ownership": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "event_id"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "ASSIGNED",
+                "UNASSIGNED",
+                "NOT_SERVED"
+              ]
+            },
+            "event_id": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Server-issued id of the ownership event in force; never a team id."
+            }
+          }
+        },
+        "validity": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "level",
+                "decayed_reason",
+                "valid_until",
+                "pillars"
+              ],
+              "properties": {
+                "level": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "decayed_reason": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "valid_until": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pillars": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "status",
+                      "status_reason",
+                      "validation_id",
+                      "expires_at"
+                    ],
+                    "properties": {
+                      "status": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "status_reason": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "validation_id": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "expires_at": {
+                        "oneOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "description": "One validity pillar: closed status enums and the server-issued validation record id; content-free."
+                  },
+                  "description": "Per-pillar validity (keys: evaluator, evaluation_dataset), so a transition between two distinct non-validated or rejected states changes basis_digest."
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latest_run_status": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_outcome": {
+          "oneOf": [
+            {
+              "enum": [
+                "TARGET_NOT_DECLARED",
+                "TARGET_CANNOT_DETERMINE",
+                "MEETS_TARGET",
+                "BELOW_TARGET",
+                "INTERVAL_STRADDLES_TARGET"
+              ],
+              "description": "Target outcome reason for the anchor against the declared accuracy requirement (closed enum, content-free); null without an anchor. A freshness input: a new evaluation can change it without a new requirement revision."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dataset_updated_at": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 64,
+              "description": "Benchmark.updated_at of the anchor's evaluation dataset (ISO-8601 UTC, server written, content-free): a freshness input."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "production_breach": {
+          "description": "Present only while PRODUCTION_REQUIREMENTS_ENABLED is on (absent otherwise, so flag-off digests are unchanged). The agent's longest-standing open production breach, or null. Content-free: an opaque reference (a server-issued breach id), a closed kind, the approved numbers of the opening window and its date. Never an environment label, agent key or any other customer string.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "open_breach_ref",
+                "kind",
+                "max_violation_rate",
+                "lo_bound",
+                "n",
+                "u",
+                "opened_on",
+                "open_breaches_digest"
+              ],
+              "properties": {
+                "open_breach_ref": {
+                  "$ref": "./agent_readiness_common_schema.json#/definitions/OpaqueId"
+                },
+                "kind": {
+                  "enum": [
+                    "latency_violation_rate"
+                  ]
+                },
+                "max_violation_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                "lo_bound": {
+                  "oneOf": [
+                    {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "u": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "opened_on": {
+                  "type": "string",
+                  "format": "date",
+                  "maxLength": 10
+                },
+                "open_breaches_digest": {
+                  "description": "Fingerprint of the complete authorized set of the agent's open breaches (sorted server breach ids and opening dates); the displayed breach is only the oldest of them.",
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

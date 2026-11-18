@@ -69,8 +69,13 @@
     },
     {
       "name": "TVL Reactive Policy Read",
-      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy; flag-gated, closed response).",
+      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy; flag-gated, closed response).",
       "paths_file": "./production_requirements/tvl_reactive_policy_endpoints.json"
+    },
+    {
+      "name": "Agent Production Status",
+      "description": "Read-only production status and breach history of one Agent (/api/v1/projects/{project_id}/agents/{agent_ref}/production-status and .../production-breaches; flag-gated).",
+      "paths_file": "./production_requirements/production_breaches_endpoints.json"
     },
     {
       "name": "TVL Reactive Import",

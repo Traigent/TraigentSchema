@@ -124,6 +124,11 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     # which a lead's baseline is measured — the onboarding funnel step, not the
     # artifact-state lifecycle "baseline" state this guard protects.
     ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
+    # audit_evaluate request: `empty` is one of the five unusable-gold kinds of a dataset file
+    # summary (a count of rows whose gold value is the empty string) and `blocked` is one value of
+    # the scorer probe status. Neither is the artifact-state lifecycle vocabulary this guard protects.
+    ("audit_evaluate/audit_evaluate_request_schema.json", "empty"),
+    ("audit_evaluate/audit_evaluate_request_schema.json", "blocked"),
 }
 
 

@@ -9391,6 +9391,91 @@
       "reason": "API revision Phase 3 (TraigentBackend #6193): the agents family is served only at /api/v1/projects/{project_id}/agents[...] with opaque agent_ref paths; GET /api/v1/agent-types replaces /api/v1/agents/agent-types; agent search and optimization-summaries are POST .../search with JSON bodies; create ignores client ids. The retired /api/v1/agents/... (and /api/v1beta/projects/{project_id}/agents) routes answer a closed 404 and are no longer declared. GET /api/v1/agents/admin/stats and POST /api/v1/model-parameters are unchanged. Pre-release contract and no external clients, so no consumer is affected; consumers regenerate from the new paths.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
       "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/x-content-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"server_text\"",
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "70ed48e4836c3b9cb36d33344f9eb5cf3605c994e476b8e93168e9f6c734e81e"
+        },
+        {
+          "pointer": "#/properties/x-content-key-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"server_text\"",
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "2beeac5e7c7eb912fe0e1187acabd5e11974e96590a0858bf6cf95af3b6a04a5"
+        }
+      ],
+      "reason": "Two content classes join the x-content-class and x-content-key-class vocabulary for the audit evaluate contract: version (an anchored dotted-digit pattern, proven by the lint) and server_text (server-composed text from fixed templates, bounded and noted). Additive: no existing value changes meaning and no existing document uses them; the lint enforces both classes and tests/test_content_class_lint.py pins them.",
+      "version": "unreleased (audit evaluate contract, additive)",
+      "pr": "#TBD (audit evaluate contract PR, number assigned at publication)"
     }
   ]
 }

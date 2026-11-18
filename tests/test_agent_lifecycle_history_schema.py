@@ -1,6 +1,6 @@
 """Contract tests for Lane 3's fleet-agent lifecycle-history bridge.
 
-New route: GET /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history
+New route: GET /api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history
 New schema: agent_readiness/agent_lifecycle_history_response_schema.json
 Operation added to the existing agent_readiness/agent_readiness_endpoints.json module
 (already registered in mep_endpoints.json; no new endpoints module needed).
@@ -35,7 +35,7 @@ READINESS = SCHEMAS / "agent_readiness"
 RESPONSE_SCHEMA_PATH = READINESS / "agent_lifecycle_history_response_schema.json"
 ENDPOINTS_PATH = READINESS / "agent_readiness_endpoints.json"
 ERROR_SCHEMA_PATH = READINESS / "agent_readiness_error_schema.json"
-ROUTE = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history"
+ROUTE = "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history"
 
 _load = load_json
 _REGISTRY = build_registry(SCHEMAS)
@@ -304,8 +304,8 @@ def test_endpoint_registered_with_expected_params_and_responses() -> None:
     params = {p["name"]: p for p in op["parameters"]}
     assert params["project_id"]["in"] == "path"
     assert params["project_id"]["required"] is True
-    assert params["agent_id"]["in"] == "path"
-    assert params["agent_id"]["required"] is True
+    assert params["agent_ref"]["in"] == "path"
+    assert params["agent_ref"]["required"] is True
 
     page = params["page"]
     assert page["in"] == "query"

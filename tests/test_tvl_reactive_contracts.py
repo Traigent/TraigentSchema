@@ -759,7 +759,7 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
                 (
                     "/api/v1/production-reactive/agents/{agent_ref}",
                     "/api/v1/best-configs/agent-heads/{agent_ref}",
-                    "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy",
+                    "/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy",
                     "/api/v1/projects/{project_id}/production-requirements/tvl-import",
                 )
             )
@@ -1232,7 +1232,7 @@ def test_lapsed_optimization_cancel_projects_to_a_valid_trace_and_records_optimi
 
 
 # ------------------------------------------------------------------ policy read (follow-up)
-POLICY_PATH = "/api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy"
+POLICY_PATH = "/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy"
 
 
 def _notify(**o):
@@ -1292,7 +1292,7 @@ def test_policy_read_is_registered_and_closed():
     assert POLICY_PATH not in load(OPT / "tvl_reactive_endpoints.json")["paths"]
     get = cat["paths"][POLICY_PATH]["get"]
     assert all("x-content-class" not in p["schema"] for p in get["parameters"])
-    assert get["operationId"] == "getTvlReactivePolicy"
+    assert get["operationId"] == "project_production_reactive_policy.read_policy"
     assert set(get["responses"]) == {"200", "400", "401", "403", "404", "429", "500", "503"}
     assert "P-human only" in get["description"]
     assert "agent_ref" in get["description"]

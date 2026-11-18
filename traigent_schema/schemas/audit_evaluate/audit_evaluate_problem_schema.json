@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_problem_schema.json",
+  "title": "Audit Evaluate Problem",
+  "description": "Closed not-found problem body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "title",
+    "status",
+    "code",
+    "detail",
+    "problem_id"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "type": {
+      "const": "urn:traigent:problem:not_found",
+      "x-content-class": "closed_enum"
+    },
+    "title": {
+      "const": "Not Found",
+      "x-content-class": "closed_enum"
+    },
+    "status": {
+      "const": 404,
+      "x-content-class": "closed_enum"
+    },
+    "code": {
+      "const": "not_found",
+      "x-content-class": "closed_enum"
+    },
+    "detail": {
+      "const": "The requested resource was not found.",
+      "x-content-class": "closed_enum"
+    },
+    "problem_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "x-content-class": "opaque_ref"
+    }
+  }
+}

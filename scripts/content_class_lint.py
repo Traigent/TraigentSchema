@@ -48,6 +48,8 @@ CONTENT_CLASSES = frozenset(
         "code_identifier",
         "encrypted_blob",
         "auth_header",
+        "version",
+        "server_text",
         "legacy_content",
     }
 )
@@ -96,6 +98,7 @@ _FIXED_REF_PATTERNS = frozenset(
         "^xr_[0-9a-f]{32}$",
         "^dr_[0-9a-f]{32}$",  # host-prompt decision id
         "^rn_[0-9a-f]{32}$",  # client retry nonce for one answer attempt
+        "^[0-9a-f]{32}$",  # per-request problem id (uuid4 hex) of a closed problem body
     }
 )
 
@@ -170,6 +173,26 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
             if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
                 return None
         return "code_identifier needs an identifier or repo-relative path pattern"
+    if cls == "version":
+        # A dotted numeric version: digit groups only, a bounded length, and nothing else.
+        if rx is None or not isinstance(node.get("maxLength"), int):
+            return "version needs a dotted-numeric pattern and maxLength"
+        if not rx.search("1.2.3") or any(
+            rx.search(x) for x in ("Alice_has_diabetes", "1.2.3-alice", "1.2.3 ", "", "a.b.c")
+        ):
+            return "version pattern must accept 1.2.3 and reject free text"
+        if not re.fullmatch(r"\^\[0-9\]\{\d+,\d+\}(\\\.\[0-9\]\{\d+,\d+\})+\$", pattern):
+            return "version pattern must be anchored digit groups joined by dots"
+        return None
+    if cls == "server_text":
+        # Not provable from keywords (English prose cannot be told from customer prose by a
+        # pattern): the class is an assertion that the server composes the text from fixed
+        # templates, so it must be bounded, noted, and is only for server-to-client bodies.
+        if not isinstance(node.get("maxLength"), int):
+            return "server_text needs maxLength"
+        if not (isinstance(node.get(NOTE_KEY), str) and node[NOTE_KEY].strip()):
+            return "server_text needs an x-content-note naming the fixed-template source"
+        return None
     if cls == "key_material":
         if pattern != BASE64URL_PATTERN:
             return "key_material needs the base64url pattern " + BASE64URL_PATTERN
@@ -223,7 +246,17 @@ EXTRA_ROOT_FILES = (
     "fleet_observe/import_event_schema.json",
     "fleet_observe/coverage_ratio_schema.json",
     "fleet_observe/finding_schema.json",
+    # Audit evaluate: closed project audit summary in, closed findings and next step out.
+    # audit_evaluate_endpoints.json is deliberately NOT a root (see the NOTE below): its
+    # {project_id} path parameter has no approved ref pattern.
+    "audit_evaluate/audit_evaluate_request_schema.json",
+    "audit_evaluate/audit_evaluate_response_schema.json",
+    "audit_evaluate/audit_evaluate_error_schema.json",
+    "audit_evaluate/audit_evaluate_problem_schema.json",
 )
+# NOTE: audit_evaluate_endpoints.json is deliberately NOT a lint root: its {project_id} path
+# parameter has no approved ref pattern (the Backend accepts any 1-128 character id), is request
+# path only and is never echoed; its four body schemas above are roots.
 # NOTE: agent_decision_endpoints.json is deliberately NOT a lint root: its {agent_id} path parameter
 # is the customer's own agent id (free text, request path only, never echoed), like every agent
 # endpoint; the ratchet admits no new legacy_content and no content-free class fits it.

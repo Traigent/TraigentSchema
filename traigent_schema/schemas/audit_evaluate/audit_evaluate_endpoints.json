@@ -1,0 +1,141 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Audit Evaluate",
+    "version": "1.0.0",
+    "description": "Closed project audit evaluation."
+  },
+  "paths": {
+    "/api/v1/projects/{project_id}/audit/evaluate": {
+      "post": {
+        "operationId": "audit_evaluate.evaluate_audit_summary",
+        "summary": "Evaluate a closed audit summary",
+        "x-asserted-against-backend": true,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./audit_evaluate_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evaluated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_problem_schema.json"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rate limiter unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./audit_evaluate_error_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

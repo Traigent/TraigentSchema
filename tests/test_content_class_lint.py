@@ -36,6 +36,8 @@ CONTENT_FREE = {
     "code_identifier",
     "encrypted_blob",
     "auth_header",
+    "version",
+    "server_text",
 }
 
 
@@ -309,6 +311,59 @@ def _ok(tmp_path: Path, prop: dict) -> None:
 
 UUID = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 B64 = "^[A-Za-z0-9_-]+$"
+
+
+VERSION = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
+
+
+def test_version_requires_an_anchored_digit_group_pattern_and_max_length(tmp_path: Path) -> None:
+    assert _bad(tmp_path, {"type": "string", "x-content-class": "version"})
+    assert _bad(tmp_path, {"type": "string", "pattern": VERSION, "x-content-class": "version"})
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": "^[0-9a-z.]+$", "x-content-class": "version"},
+    )
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": r"^[0-9]{1,3}\.[0-9]{1,3}", "x-content-class": "version"},
+    )
+    assert _bad(
+        tmp_path, {"type": "integer", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"}
+    )
+    _ok(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"},
+    )
+
+
+def test_server_text_requires_max_length_and_a_source_note(tmp_path: Path) -> None:
+    assert _bad(tmp_path, {"type": "string", "x-content-class": "server_text"})
+    assert _bad(tmp_path, {"type": "string", "maxLength": 400, "x-content-class": "server_text"})
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 400, "x-content-note": " ", "x-content-class": "server_text"},
+    )
+    assert _bad(
+        tmp_path,
+        {"type": "integer", "maxLength": 400, "x-content-note": "n", "x-content-class": "server_text"},
+    )
+    _ok(
+        tmp_path,
+        {
+            "type": "string",
+            "maxLength": 400,
+            "x-content-note": "Server-authored from fixed templates.",
+            "x-content-class": "server_text",
+        },
+    )
+
+
+def test_a_bare_32_hex_problem_id_is_an_opaque_ref_but_free_text_is_not(tmp_path: Path) -> None:
+    _ok(tmp_path, {"type": "string", "pattern": "^[0-9a-f]{32}$", "x-content-class": "opaque_ref"})
+    assert _bad(
+        tmp_path, {"type": "string", "pattern": "^[0-9a-f]{1,32}$", "x-content-class": "opaque_ref"}
+    )
+    assert _bad(tmp_path, {"type": "string", "maxLength": 64, "x-content-class": "opaque_ref"})
 
 
 def test_closed_enum_requires_enum_or_const(tmp_path: Path) -> None:

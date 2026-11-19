@@ -9583,6 +9583,188 @@
       "reason": "Adds the x-replay vocabulary entry (value 'read') that marks a POST operation as a non-mutating search. The meta schema is a vocabulary document that is not applied to request or response bodies at runtime, so no consumer can observe the new property.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
       "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "658226d652dd4a119676fe92ce60387d60b213597df49221aaa71367c6d635cd"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "169911ca606df1fff82c85803af9602c1d769af27ccbefeeb0a6b981e4168919"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/suggestions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "278b3c5560bec93bea37ae8ac3a742039486d4cb582b9effb6bcf50ae0c4fa37"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9a61742142cd5265ae9ed677a3841906e0007a2b06d57bc260f9a9456119f8b3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c4e1270948930a48d824d432d03d4f25a3e6ac8919194bd5c2f903a3e5cf058e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/capabilities/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3385664b03cdd9e3191b9db9a0da063d38c395d728998215affeb96762486fe1"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/{attestation_id}/revocations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ac9c057e54053400fd5b28a56a31094121a94b14ddada85a46d551bec11d132a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "62bb36322f1c6157143146367b3367d900c0693239d841f47cbe71cb1249af13"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "65867365fa11a87832c6375f34f289f44c8f805554bfc568ab67879fab0b4b95"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "34a30a5ce97698a7f062ee5fd3d594368045808734df9a15453d8f15c9f86cb6"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_document_ref_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "cd42a4a8422d5269d7ae430471a05a795fee4becfdfb7aedff0be2794d9b72c3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ec0e5855c2f63819855b741804f52a82b9ba6e92e568f9300ada278db55825da"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/{reference_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "156c3fa99ec0315f78726f10c36410baf823b6f1691374eec49fe0592e0b5dd9"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_export_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-evidence-exports/agents/{agent_id}/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ff2b69682d254d57ee7d2395ec577b7563eab482ce3b1b80d6ce1e67a4dd8ece"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/agent_head_by_ref_response_schema.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "30a042ae2756d1330685243bb1e9486f5d8282275bda1dcb05f03d142414afbb"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/best_config_head_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/agent-heads/by-ref/{agent_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "306bf455255550cfc8fa16f7e44ff55a8f529da6eb4dc9756c6132a33ee8c84a"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
     }
   ]
 }

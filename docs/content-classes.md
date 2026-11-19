@@ -159,7 +159,7 @@ members of its closed vocabulary.
 
 | Item | Contract |
 |---|---|
-| `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names; `exists` is false iff `generation` is 0 |
+| `GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body is declared inline there = `{success, data: {agent_id, environment, generation (integer >= 0), best_config_id, best_config_version, promoted_by_run_id, updated_at}}`; `generation` 0 means never promoted (the by-ref form and its closed `exists` response schema were removed: the backend never served them) |
 | `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
 | Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), `head_body_invalid` (400), `head_publish_conflict` (409), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |

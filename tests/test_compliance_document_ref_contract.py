@@ -205,7 +205,7 @@ def test_list_response_declares_real_pagination() -> None:
     too_big["pagination"]["per_page"] = 101
     assert _errors("DocumentReferenceListResponse", too_big) != []
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    listing = paths["/api/v1beta/projects/{project_id}/compliance-document-refs/agents/{agent_id}"]
+    listing = paths["/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs"]
     names = {p["name"] for p in listing["get"]["parameters"]}
     assert {"page", "per_page"} <= names
 
@@ -217,7 +217,7 @@ def test_the_url_is_in_bodies_only_never_a_path_or_query_parameter() -> None:
         for operation in item.values():
             for parameter in operation["parameters"]:
                 assert parameter["name"] not in {"url", "sha256", "document_url"}
-    post = paths["/api/v1beta/projects/{project_id}/compliance-document-refs"]["post"]
+    post = paths["/api/v1/projects/{project_id}/compliance-document-refs"]["post"]
     assert "requestBody" in post
 
 
@@ -272,11 +272,11 @@ def test_endpoints_are_registered_and_wired() -> None:
         SCHEMAS / "mep_endpoints.json"
     ).read_text(encoding="utf-8")
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    base = "/api/v1beta/projects/{project_id}/compliance-document-refs"
+    base = "/api/v1/projects/{project_id}/compliance-document-refs"
     assert set(paths) == {
         base,
         base + "/{reference_id}/withdrawals",
-        base + "/agents/{agent_id}",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs",
     }
     for item in paths.values():
         for operation in item.values():

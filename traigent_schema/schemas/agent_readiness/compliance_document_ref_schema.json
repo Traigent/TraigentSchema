@@ -70,6 +70,36 @@
       "properties": {},
       "description": "Empty by design: a withdrawal carries no free text."
     },
+    "DocumentReferenceSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q"],
+      "properties": {
+        "q": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "CUSTOMER CONTENT. A case-insensitive substring matched against the declared document link; every character is literal (no wildcards). Trimmed of surrounding whitespace first: 1 to 200 characters after trimming, no control characters. Sent in the body only, never in a URL; the Backend never logs, audits or echoes it."
+        },
+        "include_withdrawn": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, withdrawal rows and withdrawn references that match are listed too; a withdrawal row has no link, so it never matches a search text."
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "per_page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25
+        }
+      },
+      "description": "Closed request of the document-reference search (a read served as POST so the search text stays out of URLs). The agent is named in the path; actor, tenant and project are server-derived."
+    },
     "DocumentReferenceRecord": {
       "type": "object",
       "additionalProperties": false,

@@ -470,6 +470,7 @@
                       "enum": [
                         "The statement changed since it was displayed.",
                         "The agent changed since it was displayed.",
+                        "The agent or its standing attestation changed since it was displayed.",
                         "A statement of this kind needs at least one linked document reference.",
                         "A linked document reference is not valid for this agent."
                       ]
@@ -479,6 +480,7 @@
                       "enum": [
                         "stale_statement",
                         "stale_fingerprints",
+                        "stale_review_context",
                         "linked_reference_required",
                         "linked_reference_invalid"
                       ]
@@ -488,6 +490,7 @@
                       "enum": [
                         "stale_statement",
                         "stale_fingerprints",
+                        "stale_review_context",
                         "linked_reference_required",
                         "linked_reference_invalid"
                       ]
@@ -503,6 +506,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The server cannot issue or verify the review context right now; nothing is recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
                 }
               }
             }

@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
   merge_group: {}
   push:
-    branches: [main]
+    branches: [main, develop]
   schedule:
     - cron: "31 3 * * 1"
   workflow_dispatch:

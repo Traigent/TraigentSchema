@@ -9500,6 +9500,121 @@
       "reason": "Adds the x-replay vocabulary entry (value 'read') that marks a POST operation as a non-mutating search. The meta schema is a vocabulary document that is not applied to request or response bodies at runtime, so no consumer can observe the new property.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
       "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "975140ed8df96ec41636ebcbd8f4bbad46d3e6cbf55039ff552e8d8a8807c4b5"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "b6e8f5ecd9f7e4c3dccec9bad4c6a4f2b09332d46c4b164ba0ce2462bf66fb79"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"The agent or its standing attestation changed since it was displayed.\""
+            ]
+          },
+          "old": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "new": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The agent or its standing attestation changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "fingerprint": "4d98f11cdacd1af758bfab94605854cc634460db43adf1e684ab2fb60de7cb48"
+        }
+      ],
+      "reason": "AGB-79 C1: the sign operation's 409 answers a new closed reason stale_review_context (with its fixed message) when the echoed review_context no longer matches the server's recomputation. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 C1 review_context; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 C1, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "0e2ea0fee935c7ebb32e7580840901399d5cb45ff021335ca9cb4db4cf3e625f"
+        }
+      ],
+      "reason": "AGB-79 C1: attestation signing must echo review_context, the keyed freshness token read from the evidence response, so a signature is bound to the subject the signer reviewed. Coordinated pre-release break: the feature is dark in production and no external client signs; backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 C1 review_context; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 C1, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/ingredients/items/properties/review_context",
+          "role": "response",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "4168aaf4afd50a070c88bb86d61e61f0a6ecc955a07d7aabcb54826ed89f0e6c"
+        }
+      ],
+      "reason": "AGB-79 C1: A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 C1 review_context; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 C1, not yet opened)"
     }
   ]
 }

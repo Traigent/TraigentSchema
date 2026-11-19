@@ -25,8 +25,8 @@ jobs:
   # Fail-fast PR metadata check (owner ruling 2026-11-19): a PR with a bad body
   # fails here in seconds, before any expensive job starts. Every root job
   # `needs: pr-metadata`. This workflow does NOT trigger on `edited`; after fixing
-  # the PR body, re-run the gate with `gh run rerun <id> --failed` (a body edit
-  # re-runs only the standalone ticket-and-security / spine-trail checks).
+  # the PR body, `gh run rerun <id> --failed` re-checks the current body (it is
+  # fetched from the API, not read from the original event payload).
   # The PR body is untrusted: it reaches scripts only through env vars. The
   # base-branch copy of the checker decides; the head copy runs only on the
   # bootstrap PR that adds it. Push/schedule/merge_group runs pass through.
@@ -36,10 +36,21 @@ jobs:
     timeout-minutes: 3
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - name: Not a pull request
         if: github.event_name != 'pull_request'
         run: echo "no PR body to check on ${{ github.event_name }}; the PR's own run gated it"
+      - name: Fetch the current PR body and author
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' > "$RUNNER_TEMP/pr_body"
+          gh api "repos/$REPO/pulls/$PR" --jq '.user.login' > "$RUNNER_TEMP/pr_author"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request'
         with:
@@ -55,10 +66,9 @@ jobs:
           sparse-checkout: .github/scripts
       - name: Check ticket and security note
         if: github.event_name == 'pull_request'
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
+          PR_BODY="$(cat "$RUNNER_TEMP/pr_body")"; export PR_BODY
+          PR_AUTHOR="$(cat "$RUNNER_TEMP/pr_author")"; export PR_AUTHOR
           if [ -f base/.github/scripts/check_pr_ticket_security.py ]; then
             python3 base/.github/scripts/check_pr_ticket_security.py
           else
@@ -66,11 +76,14 @@ jobs:
             python3 head/.github/scripts/check_pr_ticket_security.py
           fi
       - name: Check spine mark
-        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
+        if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
+          if [ "$(cat "$RUNNER_TEMP/pr_author")" = "dependabot[bot]" ]; then
+            echo "Dependabot PR: exempt from the spine-mark requirement."
+            exit 0
+          fi
+          PR_BODY="$(cat "$RUNNER_TEMP/pr_body")"
           trail='^[[:space:]]*Spine-Trail:[[:space:]]*st_[0-9a-f]{12}[[:space:]]*$'
           session='^[[:space:]]*Spine:[[:space:]]*cs_[0-9a-z]{6,}[[:space:]]*$'
           waiver='^[[:space:]]*Spine:[[:space:]]*none[[:space:]]*\(reason:.+\)[[:space:]]*$'

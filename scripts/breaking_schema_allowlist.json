@@ -9900,6 +9900,30 @@
       "reason": "API revision Phase 3 slice 2 PR-3: the cross-tenant agent statistics route is platform-admin only (served privately at /api/v1/admin/agents/stats) and leaves the public Schema. It was declared with a bare 200 and no body schema. Pre-release contract and no external clients, so no consumer is affected.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
       "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_metrics",
+          "role": "conservative",
+          "subject": "best_metrics",
+          "old": false,
+          "new": true,
+          "fingerprint": "40e3db613ca427383963a91a675ff1c446bc1ef2d347cee79b0f543667cc0c16"
+        },
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_trial_id",
+          "role": "conservative",
+          "subject": "best_trial_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "f500f6711ca939c6e8589f8d89f27b853c3b6156d01cb0445cf1020f8d8df4ee"
+        }
+      ],
+      "reason": "The experiments-list run summary gains two optional, nullable members so the portal list can show the best trial's score: best_trial_id and best_metrics, read from the selection the backend already records at finalize. Both are additive and not required. The only consumer that validates this closed object is the Traigent portal, which updates in step with the backend, so an older consumer rejecting the new members is an accepted, reviewed risk.",
+      "version": "Unreleased"
     }
   ]
 }

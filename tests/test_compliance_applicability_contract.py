@@ -480,3 +480,33 @@ def test_rationale_required_is_a_closed_declared_400_on_the_write() -> None:
     post = endpoints["paths"]["/api/v1beta/projects/{project_id}/compliance-applicability"]["post"]
     refs = [b["$ref"] for b in post["responses"]["400"]["content"]["application/json"]["schema"]["oneOf"]]
     assert "./compliance_applicability_schema.json#/definitions/RationaleRequiredError" in refs
+
+
+_BLANK_RATIONALES = [
+    "",
+    "   ",
+    " \t\n\r ",
+    "\u0085",
+    "\u00a0",
+    "\u200b",
+    "\u200c",
+    "\u200d",
+    "\ufeff",
+    "\u2060",
+    "\u3000",
+    " \ufeff\u200b\u2060 ",
+]
+_PRESENT_RATIONALES = ["a", "\ufeffa", "\u200bx\u200b", "\u05e9\u05dc\u05d5\u05dd", "\u4e2d\u6587", " why "]
+
+
+@pytest.mark.parametrize("text", _BLANK_RATIONALES)
+def test_a_blank_rationale_is_refused_for_not_applicable(text: str) -> None:
+    """Same case table as the backend and frontend tests: separators, controls, format characters."""
+    item = {"obligation_id": _OBL, "decision": "not_applicable", "rationale": text}
+    assert _errors("DecisionInput", item) != []
+
+
+@pytest.mark.parametrize("text", _PRESENT_RATIONALES)
+def test_a_visible_rationale_is_accepted_for_not_applicable(text: str) -> None:
+    item = {"obligation_id": _OBL, "decision": "not_applicable", "rationale": text}
+    assert _errors("DecisionInput", item) == []

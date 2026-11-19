@@ -71,7 +71,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2000,
-          "description": "Optional free text, except that it is REQUIRED (at least one non-whitespace character) when `decision` is `not_applicable`. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
+          "description": "Optional free text, except that it is REQUIRED (at least one character outside Unicode categories Z*, Cc and Cf: whitespace, control and zero-width/format characters alone count as blank; this schema lists the BMP code points explicitly, the server is the authority for the full rule) when `decision` is `not_applicable`. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
         }
       },
       "if": {
@@ -80,7 +80,7 @@
       },
       "then": {
         "required": ["rationale"],
-        "properties": { "rationale": { "type": "string", "minLength": 1, "pattern": "\\S" } }
+        "properties": { "rationale": { "type": "string", "minLength": 1, "pattern": "[^\\u0000-\\u0020\\u007F-\\u00A0\\u00AD\\u0600-\\u0605\\u061C\\u06DD\\u070F\\u1680\\u180E\\u2000-\\u200F\\u2028-\\u202F\\u205F-\\u2064\\u2066-\\u206F\\u3000\\uFEFF\\uFFF9-\\uFFFB]" } }
       }
     },
     "DecisionCarry": {

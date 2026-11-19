@@ -78,6 +78,11 @@
       "paths_file": "./production_requirements/production_breaches_endpoints.json"
     },
     {
+      "name": "Fleet Observe",
+      "description": "Fleet Observe v1 routes (/api/v1beta/projects/{project_id}/fleet-observe: imports, clusters, coverage, diff, findings; flag-gated, human principals only; TRAIG-179).",
+      "paths_file": "./fleet_observe/fleet_observe_endpoints.json"
+    },
+    {
       "name": "TVL Reactive Import",
       "description": "Import of a compiled TVL runtime contract; zero-native contracts return a closed reactive import receipt (TRAIG-101; /api/v1/projects/{project_id}/production-requirements/tvl-import; flag-gated).",
       "paths_file": "./production_requirements/tvl_reactive_import_endpoints.json"

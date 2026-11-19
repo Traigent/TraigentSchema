@@ -1,0 +1,906 @@
+{
+  "description": "Shared test vectors for the Fleet Observe canonical request digest (request_digest_v1.md). SDK and API server tests feed each input through their own implementation and compare. valid[*].expected_request_digest and expected_idempotency_key are exact; entries sharing same_digest_group must all produce the group's digest. invalid[*] must be rejected (the API server answers its closed 400). Generated with traigent_schema.fleet_observe_digest and checked by tests/test_fleet_observe_digest_vectors.py.",
+  "vector_version": 1,
+  "preimage_version": "fleet_import_request_v1",
+  "valid": [
+    {
+      "name": "base",
+      "note": "Reference request: one agent principal with a credential and a workload child.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "member_order_permutation",
+      "note": "Member order does not matter.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "exact_duplicate_collapsed",
+      "note": "An exact duplicate member collapses.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "idempotency_key_excluded",
+      "note": "idempotency_key is not part of the preimage.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "idempotency_key": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "explicit_default_retention",
+      "note": "Explicit ledger_minimal equals the default.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "retention_class": "ledger_minimal"
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "timestamp_explicit_zero_fraction",
+      "note": "A zero fraction equals no fraction.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00.000000Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "timestamp_short_zero_fraction",
+      "note": "One zero fraction digit equals no fraction.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00.0Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "fractional_seconds_short",
+      "note": "A short fraction pads to six digits.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00.5Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:f93838d2260b5c7ee2d26d8836548e554bda18c77b03f28f27e6481aafb46f11",
+      "expected_idempotency_key": "sha256:c8b84ef2581fb663b91f30323e11d3e24979ad291fd4ee818f654dcb62a5eee2",
+      "same_digest_group": "frac"
+    },
+    {
+      "name": "fractional_seconds_padded",
+      "note": "Same instant as the short form.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00.500000Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:f93838d2260b5c7ee2d26d8836548e554bda18c77b03f28f27e6481aafb46f11",
+      "expected_idempotency_key": "sha256:c8b84ef2581fb663b91f30323e11d3e24979ad291fd4ee818f654dcb62a5eee2",
+      "same_digest_group": "frac"
+    },
+    {
+      "name": "fractional_seconds_microsecond",
+      "note": "One microsecond later is a different request.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00.000001Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:a1d50ebff9eb873facfd2c96170e705970b6542591fd4b1a1b33f663034a164d",
+      "expected_idempotency_key": "sha256:2a733b40ce9a50223b531a47593f506d7103e081a5f43640d3486597e923c089"
+    },
+    {
+      "name": "parent_changed",
+      "note": "Removing a parent changes the digest.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:d57e3e96cca6e48117032c729492e53638fb1b5f2ae01af27b0a7d1bb60012d1",
+      "expected_idempotency_key": "sha256:d7814a7acbdc997ed5e3dc7047844d5efae5405d810d636048d895655f841f61"
+    },
+    {
+      "name": "parent_moved",
+      "note": "A different parent changes the digest.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:cc02a5043444f2f1473e689aa76c474c5208948c7112ef2f2542cc8cf469b5a4",
+      "expected_idempotency_key": "sha256:1fa6c8a1cf074510417d7b9fa25d62f13748ac22a57a6898995c5631996e615a"
+    },
+    {
+      "name": "retention_legal_hold",
+      "note": "A non-default retention class changes the digest.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "retention_class": "legal_hold"
+      },
+      "expected_request_digest": "sha256:2bc4fa31a6852957581baf047328c1f3df9bcfb84359553496a83905461f9e42",
+      "expected_idempotency_key": "sha256:0a3cce701a82fdb4263207f78a9177223eb68a99f7e2c9fa0ce56a849a99fd51"
+    },
+    {
+      "name": "source_kind_changed",
+      "note": "source_kind is in the preimage.",
+      "input": {
+        "source_kind": "otel_trace_export",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:e61b9f03c27f7f87ed6521a5fecbd4166978530cb9286b600708c9855e940ada",
+      "expected_idempotency_key": "sha256:af66098a95b7ea07ba5912ea53030832a4c1dcdadca254d856c9689dca696b58"
+    },
+    {
+      "name": "boundary_kind_changed",
+      "note": "boundary_kind is in the preimage.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "agent_platform",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:465f2f0a2b97b0acbe31cd9ebbdf24a1bb256565abc6d5c11d793e8bd743d4fd",
+      "expected_idempotency_key": "sha256:b113307be1944ad845672ef24a976c0bcdfb8fa2ce2904562968960b3218aa1b"
+    },
+    {
+      "name": "boundary_digest_changed",
+      "note": "boundary_digest is in the preimage.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:6bcc1f453f3a43e33a8936b97bede8c82cdc7ac21a52e8ef175143934eec05f5",
+      "expected_idempotency_key": "sha256:a39e15f757f2350d315848d25d585476e288d4f9f71c4e470a61eb412e2d3bc9"
+    },
+    {
+      "name": "single_member_no_parent",
+      "note": "Smallest valid request.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:29f90edc26ba9c843c5f19425d8de5126e9b6ce83ada67b0d017a2400595e4dc",
+      "expected_idempotency_key": "sha256:0624a8de77518dbe1bf8c8a2bf405e5e98e2a446ce3f8b7c121bd40fd9fcfa01"
+    },
+    {
+      "name": "explicit_null_parent",
+      "note": "An explicit null parent equals an omitted parent.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "parent_member_digest": null
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:fa12cfd43d350e0a0f9a78c11f0b1812a8c5937ca99d0b23e31b7fa6a08b9f9c",
+      "expected_idempotency_key": "sha256:6c3f5cfafa38c2b7a8a65ae160c4ae8be92b430d1cfcdf0a1856d0eb8fe47720",
+      "same_digest_group": "base"
+    },
+    {
+      "name": "same_digest_two_kinds",
+      "note": "One digest listed under two kinds is two members; kind orders them.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:38564768a1ae9297342f881da9da755d7df7cc1efc43c3752afdc6109b4289de",
+      "expected_idempotency_key": "sha256:9c822caa014b56e37caa3d58c341ba75b323c0d62220e268be3704a1a30ffdce"
+    },
+    {
+      "name": "parent_not_in_batch",
+      "note": "A parent need not be a member of the same request.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:1148002996a820ba733fed87ae2ffd62bbf5f6aedcd4a361fcf1fc345b590f34",
+      "expected_idempotency_key": "sha256:a0b7d61592e7eb7c846ebc9e7a2861b5e5f97b35ab012fe180b72d8c9df682c6"
+    },
+    {
+      "name": "sorted_by_kind_then_digest",
+      "note": "Order is (kind, digest): principal 2, principal 9, workload 1.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ]
+      },
+      "expected_request_digest": "sha256:cd6295049f28850818817b973f4f712f7867761e5f5cc10ddbad6e4d70ded61a",
+      "expected_idempotency_key": "sha256:fbfd5d1697c8005e02c0777f673799b9171c08c510a8116af5b0196515430f3f"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "offset_instead_of_z",
+      "note": "The API server accepts only the trailing-Z Timestamp form; an offset is a 400, so it has no canonical form.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00+00:00",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "month_out_of_range",
+      "note": "Timestamp pattern bounds the month.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-13-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "member_with_two_parents",
+      "note": "One member digest with two parents is a 400.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+          }
+        ]
+      }
+    },
+    {
+      "name": "parent_equals_member",
+      "note": "A member cannot be its own parent.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty_members",
+      "note": "At least one member.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": []
+      }
+    },
+    {
+      "name": "reserved_source_kind",
+      "note": "Reserved: no producer in Observe v1.",
+      "input": {
+        "source_kind": "mediated_enforcement_connector",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "uppercase_digest",
+      "note": "Digests are lowercase hex.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown_retention_class",
+      "note": "Closed enum.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "credential",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "workload",
+            "member_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "retention_class": "forever"
+      }
+    },
+    {
+      "name": "two_member_parent_cycle",
+      "note": "A to B to A is a cycle: rejected.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "parent_member_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "three_member_parent_cycle",
+      "note": "A to B to C to A is a cycle: rejected.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "parent_member_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "parent_member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parent_member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "null_and_digest_parent_for_one_member",
+      "note": "A null parent and a digest parent for one member digest are two parents: rejected.",
+      "input": {
+        "source_kind": "sdk_declaration",
+        "boundary": {
+          "boundary_kind": "repository",
+          "boundary_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "observed_at": "2026-11-10T09:00:00Z",
+        "members": [
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "member_kind": "principal",
+            "member_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "parent_member_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ]
+      }
+    }
+  ]
+}

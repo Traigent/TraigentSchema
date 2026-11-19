@@ -100,6 +100,15 @@ _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 PROJECT_ID_PATTERN = (
     "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])"
 )
+# A pagination cursor is server-issued and signature-verified: a base64url body, a dot and a 32-hex
+# HMAC bound to the tenant and project. The pattern alone admits arbitrary text before the dot, so
+# it is NOT approved globally: the lint accepts it only at these exact (schema file, JSON pointer)
+# definitions, bounded in length, never in a request body or any other location.
+CURSOR_PATTERN = "^[A-Za-z0-9_-]+\\.[0-9a-f]{32}(?![\\s\\S])"
+CURSOR_MAX_LENGTH = 512
+CURSOR_LOCATIONS = frozenset(
+    {"fleet_observe/fleet_observe_responses_schema.json#/definitions/Cursor"}
+)
 _FIXED_REF_PATTERNS = frozenset(
     {
         UUID_PATTERN,
@@ -120,6 +129,11 @@ _FIXED_REF_PATTERNS = frozenset(
         "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
         # server-minted project id: random, tenant-derived default or personal-workspace form
         PROJECT_ID_PATTERN,
+        # Fleet Observe: the signed pagination cursor (see CURSOR_PATTERN: accepted only at
+        # CURSOR_LOCATIONS, checked in _check_cursor_site) and the 16-hex id of the customer-held
+        # digest key (derived by HMAC, so it carries no text).
+        CURSOR_PATTERN,
+        "^[0-9a-f]{16}(?![\\s\\S])",
     }
 )
 
@@ -270,6 +284,11 @@ EXTRA_ROOT_FILES = (
     "fleet_observe/import_event_schema.json",
     "fleet_observe/coverage_ratio_schema.json",
     "fleet_observe/finding_schema.json",
+    # Increment 1 S1: endpoints, import request, responses and bundle are closed as well.
+    "fleet_observe/fleet_observe_endpoints.json",
+    "fleet_observe/import_request_schema.json",
+    "fleet_observe/fleet_observe_responses_schema.json",
+    "fleet_observe/import_bundle_schema.json",
     # Audit evaluate: closed project audit summary in, closed findings and next step out.
     "audit_evaluate/audit_evaluate_endpoints.json",
     "audit_evaluate/audit_evaluate_request_schema.json",
@@ -572,7 +591,20 @@ class Linter:
                 "(never a request, parameter, map key or $ref from elsewhere)"
             )
 
+    def _check_cursor_site(self, loc: str, node: dict) -> None:
+        if node.get("pattern") != CURSOR_PATTERN:
+            return
+        max_length = node.get("maxLength")
+        if loc not in CURSOR_LOCATIONS:
+            self.result.invalid.append(
+                f"{loc}: the signed-cursor pattern is approved only at its server-issued "
+                "definitions (CURSOR_LOCATIONS), never elsewhere"
+            )
+        elif not isinstance(max_length, int) or max_length > CURSOR_MAX_LENGTH:
+            self.result.invalid.append(f"{loc}: a cursor needs maxLength <= {CURSOR_MAX_LENGTH}")
+
     def _record_value(self, loc: str, node: dict, doc, scope, kind: str = "value") -> None:
+        self._check_cursor_site(loc, node)
         own = node.get(CLASS_KEY)
         if own is not None:
             if own not in CONTENT_CLASSES:

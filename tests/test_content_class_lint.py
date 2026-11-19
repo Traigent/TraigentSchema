@@ -1325,3 +1325,54 @@ def test_old_dialect_refuses_nested_ids_and_non_root_definitions(tmp_path: Path)
             modern = {**schema, "$schema": "https://json-schema.org/draft/2019-09/schema"}
             ok = _mini(tmp_path / f"m{i}{j}", modern)
             assert not any(lint.OLD_DIALECT_BASE_ERROR in line for line in ok.invalid)
+
+
+# --- Fleet Observe signed pagination cursor: approved only at its own definition ------------
+
+
+def _cursor_node(**over) -> dict:
+    node = {
+        "type": "string",
+        "maxLength": 512,
+        "pattern": lint.CURSOR_PATTERN,
+        "x-content-class": "opaque_ref",
+    }
+    node.update(over)
+    return node
+
+
+def test_cursor_pattern_is_rejected_outside_its_allowed_locations(tmp_path: Path) -> None:
+    # same node at an arbitrary location: the semantic check passes, the location check refuses
+    assert lint.semantic_problem("opaque_ref", _cursor_node()) is None
+    result = _mini_at(
+        tmp_path,
+        {"type": "object", "additionalProperties": False, "properties": {"a": _cursor_node()}},
+        "optimization/t_schema.json",
+    )
+    assert any("signed-cursor pattern is approved only" in line for line in result.invalid)
+
+
+def test_cursor_pattern_is_accepted_at_an_allowed_location_with_a_length_bound(
+    tmp_path: Path, monkeypatch
+) -> None:
+    loc = "optimization/t_schema.json#/properties/a"
+    monkeypatch.setattr(lint, "CURSOR_LOCATIONS", frozenset({loc}))
+    schema = {"type": "object", "additionalProperties": False, "properties": {"a": _cursor_node()}}
+    assert not _mini_at(tmp_path / "ok", schema, "optimization/t_schema.json").invalid
+    unbounded = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {k: v for k, v in _cursor_node().items() if k != "maxLength"}},
+    }
+    result = _mini_at(tmp_path / "unb", unbounded, "optimization/t_schema.json")
+    assert any("needs maxLength" in line for line in result.invalid)
+    oversize = {**schema, "properties": {"a": _cursor_node(maxLength=4096)}}
+    result = _mini_at(tmp_path / "big", oversize, "optimization/t_schema.json")
+    assert any("needs maxLength" in line for line in result.invalid)
+
+
+def test_the_real_cursor_definition_is_the_only_cursor_location() -> None:
+    assert lint.CURSOR_LOCATIONS == {
+        "fleet_observe/fleet_observe_responses_schema.json#/definitions/Cursor"
+    }
+    assert lint.run_lint().invalid == []

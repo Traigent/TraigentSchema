@@ -9585,11 +9585,451 @@
       "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
     },
     {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "658226d652dd4a119676fe92ce60387d60b213597df49221aaa71367c6d635cd"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "169911ca606df1fff82c85803af9602c1d769af27ccbefeeb0a6b981e4168919"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/suggestions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "278b3c5560bec93bea37ae8ac3a742039486d4cb582b9effb6bcf50ae0c4fa37"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9a61742142cd5265ae9ed677a3841906e0007a2b06d57bc260f9a9456119f8b3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c4e1270948930a48d824d432d03d4f25a3e6ac8919194bd5c2f903a3e5cf058e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/capabilities/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3385664b03cdd9e3191b9db9a0da063d38c395d728998215affeb96762486fe1"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/{attestation_id}/revocations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ac9c057e54053400fd5b28a56a31094121a94b14ddada85a46d551bec11d132a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "62bb36322f1c6157143146367b3367d900c0693239d841f47cbe71cb1249af13"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "65867365fa11a87832c6375f34f289f44c8f805554bfc568ab67879fab0b4b95"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "34a30a5ce97698a7f062ee5fd3d594368045808734df9a15453d8f15c9f86cb6"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_document_ref_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "cd42a4a8422d5269d7ae430471a05a795fee4becfdfb7aedff0be2794d9b72c3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ec0e5855c2f63819855b741804f52a82b9ba6e92e568f9300ada278db55825da"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/{reference_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "156c3fa99ec0315f78726f10c36410baf823b6f1691374eec49fe0592e0b5dd9"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_export_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-evidence-exports/agents/{agent_id}/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ff2b69682d254d57ee7d2395ec577b7563eab482ce3b1b80d6ce1e67a4dd8ece"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/agent_head_by_ref_response_schema.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "30a042ae2756d1330685243bb1e9486f5d8282275bda1dcb05f03d142414afbb"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/best_config_head_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/agent-heads/by-ref/{agent_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "306bf455255550cfc8fa16f7e44ff55a8f529da6eb4dc9756c6132a33ee8c84a"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_decision/agent_decision_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{agent_id}/ensure/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "54283ede7bc358035a9bea842801a14ccd724c3a418ba81e552b31bb1f99becf"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{agent_id}/latest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3417195b5b4a82040ccc57723adb5acfa9b869941454c6d342639ac3453d8c82"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{decision_id}/answer/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d86562e7fd17701b8b65300560268f550e4a0683ea885f0aae7235c42afe967"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the host-prompt decision operations are served only at /api/v1/projects/{project_id}/agents/{agent_ref}/decisions/{ensure,latest,{decision_id}/answer}; operationIds equal the policy-register operation ids and the retired /api/v1beta/agent-decisions/... routes answer the standard closed 404. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/agent_ref",
+          "role": "request",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "44c2209b7573a9492e517dc42a91c4f086d7ef97b90a4f9186ae6caf24a0450d"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/lifecycle_agent_ref",
+          "role": "response",
+          "subject": "lifecycle_agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "68343a537ae2aa05a4019923cd195e9d87303e2d58ef55a1e65c7062522625f4"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "a921988d59a36971ff3ef28a5c7c6afc99fcf5859fb8a2a75b728aa30ec135b2"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/lifecycle_agent_ref",
+          "role": "response",
+          "subject": "lifecycle_agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "f7a3847c46ddfd35202189f6e9fa604862880fc41412e2e3ce6698a0761d57fb"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "bd6cd79019caa637b351d0e16bbaefdc82818ff86a44fdd7e560cd8cbeab7355"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/agents/admin/stats/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1581d3f83c91362cfc06d36af149b00cbea9bcaaefb43dd895976d2bd98546b2"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3: the cross-tenant agent statistics route is platform-admin only (served privately at /api/v1/admin/agents/stats) and leaves the public Schema. It was declared with a bare 200 and no body schema. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_metrics",
+          "role": "conservative",
+          "subject": "best_metrics",
+          "old": false,
+          "new": true,
+          "fingerprint": "40e3db613ca427383963a91a675ff1c446bc1ef2d347cee79b0f543667cc0c16"
+        },
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_trial_id",
+          "role": "conservative",
+          "subject": "best_trial_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "f500f6711ca939c6e8589f8d89f27b853c3b6156d01cb0445cf1020f8d8df4ee"
+        }
+      ],
+      "reason": "The experiments-list run summary gains two optional, nullable members so the portal list can show the best trial's score: best_trial_id and best_metrics, read from the selection the backend already records at finalize. Both are additive and not required. The only consumer that validates this closed object is the Traigent portal, which updates in step with the backend, so an older consumer rejecting the new members is an accepted, reviewed risk.",
+      "version": "Unreleased"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "c2c202802ef166fe12c41966e7a8960bfb2add363eed5e59d2ea4f1f52d40a87"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 2,
+          "fingerprint": "5bffc6a818240984e45341594ac5454b9adca7db647b7d9db728128acf09b853"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "8bb10cbb9e6569b4711fcd5af2e1b3cc1a11b51e5624d79bbb42f5d3a86a0f97"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "2feb5cd4752257e876ead09eb984fc845d9bb1037b1a18ac18da1fe38c327481"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "03a373ee13a7171d53ec206ed1593226d31620c922fba229c3fbda6d6a9e217c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "321ccde360df3001a1746b09a20a1a2906ab8ccbcd0b8a3431a38b5e4908b322"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "222320e4a18804b3397e4fbde479f6d10b15a2c8989eac7ed86af592d630af1e"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
       "file": "agent_readiness/compliance_attestation_endpoints.json",
       "rule": "enum",
       "findings": [
         {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
           "role": "response",
           "subject": {
             "direction": "added",
@@ -9610,10 +10050,10 @@
             "\"stale_review_context\"",
             "\"stale_statement\""
           ],
-          "fingerprint": "975140ed8df96ec41636ebcbd8f4bbad46d3e6cbf55039ff552e8d8a8807c4b5"
+          "fingerprint": "90d9d431c3f21e0887d9a4c4c410e099adec4283cbac95238419adc54258cecf"
         },
         {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
           "role": "response",
           "subject": {
             "direction": "added",
@@ -9634,10 +10074,10 @@
             "\"stale_review_context\"",
             "\"stale_statement\""
           ],
-          "fingerprint": "b6e8f5ecd9f7e4c3dccec9bad4c6a4f2b09332d46c4b164ba0ce2462bf66fb79"
+          "fingerprint": "82343c77d722469d216256967b99f02824fac1d1bee2a120f7a6104a5a5f068c"
         },
         {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
           "role": "response",
           "subject": {
             "direction": "added",
@@ -9658,7 +10098,7 @@
             "\"The agent or its standing attestation changed since it was displayed.\"",
             "\"The statement changed since it was displayed.\""
           ],
-          "fingerprint": "4d98f11cdacd1af758bfab94605854cc634460db43adf1e684ab2fb60de7cb48"
+          "fingerprint": "bd00b9fee51a6575400df4a15d58584c1df0f473bff78b568d3b3b92ae112bcb"
         }
       ],
       "reason": "AGB-79 C1: the sign operation's 409 answers a new closed reason stale_review_context (with its fixed message) when the echoed review_context no longer matches the server's recomputation. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
@@ -9670,12 +10110,12 @@
       "rule": "required",
       "findings": [
         {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
           "role": "request",
           "subject": "review_context",
           "old": false,
           "new": true,
-          "fingerprint": "0e2ea0fee935c7ebb32e7580840901399d5cb45ff021335ca9cb4db4cf3e625f"
+          "fingerprint": "788eb146d6735c892b13ac5c53c7c186d5edf6ec9e0186dc886b75de10002aa8"
         }
       ],
       "reason": "AGB-79 C1: attestation signing must echo review_context, the keyed freshness token read from the evidence response, so a signature is bound to the subject the signer reviewed. Coordinated pre-release break: the feature is dark in production and no external client signs; backend and frontend change in the same slice.",
@@ -9698,105 +10138,6 @@
       "reason": "AGB-79 C1: A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
       "version": "Unreleased pending (TraigentSchema, AGB-79 C1 review_context; backend feature/agb-79-compliance-evidence-next)",
       "pr": "pending (TraigentSchema, AGB-79 C1, not yet opened)"
-    },
-    {
-      "file": "agent_readiness/compliance_applicability_endpoints.json",
-      "rule": "additionalProperties",
-      "findings": [
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": "additionalProperties",
-          "old": "closed (false)",
-          "new": "open (true/absent)",
-          "fingerprint": "5e65fdf6f39123c950003f9654e45aa8edcebcf90744b29b604af48f4bbc8aad"
-        }
-      ],
-      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
-      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
-      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
-    },
-    {
-      "file": "agent_readiness/compliance_applicability_endpoints.json",
-      "rule": "oneOf_branch_count_changed",
-      "findings": [
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
-          "role": "response",
-          "subject": "oneOf",
-          "old": 8,
-          "new": 2,
-          "fingerprint": "ed5ade56862200cbd4685a23861b3ae97ad72d7f454b0ef18615cc8ee7d51ab5"
-        }
-      ],
-      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
-      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
-      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
-    },
-    {
-      "file": "agent_readiness/compliance_applicability_endpoints.json",
-      "rule": "required",
-      "findings": [
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": "error",
-          "old": true,
-          "new": false,
-          "fingerprint": "f12a1bd937d4d1c35af7106b8d4e1bb634cd115c799c2b33742c8c5dfb191b5a"
-        },
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": "error_code",
-          "old": true,
-          "new": false,
-          "fingerprint": "363cf75b243525d78cf04cb4cfdc675ae4c2528b3105e02c7b6882580265fb8f"
-        },
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": "message",
-          "old": true,
-          "new": false,
-          "fingerprint": "4ae3fd7787cb2d64c6849bdee8b7bdb46f71e3838011a28e30db25c03ffca5f0"
-        },
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": "success",
-          "old": true,
-          "new": false,
-          "fingerprint": "8c3d522264942e2bfe8ef56bc75b1633cd5ae3b7524883d596fc15ab0eab09bd"
-        }
-      ],
-      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
-      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
-      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
-    },
-    {
-      "file": "agent_readiness/compliance_applicability_endpoints.json",
-      "rule": "type",
-      "findings": [
-        {
-          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
-          "role": "response",
-          "subject": {
-            "direction": "added",
-            "values": [
-              "<now unconstrained>"
-            ]
-          },
-          "old": [
-            "object"
-          ],
-          "new": null,
-          "fingerprint": "da551006e00999b93838d984e747786f0daa5cbd4786bfca84a3e69193d59212"
-        }
-      ],
-      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
-      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
-      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
     }
   ]
 }

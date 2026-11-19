@@ -278,10 +278,10 @@ def test_list_responses_declare_real_pagination(definition: str, item: Any) -> N
     del no_pagination["pagination"]
     assert _errors(definition, no_pagination) != []
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    base = "/api/v1beta/projects/{project_id}/"
+    base = "/api/v1/projects/{project_id}/"
     for path in (
         base + "compliance-attester-grants",
-        base + "compliance-attestations/agents/{agent_id}",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-attestations",
     ):
         names = {p["name"] for p in paths[path]["get"]["parameters"]}
         assert {"page", "per_page"} <= names
@@ -340,14 +340,14 @@ def test_endpoints_are_registered_and_wired() -> None:
         SCHEMAS / "mep_endpoints.json"
     ).read_text(encoding="utf-8")
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    base = "/api/v1beta/projects/{project_id}/"
+    base = "/api/v1/projects/{project_id}/"
     assert set(paths) == {
         base + "compliance-attester-grants",
         base + "compliance-attester-grants/{grant_id}/withdrawals",
         base + "compliance-attestations",
         base + "compliance-attestations/capabilities",
         base + "compliance-attestations/{attestation_id}/revocations",
-        base + "compliance-attestations/agents/{agent_id}",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-attestations",
     }
     for item in paths.values():
         for operation in item.values():
@@ -383,7 +383,7 @@ def test_fingerprints_are_server_derived_only_and_dataset_is_not_a_kind() -> Non
 def test_a_grant_withdrawal_declares_an_empty_object_body() -> None:
     assert _errors("AttesterGrantWithdrawRequest", {}) == []
     assert _errors("AttesterGrantWithdrawRequest", {"reason": "why"}) != []
-    path = "/api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals"
+    path = "/api/v1/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals"
     post = load_json(ENDPOINTS_PATH)["paths"][path]["post"]
     ref = post["requestBody"]["content"]["application/json"]["schema"]["$ref"]
     assert ref.endswith("#/definitions/AttesterGrantWithdrawRequest")
@@ -494,7 +494,7 @@ def test_an_exported_record_requires_the_marker_fields(missing: str) -> None:
 
 def test_sign_operation_declares_stale_review_context_and_503() -> None:
     operation = load_json(ENDPOINTS_PATH)["paths"][
-        "/api/v1beta/projects/{project_id}/compliance-attestations"
+        "/api/v1/projects/{project_id}/compliance-attestations"
     ]["post"]["responses"]
     body = operation["409"]["content"]["application/json"]["schema"]["properties"]
     assert "stale_review_context" in body["error"]["enum"]

@@ -1,15 +1,15 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Backend Compliance Attestation Routes",
+    "title": "Traigent Backend Compliance Attestation Routes (project level)",
     "version": "1.0.0",
     "description": "Project-scoped attester grants and authenticated attestations (AGB-74 slice 2). Ships dark behind the same operator flag as the evidence view: while off, every route answers the standard not-found envelope as if it did not exist."
   },
   "paths": {
-    "/api/v1beta/projects/{project_id}/compliance-attester-grants": {
+    "/api/v1/projects/{project_id}/compliance-attester-grants": {
       "post": {
         "summary": "Grant one attestation statement to a project member (project admin, human session)",
-        "operationId": "createComplianceAttesterGrant",
+        "operationId": "project_compliance_attester_grants.create_compliance_attester_grant",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -137,7 +137,7 @@
       },
       "get": {
         "summary": "List attester grant records",
-        "operationId": "listComplianceAttesterGrants",
+        "operationId": "project_compliance_attester_grants.list_compliance_attester_grants",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -241,10 +241,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals": {
+    "/api/v1/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals": {
       "post": {
         "summary": "Withdraw a grant: blocks future signing, leaves history intact (project admin, human session)",
-        "operationId": "withdrawComplianceAttesterGrant",
+        "operationId": "project_compliance_attester_grants.withdraw_compliance_attester_grant",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -371,10 +371,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-attestations": {
+    "/api/v1/projects/{project_id}/compliance-attestations": {
       "post": {
         "summary": "Record an authenticated attestation (needs an active grant for the statement)",
-        "operationId": "createComplianceAttestation",
+        "operationId": "project_compliance_attestations.sign_compliance_attestation",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -523,10 +523,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-attestations/capabilities": {
+    "/api/v1/projects/{project_id}/compliance-attestations/capabilities": {
       "get": {
         "summary": "Which statements the caller may sign right now",
-        "operationId": "getComplianceAttestationCapabilities",
+        "operationId": "project_compliance_attestations.get_compliance_attestation_capabilities",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -593,10 +593,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-attestations/{attestation_id}/revocations": {
+    "/api/v1/projects/{project_id}/compliance-attestations/{attestation_id}/revocations": {
       "post": {
         "summary": "Revoke an attestation (the signer while holding a current grant for the statement, or a project admin)",
-        "operationId": "revokeComplianceAttestation",
+        "operationId": "project_compliance_attestations.revoke_compliance_attestation",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -733,10 +733,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-attestations/agents/{agent_id}": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-attestations": {
       "get": {
         "summary": "List an Agent's attestations",
-        "operationId": "listComplianceAttestations",
+        "operationId": "project_compliance_attestations.list_compliance_attestations",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -749,7 +749,7 @@
             }
           },
           {
-            "name": "agent_id",
+            "name": "agent_ref",
             "in": "path",
             "required": true,
             "schema": {

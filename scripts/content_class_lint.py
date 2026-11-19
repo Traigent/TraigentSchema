@@ -58,6 +58,12 @@ SERVER_TEXT = "server_text"
 # ``server_text`` is an assertion by the contract owner, not something keywords can prove, so it is
 # accepted ONLY at these exact (schema file, JSON pointer) locations, never in a request, a
 # parameter or a map key, and never through a ``$ref`` from anywhere else.
+# Usage context carried through every hop of a walk ($ref, allOf/anyOf/oneOf, items, properties,
+# patternProperties, additionalProperties): CTX_RESPONSE when the walk started at a response body
+# (or at a standalone document that holds an allow-listed location), CTX_OTHER for a request body,
+# a parameter or any other document. server_text is accepted only under CTX_RESPONSE.
+CTX_RESPONSE = "response"
+CTX_OTHER = "other"
 SERVER_TEXT_LOCATIONS = frozenset(
     {
         "audit_evaluate/audit_evaluate_response_schema.json"
@@ -334,7 +340,10 @@ class Linter:
     def __init__(self, schemas_dir: Path = SCHEMAS_DIR) -> None:
         self.dir = schemas_dir
         self.docs: dict[str, Any] = {}
-        self.seen: set[tuple[str, str]] = set()
+        # Keyed by (document, pointer, usage context): a node first reached from a response is
+        # walked again when it is reached from a request or a parameter.
+        self.seen: set[tuple[str, str, str]] = set()
+        self._ctx = CTX_OTHER
         self.result = LintResult()
 
     # -- documents -----------------------------------------------------
@@ -555,7 +564,9 @@ class Linter:
 
     # -- recording ----------------------------------------------------
     def _check_server_text_site(self, loc: str, cls: str | None, kind: str = "value") -> None:
-        if cls == SERVER_TEXT and (kind != "value" or loc not in SERVER_TEXT_LOCATIONS):
+        if cls == SERVER_TEXT and (
+            kind != "value" or loc not in SERVER_TEXT_LOCATIONS or self._ctx != CTX_RESPONSE
+        ):
             self.result.invalid.append(
                 f"{loc}: server_text is accepted only at an allow-listed response location "
                 "(never a request, parameter, map key or $ref from elsewhere)"
@@ -802,7 +813,7 @@ class Linter:
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
-        key = (doc, ptr)
+        key = (doc, ptr, self._ctx)
         if key in self.seen:
             return
         self.seen.add(key)
@@ -929,6 +940,7 @@ class Linter:
 
     # -- openapi walk -------------------------------------------------
     def walk_openapi(self, doc: str, data: dict) -> None:
+        self._ctx = CTX_OTHER  # parameters and request bodies; responses switch it per body
         for path, item in (data.get("paths") or {}).items():
             if not isinstance(item, dict):
                 continue
@@ -946,6 +958,7 @@ class Linter:
                 for status, resp in (op.get("responses") or {}).items():
                     if not isinstance(resp, dict):
                         continue
+                    self._ctx = CTX_RESPONSE
                     self._content(doc, resp.get("content"), f"{base}/responses/{status}/content")
                     for hname, h in (resp.get("headers") or {}).items():
                         if isinstance(h, dict) and isinstance(h.get("schema"), dict):
@@ -956,6 +969,7 @@ class Linter:
                                 f"{base}/responses/{status}/headers/{_esc(hname)}/schema",
                                 value=True,
                             )
+                    self._ctx = CTX_OTHER
 
     def _param(self, doc, scope, p: Any, ptr: str) -> None:
         if isinstance(p, dict) and isinstance(p.get("schema"), dict):
@@ -982,7 +996,21 @@ class Linter:
             if isinstance(data, dict) and "paths" in data and "openapi" in data:
                 self.walk_openapi(rel, data)
             elif isinstance(data, dict):
+                allowed_docs = {loc.split("#", 1)[0] for loc in SERVER_TEXT_LOCATIONS}
+                self._ctx = CTX_RESPONSE if rel in allowed_docs else CTX_OTHER
                 self.walk_schema(rel, [], data, "", value=False)
+        self._ctx = CTX_OTHER
+        # the same node can be recorded once per usage context: report it once
+        seen_findings: set[tuple] = set()
+        unique = []
+        for f in self.result.findings:
+            k = (f.loc, f.kind, f.cls, f.note)
+            if k not in seen_findings:
+                seen_findings.add(k)
+                unique.append(f)
+        self.result.findings = unique
+        self.result.invalid = list(dict.fromkeys(self.result.invalid))
+        self.result.unresolved = list(dict.fromkeys(self.result.unresolved))
         self.result.missing = sorted(set(self.result.missing))
         return self.result
 

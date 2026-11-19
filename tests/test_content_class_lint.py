@@ -14,6 +14,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "content_class_lint.py"
 META = (
     Path(__file__).resolve().parent.parent
@@ -406,8 +408,12 @@ def _real_audit_lint(mutate) -> list[str]:
     linter = lint.Linter()
     request_rel = "audit_evaluate/audit_evaluate_request_schema.json"
     response_rel = "audit_evaluate/audit_evaluate_response_schema.json"
-    docs = {r: linter.load(r) for r in (request_rel, response_rel)}
-    mutate(docs[request_rel], docs[response_rel])
+    endpoints_rel = "audit_evaluate/audit_evaluate_endpoints.json"
+    docs = {r: linter.load(r) for r in (request_rel, response_rel, endpoints_rel)}
+    if mutate.__code__.co_argcount == 3:
+        mutate(docs[request_rel], docs[response_rel], docs[endpoints_rel])
+    else:
+        mutate(docs[request_rel], docs[response_rel])
     return linter.run().invalid
 
 
@@ -432,15 +438,74 @@ def test_a_second_response_field_labelled_server_text_fails() -> None:
     assert any("extra_text" in m and "allow-listed" in m for m in invalid), invalid
 
 
-def test_a_ref_reuse_of_the_allow_listed_field_from_a_request_fails() -> None:
-    target = next(iter(lint.SERVER_TEXT_LOCATIONS)).split("#", 1)[1]
+_RESP = "./audit_evaluate_response_schema.json#/definitions/Result"
+_ABS = "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_response_schema.json#"
 
-    def mutate(req, resp):
-        ref = "./audit_evaluate_response_schema.json#" + target
+
+def _ref_cases():
+    text = next(iter(lint.SERVER_TEXT_LOCATIONS)).split("#", 1)[1]
+    return {
+        "field": "./audit_evaluate_response_schema.json#" + text,
+        "item": _RESP + "/properties/instructions/items",
+        "array": _RESP + "/properties/instructions",
+        "object": _RESP,
+        "absolute_url": _ABS + "/definitions/Result",
+    }
+
+
+@pytest.mark.parametrize("name", ["field", "item", "array", "object", "absolute_url"])
+def test_a_ref_from_a_request_property_to_the_field_or_any_enclosing_node_fails(name) -> None:
+    ref = _ref_cases()[name]
+
+    def mutate(req, resp, ep):
         req["properties"]["reused"] = {"$ref": ref}
 
     invalid = _real_audit_lint(mutate)
-    assert any("reused" in m and "allow-listed" in m for m in invalid), invalid
+    assert any("allow-listed" in m for m in invalid), (name, invalid)
+
+
+@pytest.mark.parametrize("wrap", ["allOf", "anyOf", "patternProperties", "items", "chain"])
+def test_a_wrapped_ref_to_an_enclosing_object_fails(wrap) -> None:
+    ref = {"$ref": _RESP}
+
+    def mutate(req, resp, ep):
+        props = req["properties"]
+        if wrap == "allOf":
+            props["reused"] = {"allOf": [ref]}
+        elif wrap == "anyOf":
+            props["reused"] = {"anyOf": [ref, {"type": "null"}]}
+        elif wrap == "patternProperties":
+            props["reused"] = {
+                "type": "object",
+                "patternProperties": {"^k$": ref},
+                "x-content-key-class": "closed_enum",
+            }
+        elif wrap == "items":
+            props["reused"] = {"type": "array", "maxItems": 1, "items": ref}
+        else:  # through an intermediate definition of the request document
+            req["definitions"]["Hop"] = ref
+            props["reused"] = {"$ref": "#/definitions/Hop"}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), (wrap, invalid)
+
+
+def test_a_path_parameter_ref_to_an_enclosing_node_fails() -> None:
+    def mutate(req, resp, ep):
+        param = ep["paths"][next(iter(ep["paths"]))]["post"]["parameters"][0]
+        param["schema"] = {"$ref": _RESP + "/properties/instructions/items"}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), invalid
+
+
+def test_a_request_body_of_another_endpoints_document_cannot_reach_it() -> None:
+    def mutate(req, resp, ep):
+        post = ep["paths"][next(iter(ep["paths"]))]["post"]
+        post["requestBody"]["content"]["application/json"]["schema"] = {"$ref": _RESP}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), invalid
 
 
 def test_server_text_is_rejected_in_a_parameter_and_as_a_map_key(

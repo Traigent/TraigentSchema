@@ -64,8 +64,7 @@ def _minimal(schema, defs):
     return "1.2.3"
 
 
-# The identities (not only the counts) of the closed vocabularies, as the backend declares them
-# (SEVERITY in src/services/audit/ruleset.py, STEP_TEMPLATES in src/services/audit/templates.py).
+# The identities (not only the counts) of the two closed vocabularies, pinned to the server's lists.
 FINDING_IDS = (
     "AGT_NO_ENTRY_POINT",
     "AGT_BLANK_SPACE",

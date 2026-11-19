@@ -22,6 +22,83 @@ permissions:
   contents: read
 
 jobs:
+  # Fail-fast PR metadata check (owner ruling 2026-11-19): a PR with a bad body
+  # fails here in seconds, before any expensive job starts. Every root job
+  # `needs: pr-metadata`. This workflow does NOT trigger on `edited`; after fixing
+  # the PR body, `gh run rerun <id> --failed` re-checks the current body (it is
+  # fetched from the API, not read from the original event payload).
+  # The PR body is untrusted: it reaches scripts only through env vars. The
+  # base-branch copy of the checker decides; the head copy runs only on the
+  # bootstrap PR that adds it. Push/schedule/merge_group runs pass through.
+  pr-metadata:
+    name: pr-metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Not a pull request
+        if: github.event_name != 'pull_request'
+        run: echo "no PR body to check on ${{ github.event_name }}; the PR's own run gated it"
+      - name: Fetch the current PR body and author
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/pulls/$PR" --jq '.body // ""' > "$RUNNER_TEMP/pr_body"
+          gh api "repos/$REPO/pulls/$PR" --jq '.user.login' > "$RUNNER_TEMP/pr_author"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          path: head
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Check ticket and security note
+        if: github.event_name == 'pull_request'
+        run: |
+          PR_BODY="$(cat "$RUNNER_TEMP/pr_body")"; export PR_BODY
+          PR_AUTHOR="$(cat "$RUNNER_TEMP/pr_author")"; export PR_AUTHOR
+          if [ -f base/.github/scripts/check_pr_ticket_security.py ]; then
+            python3 base/.github/scripts/check_pr_ticket_security.py
+          else
+            echo "::warning::checker not on the base branch yet (bootstrap PR); running the PR's copy"
+            python3 head/.github/scripts/check_pr_ticket_security.py
+          fi
+      - name: Check spine mark
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          if [ "$(cat "$RUNNER_TEMP/pr_author")" = "dependabot[bot]" ]; then
+            echo "Dependabot PR: exempt from the spine-mark requirement."
+            exit 0
+          fi
+          PR_BODY="$(cat "$RUNNER_TEMP/pr_body")"
+          trail='^[[:space:]]*Spine-Trail:[[:space:]]*st_[0-9a-f]{12}[[:space:]]*$'
+          session='^[[:space:]]*Spine:[[:space:]]*cs_[0-9a-z]{6,}[[:space:]]*$'
+          waiver='^[[:space:]]*Spine:[[:space:]]*none[[:space:]]*\(reason:.+\)[[:space:]]*$'
+          if printf '%s\n' "$PR_BODY" | grep -Eqi "$trail"; then
+            echo "Spine-Trail present."
+          elif printf '%s\n' "$PR_BODY" | grep -Eqi "$session"; then
+            echo "Promoted ChangeSession (Spine:) present."
+          elif printf '%s\n' "$PR_BODY" | grep -Eqi "$waiver"; then
+            echo "Explicit governance waiver (Spine: none) accepted."
+          else
+            echo "::error title=Spine trail missing::This product PR has no validation-spine mark."
+            echo "Add ONE line to the PR body: Spine-Trail: st_xxxxxxxxxxxx | Spine: cs_xxxxxxxx | Spine: none (reason: <why>)"
+            exit 1
+          fi
+
   # Classifies whether this run's diff (if any) touches the breaking-schema-check
   # gate's inputs, so that job can be conditionally gated INSIDE this workflow --
   # `needs:` cannot cross workflow files in GitHub Actions, and a workflow-level
@@ -30,6 +107,7 @@ jobs:
   # and the breaking-schema-check job's own comment below for the full story).
   changes:
     name: detect-changes
+    needs: pr-metadata
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -312,6 +390,7 @@ jobs:
 
   # Lint + type-check are version-independent: run ONCE instead of per matrix entry.
   lint-type:
+    needs: pr-metadata
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -506,7 +585,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-    needs: [lint-type, test, package, changes, breaking-schema-check]
+    needs: [pr-metadata, lint-type, test, package, changes, breaking-schema-check]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

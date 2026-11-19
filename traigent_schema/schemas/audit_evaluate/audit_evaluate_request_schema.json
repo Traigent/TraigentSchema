@@ -1,0 +1,722 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_request_schema.json",
+  "title": "Audit Evaluate Request",
+  "description": "Closed summary of a local project audit.",
+  "additionalProperties": false,
+  "properties": {
+    "protocol_version": {
+      "const": 2,
+      "type": "integer",
+      "x-content-class": "closed_enum"
+    },
+    "collector_version": {
+      "maxLength": 11,
+      "pattern": "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?![\\s\\S])",
+      "type": "string",
+      "x-content-class": "version"
+    },
+    "inventory": {
+      "$ref": "#/definitions/Inventory"
+    },
+    "agent": {
+      "$ref": "#/definitions/Agent"
+    },
+    "scorer": {
+      "$ref": "#/definitions/Scorer"
+    },
+    "datasets": {
+      "$ref": "#/definitions/Datasets"
+    }
+  },
+  "required": [
+    "protocol_version",
+    "collector_version",
+    "inventory",
+    "agent",
+    "scorer",
+    "datasets"
+  ],
+  "type": "object",
+  "x-privacy-classification": "aggregate_safe",
+  "definitions": {
+    "Agent": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/definitions/Entry"
+          },
+          "maxItems": 20,
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "ClassBalance": {
+      "additionalProperties": false,
+      "properties": {
+        "assessed": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "max_class_share_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "assessed"
+      ],
+      "type": "object"
+    },
+    "CountByKind": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "llm_judge": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "executing": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "hybrid": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        }
+      },
+      "required": [
+        "deterministic",
+        "llm_judge",
+        "executing",
+        "hybrid"
+      ],
+      "type": "object"
+    },
+    "DatasetFile": {
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "holdout_rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "holdout_by_name": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "split_marker_conflict": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "split_markers_present": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "holdout_markers_present": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "rows_without_sdk_input": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "gold_missing": {
+          "$ref": "#/definitions/GoldMissing"
+        },
+        "holdout_overlap_rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "exact_duplicate_groups": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "bad_lines_skipped": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "rows_truncated": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "near_dup_checked": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "near_dup_pairs": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "cross_split_checked": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "cross_split_holdout_texts": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "cross_split_flagged_texts": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "class_balance": {
+          "$ref": "#/definitions/ClassBalance"
+        },
+        "structured_gold_rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "nonstandard_constant_rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "label_field": {
+          "$ref": "#/definitions/LabelField"
+        }
+      },
+      "required": [
+        "rows",
+        "holdout_rows",
+        "holdout_by_name",
+        "split_marker_conflict",
+        "split_markers_present",
+        "holdout_markers_present",
+        "rows_without_sdk_input",
+        "gold_missing",
+        "holdout_overlap_rows",
+        "exact_duplicate_groups",
+        "bad_lines_skipped",
+        "rows_truncated",
+        "near_dup_checked",
+        "near_dup_pairs",
+        "cross_split_checked",
+        "cross_split_holdout_texts",
+        "cross_split_flagged_texts",
+        "class_balance",
+        "structured_gold_rows",
+        "nonstandard_constant_rows",
+        "label_field"
+      ],
+      "type": "object"
+    },
+    "Datasets": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "unreadable": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "files_truncated": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "files_omitted": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "named_by_user": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/definitions/DatasetFile"
+          },
+          "maxItems": 10,
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidates",
+        "unreadable",
+        "files_truncated",
+        "files_omitted",
+        "named_by_user",
+        "files"
+      ],
+      "type": "object"
+    },
+    "Entry": {
+      "additionalProperties": false,
+      "properties": {
+        "knob_count": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "knobs_read": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "knobs_unread": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "knobs_maybe": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "space_unreadable": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        }
+      },
+      "required": [
+        "knob_count",
+        "knobs_read",
+        "knobs_unread",
+        "knobs_maybe",
+        "space_unreadable"
+      ],
+      "type": "object"
+    },
+    "GoldMissing": {
+      "additionalProperties": false,
+      "properties": {
+        "absent": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "null": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "nan": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "infinite": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "empty": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        }
+      },
+      "required": [
+        "absent",
+        "null",
+        "nan",
+        "infinite",
+        "empty"
+      ],
+      "type": "object"
+    },
+    "Inventory": {
+      "additionalProperties": false,
+      "properties": {
+        "python_parsed": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "python_unparsed": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "python_total": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "entries_omitted": {
+          "maximum": 100000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        }
+      },
+      "required": [
+        "python_parsed",
+        "python_unparsed",
+        "python_total",
+        "entries_omitted"
+      ],
+      "type": "object"
+    },
+    "LabelField": {
+      "additionalProperties": false,
+      "properties": {
+        "supplied": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "found_rows": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "missing_rows": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "distinct_classes": {
+          "anyOf": [
+            {
+              "maximum": 50,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "slice_class_sets": {
+          "anyOf": [
+            {
+              "enum": [
+                "identical",
+                "overlapping",
+                "disjoint",
+                "single_slice"
+              ],
+              "type": "string",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "slices": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/definitions/LabelSlice"
+              },
+              "maxItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "supplied"
+      ],
+      "type": "object"
+    },
+    "LabelSlice": {
+      "additionalProperties": false,
+      "properties": {
+        "slice": {
+          "enum": [
+            "tuning",
+            "holdout"
+          ],
+          "type": "string",
+          "x-content-class": "closed_enum"
+        },
+        "rows": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "rarest_class_rows": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer",
+          "x-content-class": "number"
+        }
+      },
+      "required": [
+        "slice",
+        "rows",
+        "rarest_class_rows"
+      ],
+      "type": "object"
+    },
+    "Probe": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "none",
+            "refused",
+            "blocked",
+            "failed",
+            "ran"
+          ],
+          "type": "string",
+          "x-content-class": "closed_enum"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "load",
+                "call",
+                "timeout",
+                "launch",
+                "no-result",
+                "unreadable-request",
+                "tampered-result",
+                "no-scores"
+              ],
+              "type": "string",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "payload_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "dataset",
+                "synthetic"
+              ],
+              "type": "string",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "partial_probed": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "repeats": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "distinct_scores": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "order": {
+          "anyOf": [
+            {
+              "enum": [
+                "expected",
+                "tied",
+                "inverted",
+                "partial_misplaced",
+                "not_scored"
+              ],
+              "type": "string",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "nonfinite": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_calls": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer",
+              "x-content-class": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "builtin",
+                "other"
+              ],
+              "type": "string",
+              "x-content-class": "closed_enum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "Scorer": {
+      "additionalProperties": false,
+      "properties": {
+        "count_by_kind": {
+          "$ref": "#/definitions/CountByKind"
+        },
+        "selection_refused": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "probe": {
+          "$ref": "#/definitions/Probe"
+        }
+      },
+      "required": [
+        "count_by_kind",
+        "selection_refused",
+        "probe"
+      ],
+      "type": "object"
+    }
+  }
+}

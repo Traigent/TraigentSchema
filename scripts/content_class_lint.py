@@ -48,10 +48,28 @@ CONTENT_CLASSES = frozenset(
         "code_identifier",
         "encrypted_blob",
         "auth_header",
+        "version",
+        "server_text",
         "legacy_content",
     }
 )
 LEGACY = "legacy_content"
+SERVER_TEXT = "server_text"
+# ``server_text`` is an assertion by the contract owner, not something keywords can prove, so it is
+# accepted ONLY at these exact (schema file, JSON pointer) locations, never in a request, a
+# parameter or a map key, and never through a ``$ref`` from anywhere else.
+# Usage context carried through every hop of a walk ($ref, allOf/anyOf/oneOf, items, properties,
+# patternProperties, additionalProperties): CTX_RESPONSE when the walk started at a response body
+# (or at a standalone document that holds an allow-listed location), CTX_OTHER for a request body,
+# a parameter or any other document. server_text is accepted only under CTX_RESPONSE.
+CTX_RESPONSE = "response"
+CTX_OTHER = "other"
+SERVER_TEXT_LOCATIONS = frozenset(
+    {
+        "audit_evaluate/audit_evaluate_response_schema.json"
+        "#/definitions/Result/properties/instructions/items/properties/text",
+    }
+)
 
 # --- class semantics ------------------------------------------------------------------
 # A class name alone proves nothing: each content-free class must be backed by a schema
@@ -79,6 +97,9 @@ _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{
 _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 # Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
 # than chosen: they carry no customer text because the pattern admits none.
+PROJECT_ID_PATTERN = (
+    "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])"
+)
 _FIXED_REF_PATTERNS = frozenset(
     {
         UUID_PATTERN,
@@ -96,6 +117,9 @@ _FIXED_REF_PATTERNS = frozenset(
         "^xr_[0-9a-f]{32}$",
         "^dr_[0-9a-f]{32}$",  # host-prompt decision id
         "^rn_[0-9a-f]{32}$",  # client retry nonce for one answer attempt
+        "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
+        # server-minted project id: random, tenant-derived default or personal-workspace form
+        PROJECT_ID_PATTERN,
     }
 )
 
@@ -170,6 +194,29 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
             if not any(rx.search(x) for x in ("Alice has diabetes", "hello, world", "")):
                 return None
         return "code_identifier needs an identifier or repo-relative path pattern"
+    if cls == "version":
+        # A dotted numeric version: digit groups only, a bounded length, and nothing else.
+        if rx is None or not isinstance(node.get("maxLength"), int):
+            return "version needs a dotted-numeric pattern and maxLength"
+        if not rx.search("1.2.3") or any(
+            rx.search(x)
+            for x in ("Alice_has_diabetes", "1.2.3-alice", "1.2.3 ", "1.2.3\n", "", "a.b.c")
+        ):
+            return "version pattern must accept 1.2.3 and reject free text"
+        if not re.fullmatch(
+            r"\^\[0-9\]\{\d+,\d+\}(\\\.\[0-9\]\{\d+,\d+\})+\(\?!\[\\s\\S\]\)", pattern
+        ):
+            return "version pattern must be anchored digit groups joined by dots"
+        return None
+    if cls == "server_text":
+        # Not provable from keywords (English prose cannot be told from customer prose by a
+        # pattern): the class is an assertion that the server composes the text from fixed
+        # templates, so it must be bounded, noted, and is only for server-to-client bodies.
+        if not isinstance(node.get("maxLength"), int):
+            return "server_text needs maxLength"
+        if not (isinstance(node.get(NOTE_KEY), str) and node[NOTE_KEY].strip()):
+            return "server_text needs an x-content-note naming the fixed-template source"
+        return None
     if cls == "key_material":
         if pattern != BASE64URL_PATTERN:
             return "key_material needs the base64url pattern " + BASE64URL_PATTERN
@@ -223,6 +270,12 @@ EXTRA_ROOT_FILES = (
     "fleet_observe/import_event_schema.json",
     "fleet_observe/coverage_ratio_schema.json",
     "fleet_observe/finding_schema.json",
+    # Audit evaluate: closed project audit summary in, closed findings and next step out.
+    "audit_evaluate/audit_evaluate_endpoints.json",
+    "audit_evaluate/audit_evaluate_request_schema.json",
+    "audit_evaluate/audit_evaluate_response_schema.json",
+    "audit_evaluate/audit_evaluate_error_schema.json",
+    "audit_evaluate/audit_evaluate_problem_schema.json",
 )
 # NOTE: agent_decision_endpoints.json is deliberately NOT a lint root: its {agent_id} path parameter
 # is the customer's own agent id (free text, request path only, never echoed), like every agent
@@ -287,7 +340,10 @@ class Linter:
     def __init__(self, schemas_dir: Path = SCHEMAS_DIR) -> None:
         self.dir = schemas_dir
         self.docs: dict[str, Any] = {}
-        self.seen: set[tuple[str, str]] = set()
+        # Keyed by (document, pointer, usage context): a node first reached from a response is
+        # walked again when it is reached from a request or a parameter.
+        self.seen: set[tuple[str, str, str]] = set()
+        self._ctx = CTX_OTHER
         self.result = LintResult()
 
     # -- documents -----------------------------------------------------
@@ -507,6 +563,15 @@ class Linter:
         return isinstance(b, dict) and self._is_container(doc, scope, b)
 
     # -- recording ----------------------------------------------------
+    def _check_server_text_site(self, loc: str, cls: str | None, kind: str = "value") -> None:
+        if cls == SERVER_TEXT and (
+            kind != "value" or loc not in SERVER_TEXT_LOCATIONS or self._ctx != CTX_RESPONSE
+        ):
+            self.result.invalid.append(
+                f"{loc}: server_text is accepted only at an allow-listed response location "
+                "(never a request, parameter, map key or $ref from elsewhere)"
+            )
+
     def _record_value(self, loc: str, node: dict, doc, scope, kind: str = "value") -> None:
         own = node.get(CLASS_KEY)
         if own is not None:
@@ -514,6 +579,7 @@ class Linter:
                 self.result.invalid.append(f"{loc}: unknown class {own!r}")
                 return
             self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
+            self._check_server_text_site(loc, own, kind)
             if own == LEGACY and not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
             if own != LEGACY:
@@ -521,6 +587,7 @@ class Linter:
             return
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
+            self._check_server_text_site(loc, eff)
             return  # inherited from a classed definition
         if self._is_container(doc, scope, node) and not self._open_extras(node, doc):
             return
@@ -617,6 +684,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown class {own!r}")
             return
         self.result.findings.append(Finding(loc, "value", own, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc, own)
         if own == LEGACY:
             if not node.get(NOTE_KEY):
                 self.result.invalid.append(f"{loc}: legacy_content needs x-content-note")
@@ -644,6 +712,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls == LEGACY and not node.get(NOTE_KEY):
             self.result.invalid.append(f"{loc} [keys]: legacy_content needs x-content-note")
         elif key_cls != LEGACY:
@@ -679,6 +748,7 @@ class Linter:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
+        self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls != LEGACY:
             why = semantic_problem(key_cls, pn if isinstance(pn, dict) else {}, doc)
             if why:
@@ -743,7 +813,7 @@ class Linter:
     ) -> None:
         if not isinstance(node, dict) or depth > 60:
             return
-        key = (doc, ptr)
+        key = (doc, ptr, self._ctx)
         if key in self.seen:
             return
         self.seen.add(key)
@@ -870,6 +940,7 @@ class Linter:
 
     # -- openapi walk -------------------------------------------------
     def walk_openapi(self, doc: str, data: dict) -> None:
+        self._ctx = CTX_OTHER  # parameters and request bodies; responses switch it per body
         for path, item in (data.get("paths") or {}).items():
             if not isinstance(item, dict):
                 continue
@@ -887,6 +958,7 @@ class Linter:
                 for status, resp in (op.get("responses") or {}).items():
                     if not isinstance(resp, dict):
                         continue
+                    self._ctx = CTX_RESPONSE
                     self._content(doc, resp.get("content"), f"{base}/responses/{status}/content")
                     for hname, h in (resp.get("headers") or {}).items():
                         if isinstance(h, dict) and isinstance(h.get("schema"), dict):
@@ -897,6 +969,7 @@ class Linter:
                                 f"{base}/responses/{status}/headers/{_esc(hname)}/schema",
                                 value=True,
                             )
+                    self._ctx = CTX_OTHER
 
     def _param(self, doc, scope, p: Any, ptr: str) -> None:
         if isinstance(p, dict) and isinstance(p.get("schema"), dict):
@@ -923,7 +996,21 @@ class Linter:
             if isinstance(data, dict) and "paths" in data and "openapi" in data:
                 self.walk_openapi(rel, data)
             elif isinstance(data, dict):
+                allowed_docs = {loc.split("#", 1)[0] for loc in SERVER_TEXT_LOCATIONS}
+                self._ctx = CTX_RESPONSE if rel in allowed_docs else CTX_OTHER
                 self.walk_schema(rel, [], data, "", value=False)
+        self._ctx = CTX_OTHER
+        # the same node can be recorded once per usage context: report it once
+        seen_findings: set[tuple] = set()
+        unique = []
+        for f in self.result.findings:
+            k = (f.loc, f.kind, f.cls, f.note)
+            if k not in seen_findings:
+                seen_findings.add(k)
+                unique.append(f)
+        self.result.findings = unique
+        self.result.invalid = list(dict.fromkeys(self.result.invalid))
+        self.result.unresolved = list(dict.fromkeys(self.result.unresolved))
         self.result.missing = sorted(set(self.result.missing))
         return self.result
 

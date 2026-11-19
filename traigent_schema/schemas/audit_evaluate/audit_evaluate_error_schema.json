@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_error_schema.json",
+  "title": "Audit Evaluate Error",
+  "description": "Closed error body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "error",
+    "error_code"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "success": {
+      "const": false,
+      "x-content-class": "closed_enum"
+    },
+    "error": {
+      "enum": [
+        "AUTHENTICATION_REQUIRED",
+        "Internal server error",
+        "Invalid audit summary",
+        "Malformed request body",
+        "Request body too large",
+        "Request failed",
+        "Service temporarily unavailable",
+        "Tenant context required",
+        "Too many requests",
+        "Unsupported media type"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "enum": [
+        "Unauthorized",
+        "Rate limit exceeded"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "error_code": {
+      "enum": [
+        "AUDIT_BODY_MALFORMED",
+        "AUDIT_BODY_TOO_LARGE",
+        "AUDIT_INTERNAL_ERROR",
+        "AUDIT_MEDIA_TYPE",
+        "AUDIT_RATE_LIMIT_UNAVAILABLE",
+        "AUDIT_REQUEST_ERROR",
+        "AUDIT_SUMMARY_INVALID",
+        "AUTHENTICATION_REQUIRED",
+        "RATE_LIMIT_EXCEEDED",
+        "TENANT_CONTEXT_REQUIRED"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "enum": [
+            "global"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "x-content-class": "number"
+        },
+        "limit": {
+          "enum": [
+            "60 per 1 hour"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "reset_time": {
+          "type": "string",
+          "format": "date-time",
+          "x-content-class": "timestamp"
+        }
+      }
+    }
+  }
+}

@@ -9615,6 +9615,105 @@
       "reason": "AGB-79 C1: A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
       "version": "Unreleased pending (TraigentSchema, AGB-79 C1 review_context; backend feature/agb-79-compliance-evidence-next)",
       "pr": "pending (TraigentSchema, AGB-79 C1, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "5e65fdf6f39123c950003f9654e45aa8edcebcf90744b29b604af48f4bbc8aad"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 2,
+          "fingerprint": "ed5ade56862200cbd4685a23861b3ae97ad72d7f454b0ef18615cc8ee7d51ab5"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "f12a1bd937d4d1c35af7106b8d4e1bb634cd115c799c2b33742c8c5dfb191b5a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "363cf75b243525d78cf04cb4cfdc675ae4c2528b3105e02c7b6882580265fb8f"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "4ae3fd7787cb2d64c6849bdee8b7bdb46f71e3838011a28e30db25c03ffca5f0"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "8c3d522264942e2bfe8ef56bc75b1633cd5ae3b7524883d596fc15ab0eab09bd"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "da551006e00999b93838d984e747786f0daa5cbd4786bfca84a3e69193d59212"
+        }
+      ],
+      "reason": "AGB-79 R4: the applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, AGB-79 R4 rationale_required; backend feature/agb-79-compliance-evidence-next)",
+      "pr": "pending (TraigentSchema, AGB-79 R4, not yet opened)"
     }
   ]
 }

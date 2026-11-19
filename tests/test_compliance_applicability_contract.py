@@ -255,6 +255,17 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
         (
             "ApplicabilityRevisionCreateRequest",
             _request,
+            lambda r: r["decisions"][0].update(decision="not_applicable", rationale=None)
+            or r["decisions"][0].pop("rationale"),
+        ),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _request,
+            lambda r: r["decisions"][0].update(decision="not_applicable", rationale="   "),
+        ),
+        (
+            "ApplicabilityRevisionCreateRequest",
+            _request,
             lambda r: r["decisions"][0].update(obligation_id="art10"),
         ),
         (
@@ -438,3 +449,34 @@ def test_every_decision_record_names_the_revision_it_was_decided_in() -> None:
     assert _errors("ApplicabilityRevisionRecord", record) == []
     record["decisions"][0].pop("decided_in_revision_id")
     assert _errors("ApplicabilityRevisionRecord", record) != []
+
+
+def test_not_applicable_requires_a_rationale_the_other_decisions_do_not() -> None:
+    """AGB-79 R4: a not_applicable decision carries a non-empty rationale; the others may omit it."""
+
+    def item(decision: str, **extra: Any) -> dict[str, Any]:
+        return {"obligation_id": _OBL, "decision": decision, **extra}
+
+    assert _errors("DecisionInput", item("not_applicable", rationale="Out of scope for this agent")) == []
+    assert _errors("DecisionInput", item("not_applicable")) != []
+    assert _errors("DecisionInput", item("not_applicable", rationale="")) != []
+    assert _errors("DecisionInput", item("not_applicable", rationale=" \n\t ")) != []
+    assert _errors("DecisionInput", item("applicable")) == []
+    assert _errors("DecisionInput", item("unresolved")) == []
+    assert _errors("DecisionItem", {"obligation_id": _OBL, "carry": True}) == []
+
+
+def test_rationale_required_is_a_closed_declared_400_on_the_write() -> None:
+    body = {
+        "success": False,
+        "message": "A rationale is required when an obligation is marked not applicable.",
+        "error": "rationale_required",
+        "error_code": "rationale_required",
+    }
+    assert _errors("RationaleRequiredError", body) == []
+    assert _errors("RationaleRequiredError", {**body, "obligation_id": _OBL}) != []
+    assert _errors("RationaleRequiredError", {**body, "error_code": "invalid_request"}) != []
+    endpoints = load_json(ENDPOINTS_PATH)
+    post = endpoints["paths"]["/api/v1beta/projects/{project_id}/compliance-applicability"]["post"]
+    refs = [b["$ref"] for b in post["responses"]["400"]["content"]["application/json"]["schema"]["oneOf"]]
+    assert "./compliance_applicability_schema.json#/definitions/RationaleRequiredError" in refs

@@ -44,11 +44,14 @@
             }
           },
           "400": {
-            "description": "Closed-request violation",
+            "description": "Closed-request violation. A not_applicable decision without a non-blank rationale is the distinct closed reason rationale_required; the body names no obligation and echoes no client text.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./agent_readiness_error_schema.json"
+                  "oneOf": [
+                    { "$ref": "./agent_readiness_error_schema.json" },
+                    { "$ref": "./compliance_applicability_schema.json#/definitions/RationaleRequiredError" }
+                  ]
                 }
               }
             }

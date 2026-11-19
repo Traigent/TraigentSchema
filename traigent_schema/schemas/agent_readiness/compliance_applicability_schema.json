@@ -71,8 +71,16 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 2000,
-          "description": "Optional free text. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
+          "description": "Optional free text, except that it is REQUIRED (at least one non-whitespace character) when `decision` is `not_applicable`. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
         }
+      },
+      "if": {
+        "properties": { "decision": { "const": "not_applicable" } },
+        "required": ["decision"]
+      },
+      "then": {
+        "required": ["rationale"],
+        "properties": { "rationale": { "type": "string", "minLength": 1, "pattern": "\\S" } }
       }
     },
     "DecisionCarry": {
@@ -88,6 +96,18 @@
     "DecisionItem": {
       "oneOf": [{ "$ref": "#/definitions/DecisionInput" }, { "$ref": "#/definitions/DecisionCarry" }],
       "description": "Either a new decision made in this submission, or `carry: true` for the predecessor's decision."
+    },
+    "RationaleRequiredError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": { "const": false },
+        "message": { "const": "A rationale is required when an obligation is marked not applicable." },
+        "error": { "const": "rationale_required" },
+        "error_code": { "const": "rationale_required" }
+      },
+      "description": "The closed 400 for a `not_applicable` decision whose rationale is absent, null, empty or whitespace only. Nothing is recorded. It names no obligation id and carries no client text."
     },
     "ApplicabilityRevisionCreateRequest": {
       "type": "object",

@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent Backend Agents Routes",
     "version": "1.0.0",
-    "description": "Backend routes for agent management (API refactor Phase 3). Agents are served only under /api/v1/projects/{project_id}/agents with opaque agent_ref paths and problem+json denials; GET /api/v1/agent-types lists the agent types. The retired /api/v1/agents/... and /api/v1beta/projects/{project_id}/agents mounts are no longer declared. GET /api/v1/agents/admin/stats and the standalone POST /api/v1/model-parameters remain live and unchanged."
+    "description": "Backend routes for agent management (API refactor Phase 3). Agents are served only under /api/v1/projects/{project_id}/agents with opaque agent_ref paths and problem+json denials; GET /api/v1/agent-types lists the agent types. The retired /api/v1/agents/... and /api/v1beta/projects/{project_id}/agents mounts are no longer declared. The standalone POST /api/v1/model-parameters remains live and unchanged. The platform-admin agent statistics route is private and not declared here."
   },
   "paths": {
     "/api/v1/agent-types": {
@@ -1441,16 +1441,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/v1/agents/admin/stats": {
-      "get": {
-        "summary": "Get agent admin stats",
-        "responses": {
-          "200": {
-            "description": "Agent stats retrieved successfully"
           }
         }
       }

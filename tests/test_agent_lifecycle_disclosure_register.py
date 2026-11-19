@@ -449,7 +449,7 @@ def _iter_property_positions(
     oneOf, anyOf, allOf, and if/then/else" -- unconditionally, exactly like
     oneOf/anyOf above), and the audit found 38 allOf branches (e.g.
     agent_lifecycle_agent_revision_register_request_schema.json's
-    `#/properties/agent_ref/allOf/1/properties/kind`) and 8 each of if/then
+    `#/properties/lifecycle_agent_ref/allOf/1/properties/kind`) and 8 each of if/then
     branches (e.g. agent_lifecycle_measurement_contract_register_request_
     schema.json's `#/allOf/0/if/properties/dataset_source` and
     `#/allOf/0/then/properties/slice_definition`, and agent_lifecycle_
@@ -993,7 +993,7 @@ class TestDisclosurePoisonGuardsAreLoadBearing:
         detection rather than accidentally validating a real file."""
         poisoned_entry = {
             "document": "agent_lifecycle_record/agent_lifecycle_qualification_register_request_schema.json",
-            "pointer": "#/properties/agent_ref",
+            "pointer": "#/properties/lifecycle_agent_ref",
             "rule": "opaque_lifecycle_reference",
             "artifact": REGISTER_ARTIFACT,
         }

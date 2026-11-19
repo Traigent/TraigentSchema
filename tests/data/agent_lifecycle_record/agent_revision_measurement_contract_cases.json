@@ -33,7 +33,7 @@
           "id": "record00000000000001",
           "version_id": "record00000000000001"
         },
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         },
@@ -79,7 +79,7 @@
           "id": "record00000000000001",
           "version_id": "record00000000000001"
         },
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         },
@@ -100,7 +100,7 @@
       "description": "PART1_CONTRACT_FREEZE_DRAFT.md:1007 valid case 31. Supplying an existing agent_ref (StableOpaqueRef{kind=agent}) attaches a new revision under an already-known logical Agent; StableOpaqueRef carries no version_id at all.",
       "payload": {
         "schema_version": "1.0.0-beta.1",
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         }
@@ -375,7 +375,7 @@
       "description": "agent_ref carries the wrong StableOpaqueRef kind (experiment_run instead of agent).",
       "payload": {
         "schema_version": "1.0.0-beta.1",
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "experiment_run",
           "id": "agentaaaaaaaaaaaaaa"
         }
@@ -388,7 +388,7 @@
       "description": "PART1_CONTRACT_FREEZE_DRAFT.md:287, companion to :1058 case 32 for Route 1's own agent_ref use site. StableOpaqueRef has no version_id field at all; supplying one on agent_ref is a schema violation.",
       "payload": {
         "schema_version": "1.0.0-beta.1",
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa",
           "version_id": "agentaaaaaaaaaaaaaa"
@@ -469,7 +469,7 @@
           "id": "record00000000000001",
           "version_id": "record00000000000001"
         },
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         },
@@ -496,7 +496,7 @@
           "id": "agentrev0000000001",
           "version_id": "agentrev0000000001"
         },
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         },
@@ -527,7 +527,7 @@
           "id": "record00000000000001",
           "version_id": "record00000000000001"
         },
-        "agent_ref": {
+        "lifecycle_agent_ref": {
           "kind": "agent",
           "id": "agentaaaaaaaaaaaaaa"
         },

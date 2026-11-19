@@ -9393,6 +9393,89 @@
       "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
     },
     {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/x-content-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"server_text\"",
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "70ed48e4836c3b9cb36d33344f9eb5cf3605c994e476b8e93168e9f6c734e81e"
+        },
+        {
+          "pointer": "#/properties/x-content-key-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "bca081b5838a338eed8b6f2969c0bd55d64ed819fa4973b909289980dd3a17dc"
+        }
+      ],
+      "reason": "Two content classes join the vocabulary for the audit evaluate contract: version joins x-content-class and x-content-key-class (an anchored dotted-digit pattern, proven by the lint) and server_text joins x-content-class only (server-composed text from fixed templates, bounded and noted). Additive: no existing value changes meaning and no existing document uses them; the lint accepts server_text only at one allow-listed response location, never as a map-key class, and tests/test_content_class_lint.py pins both classes.",
+      "version": "unreleased (audit evaluate contract, additive)",
+      "pr": "#732"
+    },
+    {
       "file": "agent_readiness/agent_posture_endpoints.json",
       "rule": "endpoint_removed",
       "findings": [

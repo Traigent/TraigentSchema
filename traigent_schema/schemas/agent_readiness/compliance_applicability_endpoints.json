@@ -1,15 +1,15 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Backend Compliance Applicability Routes",
+    "title": "Traigent Backend Compliance Applicability Routes (project level)",
     "version": "1.0.0",
     "description": "Project-scoped applicability screen (AGB-74 slice 4). Ships dark behind the same operator flag as the evidence view: while off, every route answers the standard not-found envelope as if it did not exist. The screening answers and the rationale are customer content and travel in bodies only."
   },
   "paths": {
-    "/api/v1beta/projects/{project_id}/compliance-applicability": {
+    "/api/v1/projects/{project_id}/compliance-applicability": {
       "post": {
         "summary": "Record an applicability revision (project admin, human session)",
-        "operationId": "createComplianceApplicabilityRevision",
+        "operationId": "project_compliance_applicability.create_compliance_applicability_revision",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -136,10 +136,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-applicability/suggestions": {
+    "/api/v1/projects/{project_id}/compliance-applicability/suggestions": {
       "post": {
         "summary": "Evaluate suggestions for posted screening answers (project members; pure, nothing is stored)",
-        "operationId": "suggestComplianceApplicability",
+        "operationId": "project_compliance_applicability.suggest_compliance_applicability",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -226,10 +226,10 @@
         }
       }
     },
-    "/api/v1beta/projects/{project_id}/compliance-applicability/agents/{agent_id}": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-applicability": {
       "get": {
         "summary": "The current applicability screen of one Agent, with paginated history (project members)",
-        "operationId": "getComplianceApplicability",
+        "operationId": "project_compliance_applicability.get_compliance_applicability",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -242,7 +242,7 @@
             }
           },
           {
-            "name": "agent_id",
+            "name": "agent_ref",
             "in": "path",
             "required": true,
             "schema": {

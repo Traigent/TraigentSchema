@@ -148,7 +148,7 @@ def test_endpoint_returns_zip_and_declares_413_and_429() -> None:
     assert "application/zip" in responses["200"]["content"]
     assert responses["200"]["headers"]["Cache-Control"]["schema"]["enum"] == ["no-store"]
     assert {"400", "401", "403", "404", "413", "429"} <= set(responses)
-    assert [p["name"] for p in operation["parameters"]] == ["project_id", "agent_id"]
+    assert [p["name"] for p in operation["parameters"]] == ["project_id", "agent_ref"]
 
 
 def test_registered_and_free_of_determination_wording() -> None:

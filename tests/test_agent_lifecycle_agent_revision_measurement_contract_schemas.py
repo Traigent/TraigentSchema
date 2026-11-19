@@ -311,7 +311,7 @@ _EXPECTED_ROUTE1_RESPONSE_TOP_LEVEL_PROPERTIES = {
     "schema_version",
     "agent_revision_ref",
     "record_ref",
-    "agent_ref",
+    "lifecycle_agent_ref",
     "identity_state",
     "created_at",
 }
@@ -338,7 +338,7 @@ class TestRoute1AgentRevisionRegisterProducer:
         self, validator: SchemaValidator
     ) -> None:
         schema = validator._schemas["agent_lifecycle_agent_revision_register_request_schema"]
-        assert set(schema["properties"]) == {"schema_version", "agent_ref", "identity_declaration"}
+        assert set(schema["properties"]) == {"schema_version", "lifecycle_agent_ref", "identity_declaration"}
         assert schema["required"] == ["schema_version"]
         assert schema["additionalProperties"] is False
 

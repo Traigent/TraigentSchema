@@ -187,7 +187,7 @@ class TestIdentityVocabulariesAreStructurallySeparate:
 _EXPECTED_ROUTE5_TOP_LEVEL_PROPERTIES = {
     "schema_version",
     "record_ref",
-    "agent_ref",
+    "lifecycle_agent_ref",
     "agent_revision_ref",
     "created_at",
     "as_of",
@@ -238,7 +238,7 @@ def _minimal_valid_route5_payload() -> dict[str, Any]:
             "id": _opaque_ref_id("r"),
             "version_id": _opaque_ref_id("r"),
         },
-        "agent_ref": {"kind": "agent", "id": _opaque_ref_id("a")},
+        "lifecycle_agent_ref": {"kind": "agent", "id": _opaque_ref_id("a")},
         "agent_revision_ref": {
             "kind": "agent_revision",
             "id": _opaque_ref_id("v"),

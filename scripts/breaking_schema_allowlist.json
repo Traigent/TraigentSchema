@@ -9924,6 +9924,426 @@
       ],
       "reason": "The experiments-list run summary gains two optional, nullable members so the portal list can show the best trial's score: best_trial_id and best_metrics, read from the selection the backend already records at finalize. Both are additive and not required. The only consumer that validates this closed object is the Traigent portal, which updates in step with the backend, so an older consumer rejecting the new members is an accepted, reviewed risk.",
       "version": "Unreleased"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "611ac0082044b041dada4cef70b45aa63fec794a92c26fd25d37081f56833be8"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination/properties/has_more",
+          "role": "response",
+          "subject": "has_more",
+          "old": false,
+          "new": true,
+          "fingerprint": "197c39fa2cf1a8b543a8d18167809c7a27dfcc526d0f9b5ee5eee7051e228d57"
+        },
+        {
+          "pointer": "#/properties/pagination/properties/limit",
+          "role": "response",
+          "subject": "limit",
+          "old": false,
+          "new": true,
+          "fingerprint": "63a937692badd3c2127b6f9791a57d06efb2cbca8c684dad47bbce5ac1a27ee6"
+        },
+        {
+          "pointer": "#/properties/pagination/properties/next_cursor",
+          "role": "response",
+          "subject": "next_cursor",
+          "old": false,
+          "new": true,
+          "fingerprint": "eb2ec960bfce6c2f5c62effd616f0c86c32b1de50934102f51af16c1cbd8f95d"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "dc49925047a7f1118fa567431b02290be6fa15d356e6f651cc721260130bb56d"
+        },
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "a93e046b336ffa50bd622589ee28db94a380100d1174374dfac323b3eef1a699"
+        },
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "ca42dc2757cd4c75e7ba2737f85f2f62d3911bb32e5f52ecb3979b551324e40a"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "ae1a5fb247507bb9263a29ab148122002c1609f60884022a8751766e647d07f9"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "c725002a8182053bb54399e5741b5ac64bfb93b9bea91b7009dfe23981cf0fc8"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "2f60d82bb571c2bfcfba8b57e1e50678a89eec68f78ebb2507f62fa141bdb1de"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/responses/200/content/application/json/schema/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "186646b16171084237cd8895bcbcf2d3d68489d66c8e3fb473bb3effcdf44f35"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "87bca3aed3cf707fd5d68a8b0aa01f2fee1f6dbbd6f35e3cc2504323cc0807cc"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "e9662d15189ac48ac4591fd59283eff258719a5ad4e263c8566e83ef3031ad55"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "979b66f95f9af6cef7210c64831b1b295b55b9f2348f0f45ce272443bf6989a9"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/has_more",
+          "role": "response",
+          "subject": "has_more",
+          "old": false,
+          "new": true,
+          "fingerprint": "79f22af4948cd479e6ea509f1114e0ea13ce19f0bdb158920b1fd5bdd0401111"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/limit",
+          "role": "response",
+          "subject": "limit",
+          "old": false,
+          "new": true,
+          "fingerprint": "26e6b2e1b771b7a5df0a091a78b79a72584b8f1ae8f2b1284d20ea90c96523ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/next_cursor",
+          "role": "response",
+          "subject": "next_cursor",
+          "old": false,
+          "new": true,
+          "fingerprint": "67463ceccf31f92538aac9d4dae13ae9a49757590473be2b6f3596e26c8afcd3"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/requestBody/content/application/json/schema/properties/page",
+          "role": "request",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "cf13d50ccc0dc90dead3489aec030b4bf37c92d04b29178bcfc6350ce44f3738"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/requestBody/content/application/json/schema/properties/per_page",
+          "role": "request",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "a1013620cdab350d004cc63df4d2a73b9b6518492d182030107736a40d9146db"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "2b70e66979278c85627e7d85f24ee75fca3c1c1911ac5df55fb2d5010cbe72e0"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "1caa4d6eb339c54d13597a55cb8beffb906868310c93b533fbe26a55e22e4b3b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "89aefbf723a47cd76432ed10d16b427669d60f50abcca6f8827105e87ff6c0e5"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "0bedf07a29d9abc0d74d79ab70db45c7c7d740290cc3e81caf8b43846e1417a9"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "d6d46f1c8f0a5d1fffc5f7e2db9e1b4856d7b3157d908ce58152e35d37c72f2e"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "6f744372ca095a33cc542e8992c8fbeb0bef355c3ffa49b8c0c246801eca480f"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "8757e4a6938d3bf6c3e8fad0954cc199e4f642cb1c7eec082270220704deb66b"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/search/post/requestBody/content/application/json/schema/properties/page",
+          "role": "request",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "5e42816729f5527d0422b5d7d2393d100a6f9847ba11832841917351d57e2336"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/search/post/requestBody/content/application/json/schema/properties/per_page",
+          "role": "request",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "e35147c42a73bac47e16427f0e66e425775a07bc89678e3d9c014bee56dba5d2"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "agent_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "b96fcb09bb33c958bdf0b90f2655542e0dd93a6dd7f67a88e8e881af8ff05586"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "experiments",
+          "old": true,
+          "new": false,
+          "fingerprint": "aeabb578f90cf9986d8b49ed10c2c35cb4064bddf2ad852ed2c2eacc04cb0e76"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "671769c5fd6bc13d58b87fdea10671f2be72b93104aced2cebc908459db3e620"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
     }
   ]
 }

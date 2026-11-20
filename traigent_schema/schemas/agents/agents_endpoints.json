@@ -52,24 +52,25 @@
             }
           },
           {
-            "name": "page",
+            "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "1-based page number",
+            "description": "Opaque next_cursor of the previous page, bound to the caller, project, filters and sort.",
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "type": "string",
+              "maxLength": 4096
             }
           },
           {
-            "name": "per_page",
+            "name": "limit",
             "in": "query",
             "required": false,
-            "description": "Page size, maximum 100; above 100 is rejected with a 400 problem, never clamped.",
+            "description": "Page size, default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped. page, per_page and offset are rejected.",
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 100
+              "maximum": 100,
+              "default": 20
             }
           },
           {
@@ -78,7 +79,14 @@
             "required": false,
             "description": "Sort column",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "name",
+                "agent_type_id",
+                "id"
+              ]
             }
           },
           {
@@ -105,24 +113,6 @@
           },
           {
             "name": "agent_platform",
-            "in": "query",
-            "required": false,
-            "description": "Closed filter",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "style",
-            "in": "query",
-            "required": false,
-            "description": "Closed filter",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tone",
             "in": "query",
             "required": false,
             "description": "Closed filter",
@@ -158,7 +148,7 @@
             }
           }
         ],
-        "description": "The query string carries only bounded pagination and the closed filters; a name or search term is customer text and goes in the body of agent.search_agents (a name or search query parameter is a 400).",
+        "description": "The query string carries only bounded cursor pagination and the closed filters; a name, search term or free-form text filter (style, tone) is customer text and goes in the body of agent.search_agents (such a query parameter is a 400, as are page, per_page and offset).",
         "responses": {
           "200": {
             "description": "A page of agents",
@@ -983,7 +973,7 @@
     "/api/v1/projects/{project_id}/agents/{agent_ref}/experiments": {
       "get": {
         "operationId": "agent.get_agent_experiments",
-        "summary": "The agent's experiments",
+        "summary": "One cursor page of the agent's experiments",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1005,6 +995,28 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor of the previous page, bound to the caller, project, parent agent and this operation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
             }
           }
         ],
@@ -1577,7 +1589,28 @@
               },
               "pagination": {
                 "type": "object",
-                "additionalProperties": true
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "next_cursor": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "next_cursor",
+                  "has_more"
+                ],
+                "additionalProperties": false
               }
             },
             "additionalProperties": true
@@ -1622,17 +1655,25 @@
           "search": {
             "type": "string"
           },
-          "page": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "per_page": {
+          "limit": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 100
+            "maximum": 100,
+            "default": 20
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 4096
           },
           "sort_by": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "name",
+              "agent_type_id",
+              "id"
+            ]
           },
           "sort_order": {
             "type": "string",
@@ -1837,27 +1878,63 @@
       },
       "AgentExperimentsResponse": {
         "type": "object",
-        "description": "BARE body (get_agent_experiments).",
+        "description": "Success envelope around one cursor page of the agent's experiments (newest first); total_runs and active_runs are aggregate counts.",
         "properties": {
-          "agent_id": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
             "type": "string"
           },
-          "total": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "experiments": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
+          "data": {
+            "type": "object",
+            "properties": {
+              "agent_id": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "next_cursor": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "next_cursor",
+                  "has_more"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "agent_id",
+              "items",
+              "pagination"
+            ],
+            "additionalProperties": true
           }
         },
         "required": [
-          "agent_id",
-          "total",
-          "experiments"
+          "data"
         ],
         "additionalProperties": true
       }

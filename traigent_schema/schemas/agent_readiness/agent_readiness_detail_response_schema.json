@@ -79,14 +79,19 @@
       "properties": {
         "items": {
           "type": "array",
-          "maxItems": 50,
+          "maxItems": 100,
           "items": {"$ref": "#/definitions/JourneyItem"}
         },
         "pagination": {
-          "allOf": [
-            {"$ref": "../pagination_schema.json"},
-            {"properties": {"per_page": {"maximum": 50}}}
-          ]
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limit", "next_cursor", "has_more"],
+          "description": "Cursor page block (API revision Phase 3): the server-issued opaque next_cursor is null on the last page; there is no total, page number or offset.",
+          "properties": {
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "The page size used (default 20, maximum 100; above 100 is rejected, never clamped)."},
+            "next_cursor": {"type": ["string", "null"], "maxLength": 4096, "description": "Opaque cursor for the next page, bound to the caller, project, filters and sort; null when has_more is false."},
+            "has_more": {"type": "boolean", "description": "Whether another page follows."}
+          }
         }
       },
       "required": ["items", "pagination"]

@@ -31,7 +31,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "$ref": "./release_acceptance_schema.json#/definitions/AgentId"
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           }
         ],
@@ -152,7 +152,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "$ref": "./release_acceptance_schema.json#/definitions/AgentId"
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           },
           {
@@ -276,7 +276,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "$ref": "./release_acceptance_schema.json#/definitions/AgentId"
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           }
         ],
@@ -399,7 +399,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "$ref": "./release_acceptance_schema.json#/definitions/AgentId"
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
           }
         ],

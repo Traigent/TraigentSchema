@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 32,
-      "refOrEndpointGraph": 525
+      "refOrEndpointGraph": 533
     },
-    "reachableCount": 557,
-    "schemaFileCount": 623,
-    "unreachableCount": 66
+    "reachableCount": 565,
+    "schemaFileCount": 627,
+    "unreachableCount": 62
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -54,12 +54,8 @@
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
     "fleet_observe/agent_observation_record_schema.json",
-    "fleet_observe/coverage_ratio_schema.json",
     "fleet_observe/evidence_record_schema.json",
-    "fleet_observe/finding_schema.json",
-    "fleet_observe/fleet_observe_common_schema.json",
-    "fleet_observe/identity_cluster_schema.json",
-    "fleet_observe/import_event_schema.json",
+    "fleet_observe/import_bundle_schema.json",
     "fleet_observe/source_evidence_class_map_schema.json",
     "fleet_observe/spawn_tree_schema.json",
     "labels/label_epoch_schema.json",

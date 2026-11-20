@@ -164,14 +164,7 @@ def _portfolio_payload() -> dict[str, Any]:
             "by_attention": {"ACTIONABLE": 1, "NO_PORTAL_ACTION": 0},
         },
         "ordering": "STAGE_THEN_LEAST_RECENT_ACTIVITY",
-        "pagination": {
-            "page": 1,
-            "per_page": 25,
-            "total": 1,
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        },
+        "pagination": {"limit": 20, "next_cursor": None, "has_more": False},
     }
 
 
@@ -317,14 +310,7 @@ def _detail_payload() -> dict[str, Any]:
                     "evaluator_reference_change": "FIRST_RECORDED_REFERENCE",
                 }
             ],
-            "pagination": {
-                "page": 2,
-                "per_page": 1,
-                "total": 2,
-                "total_pages": 2,
-                "has_next": False,
-                "has_prev": True,
-            },
+            "pagination": {"limit": 1, "next_cursor": None, "has_more": False},
         },
         "anchor_summary": {
             "experiment_id": "experiment-anchor",
@@ -603,15 +589,15 @@ def test_anchor_null_and_pagination_limits_are_enforced() -> None:
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
-    detail["journey"]["pagination"]["per_page"] = 51
+    detail["journey"]["pagination"]["limit"] = 101
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
-    detail["journey"]["items"] = detail["journey"]["items"] * 51
+    detail["journey"]["items"] = detail["journey"]["items"] * 101
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     portfolio = _portfolio_payload()
-    portfolio["pagination"]["per_page"] = 101
+    portfolio["pagination"]["limit"] = 101
     assert validator.validate_json(
         portfolio, "agent_readiness_portfolio_response_schema"
     )
@@ -1063,18 +1049,14 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
         "$ref"
     ].endswith("agent_lifecycle_history_response_schema.json")
     history_params = {p["name"]: p for p in history_get["parameters"]}
-    assert history_params["page"]["schema"] == {
+    assert history_params["limit"]["schema"] == {
         "type": "integer",
         "minimum": 1,
-        "maximum": 2147483647,
-        "default": 1,
+        "maximum": 100,
+        "default": 20,
     }
-    assert history_params["per_page"]["schema"] == {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 50,
-        "default": 25,
-    }
+    assert history_params["cursor"]["schema"] == {"type": "string", "maxLength": 4096}
+    assert "page" not in history_params and "per_page" not in history_params
     for status in ("400", "401", "403", "404"):
         assert history_get["responses"][status]["content"]["application/json"]["schema"][
             "$ref"

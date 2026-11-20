@@ -4,6 +4,14 @@
   "title": "ReleaseAcceptance",
   "description": "Closed contracts for releasing an agent's best config: a person's recorded acceptance of one candidate, the release that consumes it, head rollback, their refusals, and the head-history entry with actor and acceptance. Reviewed closed-contract expansion; every field is a closed enum, a bounded number, a digest, an opaque id or a timestamp, with no free text.",
   "definitions": {
+    "AgentId": {
+      "x-content-class": "key_material",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The plain agent id (the Backend Agent primary key; base64url characters, at most 512) exactly as GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head takes it. This route keeps the same agent representation as the live-config head route; it is not an opaque agentref_ reference."
+    },
     "AcceptanceId": {
       "x-content-class": "key_material",
       "type": "string",
@@ -152,8 +160,8 @@
           "$ref": "./release_acceptance_schema.json#/definitions/AcceptanceId"
         },
         "agent_id": {
-          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
-          "description": "The agent ref of the path, returned unchanged."
+          "$ref": "#/definitions/AgentId",
+          "description": "The agent id of the path, returned unchanged."
         },
         "environment": {
           "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
@@ -382,8 +390,8 @@
       ],
       "properties": {
         "agent_id": {
-          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
-          "description": "The agent ref of the path, returned unchanged."
+          "$ref": "#/definitions/AgentId",
+          "description": "The agent id of the path, returned unchanged."
         },
         "environment": {
           "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
@@ -477,8 +485,8 @@
       ],
       "properties": {
         "agent_id": {
-          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
-          "description": "The agent ref of the path, returned unchanged."
+          "$ref": "#/definitions/AgentId",
+          "description": "The agent id of the path, returned unchanged."
         },
         "environment": {
           "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
@@ -562,8 +570,8 @@
       ],
       "properties": {
         "agent_id": {
-          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
-          "description": "The agent ref of the path, returned unchanged."
+          "$ref": "#/definitions/AgentId",
+          "description": "The agent id of the path, returned unchanged."
         },
         "environment": {
           "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"

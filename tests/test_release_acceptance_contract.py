@@ -14,7 +14,7 @@ SCHEMAS = Path(get_schemas_dir())
 OPT = SCHEMAS / "optimization"
 BASE = "https://schemas.traigent.ai/"
 DIGEST = "a" * 64
-AGENT_REF = "agentref_" + "0" * 32
+AGENT_REF = "agent_0123456789abcdef"
 USER = "123e4567-e89b-42d3-a456-426614174000"
 NOW = "2026-11-20T10:00:00Z"
 CODES = [
@@ -313,3 +313,16 @@ def test_release_request_carries_no_environment_but_receipts_echo_it():
     assert "environment" not in props["ReleaseRequest"]["properties"]
     for name in ("ReleaseReceiptData", "HeadRollbackReceiptData", "HeadHistoryEntry"):
         assert "environment" in props[name]["required"], name
+
+
+def test_the_agent_in_the_path_and_the_receipt_is_the_plain_agent_id():
+    """Same shape the Backend's validate_agent_id takes (non-empty, at most 512, base64url characters), no AgentRef."""
+    raw = (OPT / "release_endpoints.json").read_text(encoding="utf-8")
+    raw += (OPT / "release_acceptance_schema.json").read_text(encoding="utf-8")
+    assert "AgentRef" not in raw
+    assert not _errors("AgentId", "agent_0123456789abcdef")
+    assert not _errors("AgentId", "a" * 512)
+    assert _errors("AgentId", "a" * 513)
+    assert _errors("AgentId", "")
+    assert _errors("AgentId", "agent id")
+    assert _errors("AgentId", 7)

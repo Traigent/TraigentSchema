@@ -934,6 +934,7 @@
   "optimization/release_acceptance_schema.json#/definitions/AcceptanceState": "closed_enum",
   "optimization/release_acceptance_schema.json#/definitions/ActorKind": "closed_enum",
   "optimization/release_acceptance_schema.json#/definitions/AgentCodeVersion": "key_material",
+  "optimization/release_acceptance_schema.json#/definitions/AgentId": "key_material",
   "optimization/release_acceptance_schema.json#/definitions/CreateReleaseAcceptanceRequest/properties/best_config_id": "key_material",
   "optimization/release_acceptance_schema.json#/definitions/CreateReleaseAcceptanceRequest/properties/best_config_version": "number",
   "optimization/release_acceptance_schema.json#/definitions/ErasableUserRef/anyOf/1": "key_material",

@@ -53,6 +53,11 @@
       "paths_file": "./optimization/best_config_head_endpoints.json"
     },
     {
+      "name": "Release Acceptance",
+      "description": "Project-scoped release acceptance, release and head rollback of the agent promotion head (/api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances and best-config-head/release, best-config-head/rollback).",
+      "paths_file": "./optimization/release_endpoints.json"
+    },
+    {
       "name": "Optimization Token Refs",
       "description": "Content-less opaque token issuance (/api/v1/optimization/token-refs; flag-gated).",
       "paths_file": "./optimization/token_refs_endpoints.json"

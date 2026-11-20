@@ -10344,6 +10344,31 @@
       "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
       "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-requires-project-binding",
+          "role": "conservative",
+          "subject": "x-requires-project-binding",
+          "old": false,
+          "new": true,
+          "fingerprint": "6d8c6285340e9e8048582e30204e40110416ea326fb867f830bb821aa338ffdb"
+        },
+        {
+          "pointer": "#/properties/x-write-only",
+          "role": "conservative",
+          "subject": "x-write-only",
+          "old": false,
+          "new": true,
+          "fingerprint": "e9faeb34d7732082d951d6f1943a1751a17b727bd8eb058e36ad8ff9742cbb7e"
+        }
+      ],
+      "reason": "The extensions meta-schema is the registry of allowed x-* annotation keywords, not a wire payload: no request or response body is validated against it, so declaring the two new annotations x-write-only and x-requires-project-binding (used on the fleet_imports:write scope map entry) cannot make any consumer reject a payload. The registry is closed by design, so each new annotation must be added here.",
+      "version": "Unreleased (fleet observe increment 1, fleet_imports:write scope)",
+      "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
     }
   ]
 }

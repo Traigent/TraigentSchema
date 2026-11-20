@@ -12,7 +12,8 @@
     "resource_number": "plural",
     "delimiter": ":",
     "exceptions": {
-      "director_evidence:read": "Restricted Director evidence scope: singular by design, never user-requestable, implies no other permission."
+      "director_evidence:read": "Restricted Director evidence scope: singular by design, never user-requestable, implies no other permission.",
+      "fleet_imports:write": "Write-only, project-bound scope. The token matches the plural pattern; the exception is semantic: unlike every other <resource>s:write scope it implies no read permission (no fleet_import.read exists). Marked x-write-only and x-requires-project-binding in x-scope-permission-map."
     }
   },
   "x-permission-convention": {
@@ -30,6 +31,7 @@
     "datasets:write",
     "experiments:read",
     "experiments:write",
+    "fleet_imports:write",
     "measures:read",
     "measures:write",
     "traces:read",
@@ -84,6 +86,13 @@
       "permissions": ["experiment.write", "experiment.read"],
       "compatibility_aliases": ["write:experiment", "read:experiment"]
     },
+    "fleet_imports:write": {
+      "permissions": ["fleet_import.write"],
+      "compatibility_aliases": ["write:fleet_import"],
+      "x-write-only": true,
+      "x-requires-project-binding": true,
+      "description": "Write-only, project-bound scope for unattended fleet-inventory import. Unlike every other *:write scope it implies NO read permission (no fleet_import.read exists, no read alias). A key carrying this scope MUST be bound to exactly one project (non-null project), and the backend MUST NOT add an implied read for it during scope normalization."
+    },
     "measures:read": {
       "permissions": ["measure.read"],
       "compatibility_aliases": ["read:measure"]
@@ -122,6 +131,7 @@
         "director_evidence:read",
         "experiments:read",
         "experiments:write",
+        "fleet_imports:write",
         "measures:read",
         "measures:write",
         "traces:read",
@@ -134,7 +144,7 @@
       "description": "Space-delimited API-key scope string. Each token MUST be a canonical ApiKeyScopeToken, including privileged platform scopes when used by trusted server-side contexts.",
       "minLength": 1,
       "maxLength": 512,
-      "pattern": "^(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
+      "pattern": "^(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|fleet_imports:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|admin:all|director_evidence:read|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|fleet_imports:write|measures:read|measures:write|traces:read|traces:write))*$",
       "x-token-ref": "#/definitions/ApiKeyScopeToken"
     },
     "UserRequestableApiKeyScopeToken": {
@@ -149,6 +159,7 @@
         "datasets:write",
         "experiments:read",
         "experiments:write",
+        "fleet_imports:write",
         "measures:read",
         "measures:write",
         "traces:read",
@@ -161,7 +172,7 @@
       "description": "Space-delimited API-key scope request string for public device-flow clients. Each token MUST be user-requestable; privileged platform scopes such as admin:all are rejected.",
       "minLength": 1,
       "maxLength": 512,
-      "pattern": "^(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|measures:read|measures:write|traces:read|traces:write))*$",
+      "pattern": "^(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|fleet_imports:write|measures:read|measures:write|traces:read|traces:write)(?:\\s+(?:agents:read|agents:write|benchmarks:read|benchmarks:write|datasets:read|datasets:write|experiments:read|experiments:write|fleet_imports:write|measures:read|measures:write|traces:read|traces:write))*$",
       "x-token-ref": "#/definitions/UserRequestableApiKeyScopeToken",
       "x-excludes": ["admin:all", "director_evidence:read"]
     },
@@ -187,6 +198,7 @@
         "director_evidence.read",
         "experiment.read",
         "experiment.write",
+        "fleet_import.write",
         "measure.read",
         "measure.write",
         "project.membership.manage",
@@ -225,7 +237,7 @@
         },
         {
           "type": "string",
-          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*(?!\\n)$",
+          "pattern": "^(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|fleet_import\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write)(?:,(?:admin|agent\\.read|agent\\.write|audit\\.export|audit\\.read|benchmark\\.read|benchmark\\.write|dataset\\.read|dataset\\.write|delete|director_evidence\\.read|experiment\\.read|experiment\\.write|fleet_import\\.write|measure\\.read|measure\\.write|project\\.membership\\.manage|read|system\\.read|trace\\.read|trace\\.write|write))*(?!\\n)$",
           "x-token-ref": "#/definitions/ApiKeyPermissionToken"
         }
       ]

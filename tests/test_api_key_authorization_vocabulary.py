@@ -30,6 +30,7 @@ EXPECTED_SCOPES = [
     "director_evidence:read",
     "experiments:read",
     "experiments:write",
+    "fleet_imports:write",
     "measures:read",
     "measures:write",
     "traces:read",
@@ -45,6 +46,7 @@ EXPECTED_USER_REQUESTABLE_SCOPES = [
     "datasets:write",
     "experiments:read",
     "experiments:write",
+    "fleet_imports:write",
     "measures:read",
     "measures:write",
     "traces:read",
@@ -63,6 +65,7 @@ EXPECTED_PERMISSIONS = [
     "director_evidence.read",
     "experiment.read",
     "experiment.write",
+    "fleet_import.write",
     "measure.read",
     "measure.write",
     "project.membership.manage",
@@ -84,6 +87,7 @@ EXPECTED_SCOPE_PERMISSION_MAP = {
     "director_evidence:read": ["director_evidence.read"],
     "experiments:read": ["experiment.read"],
     "experiments:write": ["experiment.write", "experiment.read"],
+    "fleet_imports:write": ["fleet_import.write"],
     "measures:read": ["measure.read"],
     "measures:write": ["measure.write", "measure.read"],
     "traces:read": ["trace.read"],
@@ -145,7 +149,7 @@ def test_scope_permission_map_covers_every_scope_once() -> None:
 
     for scope, metadata in scope_map.items():
         assert set(metadata["permissions"]) <= permission_enum, scope
-        if scope.endswith(":write"):
+        if scope.endswith(":write") and not metadata.get("x-write-only"):
             read_permission = metadata["permissions"][0].replace(".write", ".read")
             assert read_permission in metadata["permissions"], scope
 
@@ -161,6 +165,68 @@ def test_director_evidence_scope_map_entry_is_restricted() -> None:
         "compatibility_aliases": [],
         "restricted": True,
     }
+
+
+def test_fleet_imports_write_is_write_only_and_project_bound() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    scope_map = schema["x-scope-permission-map"]
+
+    assert scope_map["fleet_imports:write"] == {
+        "permissions": ["fleet_import.write"],
+        "compatibility_aliases": ["write:fleet_import"],
+        "x-write-only": True,
+        "x-requires-project-binding": True,
+        "description": scope_map["fleet_imports:write"]["description"],
+    }
+    assert "fleet_imports:write" in schema["x-user-requestable-scopes"]
+    assert "fleet_import.write" in schema["definitions"]["ApiKeyPermissionToken"]["enum"]
+    assert "fleet_imports:write" in schema["x-scope-convention"]["exceptions"]
+
+
+def test_no_fleet_import_read_permission_exists() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    granted = {
+        permission
+        for entry in schema["x-scope-permission-map"].values()
+        for permission in entry["permissions"]
+    }
+    aliases = {
+        alias
+        for entry in schema["x-scope-permission-map"].values()
+        for alias in entry["compatibility_aliases"]
+    }
+
+    assert "fleet_import.read" not in schema["definitions"]["ApiKeyPermissionToken"]["enum"]
+    assert "fleet_import.read" not in granted
+    assert "read:fleet_import" not in aliases
+    assert "fleet_imports:read" not in schema["definitions"]["ApiKeyScopeToken"]["enum"]
+
+
+def test_write_scopes_imply_read_except_declared_write_only() -> None:
+    schema = load_schema(VOCABULARY_SCHEMA)
+    scope_map = schema["x-scope-permission-map"]
+    user_requestable = set(schema["x-user-requestable-scopes"])
+
+    write_only = {
+        scope for scope, meta in scope_map.items() if meta.get("x-write-only")
+    }
+    assert write_only == {"fleet_imports:write"}
+
+    for scope in user_requestable:
+        if not scope.endswith(":write"):
+            continue
+        meta = scope_map[scope]
+        read_permission = meta["permissions"][0].replace(".write", ".read")
+        if scope in write_only:
+            assert read_permission not in meta["permissions"], scope
+        else:
+            assert read_permission in meta["permissions"], scope
+
+    for scope in write_only:
+        meta = scope_map[scope]
+        assert meta["x-requires-project-binding"] is True, scope
+        assert not [p for p in meta["permissions"] if p.endswith(".read")], scope
+        assert not [a for a in meta["compatibility_aliases"] if a.startswith("read:")], scope
 
 
 def test_user_requestable_scope_list_excludes_admin_and_director_evidence() -> None:

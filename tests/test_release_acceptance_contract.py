@@ -240,6 +240,8 @@ def test_agent_code_version_accepts_commit_id_and_sha256_digests(value):
         "a" * 65,
         "sha256:" + "a" * 64,
         "src:" + "a" * 40,
+        "src:" + "a" * 64 + "\n",
+        "a" * 40 + "\n",
         "a b",
         "x;y",
         "",

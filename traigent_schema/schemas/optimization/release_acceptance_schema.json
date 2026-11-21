@@ -28,9 +28,9 @@
     "AgentCodeVersion": {
       "x-content-class": "digest",
       "type": "string",
-      "pattern": "^(?:(?:src|tag):)?[0-9a-f]{64}$|^[0-9a-f]{40}$",
-      "minLength": 1,
-      "maxLength": 128,
+      "pattern": "^(?:(?:src|tag):[0-9a-f]{64}|[0-9a-f]{64}|[0-9a-f]{40})(?![\\s\\S])",
+      "minLength": 40,
+      "maxLength": 68,
       "description": "Digest of the agent code the person accepted: a 40-hex git commit id, or a 64-hex sha256 optionally prefixed 'src:' (SDK digest of the module source) or 'tag:' (SDK digest of a version the user typed; the readable tag stays on the customer side). Bound by the acceptance: a release against different agent code is refused as acceptance_binding_mismatch."
     },
     "ErasableUserRef": {

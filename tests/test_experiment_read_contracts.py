@@ -209,7 +209,7 @@ def test_graphs_page_is_bounded_and_hides_the_historical_id() -> None:
 def test_canonical_experiment_reads_require_the_reference() -> None:
     base = load_json(SCHEMAS / "evaluation" / "experiment_schema.json")
     assert "experiment_ref" not in base["required"]  # retained legacy mutations reuse the resource
-    resource = {"id": "exp_1", "name": "n", "description": "d", "configurations": {}, "agent_id": "a",
+    resource = {"id": "exp_1", "name": "n", "description": "d", "configurations": {}, "agent_ref": "agent_ref_1",
                 "model_parameters_id": "m", "measures": [], "dataset_id": "d1"}
     assert any("experiment_ref" in e for e in _errors("ExperimentRead", resource))
     assert not any("experiment_ref" in e for e in _errors("ExperimentRead", {**resource, "experiment_ref": REF}))
@@ -261,3 +261,52 @@ def test_errors_are_closed_and_never_echo_inputs(definition: str) -> None:
 def test_replay_class_read_is_documented_for_pure_read_posts() -> None:
     for path in (P + "/experiments/search", "/api/v1/experiment-context/resolve"):
         assert "replay class read" in EXEC[path]["post"]["description"]
+
+
+RUN_REF = "experiment_run_" + "0123456789abcdef" * 2
+_RAW_ID_KEYS = {"run_id", "experiment_run_id", "agent_id"}
+
+
+def _canonical_read_definitions() -> dict[str, Any]:
+    return load_json(READS)["definitions"]
+
+
+def _keys(node: Any) -> set[str]:
+    found: set[str] = set()
+    if isinstance(node, dict):
+        for k, v in node.items():
+            found.add(k)
+            found |= _keys(v)
+    elif isinstance(node, list):
+        for v in node:
+            found |= _keys(v)
+    return found
+
+
+def test_canonical_reads_expose_no_raw_run_or_agent_ids() -> None:
+    defs = _canonical_read_definitions()
+    for name in ("ExperimentRead", "ExperimentGraphSummary", "AgentExperimentItem"):
+        props = defs[name].get("properties", {})
+        assert not (_RAW_ID_KEYS & set(props)), name
+        assert "agent" not in props and "experiment_run" not in props, name
+    trend = load_json(SCHEMAS / "projects" / "project_scoped_experiment_trend_schema.json")
+    assert not (_RAW_ID_KEYS & _keys(trend["properties"]))
+    assert "agent_id" not in defs["ExperimentRead"]["required"]
+
+
+def test_canonical_read_run_reference_is_opaque_and_exact() -> None:
+    prop = _canonical_read_definitions()["ExperimentRead"]["properties"]["experiment_run_ref"]
+    assert prop["pattern"] == "^experiment_run_[0-9a-f]{32}$"
+    assert prop["minLength"] == prop["maxLength"] == len("experiment_run_") + 32 == 47
+    resource = {"id": "exp_1", "experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+                "agent_ref": "agent_ref_1", "model_parameters_id": "m", "measures": [], "dataset_id": "d1"}
+    # The nested shared sub-schemas have their own required members; compare against a baseline
+    # so only the errors the changed field introduces are asserted.
+    baseline = set(_errors("ExperimentRead", resource))
+    assert not any("agent_ref" in e or "experiment_run" in e for e in baseline)
+    assert set(_errors("ExperimentRead", {**resource, "experiment_run_ref": RUN_REF})) == baseline
+    assert set(_errors("ExperimentRead", {**resource, "experiment_run_ref": None})) == baseline
+    assert set(_errors("ExperimentRead", {**resource, "experiment_run_ref": "experiment_run_" + "A" * 32})) - baseline
+    assert set(_errors("ExperimentRead", {**resource, "agent_id": "a"})) - baseline
+    assert set(_errors("ExperimentRead", {**resource, "experiment_run": {"run_id": "r"}})) - baseline
+    assert set(_errors("ExperimentRead", {k: v for k, v in resource.items() if k != "agent_ref"})) - baseline

@@ -156,23 +156,140 @@
       }
     },
     "ExperimentRead": {
-      "description": "The canonical projection excludes has_hybrid_session (hybrid session vocabulary is retired): a canonical read carrying that field is rejected, while the legacy shared experiment resource keeps it. Canonical read shape of one experiment: the shared experiment resource with experiment_ref REQUIRED. The shared resource keeps experiment_ref optional because retained legacy mutations reuse it as a request body; the canonical reads (search items and detail) must always return the reference, so clients can address the experiment without substituting the historical id.",
-      "allOf": [
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource: experiment_ref is REQUIRED so clients can address the experiment without the historical id; the agent is exposed only as the opaque agent_ref (never agent_id or the hydrated agent object); the latest run is exposed only as the opaque experiment_run_ref (never a raw run id or the embedded run summary); retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
+      "required": [
+        "id",
+        "name",
+        "description",
+        "configurations",
+        "model_parameters_id",
+        "measures",
+        "experiment_ref",
+        "agent_ref"
+      ],
+      "anyOf": [
         {
-          "$ref": "./experiment_schema.json"
+          "required": [
+            "dataset_id"
+          ]
         },
         {
-          "type": "object",
           "required": [
-            "experiment_ref"
-          ],
-          "not": {
-            "required": [
-              "has_hybrid_session"
-            ]
-          }
+            "eval_dataset_id"
+          ]
+        },
+        {
+          "required": [
+            "evaluation_set_id"
+          ]
+        },
+        {
+          "required": [
+            "benchmark_id"
+          ]
         }
-      ]
+      ],
+      "properties": {
+        "experiment_ref": {
+          "$ref": "#/definitions/ExperimentRef"
+        },
+        "id": {
+          "$ref": "./experiment_schema.json#/properties/id"
+        },
+        "name": {
+          "$ref": "./experiment_schema.json#/properties/name"
+        },
+        "description": {
+          "$ref": "./experiment_schema.json#/properties/description"
+        },
+        "configurations": {
+          "$ref": "./experiment_schema.json#/properties/configurations"
+        },
+        "status": {
+          "$ref": "./experiment_schema.json#/properties/status"
+        },
+        "dataset_id": {
+          "$ref": "./experiment_schema.json#/properties/dataset_id"
+        },
+        "eval_dataset_id": {
+          "$ref": "./experiment_schema.json#/properties/eval_dataset_id"
+        },
+        "evaluation_set_id": {
+          "$ref": "./experiment_schema.json#/properties/evaluation_set_id"
+        },
+        "benchmark_id": {
+          "$ref": "./experiment_schema.json#/properties/benchmark_id"
+        },
+        "model_parameters_id": {
+          "$ref": "./experiment_schema.json#/properties/model_parameters_id"
+        },
+        "created_at": {
+          "$ref": "./experiment_schema.json#/properties/created_at"
+        },
+        "started_at": {
+          "$ref": "./experiment_schema.json#/properties/started_at"
+        },
+        "completed_at": {
+          "$ref": "./experiment_schema.json#/properties/completed_at"
+        },
+        "updated_at": {
+          "$ref": "./experiment_schema.json#/properties/updated_at"
+        },
+        "dataset": {
+          "$ref": "./experiment_schema.json#/properties/dataset"
+        },
+        "eval_dataset": {
+          "$ref": "./experiment_schema.json#/properties/eval_dataset"
+        },
+        "evaluation_set": {
+          "$ref": "./experiment_schema.json#/properties/evaluation_set"
+        },
+        "benchmark": {
+          "$ref": "./experiment_schema.json#/properties/benchmark"
+        },
+        "model_parameters": {
+          "$ref": "./experiment_schema.json#/properties/model_parameters"
+        },
+        "experiment_parameters": {
+          "$ref": "./experiment_schema.json#/properties/experiment_parameters"
+        },
+        "measures": {
+          "$ref": "./experiment_schema.json#/properties/measures"
+        },
+        "objectives": {
+          "$ref": "./experiment_schema.json#/properties/objectives"
+        },
+        "configuration_runs_count": {
+          "$ref": "./experiment_schema.json#/properties/configuration_runs_count"
+        },
+        "total_examples": {
+          "$ref": "./experiment_schema.json#/properties/total_examples"
+        },
+        "optimization_runs_count": {
+          "$ref": "./experiment_schema.json#/properties/optimization_runs_count"
+        },
+        "metadata": {
+          "$ref": "./experiment_schema.json#/properties/metadata"
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque reference to the agent performing the evaluation. The raw agent id is never returned by canonical reads."
+        },
+        "experiment_run_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 47,
+          "maxLength": 47,
+          "pattern": "^experiment_run_[0-9a-f]{32}$",
+          "description": "Opaque reference to the latest experiment run, or null when there is none. The raw run id is never returned by canonical reads."
+        }
+      }
     },
     "ExperimentGraphSummary": {
       "type": "object",

@@ -176,7 +176,7 @@
     "ExperimentRead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
       "required": [
         "name",
         "description",
@@ -214,9 +214,6 @@
         "updated_at": {
           "$ref": "./experiment_schema.json#/properties/updated_at"
         },
-        "experiment_parameters": {
-          "$ref": "./experiment_schema.json#/properties/experiment_parameters"
-        },
         "objectives": {
           "$ref": "./experiment_schema.json#/properties/objectives"
         },
@@ -226,11 +223,10 @@
         "total_examples": {
           "$ref": "./experiment_schema.json#/properties/total_examples"
         },
-        "optimization_runs_count": {
-          "$ref": "./experiment_schema.json#/properties/optimization_runs_count"
-        },
-        "metadata": {
-          "$ref": "./experiment_schema.json#/properties/metadata"
+        "experiment_runs_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of experiment runs of this experiment"
         },
         "agent_ref": {
           "type": "string",

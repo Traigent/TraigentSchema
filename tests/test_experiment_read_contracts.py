@@ -351,3 +351,13 @@ def test_experiment_read_metrics_and_evaluation_set_are_opaque_references() -> N
     assert _read_errors("ExperimentRead", {**base, "evaluation_set": {}})
     assert _read_errors("ExperimentRead", {k: v for k, v in base.items() if k != "evaluation_set"})
     assert _read_errors("ExperimentRead", {k: v for k, v in base.items() if k != "metrics"})
+
+
+def test_experiment_read_counts_experiment_runs_and_has_no_free_form_fields() -> None:
+    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": 3}) == []
+    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": -1})
+    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": "3"})
+    for key, value in (("optimization_runs_count", 3), ("metadata", {"tags": ["t"]}), ("experiment_parameters", {"a": 1})):
+        assert _read_errors("ExperimentRead", {**base, key: value}), key

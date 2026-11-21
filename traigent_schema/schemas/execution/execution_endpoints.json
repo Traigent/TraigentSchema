@@ -1427,7 +1427,7 @@
             "name": "experiment_ref",
             "in": "path",
             "required": true,
-            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "description": "Server-minted experiment reference (experiment_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
             "schema": {
               "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
             }
@@ -1518,7 +1518,7 @@
             "name": "experiment_ref",
             "in": "path",
             "required": true,
-            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "description": "Server-minted experiment reference (experiment_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
             "schema": {
               "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
             }
@@ -1643,7 +1643,7 @@
             "name": "experiment_ref",
             "in": "path",
             "required": true,
-            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "description": "Server-minted experiment reference (experiment_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
             "schema": {
               "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
             }

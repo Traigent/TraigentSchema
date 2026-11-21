@@ -1054,7 +1054,7 @@
             }
           }
         },
-        "description": "One cursor page of the experiments of an agent. Keeps its method, path and operation id; items now carry experiment_ref (exs_ plus 32 lowercase hex) instead of the historical experiment id. limit above 100, retired offset vocabulary and a malformed or foreign cursor are closed 400 problems before any lookup; the cursor is sealed and never carries a caller-chosen identifier."
+        "description": "One cursor page of the experiments of an agent. Keeps its method, path and operation id; items now carry experiment_ref (experiment_ plus 32 lowercase hex) instead of the historical experiment id. limit above 100, retired offset vocabulary and a malformed or foreign cursor are closed 400 problems before any lookup; the cursor is sealed and never carries a caller-chosen identifier."
       }
     },
     "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets": {

@@ -29,7 +29,7 @@ SCHEMAS = get_schemas_dir()
 SCHEMA_PATH = SCHEMAS / "evaluation" / "experiment_context_schema.json"
 ENDPOINTS_PATH = SCHEMAS / "execution" / "execution_endpoints.json"
 ROUTE = "/api/v1/experiment-context/resolve"
-REF = "exs_" + "0123456789abcdef" * 2
+REF = "experiment_" + "0123456789abcdef" * 2
 
 _load = load_json
 _REGISTRY = build_registry(SCHEMAS)
@@ -277,7 +277,7 @@ def test_resolve_request_is_closed_and_requires_a_provenance_shaped_reference() 
     assert _errors(ref, {})  # required
     assert _errors(ref, {"experiment_ref": REF, "experiment_id": "exp_1"})  # closed
     assert _errors(ref, {"experiment_id": "exp_1"})  # a legacy id is not a reference
-    for bad in ("exs_" + "A" * 32, "exs_" + "a" * 31, "exs_" + "a" * 33, "exp_" + "a" * 32, "", 7):
+    for bad in ("experiment_" + "A" * 32, "experiment_" + "a" * 31, "experiment_" + "a" * 33, "exp_" + "a" * 32, "", 7):
         assert _errors(ref, {"experiment_ref": bad}), bad
 
 

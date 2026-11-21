@@ -1526,7 +1526,7 @@
             "name": "experiment_ref",
             "in": "path",
             "required": true,
-            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex); a malformed value is a closed 400 before any lookup.",
+            "description": "Server-minted experiment reference (experiment_ plus 32 lowercase hex); a malformed value is a closed 400 before any lookup.",
             "schema": {
               "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
             }

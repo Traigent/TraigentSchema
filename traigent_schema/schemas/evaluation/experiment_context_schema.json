@@ -40,7 +40,7 @@
       "type": "object",
       "additionalProperties": false,
       "x-max-request-bytes": 512,
-      "description": "POST body of experiment_context.get_experiment_context. Closed: experiment_ref is the only member and is required; any other key, a missing or non-string reference, or a value that is not exs_ plus 32 lowercase hex is a 400 ExperimentContextBadRequestError, validated before any membership lookup. A legacy experiment id is not a reference and is rejected the same way; nothing casts between the two.",
+      "description": "POST body of experiment_context.get_experiment_context. Closed: experiment_ref is the only member and is required; any other key, a missing or non-string reference, or a value that is not experiment_ plus 32 lowercase hex is a 400 ExperimentContextBadRequestError, validated before any membership lookup. A legacy experiment id is not a reference and is rejected the same way; nothing casts between the two.",
       "required": ["experiment_ref"],
       "properties": {
         "experiment_ref": {"$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef"}

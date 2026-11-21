@@ -22,7 +22,7 @@ READS = SCHEMAS / "evaluation" / "experiment_reads_schema.json"
 _REGISTRY = build_registry(SCHEMAS)
 _ID = load_json(READS)["$id"]
 P = "/api/v1/projects/{project_id}"
-REF = "exs_" + "0123456789abcdef" * 2
+REF = "experiment_" + "0123456789abcdef" * 2
 
 EXEC = load_json(SCHEMAS / "execution" / "execution_endpoints.json")["paths"]
 PLANNED = load_json(SCHEMAS / "planned_projects_endpoints.json")["paths"]
@@ -95,13 +95,27 @@ def test_private_admin_stats_stays_out_of_the_public_fragments() -> None:
     assert "admin/stats" not in text and private_op not in text
 
 
-@pytest.mark.parametrize("value", [REF, "exs_" + "0" * 32, "exs_" + "f" * 32])
-def test_reference_accepts_exs_plus_32_lowercase_hex(value: str) -> None:
+def test_reference_has_exact_length_43_and_experiment_prefix() -> None:
+    ref = load_json(READS)["definitions"]["ExperimentRef"]
+    assert ref["pattern"] == "^experiment_[0-9a-f]{32}$"
+    assert ref["minLength"] == ref["maxLength"] == len("experiment_") + 32 == 43
+    assert _errors("ExperimentRef", "exs_" + "a" * 32)
+
+
+def test_canonical_read_rejects_retired_has_hybrid_session() -> None:
+    resource = {"experiment_ref": REF, "has_hybrid_session": False}
+    assert any("has_hybrid_session" in e or "not" in e for e in _errors("ExperimentRead", resource))
+    shared = load_json(SCHEMAS / "evaluation" / "experiment_schema.json")
+    assert "has_hybrid_session" in shared["properties"]
+
+
+@pytest.mark.parametrize("value", [REF, "experiment_" + "0" * 32, "experiment_" + "f" * 32])
+def test_reference_accepts_experiment_plus_32_lowercase_hex(value: str) -> None:
     assert _errors("ExperimentRef", value) == []
 
 
-@pytest.mark.parametrize("value", ["", "exs_", "exs_" + "A" * 32, "exs_" + "a" * 31, "exs_" + "a" * 33,
-                                   "exp_" + "a" * 32, "0123456789abcdef" * 2, "exs_" + "g" * 32,
+@pytest.mark.parametrize("value", ["", "experiment_", "experiment_" + "A" * 32, "experiment_" + "a" * 31, "experiment_" + "a" * 33,
+                                   "exp_" + "a" * 32, "0123456789abcdef" * 2, "experiment_" + "g" * 32,
                                    "11111111-1111-1111-1111-111111111111", 5, None])
 def test_reference_rejects_ids_uuids_and_bad_shapes(value: Any) -> None:
     assert _errors("ExperimentRef", value)
@@ -241,7 +255,7 @@ def test_errors_are_closed_and_never_echo_inputs(definition: str) -> None:
     assert _errors(definition, {**ok, "message": f"{msg} {REF}"})
     assert _errors(definition, {**ok, "details": {"experiment_ref": REF}})
     for text in spec["properties"]["message"]["enum"]:
-        assert not re.search(r"exs_|exp_|\{", text)
+        assert not re.search(r"experiment_[0-9a-f]{4}|exp_|\{", text)
 
 
 def test_replay_class_read_is_documented_for_pure_read_posts() -> None:

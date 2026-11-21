@@ -10358,7 +10358,7 @@
           "fingerprint": "dd516bc518636175e5557e3f2c0e402751d0654fc83d31e12428d623dc7a484f"
         }
       ],
-      "reason": "The experiment resource gains the optional, read-only experiment_ref (exs_ plus 32 lowercase hex), the server-minted URL reference returned by the project-scoped experiment reads; the historical id stays. Additive and not required, so a response without it still validates.",
+      "reason": "The experiment resource gains the optional, read-only experiment_ref (experiment_ plus 32 lowercase hex), the server-minted URL reference returned by the project-scoped experiment reads; the historical id stays. Additive and not required, so a response without it still validates.",
       "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
       "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
     },

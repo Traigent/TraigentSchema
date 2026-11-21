@@ -2,15 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/evaluation/experiment_reads_schema.json",
   "title": "Experiment Read Contracts",
-  "description": "Shared definitions for the project-scoped experiment read operations of API revision Phase 3 slice 3.3 window 1b: experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search), experiment.get_experiment, experiment.export_experiment, trace.get_experiment_graphs, project_core_metrics.get_experiment_trend and the cursor page of agent.get_agent_experiments. Experiments are addressed in URLs and bodies by experiment_ref (exs_ plus 32 lowercase hex), never by the historical primary key. Collections page by limit/cursor (default 20, maximum 100) and return pagination {limit, next_cursor, has_more}. Errors are closed and never echo inputs. Numeric byte and cardinality budgets on these NEW canonical operations (maxItems, x-max-request-bytes, x-max-response-bytes) are new canonical-operation bounds that the backend window-1b cutover will enforce; they do not describe existing backend behaviour, and retained legacy operations carry none. These are the public contracts only: the platform-admin experiment statistics operation stays a backend-private contract and is not declared here.",
+  "description": "Shared definitions for the project-scoped experiment read operations of API revision Phase 3 slice 3.3 window 1b: experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search), experiment.get_experiment, experiment.export_experiment, trace.get_experiment_graphs, project_core_metrics.get_experiment_trend and the cursor page of agent.get_agent_experiments. Experiments are addressed in URLs and bodies by experiment_ref (experiment_ plus 32 lowercase hex), never by the historical primary key. Collections page by limit/cursor (default 20, maximum 100) and return pagination {limit, next_cursor, has_more}. Errors are closed and never echo inputs. Numeric byte and cardinality budgets on these NEW canonical operations (maxItems, x-max-request-bytes, x-max-response-bytes) are new canonical-operation bounds that the backend window-1b cutover will enforce; they do not describe existing backend behaviour, and retained legacy operations carry none. These are the public contracts only: the platform-admin experiment statistics operation stays a backend-private contract and is not declared here.",
   "definitions": {
     "ExperimentRef": {
       "type": "string",
-      "pattern": "^exs_[0-9a-f]{32}$",
-      "minLength": 36,
-      "maxLength": 36,
+      "pattern": "^experiment_[0-9a-f]{32}$",
+      "minLength": 43,
+      "maxLength": 43,
       "x-identifier": true,
-      "description": "Server-minted immutable URL reference for one experiment: the prefix exs_ followed by 32 lowercase hexadecimal characters. Provenance: the server mints it independently of the historical primary key (experiment id), stores it once and never derives it from the id, the name or any caller input, so a reference cannot be computed from an id and an id cannot be cast to a reference. Callers never choose it: creation contracts reject a caller-supplied value, and UUID shape establishes no provenance. A reference only names a resource; it does not authorize access, and every read still authorizes the explicit project scope and the per-resource grant. The legacy experiment id stays the historical primary key for still-live operations that have not moved; no client casts between the two."
+      "description": "Server-minted immutable URL reference for one experiment: the prefix experiment_ followed by 32 lowercase hexadecimal characters. Provenance: the server mints it independently of the historical primary key (experiment id), stores it once and never derives it from the id, the name or any caller input, so a reference cannot be computed from an id and an id cannot be cast to a reference. Callers never choose it: creation contracts reject a caller-supplied value, and UUID shape establishes no provenance. A reference only names a resource; it does not authorize access, and every read still authorizes the explicit project scope and the per-resource grant. The legacy experiment id stays the historical primary key for still-live operations that have not moved; no client casts between the two."
     },
     "CursorPagination": {
       "type": "object",
@@ -156,7 +156,7 @@
       }
     },
     "ExperimentRead": {
-      "description": "Canonical read shape of one experiment: the shared experiment resource with experiment_ref REQUIRED. The shared resource keeps experiment_ref optional because retained legacy mutations reuse it as a request body; the canonical reads (search items and detail) must always return the reference, so clients can address the experiment without substituting the historical id.",
+      "description": "The canonical projection excludes has_hybrid_session (hybrid session vocabulary is retired): a canonical read carrying that field is rejected, while the legacy shared experiment resource keeps it. Canonical read shape of one experiment: the shared experiment resource with experiment_ref REQUIRED. The shared resource keeps experiment_ref optional because retained legacy mutations reuse it as a request body; the canonical reads (search items and detail) must always return the reference, so clients can address the experiment without substituting the historical id.",
       "allOf": [
         {
           "$ref": "./experiment_schema.json"
@@ -165,7 +165,12 @@
           "type": "object",
           "required": [
             "experiment_ref"
-          ]
+          ],
+          "not": {
+            "required": [
+              "has_hybrid_session"
+            ]
+          }
         }
       ]
     },

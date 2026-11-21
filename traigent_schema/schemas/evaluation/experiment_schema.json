@@ -161,7 +161,7 @@
     "experiment_ref": {
       "$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef",
       "readOnly": true,
-      "description": "Server-minted URL reference (exs_ plus 32 lowercase hex) returned by the project-scoped experiment reads. Read-only: a write that supplies it is rejected or ignored, never honoured."
+      "description": "Server-minted URL reference (experiment_ plus 32 lowercase hex) returned by the project-scoped experiment reads. Read-only: a write that supplies it is rejected or ignored, never honoured."
     },
     "name": {
       "type": "string",

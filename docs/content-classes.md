@@ -249,6 +249,18 @@ closed enums and a random nonce.
 
 The legacy `PUT /api/v1/labels/objects` is unchanged. The discriminator is the route, not a header or body flag.
 
+## Release acceptance, release and head rollback (additive)
+
+`optimization/release_acceptance_schema.json` holds the closed request, receipt, read-model and
+refusal definitions; `optimization/release_endpoints.json` declares the planned routes
+(`.../agents/{agent_ref}/release-acceptances` POST and GET, `.../best-config-head/release`,
+`.../best-config-head/rollback`). A person's acceptance binds the candidate fingerprint, a
+required gate-result digest (a 64-hex digest, or the fixed value `no_gate_run`), the configuration-space
+digest, the agent code version and the expected head generation. The refusal envelope
+(`ReleaseRefusal`) has one fixed message per code and echoes no request value. `HeadHistoryEntry`
+adds `actor_id`, `actor_kind` (`user` | `service_principal`, both null on entries written before actors were recorded) and a nullable `acceptance_id` to the head
+history read model.
+
 ## Scope and commands
 
 Every document under `traigent_schema/schemas/optimization/` and `traigent_schema/schemas/labels/` (OpenAPI inventories included),

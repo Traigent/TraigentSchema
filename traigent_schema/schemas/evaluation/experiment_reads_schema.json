@@ -1,0 +1,520 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/experiment_reads_schema.json",
+  "title": "Experiment Read Contracts",
+  "description": "Shared definitions for the project-scoped experiment read operations of API revision Phase 3 slice 3.3 window 1b: experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search), experiment.get_experiment, experiment.export_experiment, trace.get_experiment_graphs, project_core_metrics.get_experiment_trend and the cursor page of agent.get_agent_experiments. Experiments are addressed in URLs and bodies by experiment_ref (exs_ plus 32 lowercase hex), never by the historical primary key. Collections page by limit/cursor (default 20, maximum 100) and return pagination {limit, next_cursor, has_more}. Errors are closed and never echo inputs. Numeric byte and cardinality budgets on these NEW canonical operations (maxItems, x-max-request-bytes, x-max-response-bytes) are new canonical-operation bounds that the backend window-1b cutover will enforce; they do not describe existing backend behaviour, and retained legacy operations carry none. These are the public contracts only: the platform-admin experiment statistics operation stays a backend-private contract and is not declared here.",
+  "definitions": {
+    "ExperimentRef": {
+      "type": "string",
+      "pattern": "^exs_[0-9a-f]{32}$",
+      "minLength": 36,
+      "maxLength": 36,
+      "x-identifier": true,
+      "description": "Server-minted immutable URL reference for one experiment: the prefix exs_ followed by 32 lowercase hexadecimal characters. Provenance: the server mints it independently of the historical primary key (experiment id), stores it once and never derives it from the id, the name or any caller input, so a reference cannot be computed from an id and an id cannot be cast to a reference. Callers never choose it: creation contracts reject a caller-supplied value, and UUID shape establishes no provenance. A reference only names a resource; it does not authorize access, and every read still authorizes the explicit project scope and the per-resource grant. The legacy experiment id stays the historical primary key for still-live operations that have not moved; no client casts between the two."
+    },
+    "CursorPagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more"
+      ],
+      "description": "Cursor pagination block. limit echoes the page size used (1-100, default 20). next_cursor is the opaque server-sealed continuation, null on the last page; it is bound to caller, project, parent, operation, filters and sort, and is never an authorization token.",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExperimentSortField": {
+      "type": "string",
+      "enum": [
+        "created_at",
+        "updated_at",
+        "name",
+        "status",
+        "last_run_at"
+      ],
+      "description": "Closed sort vocabulary for the experiment search. Ties break on the unique experiment reference so the order is total; the historical id is not a sort key."
+    },
+    "ExperimentSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-max-request-bytes": 8192,
+      "description": "Closed POST body of experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search). The request body is a pure read: replay class read, with no reservation, fingerprint or replay row. Offset vocabulary (page, per_page, offset, total) is rejected, not ignored, with the same 400 as any unknown key; keys, values and types are validated before any resource lookup. All members are optional; an empty object lists the first page, newest first.",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20,
+          "description": "Page size; above 100 is a 400, never clamped."
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Opaque next_cursor of the previous page. Rebuilt from the same filters and sort it was issued with, otherwise 400."
+        },
+        "sort_by": {
+          "$ref": "#/definitions/ExperimentSortField",
+          "default": "created_at"
+        },
+        "sort_order": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        },
+        "search": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Bounded free-text search over the experiment name; a NUL byte is a 400. Over-length is a 400, never truncated."
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Exact-match filter on the owning agent, by the opaque agent reference."
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExperimentSearchResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Success envelope around one cursor page of experiments, each carrying its experiment_ref. At most 100 items per page; the serialized response is bounded by x-max-response-bytes.",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/definitions/ExperimentRead"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/CursorPagination"
+            }
+          }
+        }
+      },
+      "x-max-response-bytes": 4194304
+    },
+    "ExperimentExportQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed query vocabulary of experiment.export_experiment: only format.",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "csv",
+            "xlsx"
+          ],
+          "default": "csv"
+        }
+      }
+    },
+    "ExperimentRead": {
+      "description": "Canonical read shape of one experiment: the shared experiment resource with experiment_ref REQUIRED. The shared resource keeps experiment_ref optional because retained legacy mutations reuse it as a request body; the canonical reads (search items and detail) must always return the reference, so clients can address the experiment without substituting the historical id.",
+      "allOf": [
+        {
+          "$ref": "./experiment_schema.json"
+        },
+        {
+          "type": "object",
+          "required": [
+            "experiment_ref"
+          ]
+        }
+      ]
+    },
+    "ExperimentGraphSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One workflow graph summary of an experiment as listed by experiment reference: ids, hash, element counts and timestamps only. Nodes, edges and loops are never listed (read one graph by its id for topology). The historical experiment id is not returned. The count maxima are the stored-graph caps of the backend (500 nodes, 1000 edges, 100 loops).",
+      "required": [
+        "id",
+        "graph_hash",
+        "sdk_version",
+        "node_count",
+        "edge_count",
+        "loop_count",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued graph id."
+        },
+        "graph_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "sdk_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "SDK version that produced the graph; null when it was not recorded."
+        },
+        "node_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "edge_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "loop_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "ExperimentGraphsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Success envelope around one cursor page of the experiment's workflow graph summaries (newest first). At most 100 graphs per page; the serialized response is bounded by x-max-response-bytes.",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/definitions/ExperimentGraphSummary"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/CursorPagination"
+            }
+          }
+        }
+      },
+      "x-max-response-bytes": 8388608
+    },
+    "AgentExperimentItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One experiment summary in the agent experiments page. Identified only by its server-minted experiment_ref; the historical id is not returned. total_runs and active_runs are aggregate counts for the page's own experiments.",
+      "required": [
+        "experiment_ref",
+        "name",
+        "description",
+        "status",
+        "total_runs",
+        "active_runs",
+        "created_at"
+      ],
+      "properties": {
+        "experiment_ref": {
+          "$ref": "#/definitions/ExperimentRef"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "oneOf": [
+            {
+              "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "ExperimentReadBadRequestError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "400, closed. Fixed message per code; the body never echoes a request key, value, cursor, search term, reference or identifier, and carries no details member. Covers malformed or unknown body keys, retired offset vocabulary, limit above 100, a malformed or foreign cursor or reference, and an unsupported export format.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Request is invalid."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Bad request"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "INVALID_REQUEST",
+            "INVALID_CURSOR",
+            "INVALID_REFERENCE",
+            "INVALID_FORMAT",
+            "OFFSET_PAGINATION_RETIRED"
+          ]
+        }
+      }
+    },
+    "ExperimentReadAuthenticationRequiredError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "401, closed: no authenticated principal.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Authentication required."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Unauthorized"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "AUTHENTICATION_REQUIRED"
+          ]
+        }
+      }
+    },
+    "ExperimentReadForbiddenError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "403, closed: the project scope or credential does not permit this read. Wrong, foreign and credential-mismatched projects receive this same body.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Access denied."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Forbidden"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "FORBIDDEN"
+          ]
+        }
+      }
+    },
+    "ExperimentReadNotFoundError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "404, closed: no such experiment visible to the caller. A missing experiment and one the caller may not read are indistinguishable. The body never echoes the reference.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Experiment not found"
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Not found"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "NOT_FOUND"
+          ]
+        }
+      }
+    },
+    "ExperimentReadPayloadTooLargeError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "413, closed: the export exceeds the row budget. details carries only the server-owned row cap, never a submitted or observed value.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Experiment export exceeds the maximum row limit."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "EXPORT_TOO_LARGE"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "EXPERIMENT_EXPORT_ROW_LIMIT_EXCEEDED"
+          ]
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_rows"
+          ],
+          "properties": {
+            "max_rows": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

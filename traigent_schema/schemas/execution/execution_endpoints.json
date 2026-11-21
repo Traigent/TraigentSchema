@@ -7,59 +7,8 @@
   },
   "paths": {
     "/api/v1/experiments": {
-      "get": {
-        "summary": "List experiments",
-        "responses": {
-          "200": {
-            "description": "Experiments retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["success", "message", "data"],
-                  "additionalProperties": false,
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "const": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "required": ["items", "pagination"],
-                      "additionalProperties": false,
-                      "properties": {
-                        "items": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "../evaluation/experiment_schema.json"
-                          }
-                        },
-                        "pagination": {
-                          "$ref": "../pagination_schema.json"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
+        "operationId": "experiment.create_experiment",
         "summary": "Create experiment",
         "requestBody": {
           "required": true,
@@ -75,36 +24,13 @@
           "201": {
             "description": "Experiment created successfully"
           }
-        }
+        },
+        "x-asserted-against-backend": false
       }
     },
     "/api/v1/experiments/{experiment_id}": {
-      "get": {
-        "summary": "Get experiment",
-        "responses": {
-          "200": {
-            "description": "Experiment retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../evaluation/experiment_schema.json"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      },
       "put": {
+        "operationId": "experiment.update_experiment",
         "summary": "Update experiment",
         "requestBody": {
           "required": true,
@@ -130,9 +56,11 @@
               }
             }
           }
-        }
+        },
+        "x-asserted-against-backend": false
       },
       "delete": {
+        "operationId": "experiment.delete_experiment",
         "summary": "Delete experiment",
         "responses": {
           "204": {
@@ -148,85 +76,47 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/v1beta/experiments/{experiment_id}/context": {
-      "get": {
-        "summary": "Resolve an experiment's tenant/project context for cross-workspace deep links",
-        "description": "Declared ahead of the Backend (x-asserted-against-backend false): recovery route for SDK/Claude Code deep links of the form .../experiments/view/{id} that open under the wrong tenant. Authenticated but CONTEXT-INDEPENDENT -- excluded from X-Tenant-Id/X-Project-Id requirement and from stale tenant/project context middleware rejection; authentication is still required. Human (JWT/cookie) sessions only: an API-key principal is rejected uniformly before any lookup (403 CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against its owner's memberships. The lookup enumerates only the caller's own ACTIVE tenant memberships and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it; there is no cross-tenant admin bypass -- active membership is required even for platform admins. An experiment that does not exist and one the caller cannot read in any active tenant return the exact same closed 404. The membership probe is bounded (tenant count and wall time); exceeding the bound is a 503, never a false 404 from a silently truncated search. Every response carries Cache-Control: private, no-store.",
-        "operationId": "getExperimentContext",
+        },
+        "x-asserted-against-backend": false
+      },
+      "patch": {
+        "operationId": "experiment.rename_experiment",
+        "summary": "Rename experiment",
+        "description": "Only name is writable; validation errors are closed and never echo the submitted name.",
         "x-asserted-against-backend": false,
-        "x-wrap-status": "bare",
-        "parameters": [
-          {
-            "name": "experiment_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name"
+                ],
+                "description": "Closed rename body. Only name is writable; any other key is a 400.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  }
+                }
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "The experiment's resolved tenant/project scope, bare (no success/message/data envelope).",
-            "headers": {
-              "Cache-Control": {
-                "description": "Always 'private, no-store'.",
-                "schema": {"type": "string", "const": "private, no-store"}
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextResponse"}
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthenticated: no human or API-key session on the request.",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextAuthenticationRequiredError"}
-              }
-            }
-          },
-          "403": {
-            "description": "The caller authenticated with an API key rather than a human session; rejected uniformly before any membership lookup.",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextApiKeyRejectedError"}
-              }
-            }
-          },
-          "404": {
-            "description": "The experiment does not exist, or exists but is not visible to the caller in any of their active tenant memberships -- the two are deliberately indistinguishable.",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextNotFoundError"}
-              }
-            }
+            "description": "Experiment renamed successfully"
           },
           "429": {
-            "description": "Rate limited (per authenticated user + IP).",
-            "headers": {
-              "Retry-After": {"description": "Seconds until a retry may succeed.", "schema": {"type": "string"}},
-              "X-RateLimit-Limit": {"schema": {"type": "string"}},
-              "X-RateLimit-Remaining": {"schema": {"type": "string"}},
-              "X-RateLimit-Reset": {"schema": {"type": "string"}}
-            },
+            "description": "Too many requests: rate limit exceeded.",
             "content": {
               "application/json": {
-                "schema": {"$ref": "../rate_limit_info_schema.json"}
-              }
-            }
-          },
-          "503": {
-            "description": "The bounded membership probe (tenant count and/or wall-time cap) was exhausted before the lookup could complete. Retryable -- never sent as a false 404 from a silently truncated search.",
-            "content": {
-              "application/json": {
-                "schema": {"$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextBudgetExceededError"}
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
               }
             }
           }
@@ -1245,6 +1135,7 @@
     },
     "/api/v1/traces/ingest": {
       "post": {
+        "operationId": "trace.ingest_traces",
         "summary": "Ingest workflow traces",
         "requestBody": {
           "required": true,
@@ -1260,11 +1151,13 @@
           "201": {
             "description": "Traces ingested successfully"
           }
-        }
+        },
+        "x-asserted-against-backend": false
       }
     },
     "/api/v1/traces/{trace_id}": {
       "get": {
+        "operationId": "trace.get_trace",
         "summary": "Get trace spans",
         "responses": {
           "200": {
@@ -1280,11 +1173,13 @@
               }
             }
           }
-        }
+        },
+        "x-asserted-against-backend": false
       }
     },
     "/api/v1/traces/graphs/{graph_id}": {
       "get": {
+        "operationId": "trace.get_graph",
         "summary": "Get workflow graph",
         "responses": {
           "200": {
@@ -1300,18 +1195,861 @@
               }
             }
           }
+        },
+        "x-asserted-against-backend": false
+      }
+    },
+    "/api/v1/experiment-context/resolve": {
+      "post": {
+        "summary": "Resolve an experiment reference's tenant/project context for cross-workspace deep links",
+        "description": "Moved from GET /api/v1beta/experiments/{experiment_id}/context; the experiment is named by experiment_ref in a closed POST body, so the reference never appears in a URL, log line or error body. Pure read: replay class read, no reservation, fingerprint or replay row. Declared ahead of the Backend (x-asserted-against-backend false): recovery route for SDK/Claude Code deep links of the form .../experiments/view/{id} that open under the wrong tenant. Authenticated but CONTEXT-INDEPENDENT -- excluded from X-Tenant-Id/X-Project-Id requirement and from stale tenant/project context middleware rejection; authentication is still required. Human (JWT/cookie) sessions only: an API-key principal is rejected uniformly before any lookup (403 CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against its owner's memberships. The lookup enumerates only the caller's own ACTIVE tenant memberships and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it; there is no cross-tenant admin bypass -- active membership is required even for platform admins. An experiment that does not exist and one the caller cannot read in any active tenant return the exact same closed 404. The membership probe is bounded (tenant count and wall time); exceeding the bound is a 503, never a false 404 from a silently truncated search. Every response carries Cache-Control: private, no-store.",
+        "operationId": "experiment_context.get_experiment_context",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "bare",
+        "responses": {
+          "200": {
+            "description": "The experiment's resolved tenant/project scope, bare (no success/message/data envelope).",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always 'private, no-store'.",
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated: no human or API-key session on the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller authenticated with an API key rather than a human session; rejected uniformly before any membership lookup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextApiKeyRejectedError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The experiment does not exist, or exists but is not visible to the caller in any of their active tenant memberships -- the two are deliberately indistinguishable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextNotFoundError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (per authenticated user + IP).",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until a retry may succeed.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The bounded membership probe (tenant count and/or wall-time cap) was exhausted before the lookup could complete. Retryable -- never sent as a false 404 from a silently truncated search.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextBudgetExceededError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed body: one fixed closed shape, never echoing the submitted key, value or reference.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextBadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/experiment_context_schema.json#/definitions/ExperimentContextResolveRequest"
+              }
+            }
+          }
         }
       }
     },
-    "/api/v1/traces/experiments/{experiment_id}/graphs": {
-      "get": {
-        "summary": "List workflow graphs for an experiment",
+    "/api/v1/projects/{project_id}/experiments/search": {
+      "post": {
+        "operationId": "experiment.get_experiments",
+        "summary": "Search experiments",
+        "description": "One cursor page of the project's experiments. POST so the filter vocabulary is a closed body; it is a pure read (replay class read: fresh execution, no reservation, fingerprint or replay row). Replaces GET /api/v1/experiments. Items carry a required experiment_ref; the page is at most 100 items and the response is bounded by the schema's x-max-response-bytes. These are new canonical-operation budgets that the backend window-1b cutover will enforce, not existing backend behaviour.",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentSearchRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Experiment graphs retrieved successfully"
+            "description": "One page of experiments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request (closed body; never echoes inputs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadBadRequestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The project scope or credential does not permit this read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadForbiddenError"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiments/{experiment_ref}": {
+      "get": {
+        "operationId": "experiment.get_experiment",
+        "summary": "Get one experiment by reference",
+        "description": "Replaces GET /api/v1/experiments/{experiment_id}. The 200 body is the bare experiment resource and carries experiment_ref.",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "bare",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "schema": {
+              "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Experiment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request (closed body; never echoes inputs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadBadRequestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The project scope or credential does not permit this read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadForbiddenError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such experiment visible to the caller (identical for missing and foreign).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadNotFoundError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiments/{experiment_ref}/export": {
+      "get": {
+        "operationId": "experiment.export_experiment",
+        "summary": "Export an experiment's trial data",
+        "description": "Replaces GET /api/v1/experiments/{experiment_id}/export. Bounded metadata export. New canonical-operation budgets that the backend window-1b cutover will enforce (they do not describe existing backend behaviour): a hard ceiling of 50000 rows and 33554432 bytes (32 MiB) of serialized file; over the row ceiling is the closed 413, never a silent truncation. Audited and rate limited as a bulk read.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "schema": {
+              "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "xlsx"
+              ],
+              "default": "csv"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The export file (CSV or XLSX), at most 33554432 bytes",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 33554432
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary",
+                  "maxLength": 33554432
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request (closed body; never echoes inputs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadBadRequestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The project scope or credential does not permit this read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadForbiddenError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such experiment visible to the caller (identical for missing and foreign).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadNotFoundError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The export exceeds the row budget.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadPayloadTooLargeError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "x-max-response-bytes": 33554432
+      }
+    },
+    "/api/v1/projects/{project_id}/experiments/{experiment_ref}/graphs": {
+      "get": {
+        "operationId": "trace.get_experiment_graphs",
+        "summary": "List an experiment's workflow graphs",
+        "description": "Replaces GET /api/v1/traces/experiments/{experiment_id}/graphs. One cursor page, at most 100 graph summaries (ids, hash, element counts and timestamps; no nodes, edges or loops). New canonical-operation budgets that the backend window-1b cutover will enforce: per-graph element counts follow the backend stored-graph caps (500 nodes, 1000 edges, 100 loops) and the response is bounded by the schema's x-max-response-bytes. The historical experiment id is not returned.",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex). Not the historical experiment id; a malformed reference is a closed 400 before any lookup, and the reference never appears in an error body.",
+            "schema": {
+              "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, default 20, maximum 100; above 100 is rejected with a 400, never clamped.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor of the previous page, bound to the caller, project, parent, operation, filters and sort.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of graphs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentGraphsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request (closed body; never echoes inputs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadBadRequestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The project scope or credential does not permit this read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadForbiddenError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such experiment visible to the caller (identical for missing and foreign).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentReadNotFoundError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "x-max-response-bytes": 8388608
+      }
+    },
+    "/api/v1/experiments/bulk-update-status": {
+      "post": {
+        "operationId": "experiment.bulk_update_experiment_status",
+        "summary": "Bulk update experiment status",
+        "description": "Atomic status update over an explicit id list inside the caller's allowed scope. Retained legacy operation; no numeric budget is declared.",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ids",
+                  "status"
+                ],
+                "description": "Closed bulk status body: a non-empty list of non-empty experiment ids and one status. Retained legacy behaviour, unchanged: the backend declares no count limit and de-duplicates the list.",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "status": {
+                    "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Statuses updated successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/experiments": {
+      "post": {
+        "operationId": "project_experiments.create_experiment",
+        "summary": "Create experiment (project beta mount)",
+        "description": "Retained sibling of experiment.create_experiment; same request body.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/experiment_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Experiment created successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/experiments/{experiment_id}": {
+      "put": {
+        "operationId": "project_experiments.update_experiment",
+        "summary": "Update experiment (project beta mount)",
+        "description": "Retained sibling of experiment.update_experiment.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/experiment_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Experiment updated successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "project_experiments.rename_experiment",
+        "summary": "Rename experiment (project beta mount)",
+        "description": "Retained sibling of experiment.rename_experiment.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name"
+                ],
+                "description": "Closed rename body. Only name is writable; any other key is a 400.",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Experiment renamed successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "project_experiments.delete_experiment",
+        "summary": "Delete experiment (project beta mount)",
+        "description": "Retained sibling of experiment.delete_experiment.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Experiment deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/experiments/bulk-update-status": {
+      "post": {
+        "operationId": "project_experiments.bulk_update_experiment_status",
+        "summary": "Bulk update experiment status (project beta mount)",
+        "description": "Retained sibling of experiment.bulk_update_experiment_status.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ids",
+                  "status"
+                ],
+                "description": "Closed bulk status body: a non-empty list of non-empty experiment ids and one status. Retained legacy behaviour, unchanged: the backend declares no count limit and de-duplicates the list.",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "status": {
+                    "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Statuses updated successfully"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {

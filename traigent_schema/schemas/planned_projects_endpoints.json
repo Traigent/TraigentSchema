@@ -528,25 +528,48 @@
             "name": "page",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "per_page",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
           },
           {
             "name": "role",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "editor",
+                "viewer"
+              ]
+            }
           },
           {
             "name": "status",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "enum": ["active", "invited", "suspended"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "invited",
+                "suspended"
+              ]
+            }
           }
         ],
         "responses": {
@@ -731,48 +754,76 @@
             "name": "project_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "minLength": 1, "maxLength": 128 }
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
           },
           {
             "name": "q",
             "in": "query",
             "required": false,
             "description": "Free-text prefix/substring matched against tenant users' email and display_name. Mutually exclusive with email. Server-side trimmed; queries shorter than 2 chars after trim are rejected with INVALID_LOOKUP_QUERY to keep the picker from broadcasting full tenant directories on a single keystroke.",
-            "schema": { "type": "string", "minLength": 2, "maxLength": 255 }
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 255
+            }
           },
           {
             "name": "email",
             "in": "query",
             "required": false,
             "description": "Exact-match lookup used by the FE before POST /memberships to validate an existence claim. Mutually exclusive with q. When combined with require_match=true, a missing user returns 404 USER_NOT_FOUND instead of 200 with empty items.",
-            "schema": { "type": "string", "format": "email", "minLength": 3, "maxLength": 320 }
+            "schema": {
+              "type": "string",
+              "format": "email",
+              "minLength": 3,
+              "maxLength": 320
+            }
           },
           {
             "name": "require_match",
             "in": "query",
             "required": false,
             "description": "Only meaningful with email=. When true, a missing user yields 404 USER_NOT_FOUND so the FE can wire it to inline validation in one call; when false (default), missing users yield 200 with items=[].",
-            "schema": { "type": "boolean", "default": false }
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           },
           {
             "name": "exclude_existing_members",
             "in": "query",
             "required": false,
             "description": "When true, users that already have a project_membership for {project_id} are filtered out of items. When false (default), they are returned with is_existing_member=true so the FE can show a disabled row.",
-            "schema": { "type": "boolean", "default": false }
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           },
           {
             "name": "page",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
           },
           {
             "name": "per_page",
             "in": "query",
             "required": false,
             "description": "Per-page cap is intentionally tight (max 50) to keep accidental directory-scrape patterns bounded.",
-            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
           }
         ],
         "responses": {
@@ -833,7 +884,7 @@
       "get": {
         "summary": "Get project core metrics overview",
         "description": "Retrieve aggregate optimization metrics for the active project.",
-        "operationId": "getProjectCoreMetricsOverview",
+        "operationId": "project_core_metrics.get_core_metrics_overview",
         "responses": {
           "200": {
             "description": "Core metrics overview retrieved successfully",
@@ -1253,7 +1304,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["hour", "day", "week", "month"]
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
             }
           }
         ],
@@ -1314,35 +1370,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "./projects/project_scoped_measure_distribution_schema.json"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend": {
-      "get": {
-        "summary": "Get project experiment trend",
-        "description": "Retrieve run and configuration-run trend data for a project-scoped experiment.",
-        "operationId": "getProjectExperimentTrend",
-        "responses": {
-          "200": {
-            "description": "Experiment trend retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./projects/project_scoped_experiment_trend_schema.json"
                 }
               }
             }
@@ -1476,6 +1503,127 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiments/{experiment_ref}/trend": {
+      "get": {
+        "summary": "Get project experiment trend",
+        "description": "Moved from GET /api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend; the legacy compatibility sibling GET /api/v1beta/core-metrics/experiments/{experiment_id}/trend is retired in favour of this operation. Run and configuration-run trend for one experiment named by reference. Bounded: at most 366 daily points per series and 200 measure summaries; the experiment is addressed by experiment_ref and returned as such, never by the historical id.",
+        "operationId": "project_core_metrics.get_experiment_trend",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment reference (exs_ plus 32 lowercase hex); a malformed value is a closed 400 before any lookup.",
+            "schema": {
+              "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Experiment trend retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_experiment_trend_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request (closed body; never echoes inputs).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentReadBadRequestError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentReadAuthenticationRequiredError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The project scope or credential does not permit this read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentReadForbiddenError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such experiment visible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation/experiment_reads_schema.json#/definitions/ExperimentReadNotFoundError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/core-metrics/overview": {
+      "get": {
+        "summary": "Get core metrics overview (legacy compatibility mount)",
+        "description": "Retained sibling of project_core_metrics.get_core_metrics_overview on the legacy compatibility mount; the project comes from the request's project context, not the path.",
+        "operationId": "legacy_core_metrics.get_core_metrics_overview",
+        "responses": {
+          "200": {
+            "description": "Core metrics overview retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./projects/project_scoped_core_metrics_overview_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
       }
     }
   }

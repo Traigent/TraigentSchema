@@ -26,12 +26,12 @@
       "description": "Digest of the promotion-gate result the person saw, or the fixed value `no_gate_run` meaning that no gate was run for this candidate. Required on every acceptance: an absent gate result is stated, never implied by omission. The portal shows `no_gate_run` as such."
     },
     "AgentCodeVersion": {
-      "x-content-class": "key_material",
+      "x-content-class": "digest",
       "type": "string",
-      "pattern": "^[A-Za-z0-9_-]+$",
+      "pattern": "^(?:(?:src|tag):)?[0-9a-f]{64}$|^[0-9a-f]{40}$",
       "minLength": 1,
       "maxLength": 128,
-      "description": "Version identifier of the agent code the person accepted (a git object id or a release tag written without dots), bounded base64url-style characters only. Bound by the acceptance: a release against different agent code is refused as acceptance_binding_mismatch."
+      "description": "Digest of the agent code the person accepted: a 40-hex git commit id, or a 64-hex sha256 optionally prefixed 'src:' (SDK digest of the module source) or 'tag:' (SDK digest of a version the user typed; the readable tag stays on the customer side). Bound by the acceptance: a release against different agent code is refused as acceptance_binding_mismatch."
     },
     "ErasableUserRef": {
       "anyOf": [

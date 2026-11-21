@@ -216,6 +216,40 @@ def test_release_request_rejects_malformed_bindings(key, bad):
     assert _errors("ReleaseRequest", _release_request(**{key: bad}))
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0123456789abcdef0123456789abcdef01234567",  # 40-hex git commit id
+        "src:" + "c" * 64,
+        "tag:" + "d" * 64,
+        "e" * 64,  # bare sha256
+    ],
+)
+def test_agent_code_version_accepts_commit_id_and_sha256_digests(value):
+    assert not _errors("AgentCodeVersion", value)
+    assert not _errors("ReleaseRequest", _release_request(agent_code_version=value))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "v1.2.3",
+        "Alice_has_diabetes",
+        "A" * 64,  # uppercase hex
+        "a" * 63,
+        "a" * 65,
+        "sha256:" + "a" * 64,
+        "src:" + "a" * 40,
+        "a b",
+        "x;y",
+        "",
+    ],
+)
+def test_agent_code_version_rejects_non_digest_values(bad):
+    assert _errors("AgentCodeVersion", bad)
+    assert _errors("ReleaseRequest", _release_request(agent_code_version=bad))
+
+
 def test_release_request_and_receipt():
     assert not _errors("ReleaseRequest", _release_request())
     assert _errors("ReleaseRequest", {"acceptance_id": "rac_1"})

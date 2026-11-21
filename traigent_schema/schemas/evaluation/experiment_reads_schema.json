@@ -30,6 +30,40 @@
       "x-content-class": "opaque_ref",
       "description": "Server-minted opaque reference to the dataset behind an evaluation set: the prefix ds_ followed by 32 lowercase hexadecimal characters. It is not a raw dataset id and never carries a customer-chosen name."
     },
+    "CanonicalInfrastructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compute",
+        "memory",
+        "timeout"
+      ],
+      "description": "Closed execution-infrastructure projection of an experiment: compute, memory and timeout only. It carries no infrastructure_id and no timestamps.",
+      "properties": {
+        "compute": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/compute"
+        },
+        "memory": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/memory"
+        },
+        "timeout": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/timeout"
+        }
+      }
+    },
+    "CanonicalConfigurations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "infrastructure"
+      ],
+      "description": "Closed configurations projection of an experiment: infrastructure only. Tuned/fixed parameter bindings return as a closed projection with D8; not part of this window.",
+      "properties": {
+        "infrastructure": {
+          "$ref": "#/definitions/CanonicalInfrastructure"
+        }
+      }
+    },
     "CursorPagination": {
       "type": "object",
       "additionalProperties": false,
@@ -176,7 +210,7 @@
     "ExperimentRead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it. Objectives return as a closed projection over metric refs in a later window. Configurations are the closed CanonicalConfigurations (infrastructure compute, memory and timeout only).",
       "required": [
         "name",
         "description",
@@ -197,7 +231,7 @@
           "$ref": "./experiment_schema.json#/properties/description"
         },
         "configurations": {
-          "$ref": "./experiment_schema.json#/properties/configurations"
+          "$ref": "#/definitions/CanonicalConfigurations"
         },
         "status": {
           "$ref": "./experiment_schema.json#/properties/status"
@@ -213,9 +247,6 @@
         },
         "updated_at": {
           "$ref": "./experiment_schema.json#/properties/updated_at"
-        },
-        "objectives": {
-          "$ref": "./experiment_schema.json#/properties/objectives"
         },
         "configuration_runs_count": {
           "$ref": "./experiment_schema.json#/properties/configuration_runs_count"

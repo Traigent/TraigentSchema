@@ -29,6 +29,9 @@ PLANNED = load_json(SCHEMAS / "planned_projects_endpoints.json")["paths"]
 AGENTS = load_json(SCHEMAS / "agents" / "agents_endpoints.json")
 
 
+CFG = {"infrastructure": {"compute": "cpu", "memory": "8GB", "timeout": 60}}
+
+
 def _errors(fragment: str, instance: Any) -> list[str]:
     return ref_errors(_REGISTRY, f"{_ID}#/definitions/{fragment}", instance)
 
@@ -209,7 +212,7 @@ def test_graphs_page_is_bounded_and_hides_the_historical_id() -> None:
 def test_canonical_experiment_reads_require_the_reference() -> None:
     base = load_json(SCHEMAS / "evaluation" / "experiment_schema.json")
     assert "experiment_ref" not in base["required"]  # retained legacy mutations reuse the resource
-    resource = {"name": "n", "description": "d", "configurations": {}, "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+    resource = {"name": "n", "description": "d", "configurations": CFG, "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
     assert any("experiment_ref" in e for e in _errors("ExperimentRead", resource))
     assert not any("experiment_ref" in e for e in _errors("ExperimentRead", {**resource, "experiment_ref": REF}))
     assert _errors("ExperimentSearchResponse", _page([resource]))
@@ -300,7 +303,7 @@ def test_canonical_read_run_reference_is_opaque_and_exact() -> None:
     prop = _canonical_read_definitions()["ExperimentRead"]["properties"]["experiment_run_ref"]
     assert prop["pattern"] == "^experiment_run_[0-9a-f]{32}$"
     assert prop["minLength"] == prop["maxLength"] == len("experiment_run_") + 32 == 47
-    resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+    resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
                 "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
     # The nested shared sub-schemas have their own required members; compare against a baseline
     # so only the errors the changed field introduces are asserted.
@@ -314,22 +317,17 @@ def test_canonical_read_run_reference_is_opaque_and_exact() -> None:
     assert set(_errors("ExperimentRead", {k: v for k, v in resource.items() if k != "agent_ref"})) - baseline
 
 
-def _read_errors(fragment: str, instance: Any) -> list[str]:
-    """Errors other than the unrelated required Configurations.infrastructure of the shared resource."""
-    return [e for e in _errors(fragment, instance) if "infrastructure" not in e]
-
-
 def test_experiment_read_is_reference_only_and_rejects_raw_and_hydrated_identifiers() -> None:
-    resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+    resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
                 "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
-    assert _read_errors("ExperimentRead", resource) == []
+    assert _errors("ExperimentRead", resource) == []
     defs = _canonical_read_definitions()["ExperimentRead"]
     assert not (set(_REMOVED_EXPERIMENT_READ_KEYS) & set(defs["properties"]))
     assert not (set(_REMOVED_EXPERIMENT_READ_KEYS) & set(defs["required"]))
     assert "anyOf" not in defs
     for key in _REMOVED_EXPERIMENT_READ_KEYS:
         value: Any = {"id": "x", "name": "n"} if key in ("dataset", "eval_dataset", "benchmark", "model_parameters") else "x"
-        assert _read_errors("ExperimentRead", {**resource, key: value}), key
+        assert _errors("ExperimentRead", {**resource, key: value}), key
 
 
 _METRIC = "metric_" + "a" * 32
@@ -337,27 +335,40 @@ _DS = "ds_" + "b" * 32
 
 
 def test_experiment_read_metrics_and_evaluation_set_are_opaque_references() -> None:
-    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
             "agent_ref": "agent_ref_1", "metrics": [_METRIC], "evaluation_set": None}
-    assert _read_errors("ExperimentRead", base) == []
-    assert _read_errors("ExperimentRead", {**base, "evaluation_set": {"ref": _DS}}) == []
-    assert _read_errors("ExperimentRead", {**base, "measures": []})
-    assert _read_errors("ExperimentRead", {**base, "metrics": ["m_1"]})
-    assert _read_errors("ExperimentRead", {**base, "metrics": ["exs_" + "a" * 32]})
-    assert _read_errors("ExperimentRead", {**base, "metrics": [_METRIC.upper()]})
-    assert _read_errors("ExperimentRead", {**base, "evaluation_set": {"ref": _DS, "version": 1}})
-    assert _read_errors("ExperimentRead", {**base, "evaluation_set": {"ref": "exs_" + "b" * 32}})
-    assert _read_errors("ExperimentRead", {**base, "evaluation_set": {"ref": "ds_1"}})
-    assert _read_errors("ExperimentRead", {**base, "evaluation_set": {}})
-    assert _read_errors("ExperimentRead", {k: v for k, v in base.items() if k != "evaluation_set"})
-    assert _read_errors("ExperimentRead", {k: v for k, v in base.items() if k != "metrics"})
+    assert _errors("ExperimentRead", base) == []
+    assert _errors("ExperimentRead", {**base, "evaluation_set": {"ref": _DS}}) == []
+    assert _errors("ExperimentRead", {**base, "measures": []})
+    assert _errors("ExperimentRead", {**base, "metrics": ["m_1"]})
+    assert _errors("ExperimentRead", {**base, "metrics": ["exs_" + "a" * 32]})
+    assert _errors("ExperimentRead", {**base, "metrics": [_METRIC.upper()]})
+    assert _errors("ExperimentRead", {**base, "evaluation_set": {"ref": _DS, "version": 1}})
+    assert _errors("ExperimentRead", {**base, "evaluation_set": {"ref": "exs_" + "b" * 32}})
+    assert _errors("ExperimentRead", {**base, "evaluation_set": {"ref": "ds_1"}})
+    assert _errors("ExperimentRead", {**base, "evaluation_set": {}})
+    assert _errors("ExperimentRead", {k: v for k, v in base.items() if k != "evaluation_set"})
+    assert _errors("ExperimentRead", {k: v for k, v in base.items() if k != "metrics"})
 
 
 def test_experiment_read_counts_experiment_runs_and_has_no_free_form_fields() -> None:
-    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": {},
+    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
             "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
-    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": 3}) == []
-    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": -1})
-    assert _read_errors("ExperimentRead", {**base, "experiment_runs_count": "3"})
+    assert _errors("ExperimentRead", {**base, "experiment_runs_count": 3}) == []
+    assert _errors("ExperimentRead", {**base, "experiment_runs_count": -1})
+    assert _errors("ExperimentRead", {**base, "experiment_runs_count": "3"})
     for key, value in (("optimization_runs_count", 3), ("metadata", {"tags": ["t"]}), ("experiment_parameters", {"a": 1})):
-        assert _read_errors("ExperimentRead", {**base, key: value}), key
+        assert _errors("ExperimentRead", {**base, key: value}), key
+
+
+def test_experiment_read_configurations_are_closed_and_objectives_are_gone() -> None:
+    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
+            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+    assert _errors("ExperimentRead", base) == []
+    infra = CFG["infrastructure"]
+    assert _errors("ExperimentRead", {**base, "configurations": {"infrastructure": {**infra, "infrastructure_id": "i"}}})
+    assert _errors("ExperimentRead", {**base, "configurations": {"infrastructure": {**infra, "created_at": "2026-01-01T00:00:00Z"}}})
+    assert _errors("ExperimentRead", {**base, "configurations": {**CFG, "parameters": {"a": 1}}})
+    assert _errors("ExperimentRead", {**base, "configurations": {"infrastructure": {"compute": "cpu"}}})
+    assert _errors("ExperimentRead", {**base, "configurations": {}})
+    assert _errors("ExperimentRead", {**base, "objectives": {}})

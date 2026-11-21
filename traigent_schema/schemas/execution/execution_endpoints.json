@@ -714,6 +714,7 @@
     "/api/v1/experiment-runs/{experiment_id}/runs": {
       "get": {
         "summary": "List experiment runs for an experiment",
+        "operationId": "experiment_run.get_experiment_runs",
         "responses": {
           "200": {
             "description": "Experiment runs retrieved successfully",
@@ -739,6 +740,7 @@
       },
       "post": {
         "summary": "Create experiment run",
+        "operationId": "experiment_run.create_experiment_run",
         "requestBody": {
           "required": true,
           "content": {
@@ -757,39 +759,10 @@
         }
       }
     },
-    "/api/v1/experiment-runs/runs/{experiment_run_id}/configurations": {
-      "post": {
-        "summary": "Create configuration run from experiment run",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "../evaluation/configuration_run_create_request_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Configuration run created successfully"
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/experiment-runs/runs/{run_id}": {
       "get": {
         "summary": "Get experiment run",
+        "operationId": "experiment_run.get_experiment_run",
         "responses": {
           "200": {
             "description": "Experiment run retrieved successfully",
@@ -817,6 +790,7 @@
     "/api/v1/experiment-runs/runs/{run_id}/status": {
       "get": {
         "summary": "Get experiment run status",
+        "operationId": "experiment_run.get_run_status",
         "responses": {
           "200": {
             "description": "Experiment run status retrieved successfully"
@@ -835,6 +809,7 @@
       },
       "put": {
         "summary": "Update experiment run status",
+        "operationId": "experiment_run.change_run_status",
         "requestBody": {
           "required": true,
           "content": {
@@ -874,6 +849,7 @@
     "/api/v1/experiment-runs/runs/{run_id}/results": {
       "get": {
         "summary": "Get experiment run results",
+        "operationId": "experiment_run.get_run_results",
         "responses": {
           "200": {
             "description": "Experiment run results retrieved successfully",
@@ -901,9 +877,39 @@
     "/api/v1/experiment-runs/runs/{run_id}/configurations": {
       "get": {
         "summary": "List configuration runs for an experiment run",
+        "operationId": "experiment_run.get_configuration_runs",
         "responses": {
           "200": {
             "description": "Configuration runs retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create configuration run from experiment run",
+        "operationId": "experiment_run.create_configuration_run_compat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "../evaluation/configuration_run_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Configuration run created successfully"
           },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
@@ -921,6 +927,7 @@
     "/api/v1/experiment-runs/runs/{run_id}/traces": {
       "get": {
         "summary": "Get paginated traces for an experiment run",
+        "operationId": "experiment_run.get_run_traces",
         "responses": {
           "200": {
             "description": "Traces retrieved successfully",

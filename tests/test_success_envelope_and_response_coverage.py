@@ -48,7 +48,7 @@ DETAIL_GETS = {
     "agents/agents_endpoints.json": ["/api/v1/projects/{project_id}/agents/{agent_ref}"],
     "datasets/datasets_endpoints.json": ["/api/v1/datasets/{dataset_id}"],
     "execution/execution_endpoints.json": [
-        "/api/v1/experiments/{experiment_id}",
+        "/api/v1/projects/{project_id}/experiments/{experiment_ref}",
         "/api/v1/experiment-runs/runs/{run_id}",
         "/api/v1/configuration-runs/{config_run_id}",
     ],
@@ -77,9 +77,10 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     envelope = agents["components"]["schemas"]["AgentDetailEnvelope"]
     assert envelope["properties"]["data"]["$ref"].endswith("agent_schema.json")
     assert "data" in envelope["required"]
-    # bare detail GETs reference the resource schema directly
+    # bare detail GETs reference the resource schema directly (the canonical experiment detail via
+    # ExperimentRead, the resource with experiment_ref required)
     expected = {
-        ("execution/execution_endpoints.json", "/api/v1/experiments/{experiment_id}"): "experiment_schema.json",
+        ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/experiments/{experiment_ref}"): "experiment_reads_schema.json#/definitions/ExperimentRead",
         ("execution/execution_endpoints.json", "/api/v1/measures/{measure_id}".replace("measures", "configuration-runs").replace("measure_id", "config_run_id")): "configuration_run_schema.json",
         ("measures/measures_endpoints.json", "/api/v1/measures/{measure_id}"): "measure_schema.json",
     }

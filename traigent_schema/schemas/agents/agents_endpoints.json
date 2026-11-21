@@ -1053,7 +1053,8 @@
               }
             }
           }
-        }
+        },
+        "description": "One cursor page of the experiments of an agent. Keeps its method, path and operation id; items now carry experiment_ref (exs_ plus 32 lowercase hex) instead of the historical experiment id. limit above 100, retired offset vocabulary and a malformed or foreign cursor are closed 400 problems before any lookup; the cursor is sealed and never carries a caller-chosen identifier."
       }
     },
     "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets": {
@@ -1878,10 +1879,11 @@
       },
       "AgentExperimentsResponse": {
         "type": "object",
-        "description": "Success envelope around one cursor page of the agent's experiments (newest first); total_runs and active_runs are aggregate counts.",
+        "description": "Success envelope around one cursor page of the agent's experiments (newest first), each identified by experiment_ref; total_runs and active_runs are aggregate counts. Closed: at most 100 items per page, pagination {limit, next_cursor, has_more} with next_cursor at most 4096 characters, and a serialized response of at most 2097152 bytes.",
         "properties": {
           "success": {
-            "type": "boolean"
+            "type": "boolean",
+            "const": true
           },
           "message": {
             "type": "string"
@@ -1890,13 +1892,14 @@
             "type": "object",
             "properties": {
               "agent_id": {
-                "type": "string"
+                "type": "string",
+                "description": "The agent reference of the parent, echoed."
               },
               "items": {
                 "type": "array",
+                "maxItems": 100,
                 "items": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/AgentExperimentItem"
                 }
               },
               "pagination": {
@@ -1911,7 +1914,8 @@
                     "type": [
                       "string",
                       "null"
-                    ]
+                    ],
+                    "maxLength": 4096
                   },
                   "has_more": {
                     "type": "boolean"
@@ -1930,13 +1934,16 @@
               "items",
               "pagination"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           }
         },
         "required": [
+          "success",
+          "message",
           "data"
         ],
-        "additionalProperties": true
+        "additionalProperties": false,
+        "x-max-response-bytes": 2097152
       }
     },
     "responses": {

@@ -10344,6 +10344,199 @@
       "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
       "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
       "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_ref",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "dd516bc518636175e5557e3f2c0e402751d0654fc83d31e12428d623dc7a484f"
+        }
+      ],
+      "reason": "The experiment resource gains the optional, read-only experiment_ref (exs_ plus 32 lowercase hex), the server-minted URL reference returned by the project-scoped experiment reads; the historical id stays. Additive and not required, so a response without it still validates.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiments/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "4123dc1d06f4939004bd75b73b53ae06c8d16f6e1e21bdb77375b0daa58f0bcc"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiments/{experiment_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "488d9fc780e1e12c4a0d68f7d9948ade7668045c5d4a3c2e47d206b4ce8031df"
+        },
+        {
+          "pointer": "#/paths//api/v1/traces/experiments/{experiment_id}/graphs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3792ba9d529e4cc492a6a643730dbdfd1d995db71329f4656d743542295e613c"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/experiments/{experiment_id}/context/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "d7eef8359d4f4d7ce8694d58c6f6132346d350c063e2806d66997ec18572d5f4"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 3.3 window 1b moves the experiment reads to project-level reference paths: GET /api/v1/experiments becomes POST /api/v1/projects/{project_id}/experiments/search, GET /api/v1/experiments/{experiment_id} becomes GET /api/v1/projects/{project_id}/experiments/{experiment_ref}, GET /api/v1/traces/experiments/{experiment_id}/graphs becomes GET /api/v1/projects/{project_id}/experiments/{experiment_ref}/graphs, and GET /api/v1beta/experiments/{experiment_id}/context becomes POST /api/v1/experiment-context/resolve with body experiment_ref. Operation ids are retained; the old declarations are removed from the contract in the same change. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "57ff1a46270d77112dd4eebe7ffae522dd45d119867ae3c682bf083906813147"
+        }
+      ],
+      "reason": "The project experiment trend moves from GET /api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend to GET /api/v1/projects/{project_id}/experiments/{experiment_ref}/trend with operation id project_core_metrics.get_experiment_trend; the legacy compatibility sibling is retired in favour of it. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/daily_configuration_runs",
+          "role": "conservative",
+          "subject": "maxItems",
+          "old": null,
+          "new": 366,
+          "fingerprint": "aa30bff03d2f0ce6632de3df51005174dd39cec7f69774efe4c86e0479f07c86"
+        },
+        {
+          "pointer": "#/properties/daily_runs",
+          "role": "conservative",
+          "subject": "maxItems",
+          "old": null,
+          "new": 366,
+          "fingerprint": "710593288b0346733619619bd639850d0c84cfacff11bf5202132a46656c99e1"
+        }
+      ],
+      "reason": "The experiment trend declares numeric cardinality budgets: at most 366 daily points per series, the most recent 366 dates when the experiment has more. This is a new canonical-operation bound that the backend window-1b cutover will enforce; it does not match existing backend behaviour, which returns all history. Tightening of an unbounded response array, declared so clients and tests read the bound from the contract. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "maxProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/measure_summary",
+          "role": "conservative",
+          "subject": "maxProperties",
+          "old": null,
+          "new": 200,
+          "fingerprint": "6303145386fade65d922d856fe1f64ae5ece6d10fb81916ebdeb1f4963755f76"
+        }
+      ],
+      "reason": "The experiment trend measure summary map is bounded to 200 entries, a new canonical-operation cardinality budget that the backend window-1b cutover will enforce; it does not describe existing backend behaviour. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_ref",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "e39ac6972ab447fe449f9e30bb1b06486e87bfbdbe056e8973efddef80ecbeaa"
+        }
+      ],
+      "reason": "The experiment trend response gains experiment_ref, the server-minted reference of the experiment that the request path now names; it replaces experiment_id in the same response. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_id",
+          "role": "conservative",
+          "subject": "experiment_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "07637eff3b8cbe97d42e042a398e3d32bff53106af5667164b8e43e45408b138"
+        }
+      ],
+      "reason": "The experiment trend response drops the historical experiment_id; the experiment is now identified only by experiment_ref so the primary key is not exposed by the reference-addressed read. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "dfcc01e005ea86b9ac53abf9bd97764fc0781ddc56fb816fcaa70a92dfccff8b"
+        },
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "experiment_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "ec31f7b48772a83bb342974cb621deab96a1df1603d314a424a2e2b0feb378cc"
+        }
+      ],
+      "reason": "experiment_ref replaces experiment_id in the required set of the experiment trend response, following the move of the read to reference addressing. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-max-response-bytes",
+          "role": "conservative",
+          "subject": "x-max-response-bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "831c099819ec8c769cd51e5abbf7879a574c8e61e817ef994fe754c9c4015302"
+        }
+      ],
+      "reason": "The x-* vocabulary gains x-max-response-bytes, the response-side counterpart of x-max-request-bytes, so numeric response byte budgets are discoverable from the contract. Additive vocabulary entry.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
     }
   ]
 }

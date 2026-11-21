@@ -155,8 +155,13 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Unique identifier for this experiment instance",
+      "description": "Unique identifier for this experiment instance. The historical primary key: still the identifier of operations that have not moved to references, and not the URL reference of the project-scoped read operations (see experiment_ref).",
       "x-identifier": true
+    },
+    "experiment_ref": {
+      "$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef",
+      "readOnly": true,
+      "description": "Server-minted URL reference (exs_ plus 32 lowercase hex) returned by the project-scoped experiment reads. Read-only: a write that supplies it is rejected or ignored, never honoured."
     },
     "name": {
       "type": "string",

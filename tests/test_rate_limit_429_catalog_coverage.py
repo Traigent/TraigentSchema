@@ -107,8 +107,8 @@ CANONICAL_429_ENVELOPES = {
 # Operations still missing a 429, per catalog. Shrink-only: lower a count when you add
 # 429s, never raise it. (Catalogs not listed here and not in FULLY_COVERED have 0.)
 KNOWN_UNCOVERED = {
-    "agent_readiness/agent_posture_endpoints.json": 1,
-    "agent_readiness/agent_readiness_endpoints.json": 4,
+    "agent_readiness/agent_posture_endpoints.json": 0,
+    "agent_readiness/agent_readiness_endpoints.json": 0,
     "agents/agents_endpoints.json": 1,
     "analytics/analytics_endpoints.json": 9,
     "auth/auth_endpoints.json": 8,

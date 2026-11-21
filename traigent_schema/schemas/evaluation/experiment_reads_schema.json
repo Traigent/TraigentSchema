@@ -12,6 +12,24 @@
       "x-identifier": true,
       "description": "Server-minted immutable URL reference for one experiment: the prefix experiment_ followed by 32 lowercase hexadecimal characters. Provenance: the server mints it independently of the historical primary key (experiment id), stores it once and never derives it from the id, the name or any caller input, so a reference cannot be computed from an id and an id cannot be cast to a reference. Callers never choose it: creation contracts reject a caller-supplied value, and UUID shape establishes no provenance. A reference only names a resource; it does not authorize access, and every read still authorizes the explicit project scope and the per-resource grant. The legacy experiment id stays the historical primary key for still-live operations that have not moved; no client casts between the two."
     },
+    "MetricRef": {
+      "type": "string",
+      "pattern": "^metric_[0-9a-f]{32}$",
+      "minLength": 39,
+      "maxLength": 39,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "Server-minted opaque reference to one metric: the prefix metric_ followed by 32 lowercase hexadecimal characters. It names the metric only; it is not a raw metric id and never carries a customer-chosen name."
+    },
+    "EvaluationSetDatasetRef": {
+      "type": "string",
+      "pattern": "^ds_[0-9a-f]{32}$",
+      "minLength": 35,
+      "maxLength": 35,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "Server-minted opaque reference to the dataset behind an evaluation set: the prefix ds_ followed by 32 lowercase hexadecimal characters. It is not a raw dataset id and never carries a customer-chosen name."
+    },
     "CursorPagination": {
       "type": "object",
       "additionalProperties": false,
@@ -158,45 +176,19 @@
     "ExperimentRead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource: experiment_ref is REQUIRED so clients can address the experiment without the historical id; the agent is exposed only as the opaque agent_ref (never agent_id or the hydrated agent object); the latest run is exposed only as the opaque experiment_run_ref (never a raw run id or the embedded run summary); retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it.",
       "required": [
-        "id",
         "name",
         "description",
         "configurations",
-        "model_parameters_id",
-        "measures",
+        "metrics",
+        "evaluation_set",
         "experiment_ref",
         "agent_ref"
-      ],
-      "anyOf": [
-        {
-          "required": [
-            "dataset_id"
-          ]
-        },
-        {
-          "required": [
-            "eval_dataset_id"
-          ]
-        },
-        {
-          "required": [
-            "evaluation_set_id"
-          ]
-        },
-        {
-          "required": [
-            "benchmark_id"
-          ]
-        }
       ],
       "properties": {
         "experiment_ref": {
           "$ref": "#/definitions/ExperimentRef"
-        },
-        "id": {
-          "$ref": "./experiment_schema.json#/properties/id"
         },
         "name": {
           "$ref": "./experiment_schema.json#/properties/name"
@@ -210,21 +202,6 @@
         "status": {
           "$ref": "./experiment_schema.json#/properties/status"
         },
-        "dataset_id": {
-          "$ref": "./experiment_schema.json#/properties/dataset_id"
-        },
-        "eval_dataset_id": {
-          "$ref": "./experiment_schema.json#/properties/eval_dataset_id"
-        },
-        "evaluation_set_id": {
-          "$ref": "./experiment_schema.json#/properties/evaluation_set_id"
-        },
-        "benchmark_id": {
-          "$ref": "./experiment_schema.json#/properties/benchmark_id"
-        },
-        "model_parameters_id": {
-          "$ref": "./experiment_schema.json#/properties/model_parameters_id"
-        },
         "created_at": {
           "$ref": "./experiment_schema.json#/properties/created_at"
         },
@@ -237,26 +214,8 @@
         "updated_at": {
           "$ref": "./experiment_schema.json#/properties/updated_at"
         },
-        "dataset": {
-          "$ref": "./experiment_schema.json#/properties/dataset"
-        },
-        "eval_dataset": {
-          "$ref": "./experiment_schema.json#/properties/eval_dataset"
-        },
-        "evaluation_set": {
-          "$ref": "./experiment_schema.json#/properties/evaluation_set"
-        },
-        "benchmark": {
-          "$ref": "./experiment_schema.json#/properties/benchmark"
-        },
-        "model_parameters": {
-          "$ref": "./experiment_schema.json#/properties/model_parameters"
-        },
         "experiment_parameters": {
           "$ref": "./experiment_schema.json#/properties/experiment_parameters"
-        },
-        "measures": {
-          "$ref": "./experiment_schema.json#/properties/measures"
         },
         "objectives": {
           "$ref": "./experiment_schema.json#/properties/objectives"
@@ -288,6 +247,33 @@
           "maxLength": 47,
           "pattern": "^experiment_run_[0-9a-f]{32}$",
           "description": "Opaque reference to the latest experiment run, or null when there is none. The raw run id is never returned by canonical reads."
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricRef"
+          },
+          "description": "Opaque references to the metrics used to evaluate this experiment. No raw metric id and no metric configuration is returned."
+        },
+        "evaluation_set": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ref"
+              ],
+              "properties": {
+                "ref": {
+                  "$ref": "#/definitions/EvaluationSetDatasetRef"
+                }
+              }
+            }
+          ],
+          "description": "The evaluation set of this experiment as an opaque dataset reference, or null when none is set. No raw dataset id, name or hydrated object is returned."
         }
       }
     },

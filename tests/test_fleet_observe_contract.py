@@ -27,7 +27,14 @@ IMPORT = "fleet_observe/import_event_schema.json"
 COVERAGE = "fleet_observe/coverage_ratio_schema.json"
 FINDING = "fleet_observe/finding_schema.json"
 COMMON = "fleet_observe/fleet_observe_common_schema.json"
-ALL = [CLUSTER, AGENT, EVIDENCE, MAPSCHEMA, SPAWN, IMPORT, COVERAGE, FINDING, COMMON]
+IMPORT_REQUEST = "fleet_observe/import_request_schema.json"
+RESPONSES = "fleet_observe/fleet_observe_responses_schema.json"
+BUNDLE = "fleet_observe/import_bundle_schema.json"
+ENDPOINTS = "fleet_observe/fleet_observe_endpoints.json"
+ALL = [
+    CLUSTER, AGENT, EVIDENCE, MAPSCHEMA, SPAWN, IMPORT, COVERAGE, FINDING,
+    IMPORT_REQUEST, RESPONSES, BUNDLE, ENDPOINTS, COMMON,
+]
 
 H = "0" * 32
 DIGEST = "sha256:" + "a" * 64
@@ -121,7 +128,11 @@ def test_every_fleet_observe_document_is_present():
     assert (schemas_dir / "fleet_observe" / "import_event_schema.json").is_file()
     assert (schemas_dir / "fleet_observe" / "source_evidence_class_map_schema.json").is_file()
     assert (schemas_dir / "fleet_observe" / "spawn_tree_schema.json").is_file()
-    assert len(list(DOMAIN.glob("*.json"))) == 9
+    assert (schemas_dir / "fleet_observe" / "import_request_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "fleet_observe_responses_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "import_bundle_schema.json").is_file()
+    assert (schemas_dir / "fleet_observe" / "fleet_observe_endpoints.json").is_file()
+    assert len(list(DOMAIN.glob("*.json"))) == 13
 
 
 @pytest.mark.parametrize("rel", ALL)
@@ -566,3 +577,429 @@ def test_every_source_is_pinned_in_table_and_evidence_schema(source):
         for other_trust in _load(COMMON)["definitions"]["TrustLevel"]["enum"]:
             if (other_cls, other_trust) != (cls, trust):
                 _bad(EVIDENCE, _evidence(source, other_cls, other_trust))
+
+
+# --- request, responses, bundle (grounded in the API server) ---------------------------------
+
+
+def _members():
+    return [
+        {"member_kind": "principal", "member_digest": DIGEST},
+        {
+            "member_kind": "credential",
+            "member_digest": "sha256:" + "c" * 64,
+            "parent_member_digest": DIGEST,
+        },
+    ]
+
+
+def _request(**over):
+    body = {
+        "source_kind": "sdk_declaration",
+        "boundary": {"boundary_kind": "repository", "boundary_digest": DIGEST},
+        "idempotency_key": DIGEST,
+        "observed_at": TS,
+        "members": _members(),
+    }
+    body.update(over)
+    return body
+
+
+def test_import_request_accepts_backend_shape_and_optional_retention():
+    _ok(IMPORT_REQUEST, _request())
+    _ok(IMPORT_REQUEST, _request(retention_class="legal_hold"))
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"source_kind": "mediated_enforcement_connector"},  # reserved, Backend 400
+        {"source_kind": "nope"},
+        {"retention_class": "forever"},
+        {"observed_at": "2026-11-10T09:00:00+00:00"},  # Backend accepts the Z form only
+        {"members": []},
+        {"members": [{"member_kind": "agent", "member_digest": DIGEST}]},
+        {"members": [{"member_kind": "principal", "member_digest": "Alice_has_diabetes"}]},
+        {"members": [{"member_kind": "principal", "member_digest": DIGEST, "name": "x"}]},
+        {"extra": 1},
+        {"boundary": {"boundary_kind": "repository"}},
+        {"boundary": {"boundary_kind": "boundary", "boundary_digest": DIGEST}},
+    ],
+)
+def test_import_request_rejects_what_the_backend_rejects(bad):
+    _bad(IMPORT_REQUEST, _request(**bad))
+
+
+def test_import_request_accepts_an_explicit_null_parent():
+    members = _members()
+    members[0]["parent_member_digest"] = None
+    _ok(IMPORT_REQUEST, _request(members=members))
+    members[0]["parent_member_digest"] = "not a digest"
+    _bad(IMPORT_REQUEST, _request(members=members))
+
+
+def test_import_request_rejects_missing_required_and_oversize():
+    for key in ("source_kind", "boundary", "idempotency_key", "observed_at", "members"):
+        body = _request()
+        del body[key]
+        _bad(IMPORT_REQUEST, body)
+    many = [
+        {"member_kind": "principal", "member_digest": "sha256:" + f"{i:064x}"}
+        for i in range(5001)
+    ]
+    _bad(IMPORT_REQUEST, _request(members=many))
+    _ok(IMPORT_REQUEST, _request(members=many[:5000]))
+
+
+def test_import_request_source_kinds_are_the_observe_v1_producers():
+    producers = sorted(r["source_kind"] for r in _table()["rows"] if r["producer_state"] == "observe_v1")
+    got = sorted(_load(IMPORT_REQUEST)["properties"]["source_kind"]["enum"])
+    assert got == producers
+
+
+def _snapshot():
+    return {"import_seq": 3, "as_of": TS}
+
+
+def _import_view(replayed):
+    return {
+        "import_event": {
+            "import_event_ref": "importref_" + H,
+            "idempotency_key": DIGEST,
+            "source_ref": "sourceref_" + H,
+            "source_kind": "sdk_declaration",
+            "observed_at": TS,
+            "boundary": BOUNDARY,
+            "retention_class": "ledger_minimal",
+            "member_count": 2,
+        },
+        "evidence": {"evidence_class": "self_reported", "origin_trust_level": "client_attested"},
+        "outcome": {
+            "import_seq": 3,
+            "new_cluster_count": 1,
+            "changed_cluster_count": 0,
+            "unknown_member_count": 0,
+            "conflict_count": 0,
+        },
+        "replayed": replayed,
+    }
+
+
+def _resp(definition, body):
+    schema = {"$ref": f"https://schemas.traigent.ai/{RESPONSES}#/definitions/{definition}"}
+    base = _validator(RESPONSES)
+    validator = jsonschema.Draft7Validator(
+        schema, registry=base._registry, format_checker=jsonschema.FormatChecker()
+    )
+    return list(validator.iter_errors(body))
+
+
+def _env(message, data):
+    return {"success": True, "message": message, "data": data}
+
+
+def test_import_response_is_the_nested_view_plus_replayed():
+    assert not _resp("ImportResponse", _env("Import accepted", _import_view(False)))
+    assert not _resp("ImportResponse", _env("Import already accepted", _import_view(True)))
+    assert _resp("ImportResponse", _env("Import accepted", _import_view(True)))
+    assert _resp("ImportResponse", _env("Import already accepted", _import_view(False)))
+    flat = {**_import_view(False)["import_event"], "replayed": False}
+    assert _resp("ImportResponse", _env("Import accepted", flat))
+
+
+def _cluster_summary():
+    return {
+        "cluster_ref": "clusterref_" + H,
+        "cluster_state": "candidate",
+        "confidence": "high",
+        "agent_ref": None,
+        "boundary": BOUNDARY,
+        "first_observed_at": TS,
+        "last_observed_at": TS,
+        "revision": 1,
+        "member_count": 2,
+    }
+
+
+def test_cluster_page_detail_coverage_diff_findings_shapes():
+    page = {"limit": 50, "next_cursor": None, "has_more": False}
+    clusters = {
+        "snapshot": _snapshot(),
+        "clusters": [_cluster_summary()],
+        "page": page,
+        "aggregates": {
+            "clusters_total": 1,
+            "members_total": 2,
+            "by_state": {"candidate": 1, "unknown": 0},
+            "by_confidence": {"high": 1, "medium": 0, "low": 0, "unknown": 0},
+            "matching_total": 1,
+        },
+        "truncation": {
+            "ranked": False,
+            "ranked_bound": None,
+            "truncated": False,
+            "returned_through": 1,
+        },
+    }
+    assert not _resp("ListClustersResponse", _env("Clusters retrieved", clusters))
+    cursor = "eyJ2IjoxfQ." + "a" * 32
+    clusters["page"] = {"limit": 50, "next_cursor": cursor, "has_more": True}
+    assert not _resp("ListClustersResponse", _env("Clusters retrieved", clusters))
+    clusters["page"]["next_cursor"] = "not a cursor"
+    assert _resp("ListClustersResponse", _env("Clusters retrieved", clusters))
+
+    detail = {
+        "snapshot": _snapshot(),
+        "cluster": _cluster(),
+        "member_count": 2,
+        "members_truncated": False,
+    }
+    assert not _resp("GetClusterResponse", _env("Cluster retrieved", detail))
+
+    coverage = {
+        "snapshot": _snapshot(),
+        "boundaries": [{"coverage": _coverage(), "internal_import_total": 2}],
+        "totals": {"boundaries_total": 1, "observed_count": 2, "unknown_count": 0},
+        "truncation": {"truncated": False, "boundary_limit": 200},
+        "denominator_note": "internal_import: no independent inventory, so no ratio is claimed",
+    }
+    assert not _resp("CoverageResponse", _env("Coverage retrieved", coverage))
+    coverage["denominator_note"] = "a free text note"
+    assert _resp("CoverageResponse", _env("Coverage retrieved", coverage))
+
+    listing = {"total": 1, "cluster_refs": ["clusterref_" + H], "truncated": False}
+    diff = {
+        "snapshot": _snapshot(),
+        "from_import_seq": 2,
+        "to_import_seq": 3,
+        "imports_in_range": 1,
+        "new_clusters": listing,
+        "changed_clusters": {"total": 0, "cluster_refs": [], "truncated": False},
+        "members_added": 2,
+        "findings_new": 0,
+        "coverage_state": "unknown",
+        "denominator_note": "internal_import: no independent inventory, so no ratio is claimed",
+    }
+    assert not _resp("DiffResponse", _env("Diff retrieved", diff))
+    diff["coverage_state"] = "measured"
+    assert _resp("DiffResponse", _env("Diff retrieved", diff))
+
+    bases = ["member_in_multiple_clusters", "credential_shared_across_clusters", "workload_digest_mismatch"]
+    finding = _finding()
+    findings = {
+        "snapshot": _snapshot(),
+        "findings": [
+            {
+                "finding": finding,
+                "source": {"import_event_ref": "importref_" + H, "source_ref": "sourceref_" + H},
+            }
+        ],
+        "page": page,
+        "aggregates": {"findings_total": 1, "by_basis": dict.fromkeys(bases, 0)},
+        "rollup": {
+            "surface_limit": 20,
+            "total": 1,
+            "surfaced": 1,
+            "folded": 0,
+            "groups": [
+                {
+                    "basis": b,
+                    "total": 0,
+                    "surfaced": 0,
+                    "folded": 0,
+                    "representative_finding_refs": [],
+                    "suppression_provenance": "none",
+                }
+                for b in bases
+            ],
+        },
+    }
+    assert not _resp("FindingsResponse", _env("Findings retrieved", findings))
+    findings["rollup"]["groups"][0]["suppression_provenance"] = "hidden"
+    assert _resp("FindingsResponse", _env("Findings retrieved", findings))
+
+
+ERROR_ROWS = [
+    ("fleet_observe_validation_failed", "validation_error", "The request is not valid."),
+    ("fleet_observe_not_found", "not_found", "Not found."),
+    ("fleet_observe_idempotency_conflict", "conflict",
+     "The idempotency key was already used with a different request."),
+    ("fleet_observe_project_quota_exceeded", "quota_exceeded", "The project import quota is exhausted."),
+    ("fleet_observe_internal_error", "internal_error", "Internal error."),
+    ("fleet_observe_unavailable", "unavailable", "The fleet view is unavailable. Retry later."),
+]
+
+
+@pytest.mark.parametrize("code,error,message", ERROR_ROWS)
+def test_error_body_is_closed_and_ties_code_to_message(code, error, message):
+    body = {"success": False, "message": message, "error": error, "error_code": code}
+    assert not _resp("ErrorBody", body)
+    assert _resp("ErrorBody", {**body, "message": "Something else"})
+    other = "not_found" if error != "not_found" else "conflict"
+    assert _resp("ErrorBody", {**body, "error": other})
+    assert _resp("ErrorBody", {**body, "details": {}})
+    assert _resp("ErrorBody", {**body, "error_code": "fleet_observe_other"})
+
+
+def test_error_body_published_codes_match_backend_four_plus_two_planned():
+    codes = _load(RESPONSES)["definitions"]["ErrorBody"]["properties"]["error_code"]["enum"]
+    backend_today = {
+        "fleet_observe_validation_failed",
+        "fleet_observe_not_found",
+        "fleet_observe_unavailable",
+        "fleet_observe_internal_error",
+    }
+    planned = {"fleet_observe_idempotency_conflict", "fleet_observe_project_quota_exceeded"}
+    assert set(codes) == backend_today | planned
+
+
+def _bundle_head():
+    return {
+        "bundle_version": 1,
+        "digest_scheme": "hmac_sha256_v1",
+        "digest_key_id": "0123456789abcdef",
+        "source_kind": "sdk_declaration",
+        "boundary": {"boundary_kind": "repository", "boundary_digest": DIGEST},
+        "observed_at": TS,
+    }
+
+
+def _bdef(name, body):
+    schema = {"$ref": f"https://schemas.traigent.ai/{BUNDLE}#/definitions/{name}"}
+    base = _validator(BUNDLE)
+    validator = jsonschema.Draft7Validator(schema, registry=base._registry)
+    return list(validator.iter_errors(body))
+
+
+def test_bundle_and_manifest_shapes():
+    batch = {"idempotency_key": DIGEST, "request_digest": DIGEST, "members": _members()}
+    assert not _bdef("Bundle", {**_bundle_head(), "batches": [batch]})
+    assert _bdef("Bundle", {**_bundle_head(), "batches": []})
+    assert _bdef("Bundle", {**_bundle_head(), "digest_scheme": "sha256", "batches": [batch]})
+    assert _bdef("Bundle", {**_bundle_head(), "digest_key_id": "ZZ", "batches": [batch]})
+    assert _bdef("Bundle", {**_bundle_head(), "label_map": {}, "batches": [batch]})
+    manifest = {
+        **_bundle_head(),
+        "manifest_version": 1,
+        "batch_count": 1,
+        "member_count_total": 2,
+        "batches": [
+            {"batch_no": 1, "idempotency_key": DIGEST, "request_digest": DIGEST, "member_count": 2}
+        ],
+    }
+    assert not _bdef("Manifest", manifest)
+    assert _bdef("Manifest", {**manifest, "batches": [{"batch_no": 1, "member_count": 2}]})
+
+
+def test_rate_limited_body_matches_the_limiter_wire_shape():
+    long_msg = "Too many requests for this operation. Please retry later."
+    body = {
+        "success": False,
+        "message": long_msg,
+        "error": "Too many requests",
+        "error_code": "RATE_LIMIT_EXCEEDED",
+        "details": {"scope": "expensive_bulk", "retry_after": 30, "limit": 30, "remaining": 0},
+    }
+    assert not _resp("RateLimitedBody", body)
+    plain = {**body, "message": "Rate limit exceeded", "details": {"scope": "global", "retry_after": 3}}
+    assert not _resp("RateLimitedBody", plain)
+    assert _resp("RateLimitedBody", {**body, "message": "slow down"})
+    assert _resp("RateLimitedBody", {**body, "details": {"scope": "expensive_bulk"}})
+    assert _resp("RateLimitedBody", {**body, "details": {**body["details"], "note": "x"}})
+
+
+def test_masked_5xx_and_auth_bodies():
+    masked = {
+        "success": False,
+        "message": "Internal server error",
+        "error": "Internal server error",
+        "error_code": "RATE_LIMIT_UNAVAILABLE",
+    }
+    assert not _resp("RateLimitUnavailableBody", masked)
+    assert _resp("RateLimitUnavailableBody", {**masked, "details": {"service": "expensive_bulk"}})
+    auth = {
+        "success": False,
+        "message": "Unauthorized",
+        "error": "TOKEN_EXPIRED",
+        "error_code": "TOKEN_EXPIRED",
+    }
+    assert not _resp("AuthErrorBody", auth)
+    assert _resp("AuthErrorBody", {**auth, "message": "Bad token abc"})
+
+
+def _named(name, body):
+    from traigent_schema import SchemaValidator
+
+    return SchemaValidator(contract="backend").validate_json(body, name)
+
+
+def test_bundle_document_root_is_constrained_through_the_public_named_validator():
+    """validate_json(name) uses the document root: it must not accept arbitrary content."""
+    batch = {"idempotency_key": DIGEST, "request_digest": DIGEST, "members": _members()}
+    good = {**_bundle_head(), "batches": [batch]}
+    assert _named("import_bundle_schema", good) == []
+    assert _named("import_bundle_schema", {"anything": "goes"})
+    assert _named("import_bundle_schema", {**good, "label_map": {"Alice_has_diabetes": "x"}})
+    assert _named("import_bundle_schema", {**good, "agent_name": "Alice_has_diabetes"})
+    named = {**batch, "members": [{**_members()[0], "member_name": "Alice_has_diabetes"}]}
+    assert _named("import_bundle_schema", {**good, "batches": [named]})
+    manifest = {
+        **_bundle_head(),
+        "manifest_version": 1,
+        "batch_count": 1,
+        "member_count_total": 2,
+        "batches": [
+            {"batch_no": 1, "idempotency_key": DIGEST, "request_digest": DIGEST, "member_count": 2}
+        ],
+    }
+    assert _named("import_bundle_schema", manifest) == []
+
+
+def test_responses_document_root_is_constrained_through_the_public_named_validator():
+    ok = _env("Diff retrieved", None)  # wrong data on purpose
+    assert _named("fleet_observe_responses_schema", ok)
+    assert _named("fleet_observe_responses_schema", {"anything": "goes"})
+    err = {
+        "success": False,
+        "message": "Not found.",
+        "error": "not_found",
+        "error_code": "fleet_observe_not_found",
+    }
+    assert _named("fleet_observe_responses_schema", err) == []
+    assert _named("fleet_observe_responses_schema", {**err, "echo": "Alice_has_diabetes"})
+
+
+@pytest.mark.parametrize(
+    "code,message",
+    [
+        ("AUTHENTICATION_REQUIRED", "Authentication required"),  # request middleware, no credential
+        ("INVALID_TOKEN", "Authentication required"),  # middleware pre-validation of a bad token
+        ("AUTHENTICATION_REQUIRED", "Unauthorized"),  # authentication layer
+        ("INVALID_TOKEN", "Unauthorized"),
+        ("TOKEN_EXPIRED", "Unauthorized"),
+        ("AUTH_TEST_TOKEN_BLOCKED", "Unauthorized"),
+        ("TOKEN_REVOKED", "Session has been revoked"),
+        ("ACCOUNT_DEACTIVATED", "Account is deactivated"),
+    ],
+)
+def test_auth_error_body_accepts_every_verified_401_variant(code, message):
+    body = {"success": False, "message": message, "error": code, "error_code": code}
+    assert not _resp("AuthErrorBody", body)
+
+
+@pytest.mark.parametrize(
+    "code,message",
+    [
+        ("TOKEN_EXPIRED", "Authentication required"),
+        ("TOKEN_REVOKED", "Unauthorized"),
+        ("ACCOUNT_DEACTIVATED", "Session has been revoked"),
+        ("AUTHENTICATION_REQUIRED", "Please log in as alice"),
+    ],
+)
+def test_auth_error_body_rejects_a_mismatched_or_free_message(code, message):
+    body = {"success": False, "message": message, "error": code, "error_code": code}
+    assert _resp("AuthErrorBody", body)
+    assert _resp(
+        "AuthErrorBody",
+        {"success": False, "message": "Unauthorized", "error": "INVALID_TOKEN", "error_code": "TOKEN_EXPIRED"},
+    )

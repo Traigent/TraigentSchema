@@ -173,14 +173,55 @@ def test_acceptance_list_response():
     assert _errors("ReleaseAcceptanceListResponse", {**ok, "data": [{"id": "x"}]})
 
 
+def _release_request(**overrides):
+    body = {
+        "acceptance_id": "rac_" + "1" * 32,
+        "expected_head_generation": 4,
+        "agent_code_version": "0123456789abcdef0123456789abcdef01234567",
+        "configuration_space_digest": "b" * 64,
+        "gate_result_digest": DIGEST,
+    }
+    body.update(overrides)
+    return body
+
+
+def test_release_request_requires_the_three_acceptance_bindings():
+    required = set(_doc()["definitions"]["ReleaseRequest"]["required"])
+    assert required == {
+        "acceptance_id",
+        "expected_head_generation",
+        "agent_code_version",
+        "configuration_space_digest",
+        "gate_result_digest",
+    }
+    assert not _errors("ReleaseRequest", _release_request())
+    for key in ("agent_code_version", "configuration_space_digest", "gate_result_digest"):
+        body = _release_request()
+        del body[key]
+        assert _errors("ReleaseRequest", body), key
+
+
+@pytest.mark.parametrize(
+    "key,bad",
+    [
+        ("configuration_space_digest", "sha256:" + DIGEST),
+        ("configuration_space_digest", "A" * 64),
+        ("configuration_space_digest", "b" * 63),
+        ("gate_result_digest", "none"),
+        ("gate_result_digest", "A" * 64),
+        ("agent_code_version", "a b"),
+    ],
+)
+def test_release_request_rejects_malformed_bindings(key, bad):
+    assert _errors("ReleaseRequest", _release_request(**{key: bad}))
+
+
 def test_release_request_and_receipt():
-    assert not _errors(
-        "ReleaseRequest", {"acceptance_id": "rac_" + "1" * 32, "expected_head_generation": 4}
-    )
+    assert not _errors("ReleaseRequest", _release_request())
     assert _errors("ReleaseRequest", {"acceptance_id": "rac_1"})
     assert _errors(
         "ReleaseRequest",
-        {"acceptance_id": "rac_1", "expected_head_generation": 4, "environment": "production"},
+        _release_request(environment="production"),
     )
     receipt = {"success": True, "data": _head({"acceptance_id": "rac_" + "1" * 32})}
     assert not _errors("ReleaseReceipt", receipt)

@@ -356,7 +356,10 @@
       "additionalProperties": false,
       "required": [
         "acceptance_id",
-        "expected_head_generation"
+        "expected_head_generation",
+        "agent_code_version",
+        "configuration_space_digest",
+        "gate_result_digest"
       ],
       "properties": {
         "acceptance_id": {
@@ -365,6 +368,18 @@
         "expected_head_generation": {
           "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
           "description": "Head generation the caller expects; must equal both the live head and the generation bound by the acceptance, else head_generation_stale."
+        },
+        "agent_code_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AgentCodeVersion",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
+        },
+        "configuration_space_digest": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
+        },
+        "gate_result_digest": {
+          "$ref": "./release_acceptance_schema.json#/definitions/GateResultDigest",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
         }
       },
       "description": "Body of POST .../best-config-head/release. The person's decision is the acceptance, not the call, so an editor key may call it. One transaction locks the head, rechecks the acceptance (not expired, consumed or revoked; every binding equal), moves the head and consumes the acceptance. A second use is refused."

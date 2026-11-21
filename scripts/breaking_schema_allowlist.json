@@ -10537,6 +10537,31 @@
       "reason": "The x-* vocabulary gains x-max-response-bytes, the response-side counterpart of x-max-request-bytes, so numeric response byte budgets are discoverable from the contract. Additive vocabulary entry.",
       "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
       "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-requires-project-binding",
+          "role": "conservative",
+          "subject": "x-requires-project-binding",
+          "old": false,
+          "new": true,
+          "fingerprint": "6d8c6285340e9e8048582e30204e40110416ea326fb867f830bb821aa338ffdb"
+        },
+        {
+          "pointer": "#/properties/x-write-only",
+          "role": "conservative",
+          "subject": "x-write-only",
+          "old": false,
+          "new": true,
+          "fingerprint": "e9faeb34d7732082d951d6f1943a1751a17b727bd8eb058e36ad8ff9742cbb7e"
+        }
+      ],
+      "reason": "The extensions meta-schema is the registry of allowed x-* annotation keywords, not a wire payload: no request or response body is validated against it, so declaring the two new annotations x-write-only and x-requires-project-binding (used on the fleet_imports:write scope map entry) cannot make any consumer reject a payload. The registry is closed by design, so each new annotation must be added here.",
+      "version": "Unreleased (fleet observe increment 1, fleet_imports:write scope)",
+      "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
     }
   ]
 }

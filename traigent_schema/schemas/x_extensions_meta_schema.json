@@ -252,9 +252,17 @@
       "type": "string",
       "description": "A $ref-style pointer to the vocabulary schema definition that enumerates all allowed values for x-required-permission on this endpoint or schema. Used to link endpoint contracts to the canonical permission token enum."
     },
+    "x-requires-project-binding": {
+      "type": "boolean",
+      "description": "On an x-scope-permission-map entry: a key carrying this scope MUST be bound to exactly one project (non-null project); the backend rejects minting or use of it otherwise."
+    },
     "x-resource-alias-of": {
       "type": "string",
       "description": "Names the canonical resource that this scope-permission-map entry's resource is an alias of at runtime (see x-known-resource-aliases for the full explanation). Placed on an x-scope-permission-map entry."
+    },
+    "x-write-only": {
+      "type": "boolean",
+      "description": "On an x-scope-permission-map entry: the scope grants write permissions only and implies no read permission (no .read permission token and no read: compatibility alias). The backend must not add an implied read during scope normalization."
     },
     "x-response-headers": {
       "type": "object",

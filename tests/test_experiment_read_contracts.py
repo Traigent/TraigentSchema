@@ -212,7 +212,7 @@ def test_graphs_page_is_bounded_and_hides_the_historical_id() -> None:
 def test_canonical_experiment_reads_require_the_reference() -> None:
     base = load_json(SCHEMAS / "evaluation" / "experiment_schema.json")
     assert "experiment_ref" not in base["required"]  # retained legacy mutations reuse the resource
-    resource = {"name": "n", "description": "d", "configurations": CFG, "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+    resource = {"name": "n", "description": "d", "configurations": CFG, "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     assert any("experiment_ref" in e for e in _errors("ExperimentRead", resource))
     assert not any("experiment_ref" in e for e in _errors("ExperimentRead", {**resource, "experiment_ref": REF}))
     assert _errors("ExperimentSearchResponse", _page([resource]))
@@ -304,7 +304,7 @@ def test_canonical_read_run_reference_is_opaque_and_exact() -> None:
     assert prop["pattern"] == "^experiment_run_[0-9a-f]{32}$"
     assert prop["minLength"] == prop["maxLength"] == len("experiment_run_") + 32 == 47
     resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
-                "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+                "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     # The nested shared sub-schemas have their own required members; compare against a baseline
     # so only the errors the changed field introduces are asserted.
     baseline = set(_errors("ExperimentRead", resource))
@@ -319,7 +319,7 @@ def test_canonical_read_run_reference_is_opaque_and_exact() -> None:
 
 def test_experiment_read_is_reference_only_and_rejects_raw_and_hydrated_identifiers() -> None:
     resource = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
-                "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+                "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     assert _errors("ExperimentRead", resource) == []
     defs = _canonical_read_definitions()["ExperimentRead"]
     assert not (set(_REMOVED_EXPERIMENT_READ_KEYS) & set(defs["properties"]))
@@ -336,7 +336,7 @@ _DS = "ds_" + "b" * 32
 
 def test_experiment_read_metrics_and_evaluation_set_are_opaque_references() -> None:
     base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
-            "agent_ref": "agent_ref_1", "metrics": [_METRIC], "evaluation_set": None}
+            "agent_ref": "agent_ref_1", "metrics": [_METRIC], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     assert _errors("ExperimentRead", base) == []
     assert _errors("ExperimentRead", {**base, "evaluation_set": {"ref": _DS}}) == []
     assert _errors("ExperimentRead", {**base, "measures": []})
@@ -353,7 +353,7 @@ def test_experiment_read_metrics_and_evaluation_set_are_opaque_references() -> N
 
 def test_experiment_read_counts_experiment_runs_and_has_no_free_form_fields() -> None:
     base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
-            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     assert _errors("ExperimentRead", {**base, "experiment_runs_count": 3}) == []
     assert _errors("ExperimentRead", {**base, "experiment_runs_count": -1})
     assert _errors("ExperimentRead", {**base, "experiment_runs_count": "3"})
@@ -363,7 +363,7 @@ def test_experiment_read_counts_experiment_runs_and_has_no_free_form_fields() ->
 
 def test_experiment_read_configurations_are_closed_and_objectives_are_gone() -> None:
     base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
-            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None}
+            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None, "tuned_variables": [], "objectives": []}
     assert _errors("ExperimentRead", base) == []
     infra = CFG["infrastructure"]
     assert _errors("ExperimentRead", {**base, "configurations": {"infrastructure": {**infra, "infrastructure_id": "i"}}})
@@ -372,3 +372,34 @@ def test_experiment_read_configurations_are_closed_and_objectives_are_gone() -> 
     assert _errors("ExperimentRead", {**base, "configurations": {"infrastructure": {"compute": "cpu"}}})
     assert _errors("ExperimentRead", {**base, "configurations": {}})
     assert _errors("ExperimentRead", {**base, "objectives": {}})
+    assert _errors("ExperimentRead", {k: v for k, v in base.items() if k != "objectives"})
+
+
+_TV = {"tuned_variable_ref": "tuned_variable_" + "c" * 32, "binding": "tuned",
+       "scope": {"kind": "agent", "ref": "agentref_" + "d" * 32}, "value_kind": "numeric"}
+_OBJ = {"metric_ref": _METRIC, "direction": "maximize", "weight": None, "min_effect": 0.5}
+
+
+def test_experiment_read_tuned_variables_and_objectives_are_closed_bindings() -> None:
+    base = {"experiment_ref": REF, "name": "n", "description": "d", "configurations": CFG,
+            "agent_ref": "agent_ref_1", "metrics": [], "evaluation_set": None,
+            "tuned_variables": [], "objectives": []}
+    assert _errors("ExperimentRead", base) == []
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [_TV], "objectives": [_OBJ]}) == []
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "scope": None}]}) == []
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{k: v for k, v in _TV.items() if k != "value_kind"}]}) == []
+    for k in ("tuned_variables", "objectives"):
+        assert _errors("ExperimentRead", {kk: v for kk, v in base.items() if kk != k}), k
+    for extra in ({"value": 1}, {"name": "temperature"}, {"metadata": {}}):
+        assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, **extra}]}), extra
+        assert _errors("ExperimentRead", {**base, "objectives": [{**_OBJ, **extra}]}), extra
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "binding": "free"}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "value_kind": "image"}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "tuned_variable_ref": "temperature"}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "scope": {}}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "scope": {"kind": "agent"}}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "scope": {"kind": "team", "ref": "agentref_" + "d" * 32}}]})
+    assert _errors("ExperimentRead", {**base, "tuned_variables": [{**_TV, "scope": {"kind": "agent", "ref": "my-agent"}}]})
+    assert _errors("ExperimentRead", {**base, "objectives": [{**_OBJ, "direction": "up"}]})
+    assert _errors("ExperimentRead", {**base, "objectives": [{**_OBJ, "metric_ref": "accuracy"}]})
+    assert _errors("ExperimentRead", {**base, "objectives": [{k: v for k, v in _OBJ.items() if k != "weight"}]})

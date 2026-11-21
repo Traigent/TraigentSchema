@@ -64,6 +64,117 @@
         }
       }
     },
+    "TunedVariableRef": {
+      "type": "string",
+      "pattern": "^tuned_variable_[0-9a-f]{32}$",
+      "minLength": 47,
+      "maxLength": 47,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "CORE-v1 provisional. Server-minted opaque reference to one tuned variable: the prefix tuned_variable_ followed by 32 lowercase hexadecimal characters. It carries no variable name."
+    },
+    "TunedVariableScopeRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z_]*_[0-9a-f]{32}$",
+      "maxLength": 64,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "CORE-v1 provisional. Generic server-issued opaque reference of the scope owner (agent, step or composite): a lowercase prefix, an underscore and 32 lowercase hexadecimal characters. The generic pattern is used for every kind because the existing AgentRef definitions (agentref_ prefix, fleet_observe and labels schemas) cover only kind agent and carry a different prefix style."
+    },
+    "TunedVariableBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tuned_variable_ref",
+        "binding",
+        "scope"
+      ],
+      "description": "CORE-v1 provisional. One tuned-variable binding of an experiment as a closed projection: an opaque variable reference, how it is bound, and its scope. No variable name and no value is returned; tuned/fixed parameter values stay out of canonical reads.",
+      "properties": {
+        "tuned_variable_ref": {
+          "$ref": "#/definitions/TunedVariableRef"
+        },
+        "binding": {
+          "type": "string",
+          "enum": [
+            "tuned",
+            "fixed",
+            "calibrated"
+          ]
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "agent",
+                    "step",
+                    "composite"
+                  ]
+                },
+                "ref": {
+                  "$ref": "#/definitions/TunedVariableScopeRef"
+                }
+              }
+            }
+          ]
+        },
+        "value_kind": {
+          "type": "string",
+          "enum": [
+            "numeric",
+            "categorical",
+            "text"
+          ]
+        }
+      }
+    },
+    "ObjectiveBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_ref",
+        "direction",
+        "weight",
+        "min_effect"
+      ],
+      "description": "CORE-v1 provisional. One objective of an experiment as a closed projection over a metric reference. No names and no metadata: objective names resolve via /metrics/{metric_ref}.",
+      "properties": {
+        "metric_ref": {
+          "$ref": "#/definitions/MetricRef"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "maximize",
+            "minimize"
+          ]
+        },
+        "weight": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_effect": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
     "CursorPagination": {
       "type": "object",
       "additionalProperties": false,
@@ -210,13 +321,15 @@
     "ExperimentRead": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it. Objectives return as a closed projection over metric refs in a later window. Configurations are the closed CanonicalConfigurations (infrastructure compute, memory and timeout only).",
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it. Objectives are closed bindings over metric references; objective names resolve via /metrics/{metric_ref}. Tuned-variable bindings are closed references with no names or values (CORE-v1 provisional). Configurations are the closed CanonicalConfigurations (infrastructure compute, memory and timeout only).",
       "required": [
         "name",
         "description",
         "configurations",
         "metrics",
         "evaluation_set",
+        "tuned_variables",
+        "objectives",
         "experiment_ref",
         "agent_ref"
       ],
@@ -301,6 +414,22 @@
             }
           ],
           "description": "The evaluation set of this experiment as an opaque dataset reference, or null when none is set. No raw dataset id, name or hydrated object is returned."
+        },
+        "tuned_variables": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/TunedVariableBinding"
+          },
+          "description": "CORE-v1 provisional. Closed tuned-variable bindings (references, binding mode, scope); may be empty. Replaces the free-form configurations parameters."
+        },
+        "objectives": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/ObjectiveBinding"
+          },
+          "description": "CORE-v1 provisional. Closed objective bindings over metric references; may be empty. Objective names resolve via /metrics/{metric_ref}."
         }
       }
     },

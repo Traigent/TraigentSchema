@@ -10369,6 +10369,211 @@
       "reason": "The extensions meta-schema is the registry of allowed x-* annotation keywords, not a wire payload: no request or response body is validated against it, so declaring the two new annotations x-write-only and x-requires-project-binding (used on the fleet_imports:write scope map entry) cannot make any consumer reject a payload. The registry is closed by design, so each new annotation must be added here.",
       "version": "Unreleased (fleet observe increment 1, fleet_imports:write scope)",
       "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "response_status_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/400",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "380b75f916fecfb9774f8f2809e9833c294fe37bfee2b6acc99707e0ac173d04"
+        }
+      ],
+      "reason": "The 400 on GET /api/v1/analytics/dashboards/optimization-overview documented a status the backend never returns for this operation: query validation is ProjectOptimizationOverviewDashboardQuery through response_handler.validation_error_response, which pins HTTP 422 with error_code VALIDATION_ERROR (TraigentBackend src/utils/response_handler.py validation_error_response; handler src/routes/analytics_routes.py get_project_optimization_overview_dashboard). The 422 is now declared in its place, so a client written to the old 400 would never have seen it fire. No malformed request changed behaviour; only the declaration was wrong.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "schema_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/401/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c07d87902fb3d7ec6d6324c335aee72ffb33ed05f62a26384aca575933bfed0b"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/403/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f37bdb77c228c5d26c9f6b7966c97817772d62faf5e1bfd81731a59680214b3e"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/404/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8bb8db7b15587c57ea7de1727f4c2dcc4b0da1baf53940d74383040ab8edc0ea"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/500/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "01be65fc628a900b30c682584e48730889db8cecf9a1d093072fffd8f2d3b532"
+        }
+      ],
+      "reason": "The 401/403/404/500 responses of GET /api/v1/analytics/dashboards/optimization-overview keep a body schema: they moved into shared #/components/responses entries (AnalyticsUnauthenticated, AnalyticsForbidden, AnalyticsProjectNotFound, AnalyticsInternalError) that all 33 analytics operations share, and the checker does not follow response $refs, so it reads the move as removal. The 401, 403 and 500 bodies are unchanged (error_envelope_schema.json). One body is a deliberate correction: the 404 for a missing, foreign or non-member project is now declared as the closed application/problem+json document the project-entry guard returns (TraigentBackend src/api_kit/scope.py _deny returns closed_not_found), instead of the ordinary application/json error envelope the old declaration claimed. The plain-JSON NOT_FOUND envelope is still declared, in AnalyticsResourceNotFound, on the operations that can 404 on a missing experiment, measure or export job; this overview has no such branch.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "6e6ddc9be4cded798b2cc87ae1933958302ca395fb4e460c59d5ff18c8e07c3b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "5c961acc361ebd99f382186cb1199d745947fbbdf128803a9c9a0560ab36e8fa"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "38ca77f4821c8ba8f3c774e279f4c8448af463b257e73ce135d000efcd92ff4f"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/project-usage/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "55062a7aea5deaee2e5c6ec8e980ba63735ece18ef87d3d2b1cee58276db7422"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/distributions/measures/{measure_key}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d02ebb26b1326729f0e72a2936fdaa0cb147ef6daaabdb4238333aef9b18139"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/export-jobs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d5ec6158c1231e9a0fa92385f102bcd17722a13185ceb759aff7b5f41dbc588"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/export-jobs/{job_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2c97937598136d8db03d0bd8cd1680128a643979d1b38aaa8d718d468cce5113"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7f17801cbca0fa777031b091b6d0cd34033435c2bdf8f14006f35d625eed5936"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/pricing-catalog/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "bd2fb342e0b556b0206d09eb9588288e30fd5dd8acf14b9df9b6e5ed9d739bfa"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "20c13706224700309dc195422d8b350f7d116b779446f7bf850304e2ee7bb993"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/trends/run-volume/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "87678426d7d73c644504d032dbfd5103e870c4fce4eb2ba2843b7b204a203114"
+        }
+      ],
+      "reason": "The eleven project analytics path keys in planned_projects_endpoints.json are not removed from the contract: each keeps its path key and now carries a path-item $ref to the canonical declaration in analytics/analytics_endpoints.json (the backend master catalog loads that file), where it is declared once with its backend operation id project_analytics.<suffix>, the same method and the same path. The checker reads the planned catalog without following path-item $refs, so it reports the move as removal; the same operations appear as endpoint_added in analytics/analytics_endpoints.json for all three mounts. SchemaValidator resolves the path-item $ref, so contract=planned_projects still knows all eleven (tests/test_validator.py, tests/test_planned_projects_endpoint_paths.py). The operationIds change from camel-case ids (getProjectAnalyticsSummary and ten siblings) to the backend ids; the Python SDK, JS SDK and portal pins checked for the plan do not dispatch through them.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_fine_tuning_manifest_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/empty_reason",
+          "role": "conservative",
+          "subject": "empty_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "76ea497239637c602c06fdef9243a752535a7d4574b3bbb2ec0a58c460b2c7c1"
+        },
+        {
+          "pointer": "#/properties/truncated",
+          "role": "conservative",
+          "subject": "truncated",
+          "old": false,
+          "new": true,
+          "fingerprint": "362d2bf71409dc0b08913395b90f6dc63553143ee450b9096f8f9b02432d635f"
+        }
+      ],
+      "reason": "The fine-tuning manifest response gains the two members the backend always emits, truncated (boolean) and empty_reason (null or the one closed reason string), at core_domain_analytics_service.export_fine_tuning_manifest (the return dict, 'truncated' and 'empty_reason'). The schema is closed (additionalProperties false) and omitted them, so a strict validator already rejected every real manifest; declaring them makes real responses valid. Response-only: no request body changes, and a producer that emits the backend's actual payload is unaffected.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_fine_tuning_manifest_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "empty_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "95f267e86fcae341bca35c0a7e5985139faee0e3e0c05efb4e96ddfdc7631220"
+        },
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "truncated",
+          "old": false,
+          "new": true,
+          "fingerprint": "c05cb096f136affa4e3018fee4fb7735711ac9ff4a20cd79aca5af444da665a9"
+        }
+      ],
+      "reason": "truncated and empty_reason are added to the required list of the fine-tuning manifest response because the backend emits both on every successful export (core_domain_analytics_service.export_fine_tuning_manifest always sets 'truncated' and 'empty_reason', including empty and failed-to-record-job cases). Response-only requirement matching the real payload; it cannot reject any response the backend produces. A third-party producer or mock that omits them would now fail validation, which is the intended tightening: the old schema rejected the real payload, the new one accepts it.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
     }
   ]
 }

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/project_analytics_summary_response_schema.json",
+  "title": "The project analytics summary Response",
+  "x-wrap-status": "wrapped",
+  "description": "Success envelope {success, message, data} for get the project analytics summary on every mount (the handler returns success_response(...); analytics_routes is listed as wrapped in success_envelope_schema.json). The payload under data is project_scoped_analytics_summary_schema.json.",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "../projects/project_scoped_analytics_summary_schema.json"
+    }
+  }
+}

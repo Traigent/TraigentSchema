@@ -3230,23 +3230,18 @@
         }
       },
       "AnalyticsProjectNotFound": {
-        "description": "Closed not-found problem. Project entry returns one body for a missing, foreign, non-member or key-mismatched project, so a denial is indistinguishable from absence.",
+        "description": "Project not found (error_code PROJECT_NOT_FOUND, ordinary error envelope). Raised by project-context resolution (TraigentBackend src/security/project_context.py, ProjectContextError status 404) when the requested project (X-Project-Id or route project_id) does not exist or the caller holds no role in it; the app error handler renders it as the ordinary JSON envelope (src/app.py), not application/problem+json. The analytics mounts carry no project-entry guards today.",
         "content": {
-          "application/problem+json": {
+          "application/json": {
             "schema": {
-              "$ref": "../audit_evaluate/audit_evaluate_problem_schema.json"
+              "$ref": "../error_envelope_schema.json"
             }
           }
         }
       },
       "AnalyticsResourceNotFound": {
-        "description": "Not found. Either the closed project-entry problem (application/problem+json) or, for a missing experiment, measure or export job, the ordinary error envelope with error_code NOT_FOUND (application/json).",
+        "description": "Not found (error_code NOT_FOUND or PROJECT_NOT_FOUND, ordinary error envelope). A missing experiment, measure or export job is emitted by the handler through not_found_response (src/routes/analytics_routes.py); an unknown or inaccessible project comes from project-context resolution. Never application/problem+json: the analytics mounts carry no project-entry guards today.",
         "content": {
-          "application/problem+json": {
-            "schema": {
-              "$ref": "../audit_evaluate/audit_evaluate_problem_schema.json"
-            }
-          },
           "application/json": {
             "schema": {
               "$ref": "../error_envelope_schema.json"

@@ -10,6 +10,7 @@ URL; each is declared on each mount at its existing method and path, and the
 Fixtures are built key-for-key from what the handlers and
 `core_domain_analytics_service` emit, not from the schemas' required lists.
 """
+
 from __future__ import annotations
 
 import copy
@@ -54,10 +55,16 @@ EXPECTED = sorted(
 ENVELOPES = {
     "get_project_analytics_summary": "project_analytics_summary_response_schema",
     "get_project_pricing_catalog": "project_pricing_catalog_response_schema",
-    "get_project_optimization_overview_dashboard": "optimization_overview_dashboard_response_schema",
-    "get_project_evaluator_quality_dashboard": "project_evaluator_quality_dashboard_response_schema",
+    "get_project_optimization_overview_dashboard": (
+        "optimization_overview_dashboard_response_schema"
+    ),
+    "get_project_evaluator_quality_dashboard": (
+        "project_evaluator_quality_dashboard_response_schema"
+    ),
     "get_project_usage_dashboard": "project_usage_dashboard_response_schema",
-    "get_project_observability_summary_dashboard": "project_observability_summary_dashboard_response_schema",
+    "get_project_observability_summary_dashboard": (
+        "project_observability_summary_dashboard_response_schema"
+    ),
     "get_project_run_volume_trend": "project_run_volume_trend_response_schema",
     "get_project_measure_distribution": "project_measure_distribution_response_schema",
     "export_project_fine_tuning_manifest": "project_fine_tuning_manifest_response_schema",
@@ -76,6 +83,14 @@ BOUNDS = {
     "get_project_measure_distribution": {"bins": (1, 100, 10)},
     "export_project_fine_tuning_manifest": {"limit": (1, 5000, 1000)},
     "list_project_export_jobs": {"page": (1, None, 1), "per_page": (1, 100, 20)},
+}
+# handler not-found branches: analytics_routes.py (origin/develop) not_found_response at
+# :289 (experiment), :317 (measure), :320 (experiment), :422 (experiment), :543 (export job)
+RESOURCE_404 = {
+    "get_project_run_volume_trend",
+    "get_project_measure_distribution",
+    "export_project_fine_tuning_manifest",
+    "get_project_export_job",
 }
 NO_QUERY_VALIDATION = {"get_project_pricing_catalog", "get_project_export_job"}
 PATH_PARAMS = {
@@ -151,7 +166,9 @@ def test_path_and_query_parameters_match_the_backend_query_models(family, suffix
         expected_path.add("project_id")
     assert path_names == expected_path
     assert all(p["required"] is True for p in params if p["in"] == "path")
-    assert ("{project_id}" in FAMILIES[family] + SUFFIXES[suffix]) == (family == "project_analytics")
+    assert ("{project_id}" in FAMILIES[family] + SUFFIXES[suffix]) == (
+        family == "project_analytics"
+    )
     for p in params:
         if p["in"] == "path":
             assert f"{{{p['name']}}}" in FAMILIES[family] + SUFFIXES[suffix]
@@ -169,17 +186,26 @@ def test_path_and_query_parameters_match_the_backend_query_models(family, suffix
 
 
 def test_run_volume_bucket_and_export_query_declarations():
-    trend = {p["name"]: p for p in _operation("analytics", "get_project_run_volume_trend")["parameters"]}
+    trend = {
+        p["name"]: p for p in _operation("analytics", "get_project_run_volume_trend")["parameters"]
+    }
     assert trend["bucket"]["schema"]["enum"] == ["hour", "day", "week", "month"]
     assert trend["experiment_id"]["schema"]["minLength"] == 1
-    export = {p["name"]: p for p in _operation("analytics", "export_project_fine_tuning_manifest")["parameters"]}
+    export = {
+        p["name"]: p
+        for p in _operation("analytics", "export_project_fine_tuning_manifest")["parameters"]
+    }
     assert set(export) == {"experiment_id", "experiment_run_id", "limit", "include_content"}
     assert export["include_content"]["schema"] == {"type": "boolean", "default": False}
 
 
 def test_query_bounds_reject_out_of_range_values():
     for suffix, bounds in BOUNDS.items():
-        queries = {p["name"]: p["schema"] for p in _operation("analytics", suffix)["parameters"] if p["in"] == "query"}
+        queries = {
+            p["name"]: p["schema"]
+            for p in _operation("analytics", suffix)["parameters"]
+            if p["in"] == "query"
+        }
         for name, (lo, hi, _default) in bounds.items():
             validator = Draft7Validator(queries[name])
             assert validator.is_valid(lo)
@@ -199,21 +225,32 @@ def test_success_response_is_the_envelope_and_errors_follow_the_handlers(family,
     assert schema == f"./{ENVELOPES[suffix]}.json"
     codes = set(op["responses"])
     assert {"200", "401", "403", "404", "429", "500"} <= codes
+    # 404 is the ordinary error envelope on every operation (PROJECT_NOT_FOUND from project-context)
+    assert "404" in codes
     # validation failures are 422 (response_handler.validation_error_response), never 400
     assert "400" not in codes
     assert ("422" in codes) == (suffix not in NO_QUERY_VALIDATION)
-    assert op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"] == "../rate_limit_info_schema.json"
+    assert (
+        op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"]
+        == "../rate_limit_info_schema.json"
+    )
 
 
 def test_validation_and_not_found_components_use_the_closed_shapes():
     responses = CATALOG["components"]["responses"]
-    assert responses["AnalyticsValidationFailed"]["content"]["application/json"]["schema"]["$ref"] == (
-        "../validation_error_schema.json"
-    )
-    assert "application/problem+json" in responses["AnalyticsProjectNotFound"]["content"]
-    assert set(responses["AnalyticsResourceNotFound"]["content"]) == {"application/json", "application/problem+json"}
-    # ops with a resource 404 (experiment, measure, export job) offer both bodies
-    for suffix in ("get_project_run_volume_trend", "get_project_measure_distribution", "get_project_export_job"):
+    assert responses["AnalyticsValidationFailed"]["content"]["application/json"]["schema"][
+        "$ref"
+    ] == ("../validation_error_schema.json")
+    # no project-entry problem+json 404 is declared: the analytics mounts carry no
+    # project-entry guards today, so the backend never emits it. Every 404 is the
+    # ordinary error envelope (PROJECT_NOT_FOUND from project-context resolution,
+    # NOT_FOUND from the handler not_found_response branches).
+    for name in ("AnalyticsProjectNotFound", "AnalyticsResourceNotFound"):
+        assert set(responses[name]["content"]) == {"application/json"}
+        schema = responses[name]["content"]["application/json"]["schema"]
+        assert schema["$ref"] == "../error_envelope_schema.json"
+    # ops with a handler not-found branch (experiment, measure, export job) use the resource 404
+    for suffix in sorted(RESOURCE_404):
         assert _operation("analytics", suffix)["responses"]["404"] == {
             "$ref": "#/components/responses/AnalyticsResourceNotFound"
         }
@@ -232,15 +269,15 @@ def test_export_is_documented_as_an_artifact_producing_get():
 
 
 def test_observability_summary_is_a_read_plus_required_admission_audit():
-    description = _operation("analytics", "get_project_observability_summary_dashboard")["description"]
+    description = _operation("analytics", "get_project_observability_summary_dashboard")[
+        "description"
+    ]
     assert "required durable admission audit" in description
     assert "observability read grant" in description
 
 
 def test_observability_is_never_called_privacy_safe_or_privacy_preserving():
-    obs_ops = [
-        _operation(f, "get_project_observability_summary_dashboard") for f in FAMILIES
-    ]
+    obs_ops = [_operation(f, "get_project_observability_summary_dashboard") for f in FAMILIES]
     payload = _load("projects/project_scoped_observability_summary_dashboard_schema.json")
     envelope = _load("analytics/project_observability_summary_dashboard_response_schema.json")
     texts = [json.dumps(x).lower() for x in (*obs_ops, payload, envelope)]
@@ -258,14 +295,23 @@ CONTEXT = {
     "generated_at": "2026-11-20T10:00:00+00:00",
     "privacy_classification": "aggregate_safe",
 }
-COST_SOURCES = {"observed_usage": 7, "recorded_metrics": 3, "catalog_fallback": 2, "unknown_unpriced": 0}
+COST_SOURCES = {
+    "observed_usage": 7,
+    "recorded_metrics": 3,
+    "catalog_fallback": 2,
+    "unknown_unpriced": 0,
+}
 
 SUMMARY = {
     "context": CONTEXT,
     "range_days": 30,
     "entity_counts": {
-        "agents": 1, "benchmarks": 1, "measures": 2, "experiments": 1,
-        "experiment_runs": 3, "configuration_runs": 9,
+        "agents": 1,
+        "benchmarks": 1,
+        "measures": 2,
+        "experiments": 1,
+        "experiment_runs": 3,
+        "configuration_runs": 9,
     },
     "status_breakdowns": {
         "experiments": {"running": 1},
@@ -273,11 +319,16 @@ SUMMARY = {
         "configuration_runs": {"completed": 9},
     },
     "usage_summary": {
-        "experiment_runs": 3, "configuration_runs": 9,
-        "priced_configuration_runs": 8, "unpriced_configuration_runs": 1,
-        "total_cost_usd": 1.23, "avg_cost_usd": 0.41,
+        "experiment_runs": 3,
+        "configuration_runs": 9,
+        "priced_configuration_runs": 8,
+        "unpriced_configuration_runs": 1,
+        "total_cost_usd": 1.23,
+        "avg_cost_usd": 0.41,
         "cost_source_breakdown": COST_SOURCES,
-        "total_tokens": 12345, "avg_latency_ms": 250.1, "p95_latency_ms": 410.0,
+        "total_tokens": 12345,
+        "avg_latency_ms": 250.1,
+        "p95_latency_ms": 410.0,
     },
     "measure_summaries": [],
 }
@@ -287,82 +338,166 @@ PRICING = {
     "catalog_last_updated": "2026-11-01T08:55:00+00:00",
     "total_providers": 1,
     "total_models": 1,
-    "providers": [{
-        "provider": "openai", "model_count": 1, "pricing_resolution_mode": "static_catalog",
-        "models": [{
-            "model": "gpt-4o", "input_price_per_1k_usd": 0.005, "output_price_per_1k_usd": 0.015,
-            "context_window": None, "available_tiers": [], "supports_catalog_fallback": True,
-        }],
-    }],
+    "providers": [
+        {
+            "provider": "openai",
+            "model_count": 1,
+            "pricing_resolution_mode": "static_catalog",
+            "models": [
+                {
+                    "model": "gpt-4o",
+                    "input_price_per_1k_usd": 0.005,
+                    "output_price_per_1k_usd": 0.015,
+                    "context_window": None,
+                    "available_tiers": [],
+                    "supports_catalog_fallback": True,
+                }
+            ],
+        }
+    ],
 }
 OVERVIEW = {
     "context": CONTEXT,
     "range_days": 30,
     "summary_cards": {
         # the eight keys the handler emitted before plus experiments_in_range (service :672)
-        "experiments_total": 3, "experiments_in_range": 2, "experiment_runs_in_range": 5,
-        "configuration_runs_in_range": 12, "priced_configuration_runs_in_range": 10,
-        "unpriced_configuration_runs_in_range": 2, "total_cost_usd_in_range": None,
-        "avg_latency_ms_in_range": 820.5, "total_tokens_in_range": 4096,
+        "experiments_total": 3,
+        "experiments_in_range": 2,
+        "experiment_runs_in_range": 5,
+        "configuration_runs_in_range": 12,
+        "priced_configuration_runs_in_range": 10,
+        "unpriced_configuration_runs_in_range": 2,
+        "total_cost_usd_in_range": None,
+        "avg_latency_ms_in_range": 820.5,
+        "total_tokens_in_range": 4096,
     },
     "cost_source_breakdown": COST_SOURCES,
     "recent_experiments": [],
 }
 EVALUATOR = {
-    "context": CONTEXT, "range_days": 30, "resolved_bucket": "day",
+    "context": CONTEXT,
+    "range_days": 30,
+    "resolved_bucket": "day",
     "summary_cards": {
-        "evaluator_definitions_total": 2, "evaluator_runs_in_range": 4, "completed_runs_in_range": 3,
-        "failed_runs_in_range": 1, "scored_runs_in_range": 3, "avg_numeric_score_in_range": 0.92,
+        "evaluator_definitions_total": 2,
+        "evaluator_runs_in_range": 4,
+        "completed_runs_in_range": 3,
+        "failed_runs_in_range": 1,
+        "scored_runs_in_range": 3,
+        "avg_numeric_score_in_range": 0.92,
         "total_cost_usd_in_range": 0.37,
     },
-    "quality_trend": [], "recent_evaluators": [],
+    "quality_trend": [],
+    "recent_evaluators": [],
 }
 USAGE = {
-    "context": CONTEXT, "range_days": 30, "resolved_bucket": "day",
+    "context": CONTEXT,
+    "range_days": 30,
+    "resolved_bucket": "day",
     "summary_cards": {
-        "experiment_runs_in_range": 4, "configuration_runs_in_range": 9,
-        "priced_configuration_runs_in_range": 8, "unpriced_configuration_runs_in_range": 1,
-        "total_cost_usd_in_range": 1.24, "total_tokens_in_range": 2048,
-        "avg_latency_ms_in_range": 120.5, "p95_latency_ms_in_range": 210.0,
+        "experiment_runs_in_range": 4,
+        "configuration_runs_in_range": 9,
+        "priced_configuration_runs_in_range": 8,
+        "unpriced_configuration_runs_in_range": 1,
+        "total_cost_usd_in_range": 1.24,
+        "total_tokens_in_range": 2048,
+        "avg_latency_ms_in_range": 120.5,
+        "p95_latency_ms_in_range": 210.0,
     },
-    "usage_trend": [], "top_experiments": [],
+    "usage_trend": [],
+    "top_experiments": [],
 }
 OBSERVABILITY = {
-    "context": CONTEXT, "range_days": 30, "resolved_bucket": "day",
+    "context": CONTEXT,
+    "range_days": 30,
+    "resolved_bucket": "day",
     "summary_cards": {
-        "sessions_in_range": 2, "traces_in_range": 3, "observations_in_range": 9,
-        "bookmarked_traces_in_range": 1, "published_traces_in_range": 1,
-        "commented_traces_in_range": 2, "total_cost_usd_in_range": 0.42, "total_tokens_in_range": 840,
+        "sessions_in_range": 2,
+        "traces_in_range": 3,
+        "observations_in_range": 9,
+        "bookmarked_traces_in_range": 1,
+        "published_traces_in_range": 1,
+        "commented_traces_in_range": 2,
+        "total_cost_usd_in_range": 0.42,
+        "total_tokens_in_range": 840,
     },
-    "activity_trend": [], "top_traces": [],
+    "activity_trend": [],
+    "top_traces": [],
 }
 TREND = {
-    "context": CONTEXT, "metric_id": "run_volume", "experiment_id": None, "range_days": 30,
-    "requested_bucket": None, "resolved_bucket": "day",
+    "context": CONTEXT,
+    "metric_id": "run_volume",
+    "experiment_id": None,
+    "range_days": 30,
+    "requested_bucket": None,
+    "resolved_bucket": "day",
     "series": [
-        {"series_key": "experiment_runs", "label": "Experiment runs", "unit": "count",
-         "points": [{"bucket_start": "2026-11-19T00:00:00+00:00", "bucket_label": "2026-11-19", "value": 2}]},
-        {"series_key": "configuration_runs", "label": "Configuration runs", "unit": "count", "points": []},
+        {
+            "series_key": "experiment_runs",
+            "label": "Experiment runs",
+            "unit": "count",
+            "points": [
+                {
+                    "bucket_start": "2026-11-19T00:00:00+00:00",
+                    "bucket_label": "2026-11-19",
+                    "value": 2,
+                }
+            ],
+        },
+        {
+            "series_key": "configuration_runs",
+            "label": "Configuration runs",
+            "unit": "count",
+            "points": [],
+        },
     ],
 }
 DISTRIBUTION = {
-    "context": CONTEXT, "measure_key": "accuracy", "measure_id": None, "label": "accuracy",
-    "experiment_id": None, "value_type": "numeric", "sample_count": 0, "mean": None, "min": None,
-    "max": None, "bucket_count": 10, "histogram": [],
+    "context": CONTEXT,
+    "measure_key": "accuracy",
+    "measure_id": None,
+    "label": "accuracy",
+    "experiment_id": None,
+    "value_type": "numeric",
+    "sample_count": 0,
+    "mean": None,
+    "min": None,
+    "max": None,
+    "bucket_count": 10,
+    "histogram": [],
 }
 JOB = {
-    "job_id": "export_job_1", "export_type": "fine_tuning_manifest", "status": "completed",
-    "privacy_classification": "manifest_safe", "export_mode": "manifest", "privacy_mode": True,
-    "include_content": False, "retention_category": "export_artifact", "record_count": 0,
-    "artifact_filename": "fine-tuning-manifest.json", "artifact_content_type": "application/json",
-    "experiment_id": None, "experiment_run_id": None, "limit": 1000, "requested_by": "user_1",
-    "requested_at": "2026-11-20T10:00:00+00:00", "expires_at": "2026-12-20T10:00:00+00:00",
-    "completed_at": "2026-11-20T10:00:01+00:00", "error_message": None,
+    "job_id": "export_job_1",
+    "export_type": "fine_tuning_manifest",
+    "status": "completed",
+    "privacy_classification": "manifest_safe",
+    "export_mode": "manifest",
+    "privacy_mode": True,
+    "include_content": False,
+    "retention_category": "export_artifact",
+    "record_count": 0,
+    "artifact_filename": "fine-tuning-manifest.json",
+    "artifact_content_type": "application/json",
+    "experiment_id": None,
+    "experiment_run_id": None,
+    "limit": 1000,
+    "requested_by": "user_1",
+    "requested_at": "2026-11-20T10:00:00+00:00",
+    "expires_at": "2026-12-20T10:00:00+00:00",
+    "completed_at": "2026-11-20T10:00:01+00:00",
+    "error_message": None,
 }
 JOB_LIST = {
     "context": CONTEXT,
     "items": [JOB],
-    "pagination": {"page": 1, "per_page": 20, "total": 1, "total_pages": 1, "has_next": False, "has_prev": False},
+    "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 1,
+        "total_pages": 1,
+        "has_next": False,
+        "has_prev": False,
+    },
 }
 JOB_ONE = {"context": CONTEXT, "job": JOB}
 
@@ -370,16 +505,31 @@ JOB_ONE = {"context": CONTEXT, "job": JOB}
 def _manifest(**overrides):
     base = {
         "context": {**CONTEXT, "privacy_classification": "manifest_safe"},
-        "export_mode": "manifest", "privacy_mode": True, "source_privacy_protected": True,
-        "include_content": False, "job_id": "export_job_1", "record_count": 1,
-        "truncated": False, "empty_reason": None,
-        "records": [{
-            "record_id": "config_1", "experiment_id": "exp_1", "experiment_run_id": "run_1",
-            "configuration_run_id": "config_1", "input_hash": "h1", "output_hash": "h2",
-            "input_ref": "configuration_run:config_1:input", "output_ref": "configuration_run:config_1:output",
-            "input_content": None, "output_content": None, "materialization": "local_only",
-            "measure_summary": {"accuracy": 0.91}, "metadata": {},
-        }],
+        "export_mode": "manifest",
+        "privacy_mode": True,
+        "source_privacy_protected": True,
+        "include_content": False,
+        "job_id": "export_job_1",
+        "record_count": 1,
+        "truncated": False,
+        "empty_reason": None,
+        "records": [
+            {
+                "record_id": "config_1",
+                "experiment_id": "exp_1",
+                "experiment_run_id": "run_1",
+                "configuration_run_id": "config_1",
+                "input_hash": "h1",
+                "output_hash": "h2",
+                "input_ref": "configuration_run:config_1:input",
+                "output_ref": "configuration_run:config_1:output",
+                "input_content": None,
+                "output_content": None,
+                "materialization": "local_only",
+                "measure_summary": {"accuracy": 0.91},
+                "metadata": {},
+            }
+        ],
     }
     base.update(overrides)
     return base
@@ -431,20 +581,27 @@ def test_overview_real_response_validates_with_experiments_in_range():
     missing = copy.deepcopy(OVERVIEW)
     del missing["summary_cards"]["experiments_in_range"]
     errors = list(validator.iter_errors(_wrap(missing)))
-    assert [(tuple(e.absolute_path), e.validator) for e in errors] == [(("data", "summary_cards"), "required")]
+    assert [(tuple(e.absolute_path), e.validator) for e in errors] == [
+        (("data", "summary_cards"), "required")
+    ]
 
 
 def test_fine_tuning_manifest_states_populated_empty_truncated_and_unrecorded_job():
     validator = _validator("project_fine_tuning_manifest_response_schema")
     populated = _manifest()
     empty = _manifest(
-        record_count=0, records=[], empty_reason="no_prompt_response_pair_captured_for_fine_tuning_export"
+        record_count=0,
+        records=[],
+        empty_reason="no_prompt_response_pair_captured_for_fine_tuning_export",
     )
     truncated = _manifest(truncated=True)
     job_unrecorded = _manifest(job_id=None)
     materialized = _manifest(
         context={**CONTEXT, "privacy_classification": "raw_content"},
-        export_mode="materialized", privacy_mode=False, source_privacy_protected=False, include_content=True,
+        export_mode="materialized",
+        privacy_mode=False,
+        source_privacy_protected=False,
+        include_content=True,
     )
     for body in (populated, empty, truncated, job_unrecorded, materialized):
         assert list(validator.iter_errors(_wrap(body))) == []

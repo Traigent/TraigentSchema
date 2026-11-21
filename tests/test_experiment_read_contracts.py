@@ -188,14 +188,16 @@ def test_agent_experiments_page_is_closed_with_references() -> None:
 
 
 def test_graphs_page_is_bounded_and_hides_the_historical_id() -> None:
-    g = {"id": "g1", "graph_hash": "h", "sdk_version": None, "node_count": 500, "edge_count": 1000,
+    g = {"graph_hash": "h", "sdk_version": None, "node_count": 500, "edge_count": 1000,
          "loop_count": 100, "created_at": "2026-11-20T10:00:00Z", "updated_at": None}
     assert _errors("ExperimentGraphSummary", g) == []
     assert _errors("ExperimentGraphSummary", {**g, "sdk_version": "1.2"}) == []
     assert _errors("ExperimentGraphSummary", {**g, "experiment_id": "exp_1"})
+    assert _errors("ExperimentGraphSummary", {**g, "id": "g1"})
     # Keys the backend _graph_summary (TraigentBackend src/routes/trace_routes.py:540) emits today.
     # experiment_id is removed from that route by the window-1b backend cutover, so it is excluded here.
-    backend_keys = {"id", "graph_hash", "sdk_version", "node_count", "edge_count",
+    # Raw graph id dropped from the canonical window, CTO ruling 2026-11-21.
+    backend_keys = {"graph_hash", "sdk_version", "node_count", "edge_count",
                     "loop_count", "created_at", "updated_at"}
     exp_reads = load_json(SCHEMAS / "evaluation" / "experiment_reads_schema.json")
     assert set(exp_reads["definitions"]["ExperimentGraphSummary"]["required"]) == backend_keys

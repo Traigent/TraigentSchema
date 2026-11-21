@@ -1625,7 +1625,7 @@
       "get": {
         "operationId": "trace.get_experiment_graphs",
         "summary": "List an experiment's workflow graphs",
-        "description": "Replaces GET /api/v1/traces/experiments/{experiment_id}/graphs. One cursor page, at most 100 graph summaries (ids, hash, element counts and timestamps; no nodes, edges or loops). New canonical-operation budgets that the backend window-1b cutover will enforce: per-graph element counts follow the backend stored-graph caps (500 nodes, 1000 edges, 100 loops) and the response is bounded by the schema's x-max-response-bytes. The historical experiment id is not returned.",
+        "description": "Replaces GET /api/v1/traces/experiments/{experiment_id}/graphs. One cursor page, at most 100 graph summaries (hash, element counts and timestamps; no raw graph id, no nodes, edges or loops). New canonical-operation budgets that the backend window-1b cutover will enforce: per-graph element counts follow the backend stored-graph caps (500 nodes, 1000 edges, 100 loops) and the response is bounded by the schema's x-max-response-bytes. The historical experiment id is not returned.",
         "x-asserted-against-backend": false,
         "x-wrap-status": "wrapped",
         "parameters": [

@@ -436,9 +436,8 @@
     "ExperimentGraphSummary": {
       "type": "object",
       "additionalProperties": false,
-      "description": "One workflow graph summary of an experiment as listed by experiment reference: ids, hash, element counts and timestamps only. Nodes, edges and loops are never listed (read one graph by its id for topology). The historical experiment id is not returned. The count maxima are the stored-graph caps of the backend (500 nodes, 1000 edges, 100 loops).",
+      "description": "One workflow graph summary of an experiment as listed by experiment reference: hash, element counts and timestamps only. No raw graph id is returned in this window; the window that ships the graph read adds an opaque graph reference. Nodes, edges and loops are never listed. The historical experiment id is not returned. The count maxima are the stored-graph caps of the backend (500 nodes, 1000 edges, 100 loops).",
       "required": [
-        "id",
         "graph_hash",
         "sdk_version",
         "node_count",
@@ -448,12 +447,6 @@
         "updated_at"
       ],
       "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128,
-          "description": "Server-issued graph id."
-        },
         "graph_hash": {
           "type": [
             "string",

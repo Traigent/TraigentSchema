@@ -474,9 +474,17 @@
         "expected_head_generation": {
           "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
           "description": "Head generation the caller expects now; a stale value is refused as head_generation_stale."
+        },
+        "acceptance_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of a NEW release acceptance, recorded by a person for this rollback: accepted, unexpired, unconsumed, in the same project, agent and environment, naming the target generation's best config id, version, candidate fingerprint and agent code version. The rollback consumes it (single use). Absent or null is acceptance_required."
         }
       },
-      "description": "Body of POST .../best-config-head/rollback. A person may roll back to any recorded generation; a key may roll back only to a generation that was already accepted or released (else rollback_target_not_accepted). The move is a new head generation recorded in the history, never an edit of the past."
+      "description": "Body of POST .../best-config-head/rollback. Person only (a key or service token is refused 403 forbidden). The target must be a generation that was already accepted or released (else rollback_target_not_accepted, for every caller), and acceptance_id names a fresh acceptance recorded by a person that binds the target's pinned config; a missing, revoked, expired, consumed or non-matching acceptance is refused with the closed code of the release route. The move is a new head generation recorded in the history, never an edit of the past."
     },
     "HeadRollbackReceiptData": {
       "type": "object",
@@ -523,14 +531,11 @@
         },
         "acceptance_id": {
           "x-content-class": "key_material",
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": "string",
           "pattern": "^[A-Za-z0-9_-]+$",
           "minLength": 1,
           "maxLength": 128,
-          "description": "Acceptance that authorized the target generation; null when the target was not produced by a release."
+          "description": "The fresh acceptance this rollback consumed; it is also the acceptance id of the new head history row."
         }
       },
       "description": "Data of a successful head rollback."
@@ -712,7 +717,7 @@
             "rollback_target_not_accepted",
             "internal_error"
           ],
-          "description": "Closed refusal code. invalid_request (400); unauthenticated (401); forbidden (403: includes an API key calling the person-only acceptance route, and a key rolling back without authority); reference_not_found (404: project, agent or acceptance unknown, foreign or not visible, indistinguishable); acceptance_required (409: no acceptance supplied or none for this scope); acceptance_expired (409); acceptance_consumed (409: second use); acceptance_revoked (409); acceptance_binding_mismatch (409: the candidate, gate result, configuration space, agent code version, best-config version or environment differs from what was accepted); head_generation_stale (409: the head moved; the caller MUST NOT refresh and resubmit the same acceptance, a new decision is needed); rollback_target_not_accepted (409: the target generation was never accepted or released, or does not exist in the history); internal_error (500). Responses never echo a request value, id, digest or generation."
+          "description": "Closed refusal code. invalid_request (400); unauthenticated (401); forbidden (403: includes an API key or service token calling the person-only acceptance route or the person-only head rollback route); reference_not_found (404: project, agent or acceptance unknown, foreign or not visible, indistinguishable); acceptance_required (409: no acceptance supplied or none for this scope); acceptance_expired (409); acceptance_consumed (409: second use); acceptance_revoked (409); acceptance_binding_mismatch (409: the candidate, gate result, configuration space, agent code version, best-config version or environment differs from what was accepted); head_generation_stale (409: the head moved; the caller MUST NOT refresh and resubmit the same acceptance, a new decision is needed); rollback_target_not_accepted (409: the target generation was never accepted or released, or does not exist in the history, for every caller); internal_error (500). Responses never echo a request value, id, digest or generation."
         },
         "message": {
           "x-content-class": "closed_enum",

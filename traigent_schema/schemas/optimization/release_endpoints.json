@@ -377,7 +377,7 @@
     "/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head/rollback": {
       "post": {
         "summary": "Roll the agent head back to an earlier accepted generation",
-        "description": "TraigentBackend (planned). A person may roll back to a recorded generation; a key only to a generation that was already accepted or released. The move is a new head generation with the actor recorded. Every error body is the closed envelope release_acceptance_schema.json#/definitions/ReleaseRefusal except 429.",
+        "description": "Person only: an API key or service token is refused 403 forbidden. The target must be a generation that was already accepted or released, and the request carries a fresh release acceptance (recorded by a person through the release-acceptances route, bound to the target's pinned config) that the rollback consumes, exactly as a release consumes its own. The move is a new head generation with the actor and the consumed acceptance recorded. Every error body is the closed envelope release_acceptance_schema.json#/definitions/ReleaseRefusal except 429.",
         "operationId": "best_configs.rollback_agent_head",
         "x-asserted-against-backend": false,
         "parameters": [
@@ -465,7 +465,7 @@
             }
           },
           "409": {
-            "description": "head_generation_stale, rollback_target_not_accepted. Closed envelope; nothing is echoed.",
+            "description": "head_generation_stale, rollback_target_not_accepted, acceptance_required, acceptance_expired, acceptance_consumed, acceptance_revoked, acceptance_binding_mismatch. Closed envelope; nothing is echoed.",
             "content": {
               "application/json": {
                 "schema": {

@@ -54,6 +54,45 @@ skip() { [[ ",${LOCAL_GATE_SKIP:-}," == *",$1,"* ]]; return $?; }
 hr() { printf '─%.0s' {1..64}; echo; return $?; }
 section() { hr; echo "▶ $1"; return $?; }
 
+# ── 0. project environment preflight (fails fast, before any gate runs) ────
+# Why: with no venv active, the bare system python3 lacks mypy, pytest and the
+# `.[dev,tvl]` extras, so the gate printed "not installed" plus ~190 pytest import
+# errors instead of saying what to do. Interpreter choice, in order:
+#   1. an active venv ($VIRTUAL_ENV) -- its python is used;
+#   2. no venv active and $REPO_ROOT/.venv exists -- its python is used
+#      AUTOMATICALLY, and its bin dir is put first on PATH so ruff/mypy/pytest
+#      come from the same environment;
+#   3. otherwise python3 from PATH.
+# Every later python call in this script uses $GATE_PY.
+GATE_PY="python3"
+GATE_PY_SOURCE="python3 from PATH"
+if [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+  GATE_PY="${VIRTUAL_ENV}/bin/python"
+  GATE_PY_SOURCE="active venv ${VIRTUAL_ENV}"
+elif [[ -z "${VIRTUAL_ENV:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  GATE_PY="$REPO_ROOT/.venv/bin/python"
+  GATE_PY_SOURCE="no venv was active, so the gate AUTO-USED $REPO_ROOT/.venv"
+  export PATH="$REPO_ROOT/.venv/bin:$PATH"
+fi
+
+GATE_MISSING=""
+if ! command -v "$GATE_PY" >/dev/null 2>&1; then
+  GATE_MISSING="interpreter $GATE_PY not found"
+else
+  GATE_MISSING="$("$GATE_PY" -c 'import importlib.util as u
+print(" ".join(m for m in ("mypy", "pytest", "jsonschema", "traigent_schema") if u.find_spec(m) is None))' 2>/dev/null)" \
+    || GATE_MISSING="python import check failed"
+fi
+if [[ -n "$GATE_MISSING" ]]; then
+  hr
+  echo "❌ No project environment active (python: $GATE_PY_SOURCE; missing: $GATE_MISSING)."
+  echo "   Run: source .venv/bin/activate"
+  echo "   (create it with: python3.12 -m venv .venv && .venv/bin/python -m pip install -e '.[dev,tvl]')"
+  echo "   Then re-run: scripts/local_gate.sh"
+  exit 1
+fi
+echo "  • project interpreter: $GATE_PY ($GATE_PY_SOURCE)"
+
 # release/hotfix branches target main; a checkout literally ON main (the
 # core_project/main/<repo> surface) targets main too -- it IS main, so its
 # meaningful comparison base is main, not develop; everything else targets
@@ -196,7 +235,7 @@ fi
 if ! skip parity; then
   section "parity manifest freshness (parity-check.yml)"
   if [[ -f scripts/refresh_parity.py ]]; then
-    if python3 scripts/refresh_parity.py --check; then echo "  ✅ parity manifest up-to-date"
+    if "$GATE_PY" scripts/refresh_parity.py --check; then echo "  ✅ parity manifest up-to-date"
     else echo "  ❌ parity manifest stale — run 'python3 scripts/refresh_parity.py --update' and commit"; FAIL=1; fi
   else
     echo "  ℹ️  scripts/refresh_parity.py absent; skipping parity check"
@@ -244,8 +283,8 @@ if ! skip breakingschema; then
   # "base=$base_ref" here means a bad direction is visible on sight instead
   # of only inferable from the findings.
   echo "  • base=${base_ref} (branch=${BRANCH}, base_branch=${base_branch})"
-  if command -v python3 >/dev/null 2>&1 && [[ -f scripts/breaking_schema_check.py ]]; then
-    if python3 scripts/breaking_schema_check.py --check --base-ref "$base_ref"; then
+  if command -v "$GATE_PY" >/dev/null 2>&1 && [[ -f scripts/breaking_schema_check.py ]]; then
+    if "$GATE_PY" scripts/breaking_schema_check.py --check --base-ref "$base_ref"; then
       echo "  ✅ no un-acknowledged BREAKING contract changes"
     else
       echo "  ❌ BREAKING contract change(s) found (see above) — add a reviewed"

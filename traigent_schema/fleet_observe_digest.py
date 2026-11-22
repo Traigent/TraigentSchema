@@ -39,6 +39,9 @@ __all__ = [
 REQUEST_DIGEST_VERSION = "fleet_import_request_v1"
 IDEMPOTENCY_DOMAIN = "fleet_idem_v1\x1f"
 DEFAULT_RETENTION_CLASS = "ledger_minimal"
+_SHA256_PREFIX = "sha256:"
+_ERR_REMOTE = "invalid repository remote"
+_ERR_HOST = "invalid repository host"
 
 # Byte-identical to the API server contract mirror.
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -168,13 +171,15 @@ def canonical_preimage(request: Mapping[str, Any]) -> bytes:
 
 def request_digest(request: Mapping[str, Any]) -> str:
     """``sha256:<hex>`` of the canonical preimage."""
-    return "sha256:" + hashlib.sha256(canonical_preimage(request)).hexdigest()
+    return _SHA256_PREFIX + hashlib.sha256(canonical_preimage(request)).hexdigest()
 
 
 def idempotency_key(digest: str) -> str:
     """The idempotency key derived from a request digest (deterministic, not circular)."""
     _digest(digest, "request_digest")
-    return "sha256:" + hashlib.sha256((IDEMPOTENCY_DOMAIN + digest).encode("utf-8")).hexdigest()
+    return (
+        _SHA256_PREFIX + hashlib.sha256((IDEMPOTENCY_DOMAIN + digest).encode("utf-8")).hexdigest()
+    )
 
 
 def identifier_digest(key: bytes, role: str, source: str, canonical_id: str) -> str:
@@ -189,7 +194,7 @@ def identifier_digest(key: bytes, role: str, source: str, canonical_id: str) -> 
     if not text or "\x1f" in text or any(ord(c) < 0x20 or ord(c) == 0x7F for c in text):
         raise ValueError("identifier is empty or contains a control character")
     message = "\x1f".join(("tfl1", role, source, text)).encode("utf-8")
-    return "sha256:" + hmac.new(key, message, hashlib.sha256).hexdigest()
+    return _SHA256_PREFIX + hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
 def key_id(key: bytes) -> str:
@@ -228,10 +233,10 @@ def canonical_repository(remote: str) -> str:
     Raises ``ValueError`` for anything else.
     """
     if not isinstance(remote, str):
-        raise ValueError("invalid repository remote")
+        raise ValueError(_ERR_REMOTE)
     text = unicodedata.normalize("NFC", remote.strip(" \t"))
     if not text or any(ord(c) <= 0x20 or ord(c) == 0x7F for c in text) or "\\" in text:
-        raise ValueError("invalid repository remote")
+        raise ValueError(_ERR_REMOTE)
     scheme = None
     if "://" in text:
         scheme, _, rest = text.partition("://")
@@ -251,18 +256,18 @@ def canonical_repository(remote: str) -> str:
         else:  # already canonical: host[:port]/path
             authority, _, path = text.partition("/")
             if "@" in authority:
-                raise ValueError("invalid repository remote")
+                raise ValueError(_ERR_REMOTE)
     match = _HOST_PORT.match(authority)
     if match is None:
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     host = match.group(1).lower()
     if not host.startswith("[") and host.endswith("."):
         host = host[:-1]  # exactly one trailing dot
     if host.endswith("."):
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     port = match.group(2)
     if not host or (port is not None and not 1 <= int(port) <= 65535):
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     if port is not None and scheme is not None and port == _ALLOWED_SCHEMES[scheme]:
         port = None
     path = _normalize_escapes(path)

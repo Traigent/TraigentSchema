@@ -432,6 +432,259 @@ def test_open_response_added_property_is_not_breaking(tmp_path: Path) -> None:
     assert "BREAKING (unacked):   0" in result.stdout
 
 
+def _open_schema(filename: str) -> dict:
+    schema = _closed_response_schema(filename)
+    schema.pop("additionalProperties")
+    return schema
+
+
+@pytest.mark.parametrize(
+    ("added", "breaking"),
+    [
+        ({"type": "number"}, True),
+        ({"enum": ["a"]}, True),
+        ({"$ref": "#/definitions/x"}, True),
+        ({"type": "number", "description": "d"}, True),
+        ({}, False),
+        (True, False),
+        ({"description": "anything goes"}, False),
+    ],
+    ids=["type", "enum", "ref", "type-with-annotation", "empty", "true", "annotation-only"],
+)
+def test_open_request_added_property_breaking_only_when_constrained(
+    tmp_path: Path, added: object, breaking: bool
+) -> None:
+    """On an open request object any value under the new key used to validate, so a
+    constrained schema for it rejects a previously valid payload."""
+    filename = "widget_request_schema.json"
+    baseline = _open_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["temperature"] = added
+    _commit_schema_change(repo, "add-prop", changed, "add request property", filename)
+
+    result = _run_gate(repo, "master", "add-prop")
+
+    if breaking:
+        assert result.returncode == 1, result.stdout
+        assert "property_added, role=request" in result.stdout
+        assert "added with a constrained schema" in result.stdout
+    else:
+        assert result.returncode == 0, result.stdout
+        assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_nested_open_request_added_constrained_property_is_breaking(tmp_path: Path) -> None:
+    filename = "widget_request_schema.json"
+    baseline = _open_schema(filename)
+    baseline["properties"]["options"] = {"type": "object", "properties": {}}
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["options"]["properties"]["temperature"] = {"type": "number"}
+    _commit_schema_change(repo, "add-prop", changed, "add nested request property", filename)
+
+    result = _run_gate(repo, "master", "add-prop")
+
+    assert result.returncode == 1, result.stdout
+    assert "/properties/options/properties/temperature" in result.stdout
+    assert "property_added, role=request" in result.stdout
+
+
+def _map_schema(filename: str, value_schema: dict) -> dict:
+    schema = _open_schema(filename)
+    schema["additionalProperties"] = value_schema
+    return schema
+
+
+def _gate_added(tmp_path: Path, baseline: dict, mutate, filename: str = "widget_request_schema.json"):
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    mutate(changed)
+    _commit_schema_change(repo, "chg", changed, "change", filename)
+    return _run_gate(repo, "master", "chg")
+
+
+def test_constrained_map_request_added_different_property_is_breaking(tmp_path: Path) -> None:
+    """Old extras had to be strings; a number-only property rejects {"temperature": "warm"}."""
+    baseline = _map_schema("widget_request_schema.json", {"type": "string"})
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c["properties"].update(temperature={"type": "number"})
+    )
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=request" in result.stdout
+
+
+def test_constrained_map_request_added_identical_property_is_still_breaking(
+    tmp_path: Path,
+) -> None:
+    """No equality escape: identical-looking schemas are acknowledged via the allowlist."""
+    baseline = _map_schema("widget_request_schema.json", {"type": "string"})
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c["properties"].update(temperature={"type": "string"})
+    )
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=request" in result.stdout
+
+
+def test_pattern_governed_request_added_property_is_breaking(tmp_path: Path) -> None:
+    baseline = _closed_response_schema("widget_request_schema.json")
+    baseline["patternProperties"] = {"^temp": {"type": "string"}}
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c["properties"].update(temperature={"type": "number"})
+    )
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=request" in result.stdout
+
+
+def test_pattern_governed_request_added_identical_property_is_still_breaking(
+    tmp_path: Path,
+) -> None:
+    baseline = _closed_response_schema("widget_request_schema.json")
+    baseline["patternProperties"] = {"^temp": {"type": "string"}}
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c["properties"].update(temperature={"type": "string"})
+    )
+    assert result.returncode == 1, result.stdout
+
+
+def test_pattern_over_declared_property_is_breaking(tmp_path: Path) -> None:
+    """x is declared as a number; the new pattern must not be read as governed-equal."""
+    baseline = _map_schema("widget_request_schema.json", {"type": "string"})
+    baseline["properties"]["x"] = {"type": "number"}
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c.update(patternProperties={"^x$": {"type": "string"}})
+    )
+    assert result.returncode == 1, result.stdout
+    assert "patternProperties_added, role=request" in result.stdout
+
+
+def test_pattern_allof_of_several_governors_is_breaking(tmp_path: Path) -> None:
+    baseline = _map_schema("widget_request_schema.json", {"type": "string"})
+    baseline["patternProperties"] = {"^t": {"minLength": 2}}
+    result = _gate_added(
+        tmp_path,
+        baseline,
+        lambda c: c["properties"].update(
+            temperature={"allOf": [{"type": "string"}, {"minLength": 2}]}
+        ),
+    )
+    assert result.returncode == 1, result.stdout
+
+
+def test_identical_ref_text_with_changed_definition_is_breaking(tmp_path: Path) -> None:
+    filename = "widget_request_schema.json"
+    baseline = _map_schema(filename, {"$ref": "#/definitions/v"})
+    baseline["definitions"] = {"v": {"type": "string"}}
+
+    def mutate(c: dict) -> None:
+        c["definitions"]["v"] = {"type": "number"}
+        c["properties"]["temperature"] = {"$ref": "#/definitions/v"}
+
+    result = _gate_added(tmp_path, baseline, mutate)
+    assert result.returncode == 1, result.stdout
+
+
+def _closed_with_number_x(filename: str = "widget_request_schema.json") -> dict:
+    schema = _closed_response_schema(filename)
+    schema["properties"]["x"] = {"type": "number"}
+    return schema
+
+
+def test_closed_request_pattern_over_declared_property_is_breaking(tmp_path: Path) -> None:
+    """{"x": 12} was valid; a string-only pattern matching the declared name rejects it."""
+    result = _gate_added(
+        tmp_path,
+        _closed_with_number_x(),
+        lambda c: c.update(patternProperties={"^x$": {"type": "string"}}),
+    )
+    assert result.returncode == 1, result.stdout
+    assert "patternProperties_added, role=request" in result.stdout
+
+
+def test_closed_request_pattern_matching_no_declared_property_is_not_breaking(
+    tmp_path: Path,
+) -> None:
+    result = _gate_added(
+        tmp_path,
+        _closed_with_number_x(),
+        lambda c: c.update(patternProperties={"^y$": {"type": "string"}}),
+    )
+    assert result.returncode == 0, result.stdout
+
+
+def test_nested_array_items_closed_pattern_over_declared_property_is_breaking(
+    tmp_path: Path,
+) -> None:
+    filename = "widget_request_schema.json"
+    baseline = _closed_response_schema(filename)
+    baseline["properties"]["rows"] = {"type": "array", "items": _closed_with_number_x(filename)}
+    for k in ("$schema", "$id"):
+        baseline["properties"]["rows"]["items"].pop(k)
+    result = _gate_added(
+        tmp_path,
+        baseline,
+        lambda c: c["properties"]["rows"]["items"].update(
+            patternProperties={"^x$": {"type": "string"}}
+        ),
+    )
+    assert result.returncode == 1, result.stdout
+    assert "/properties/rows/items/patternProperties/^x$" in result.stdout
+
+
+def test_open_request_added_constrained_pattern_is_breaking(tmp_path: Path) -> None:
+    baseline = _open_schema("widget_request_schema.json")
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c.update(patternProperties={"^x-": {"type": "string"}})
+    )
+    assert result.returncode == 1, result.stdout
+    assert "patternProperties_added, role=request" in result.stdout
+
+
+def test_open_request_added_unconstrained_pattern_is_not_breaking(tmp_path: Path) -> None:
+    baseline = _open_schema("widget_request_schema.json")
+    result = _gate_added(tmp_path, baseline, lambda c: c.update(patternProperties={"^x-": {}}))
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_constrained_map_request_added_different_pattern_is_breaking(tmp_path: Path) -> None:
+    baseline = _map_schema("widget_request_schema.json", {"type": "string"})
+    result = _gate_added(
+        tmp_path, baseline, lambda c: c.update(patternProperties={"^x-": {"type": "number"}})
+    )
+    assert result.returncode == 1, result.stdout
+
+
+def test_closed_request_added_constrained_property_is_not_breaking(tmp_path: Path) -> None:
+    filename = "widget_request_schema.json"
+    baseline = _closed_response_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["temperature"] = {"type": "number"}
+    _commit_schema_change(repo, "add-prop", changed, "add closed request property", filename)
+
+    result = _run_gate(repo, "master", "add-prop")
+
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout
+
+
+def test_open_bare_schema_added_constrained_property_is_conservatively_breaking(
+    tmp_path: Path,
+) -> None:
+    filename = "widget_schema.json"
+    baseline = _open_schema(filename)
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["properties"]["temperature"] = {"type": "number"}
+    _commit_schema_change(repo, "add-prop", changed, "add bare property", filename)
+
+    result = _run_gate(repo, "master", "add-prop")
+
+    assert result.returncode == 1, result.stdout
+    assert "property_added, role=conservative" in result.stdout
+
+
 def test_bare_closed_schema_added_property_is_conservatively_breaking(
     tmp_path: Path,
 ) -> None:

@@ -1169,7 +1169,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./retriever_create_request_schema.json"
+                "$ref": "./project_retriever_create_request_schema.json"
               }
             }
           }
@@ -1312,7 +1312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_create_request_schema.json"
+                "$ref": "./project_model_parameters_create_request_schema.json"
               }
             }
           }

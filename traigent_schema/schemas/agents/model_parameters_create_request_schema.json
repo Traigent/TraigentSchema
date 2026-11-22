@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/agents/model_parameters_create_request_schema.json",
   "title": "Model Parameters Create Request",
-  "description": "POST /api/v1/agents/{agent_id}/model-parameters. The backend reads modelId (optional; a placeholder model is created if absent). Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side). The backend reads `model_id` (must name an existing catalogue model, else 422) and the numeric parameters below; `modelId` is the legacy spelling and is ignored by the route. `model_id` is not marked required so the request schema does not narrow.",
+  "description": "POST /api/v1/agents/{agent_id}/model-parameters. The backend reads modelId (optional; a placeholder model is created if absent). Modeled on the backend create request (extra=allow / unknown=EXCLUDE → additionalProperties:true; the backend generates the id server-side).",
   "type": "object",
   "required": [],
   "additionalProperties": true,
@@ -11,33 +11,6 @@
       "type": "string",
       "description": "LLM model identifier.",
       "maxLength": 128
-    },
-    "model_id": {
-      "$ref": "./model_parameters_schema.json#/properties/model_id"
-    },
-    "temperature": {
-      "$ref": "./model_parameters_schema.json#/properties/temperature"
-    },
-    "max_tokens": {
-      "$ref": "./model_parameters_schema.json#/properties/max_tokens"
-    },
-    "top_p": {
-      "$ref": "./model_parameters_schema.json#/properties/top_p"
-    },
-    "frequency_penalty": {
-      "$ref": "./model_parameters_schema.json#/properties/frequency_penalty"
-    },
-    "presence_penalty": {
-      "$ref": "./model_parameters_schema.json#/properties/presence_penalty"
-    },
-    "top_k": {
-      "$ref": "./model_parameters_schema.json#/properties/top_k"
-    },
-    "repetition_penalty": {
-      "$ref": "./model_parameters_schema.json#/properties/repetition_penalty"
-    },
-    "stop_sequences": {
-      "$ref": "./model_parameters_schema.json#/properties/stop_sequences"
     }
   }
 }

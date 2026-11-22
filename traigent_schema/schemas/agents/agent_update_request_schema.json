@@ -107,13 +107,13 @@
     },
     "user_id": {
       "type": "string",
-      "maxLength": 512,
-      "description": "Owner user id; the route stamps the caller."
+      "x-content": true,
+      "description": "Owner user id; the route stamps the caller. The backend declares this field unbounded (StrictStr), so no maxLength is declared; x-content is the request-string lint's exemption for that."
     },
     "created_by": {
       "type": "string",
-      "maxLength": 512,
-      "description": "Ignored: ownership is server-stamped at creation."
+      "x-content": true,
+      "description": "Ignored: ownership is server-stamped at creation. The backend declares this field unbounded (StrictStr), so no maxLength is declared; x-content is the request-string lint's exemption for that."
     }
   }
 }

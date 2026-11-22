@@ -15,6 +15,8 @@ CREATE_REQUESTS = [
     "datasets/example_set_create_request_schema.json",
     "agents/retriever_create_request_schema.json",
     "agents/model_parameters_create_request_schema.json",
+    "agents/project_retriever_create_request_schema.json",
+    "agents/project_model_parameters_create_request_schema.json",
     "evaluation/experiment_create_request_schema.json",
     "evaluation/configuration_run_create_request_schema.json",
     "measures/measure_create_request_schema.json",
@@ -115,3 +117,13 @@ def test_example_set_similarity_threshold_matches_backend_bounds():
         "POST",
         {**base, "similarity_threshold": 1.01},
     )
+
+
+def test_shared_create_schemas_keep_their_strict_shape():
+    """The JS SDK generates RetrieverCreateRequestSchema from these two files: they stay
+    unchanged; the project-scoped relaxed shapes live in project_* files."""
+    assert _load("agents/retriever_create_request_schema.json")["required"] == [
+        "name", "vector_store", "k", "retrieval_k", "chunk_size", "overlap"]
+    assert "model_id" not in _load("agents/model_parameters_create_request_schema.json")["properties"]
+    assert _load("agents/project_retriever_create_request_schema.json")["required"] == ["name"]
+    assert "model_id" in _load("agents/project_model_parameters_create_request_schema.json")["properties"]

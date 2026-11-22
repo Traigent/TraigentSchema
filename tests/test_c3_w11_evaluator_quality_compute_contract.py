@@ -201,6 +201,59 @@ def test_every_payload_property_is_privacy_classified():
         walk(d, name)
 
 
+def test_caller_controlled_ids_are_content_classified_not_system():
+    # The backend preserves caller-supplied run ids, so run_id (and project_id,
+    # which declares no server-minted shape) is not provably content-free: the
+    # repo convention is legacy_content + user_content + x-content, never system.
+    doc = _load("analytics/run_evaluator_quality_schema.json")
+    for name in ("run_id", "project_id"):
+        prop = doc["properties"][name]
+        assert prop["x-privacy-classification"] == "user_content", name
+        assert prop["x-content"] is True, name
+        assert prop["x-content-class"] == "legacy_content", name
+        assert "x-content-note" in prop, name
+        assert prop["minLength"] == 1 and "pattern" not in prop, name
+
+    def system_ids(node, where):
+        for name, prop in node.get("properties", {}).items():
+            if name.endswith("_id") or name.endswith("_ref"):
+                assert prop.get("x-privacy-classification") != "system", f"{where}.{name}"
+
+    system_ids(doc, "root")
+    for name, d in doc["definitions"].items():
+        system_ids(d, name)
+
+
+GET_PATH = "/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/evaluator-quality"
+GET_OP_ID = "project_analytics_runs.get_run_evaluator_quality"
+
+
+def test_existing_get_shares_the_response_schema_with_the_post():
+    get = CATALOG["paths"][GET_PATH]["get"]
+    shared = "./run_evaluator_quality_response_schema.json"
+    assert get["responses"]["200"]["content"]["application/json"]["schema"]["$ref"] == shared
+    assert OP["responses"]["200"]["content"]["application/json"]["schema"]["$ref"] == shared
+    assert [(p["name"], p["in"], p["required"]) for p in get["parameters"]] == [
+        ("project_id", "path", True),
+        ("run_id", "path", True),
+    ]
+    assert "requestBody" not in get
+    assert sorted(get["responses"]) == ["200", "401", "403", "404", "429", "500"]
+
+
+def test_existing_get_is_unique_and_reachable():
+    master = _load("mep_endpoints.json")
+    found = []
+    for module in master["x-endpoint-modules"]:
+        doc = _load(module["paths_file"].removeprefix("./"))
+        for path, item in doc["paths"].items():
+            for method, op in item.items():
+                if isinstance(op, dict) and op.get("operationId") == GET_OP_ID:
+                    found.append((method, path))
+    assert found == [("get", GET_PATH)]
+    assert f"GET:{GET_PATH}" in SchemaValidator(contract="backend")._known_endpoints
+
+
 @pytest.mark.parametrize("status", sorted(PROBLEMS))
 def test_each_problem_validates_and_matches_its_status(status):
     v = _validator("evaluator_quality_compute_problem_schema")

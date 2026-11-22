@@ -19,13 +19,19 @@
       "type": "string",
       "minLength": 1,
       "description": "Identifier of the run this verdict describes, as the backend projection carries it.",
-      "x-privacy-classification": "system"
+      "x-privacy-classification": "user_content",
+      "x-content": true,
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: run_id: the backend preserves caller-supplied run ids"
     },
     "project_id": {
       "type": "string",
       "minLength": 1,
       "description": "Identifier of the project the run belongs to.",
-      "x-privacy-classification": "system"
+      "x-privacy-classification": "user_content",
+      "x-content": true,
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: project_id: no server-minted shape is declared, so it is not provably content-free"
     },
     "status": {
       "type": "string",

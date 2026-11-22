@@ -2136,6 +2136,71 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator-quality verdict of one run",
+        "description": "IP-safe per-run evaluator-quality verdict, the project-scoped mount of the existing GET. Read access to the experiment and project role viewer or above. The body is the platform success envelope {success, message, data}, the same response schema as experiment_run.compute_evaluator_quality. Not a pure read: the service can lazily create the audit (persistence on GET). The raw internal audit report is never returned.",
+        "operationId": "project_analytics_runs.get_run_evaluator_quality",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run evaluator quality retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
     "/api/v1beta/projects/{project_id}/analytics/dashboards/project-usage": {
       "get": {
         "summary": "Get the project usage dashboard",

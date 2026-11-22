@@ -1,0 +1,777 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/evaluation/experiment_reads_schema.json",
+  "title": "Experiment Read Contracts",
+  "description": "Shared definitions for the project-scoped experiment read operations of API revision Phase 3 slice 3.3 window 1b: experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search), experiment.get_experiment, experiment.export_experiment, trace.get_experiment_graphs, project_core_metrics.get_experiment_trend and the cursor page of agent.get_agent_experiments. Experiments are addressed in URLs and bodies by experiment_ref (experiment_ plus 32 lowercase hex), never by the historical primary key. Collections page by limit/cursor (default 20, maximum 100) and return pagination {limit, next_cursor, has_more}. Errors are closed and never echo inputs. Numeric byte and cardinality budgets on these NEW canonical operations (maxItems, x-max-request-bytes, x-max-response-bytes) are new canonical-operation bounds that the backend window-1b cutover will enforce; they do not describe existing backend behaviour, and retained legacy operations carry none. These are the public contracts only: the platform-admin experiment statistics operation stays a backend-private contract and is not declared here.",
+  "definitions": {
+    "ExperimentRef": {
+      "type": "string",
+      "pattern": "^experiment_[0-9a-f]{32}$",
+      "minLength": 43,
+      "maxLength": 43,
+      "x-identifier": true,
+      "description": "Server-minted immutable URL reference for one experiment: the prefix experiment_ followed by 32 lowercase hexadecimal characters. Provenance: the server mints it independently of the historical primary key (experiment id), stores it once and never derives it from the id, the name or any caller input, so a reference cannot be computed from an id and an id cannot be cast to a reference. Callers never choose it: creation contracts reject a caller-supplied value, and UUID shape establishes no provenance. A reference only names a resource; it does not authorize access, and every read still authorizes the explicit project scope and the per-resource grant. The legacy experiment id stays the historical primary key for still-live operations that have not moved; no client casts between the two."
+    },
+    "MetricRef": {
+      "type": "string",
+      "pattern": "^metric_[0-9a-f]{32}$",
+      "minLength": 39,
+      "maxLength": 39,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "Server-minted opaque reference to one metric: the prefix metric_ followed by 32 lowercase hexadecimal characters. It names the metric only; it is not a raw metric id and never carries a customer-chosen name."
+    },
+    "EvaluationSetDatasetRef": {
+      "type": "string",
+      "pattern": "^ds_[0-9a-f]{32}$",
+      "minLength": 35,
+      "maxLength": 35,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "Server-minted opaque reference to the dataset behind an evaluation set: the prefix ds_ followed by 32 lowercase hexadecimal characters. It is not a raw dataset id and never carries a customer-chosen name."
+    },
+    "CanonicalInfrastructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compute",
+        "memory",
+        "timeout"
+      ],
+      "description": "Closed execution-infrastructure projection of an experiment: compute, memory and timeout only. It carries no infrastructure_id and no timestamps.",
+      "properties": {
+        "compute": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/compute"
+        },
+        "memory": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/memory"
+        },
+        "timeout": {
+          "$ref": "./experiment_schema.json#/definitions/Infrastructure/properties/timeout"
+        }
+      }
+    },
+    "CanonicalConfigurations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "infrastructure"
+      ],
+      "description": "Closed configurations projection of an experiment: infrastructure only. Tuned/fixed parameter bindings return as a closed projection with D8; not part of this window.",
+      "properties": {
+        "infrastructure": {
+          "$ref": "#/definitions/CanonicalInfrastructure"
+        }
+      }
+    },
+    "TunedVariableRef": {
+      "type": "string",
+      "pattern": "^tuned_variable_[0-9a-f]{32}$",
+      "minLength": 47,
+      "maxLength": 47,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "CORE-v1. Server-minted opaque reference to one tuned variable: the prefix tuned_variable_ followed by 32 lowercase hexadecimal characters. It carries no variable name."
+    },
+    "TunedVariableScopeRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z_]*_[0-9a-f]{32}$",
+      "maxLength": 64,
+      "x-identifier": true,
+      "x-content-class": "opaque_ref",
+      "description": "CORE-v1. Generic server-issued opaque reference of the scope owner (agent, step or composite): a lowercase prefix, an underscore and 32 lowercase hexadecimal characters. The generic pattern is used for every kind because the existing AgentRef definitions (agentref_ prefix, fleet_observe and labels schemas) cover only kind agent and carry a different prefix style."
+    },
+    "TunedVariableBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tuned_variable_ref",
+        "binding",
+        "scope"
+      ],
+      "description": "CORE-v1. One tuned-variable binding of an experiment as a closed projection: an opaque variable reference, how it is bound, and its scope. No variable name and no value is returned; tuned/fixed parameter values stay out of canonical reads.",
+      "properties": {
+        "tuned_variable_ref": {
+          "$ref": "#/definitions/TunedVariableRef"
+        },
+        "binding": {
+          "type": "string",
+          "enum": [
+            "tuned",
+            "fixed",
+            "calibrated"
+          ]
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "agent",
+                    "step",
+                    "composite"
+                  ]
+                },
+                "ref": {
+                  "$ref": "#/definitions/TunedVariableScopeRef"
+                }
+              }
+            }
+          ]
+        },
+        "value_kind": {
+          "type": "string",
+          "enum": [
+            "numeric",
+            "categorical",
+            "text"
+          ]
+        }
+      }
+    },
+    "ObjectiveBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_ref",
+        "direction",
+        "weight",
+        "min_effect"
+      ],
+      "description": "CORE-v1. One objective of an experiment as a closed projection over a metric reference. No names and no metadata: objective names resolve via /metrics/{metric_ref}.",
+      "properties": {
+        "metric_ref": {
+          "$ref": "#/definitions/MetricRef"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "maximize",
+            "minimize"
+          ]
+        },
+        "weight": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_effect": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "CursorPagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more"
+      ],
+      "description": "Cursor pagination block. limit echoes the page size used (1-100, default 20). next_cursor is the opaque server-sealed continuation, null on the last page; it is bound to caller, project, parent, operation, filters and sort, and is never an authorization token.",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExperimentSortField": {
+      "type": "string",
+      "enum": [
+        "created_at",
+        "updated_at",
+        "name",
+        "status",
+        "last_run_at"
+      ],
+      "description": "Closed sort vocabulary for the experiment search. Ties break on the unique experiment reference so the order is total; the historical id is not a sort key."
+    },
+    "ExperimentSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-max-request-bytes": 8192,
+      "description": "Closed POST body of experiment.get_experiments (POST /api/v1/projects/{project_id}/experiments/search). The request body is a pure read: replay class read, with no reservation, fingerprint or replay row. Offset vocabulary (page, per_page, offset, total) is rejected, not ignored, with the same 400 as any unknown key; keys, values and types are validated before any resource lookup. All members are optional; an empty object lists the first page, newest first.",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20,
+          "description": "Page size; above 100 is a 400, never clamped."
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Opaque next_cursor of the previous page. Rebuilt from the same filters and sort it was issued with, otherwise 400."
+        },
+        "sort_by": {
+          "$ref": "#/definitions/ExperimentSortField",
+          "default": "created_at"
+        },
+        "sort_order": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        },
+        "search": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Bounded free-text search over the experiment name; a NUL byte is a 400. Over-length is a 400, never truncated."
+        },
+        "status": {
+          "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Exact-match filter on the owning agent, by the opaque agent reference."
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExperimentSearchResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Success envelope around one cursor page of experiments, each carrying its experiment_ref. At most 100 items per page; the serialized response is bounded by x-max-response-bytes.",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/definitions/ExperimentRead"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/CursorPagination"
+            }
+          }
+        }
+      },
+      "x-max-response-bytes": 4194304
+    },
+    "ExperimentExportQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed query vocabulary of experiment.export_experiment: only format.",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "csv",
+            "xlsx"
+          ],
+          "default": "csv"
+        }
+      }
+    },
+    "ExperimentRead": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Canonical read shape of one experiment (search items and detail). A standalone projection of the shared experiment resource that exposes opaque references only: experiment_ref is REQUIRED so clients address the experiment without the historical id; the agent is exposed only as agent_ref; the latest run only as experiment_run_ref. It carries no raw identifier of any resource (no id, model_parameters_id, dataset_id, eval_dataset_id, evaluation_set_id, benchmark_id) and no hydrated dataset, eval_dataset, evaluation_set, benchmark or model_parameters object (those carry other resources' raw ids and customer-chosen names); the only customer-chosen identifier is the experiment's own display name. The legacy measures list is replaced by metrics (opaque metric references), and the evaluation set is exposed only as {ref} (opaque dataset reference, or null). It carries no free-form metadata or experiment_parameters, and counts experiment runs as experiment_runs_count (not optimization_runs_count). Retired has_hybrid_session is not part of it. The shared resource keeps its legacy fields because retained legacy mutations reuse it. Objectives are closed bindings over metric references; objective names resolve via /metrics/{metric_ref}. Tuned-variable bindings are closed references with no names or values (CORE-v1). Configurations are the closed CanonicalConfigurations (infrastructure compute, memory and timeout only).",
+      "required": [
+        "name",
+        "description",
+        "configurations",
+        "metrics",
+        "evaluation_set",
+        "tuned_variables",
+        "objectives",
+        "experiment_ref",
+        "agent_ref"
+      ],
+      "properties": {
+        "experiment_ref": {
+          "$ref": "#/definitions/ExperimentRef"
+        },
+        "name": {
+          "$ref": "./experiment_schema.json#/properties/name"
+        },
+        "description": {
+          "$ref": "./experiment_schema.json#/properties/description"
+        },
+        "configurations": {
+          "$ref": "#/definitions/CanonicalConfigurations"
+        },
+        "status": {
+          "$ref": "./experiment_schema.json#/properties/status"
+        },
+        "created_at": {
+          "$ref": "./experiment_schema.json#/properties/created_at"
+        },
+        "started_at": {
+          "$ref": "./experiment_schema.json#/properties/started_at"
+        },
+        "completed_at": {
+          "$ref": "./experiment_schema.json#/properties/completed_at"
+        },
+        "updated_at": {
+          "$ref": "./experiment_schema.json#/properties/updated_at"
+        },
+        "configuration_runs_count": {
+          "$ref": "./experiment_schema.json#/properties/configuration_runs_count"
+        },
+        "total_examples": {
+          "$ref": "./experiment_schema.json#/properties/total_examples"
+        },
+        "experiment_runs_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of experiment runs of this experiment"
+        },
+        "agent_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque reference to the agent performing the evaluation. The raw agent id is never returned by canonical reads."
+        },
+        "experiment_run_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 47,
+          "maxLength": 47,
+          "pattern": "^experiment_run_[0-9a-f]{32}$",
+          "description": "Opaque reference to the latest experiment run, or null when there is none. The raw run id is never returned by canonical reads."
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricRef"
+          },
+          "description": "Opaque references to the metrics used to evaluate this experiment. No raw metric id and no metric configuration is returned."
+        },
+        "evaluation_set": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ref"
+              ],
+              "properties": {
+                "ref": {
+                  "$ref": "#/definitions/EvaluationSetDatasetRef"
+                }
+              }
+            }
+          ],
+          "description": "The evaluation set of this experiment as an opaque dataset reference, or null when none is set. No raw dataset id, name or hydrated object is returned."
+        },
+        "tuned_variables": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/TunedVariableBinding"
+          },
+          "description": "CORE-v1. Closed tuned-variable bindings (references, binding mode, scope); may be empty. Replaces the free-form configurations parameters."
+        },
+        "objectives": {
+          "type": "array",
+          "minItems": 0,
+          "items": {
+            "$ref": "#/definitions/ObjectiveBinding"
+          },
+          "description": "CORE-v1. Closed objective bindings over metric references; may be empty. Objective names resolve via /metrics/{metric_ref}."
+        }
+      }
+    },
+    "ExperimentGraphSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One workflow graph summary of an experiment as listed by experiment reference: hash, element counts and timestamps only. No raw graph id is returned in this window; the window that ships the graph read adds an opaque graph reference. Nodes, edges and loops are never listed. The historical experiment id is not returned. The count maxima are the stored-graph caps of the backend (500 nodes, 1000 edges, 100 loops).",
+      "required": [
+        "graph_hash",
+        "sdk_version",
+        "node_count",
+        "edge_count",
+        "loop_count",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "graph_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "sdk_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "SDK version that produced the graph; null when it was not recorded."
+        },
+        "node_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "edge_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "loop_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "ExperimentGraphsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Success envelope around one cursor page of the experiment's workflow graph summaries (newest first). At most 100 graphs per page; the serialized response is bounded by x-max-response-bytes.",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/definitions/ExperimentGraphSummary"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/CursorPagination"
+            }
+          }
+        }
+      },
+      "x-max-response-bytes": 8388608
+    },
+    "AgentExperimentItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One experiment summary in the agent experiments page. Identified only by its server-minted experiment_ref; the historical id is not returned. total_runs and active_runs are aggregate counts for the page's own experiments.",
+      "required": [
+        "experiment_ref",
+        "name",
+        "description",
+        "status",
+        "total_runs",
+        "active_runs",
+        "created_at"
+      ],
+      "properties": {
+        "experiment_ref": {
+          "$ref": "#/definitions/ExperimentRef"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "oneOf": [
+            {
+              "$ref": "../status_schema.json#/definitions/ExperimentStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "ExperimentReadBadRequestError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "400, closed. Fixed message per code; the body never echoes a request key, value, cursor, search term, reference or identifier, and carries no details member. Covers malformed or unknown body keys, retired offset vocabulary, limit above 100, a malformed or foreign cursor or reference, and an unsupported export format.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Request is invalid."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Bad request"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "INVALID_REQUEST",
+            "INVALID_CURSOR",
+            "INVALID_REFERENCE",
+            "INVALID_FORMAT",
+            "OFFSET_PAGINATION_RETIRED"
+          ]
+        }
+      }
+    },
+    "ExperimentReadAuthenticationRequiredError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "401, closed: no authenticated principal.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Authentication required."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Unauthorized"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "AUTHENTICATION_REQUIRED"
+          ]
+        }
+      }
+    },
+    "ExperimentReadForbiddenError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "403, closed: the project scope or credential does not permit this read. Wrong, foreign and credential-mismatched projects receive this same body.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Access denied."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Forbidden"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "FORBIDDEN"
+          ]
+        }
+      }
+    },
+    "ExperimentReadNotFoundError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "404, closed: no such experiment visible to the caller. A missing experiment and one the caller may not read are indistinguishable. The body never echoes the reference.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Experiment not found"
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "Not found"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "NOT_FOUND"
+          ]
+        }
+      }
+    },
+    "ExperimentReadPayloadTooLargeError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "413, closed: the export exceeds the row budget. details carries only the server-owned row cap, never a submitted or observed value.",
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Experiment export exceeds the maximum row limit."
+          ]
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "EXPORT_TOO_LARGE"
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "EXPERIMENT_EXPORT_ROW_LIMIT_EXCEEDED"
+          ]
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_rows"
+          ],
+          "properties": {
+            "max_rows": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

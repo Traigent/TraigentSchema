@@ -1,6 +1,6 @@
 """Contract tests for the experiment deep-link context-resolution read route.
 
-New route: GET /api/v1beta/experiments/{experiment_id}/context
+Route: POST /api/v1/experiment-context/resolve, body {experiment_ref} (moved from GET /api/v1beta/experiments/{experiment_id}/context; operationId experiment_context.get_experiment_context)
 New schema: evaluation/experiment_context_schema.json
 Operation added to the existing execution/execution_endpoints.json module (already
 registered in mep_endpoints.json's x-endpoint-modules; no new endpoints module needed).
@@ -8,7 +8,7 @@ registered in mep_endpoints.json's x-endpoint-modules; no new endpoints module n
 Recovers SDK/Claude Code deep links (.../experiments/view/{id}) that open under the
 wrong tenant: the caller's own ACTIVE tenant memberships are probed, the experiment
 detail route's real visibility policy is reused per tenant, and the response is the
-resolved {experiment_id, project_id, tenant_id} the frontend pins before retrying the
+resolved {experiment_ref, project_id, tenant_id} the frontend pins before retrying the
 experiment fetch. Absent and inaccessible experiments return the exact same closed 404;
 API-key principals are rejected uniformly before any lookup; an exhausted membership
 probe is a retryable 503, never a false 404.
@@ -28,7 +28,8 @@ from traigent_schema.utils import get_schemas_dir
 SCHEMAS = get_schemas_dir()
 SCHEMA_PATH = SCHEMAS / "evaluation" / "experiment_context_schema.json"
 ENDPOINTS_PATH = SCHEMAS / "execution" / "execution_endpoints.json"
-ROUTE = "/api/v1beta/experiments/{experiment_id}/context"
+ROUTE = "/api/v1/experiment-context/resolve"
+REF = "experiment_" + "0123456789abcdef" * 2
 
 _load = load_json
 _REGISTRY = build_registry(SCHEMAS)
@@ -46,14 +47,14 @@ def _errors(ref: str, instance: Any) -> list[str]:
 
 def _response(
     *,
-    experiment_id: str = "exp_1",
+    experiment_ref: str = REF,
     project_id: str = "proj_1",
     tenant_id: str = "tenant_1",
     tenant_name: str | None = None,
     project_name: str | None = None,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "experiment_id": experiment_id,
+        "experiment_ref": experiment_ref,
         "project_id": project_id,
         "tenant_id": tenant_id,
     }
@@ -94,7 +95,7 @@ def test_valid_response_with_optional_names() -> None:
     assert _errors(_ref("ExperimentContextResponse"), instance) == []
 
 
-@pytest.mark.parametrize("missing", ["experiment_id", "project_id", "tenant_id"])
+@pytest.mark.parametrize("missing", ["experiment_ref", "project_id", "tenant_id"])
 def test_rejects_response_missing_a_required_field(missing: str) -> None:
     instance = _response()
     del instance[missing]
@@ -107,7 +108,7 @@ def test_rejects_extra_top_level_field() -> None:
     assert _errors(_ref("ExperimentContextResponse"), instance)
 
 
-@pytest.mark.parametrize("field", ["experiment_id", "project_id", "tenant_id"])
+@pytest.mark.parametrize("field", ["experiment_ref", "project_id", "tenant_id"])
 def test_rejects_empty_string_identifiers(field: str) -> None:
     instance = _response()
     instance[field] = ""
@@ -223,13 +224,18 @@ def test_not_found_is_identical_regardless_of_absent_vs_inaccessible_reason() ->
 def test_endpoint_registered_with_expected_shape() -> None:
     inventory = _load(ENDPOINTS_PATH)
     assert ROUTE in inventory["paths"]
-    op = inventory["paths"][ROUTE]["get"]
+    assert "get" not in inventory["paths"][ROUTE]
+    op = inventory["paths"][ROUTE]["post"]
+    assert op["operationId"] == "experiment_context.get_experiment_context"
     assert op["x-asserted-against-backend"] is False
     assert op["x-wrap-status"] == "bare"
 
-    params = {p["name"]: p for p in op["parameters"]}
-    assert params["experiment_id"]["in"] == "path"
-    assert params["experiment_id"]["required"] is True
+    assert "parameters" not in op
+    assert op["requestBody"]["required"] is True
+    assert op["requestBody"]["content"]["application/json"]["schema"]["$ref"].endswith(
+        "experiment_context_schema.json#/definitions/ExperimentContextResolveRequest"
+    )
+    assert responses_400(op)["$ref"].endswith("#/definitions/ExperimentContextBadRequestError")
 
     responses = op["responses"]
     assert responses["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
@@ -252,10 +258,32 @@ def test_endpoint_registered_with_expected_shape() -> None:
     )
 
 
-def test_route_does_not_require_v1_only_project_or_tenant_path_params() -> None:
-    """Context-independent: the only path parameter is experiment_id -- no
-    project_id/tenant_id segment, unlike the project-scoped agent-readiness family."""
+def test_route_has_no_path_parameters_so_the_reference_never_appears_in_a_url() -> None:
+    """Context-independent: no path or query parameter at all (no project_id/tenant_id and
+    no experiment reference in the URL); the reference travels in the closed POST body."""
     inventory = _load(ENDPOINTS_PATH)
-    op = inventory["paths"][ROUTE]["get"]
-    names = {p["name"] for p in op["parameters"]}
-    assert names == {"experiment_id"}
+    op = inventory["paths"][ROUTE]["post"]
+    assert not op.get("parameters")
+    assert "{" not in ROUTE
+
+
+def responses_400(op: dict[str, Any]) -> dict[str, Any]:
+    return op["responses"]["400"]["content"]["application/json"]["schema"]
+
+
+def test_resolve_request_is_closed_and_requires_a_provenance_shaped_reference() -> None:
+    ref = _ref("ExperimentContextResolveRequest")
+    assert _errors(ref, {"experiment_ref": REF}) == []
+    assert _errors(ref, {})  # required
+    assert _errors(ref, {"experiment_ref": REF, "experiment_id": "exp_1"})  # closed
+    assert _errors(ref, {"experiment_id": "exp_1"})  # a legacy id is not a reference
+    for bad in ("experiment_" + "A" * 32, "experiment_" + "a" * 31, "experiment_" + "a" * 33, "exp_" + "a" * 32, "", 7):
+        assert _errors(ref, {"experiment_ref": bad}), bad
+
+
+def test_bad_request_is_one_fixed_body_that_never_echoes_inputs() -> None:
+    ref = _ref("ExperimentContextBadRequestError")
+    body = {"success": False, "message": "Request is invalid.", "error": "Bad request", "error_code": "INVALID_REQUEST"}
+    assert _errors(ref, body) == []
+    assert _errors(ref, {**body, "details": {"experiment_ref": REF}})  # no echo channel
+    assert _errors(ref, {**body, "message": f"Unknown experiment {REF}"})

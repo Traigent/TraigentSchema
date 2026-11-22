@@ -173,6 +173,10 @@
       "type": "integer",
       "description": "Maximum HTTP JSON body size in bytes for a request envelope (e.g. observability v2 ingest, 5242880 = 5 MiB). Enforced by the admission edge, not by JSON Schema; declared on the request schema so the limit is discoverable from the contract."
     },
+    "x-max-response-bytes": {
+      "type": "integer",
+      "description": "Maximum serialized HTTP JSON response size in bytes for a response envelope (e.g. one page of experiment search, 4194304 = 4 MiB). Enforced by the producer, not by JSON Schema; declared on the response schema so the limit is discoverable from the contract."
+    },
     "x-naming-convention": {
       "type": "object",
       "description": "Documents the naming convention enforced for keys within a vocabulary schema (e.g. timing metrics must carry a '_ms' suffix). Placed at the top-level schema object. Contains 'description', 'canonical_suffix', and similar descriptor fields.",

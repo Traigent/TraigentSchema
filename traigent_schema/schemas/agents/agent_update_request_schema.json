@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_update_request_schema.json",
+  "title": "Agent Update Request",
+  "description": "Body of PUT /api/v1/projects/{project_id}/agents/{agent_ref}: a partial update, every field optional (UpdateAgentRequest, TraigentBackend src/shared_infrastructure/schemas/agent.py). `agent_type` is accepted as an alias of `agent_type_id`. The backend refuses unknown keys (422), and in fact also `measures`, `created_at` and `updated_at`, which this schema still lists so the request does not narrow.",
+  "type": "object",
+  "required": [],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "./agent_schema.json#/properties/id"
+    },
+    "name": {
+      "$ref": "./agent_schema.json#/properties/name"
+    },
+    "description": {
+      "$ref": "./agent_schema.json#/properties/description"
+    },
+    "agent_type": {
+      "$ref": "./agent_schema.json#/properties/agent_type"
+    },
+    "agent_platform": {
+      "$ref": "./agent_schema.json#/properties/agent_platform"
+    },
+    "prompt_template": {
+      "$ref": "./agent_schema.json#/properties/prompt_template"
+    },
+    "reasoning": {
+      "$ref": "./agent_schema.json#/properties/reasoning"
+    },
+    "style": {
+      "$ref": "./agent_schema.json#/properties/style"
+    },
+    "tone": {
+      "$ref": "./agent_schema.json#/properties/tone"
+    },
+    "format": {
+      "$ref": "./agent_schema.json#/properties/format"
+    },
+    "persona": {
+      "$ref": "./agent_schema.json#/properties/persona"
+    },
+    "guidelines": {
+      "$ref": "./agent_schema.json#/properties/guidelines"
+    },
+    "response_validation": {
+      "$ref": "./agent_schema.json#/properties/response_validation"
+    },
+    "chat_history": {
+      "$ref": "./agent_schema.json#/properties/chat_history"
+    },
+    "chat_history_params": {
+      "$ref": "./agent_schema.json#/properties/chat_history_params"
+    },
+    "custom_validations": {
+      "$ref": "./agent_schema.json#/properties/custom_validations"
+    },
+    "custom_tools": {
+      "$ref": "./agent_schema.json#/properties/custom_tools"
+    },
+    "custom_responses": {
+      "$ref": "./agent_schema.json#/properties/custom_responses"
+    },
+    "source": {
+      "$ref": "./agent_schema.json#/properties/source"
+    },
+    "created_at": {
+      "$ref": "./agent_schema.json#/properties/created_at"
+    },
+    "updated_at": {
+      "$ref": "./agent_schema.json#/properties/updated_at"
+    },
+    "example_sets": {
+      "$ref": "./agent_schema.json#/properties/example_sets"
+    },
+    "retrieval_configs": {
+      "$ref": "./agent_schema.json#/properties/retrieval_configs"
+    },
+    "measures": {
+      "$ref": "./agent_schema.json#/properties/measures"
+    },
+    "model_parameters": {
+      "$ref": "./agent_schema.json#/properties/model_parameters"
+    },
+    "agent_type_id": {
+      "$ref": "./agent_create_request_schema.json#/properties/agent_type_id"
+    },
+    "extra_instructions": {
+      "$ref": "./agent_create_request_schema.json#/properties/extra_instructions"
+    },
+    "model_kwargs": {
+      "$ref": "./agent_create_request_schema.json#/properties/model_kwargs"
+    },
+    "tags": {
+      "$ref": "./agent_create_request_schema.json#/properties/tags"
+    },
+    "measure_ids": {
+      "$ref": "./agent_create_request_schema.json#/properties/measure_ids"
+    },
+    "agent_id": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Agent id (AGENT_ID_MAX_LENGTH)."
+    },
+    "is_active": {
+      "type": "boolean"
+    },
+    "user_id": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Owner user id; the route stamps the caller."
+    },
+    "created_by": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "Ignored: ownership is server-stamped at creation."
+    }
+  }
+}

@@ -274,11 +274,16 @@ def test_rollback_request_and_receipt():
     assert _errors("HeadRollbackRequest", {**ok, "environment": "prod"})
     assert _errors("HeadRollbackRequest", {**ok, "extra": 1})
     assert _errors("HeadRollbackRequest", {**ok, "target_generation": -1})
-    data = _head({"rolled_back_to_generation": 2, "acceptance_id": None})
+    with_acc = {**ok, "acceptance_id": "rac_" + "1" * 32}
+    assert not _errors("HeadRollbackRequest", with_acc)
+    assert _errors("HeadRollbackRequest", {**ok, "acceptance_id": ""})
+    assert _errors("HeadRollbackRequest", {**ok, "acceptance_id": "a b"})
+    assert _errors("HeadRollbackRequest", {**ok, "acceptance_id": "a" * 129})
+    data = _head({"rolled_back_to_generation": 2, "acceptance_id": "rac_1"})
     assert not _errors("HeadRollbackReceipt", {"success": True, "data": data})
-    assert not _errors(
-        "HeadRollbackReceipt", {"success": True, "data": {**data, "acceptance_id": "rac_1"}}
-    )
+    # The receipt always names the consumed acceptance; null is no longer valid.
+    null_acc = {**data, "acceptance_id": None}
+    assert _errors("HeadRollbackReceipt", {"success": True, "data": null_acc})
     assert _errors("HeadRollbackReceipt", {"success": True, "data": {**data, "x": 1}})
 
 
@@ -412,3 +417,24 @@ def test_the_agent_in_the_path_and_the_receipt_is_the_opaque_agent_ref():
     assert len(agent_fields) == 4
     for field in agent_fields:
         assert field["$ref"] == ref
+
+
+def test_rollback_route_is_person_only_with_acceptance_codes():
+    path = "/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head/rollback"
+    doc = json.loads((OPT / "release_endpoints.json").read_text(encoding="utf-8"))
+    op = doc["paths"][path]["post"]
+    assert "Person only" in op["description"]
+    assert "403 forbidden" in op["description"]
+    desc = op["responses"]["409"]["description"]
+    for code in (
+        "head_generation_stale",
+        "rollback_target_not_accepted",
+        "acceptance_required",
+        "acceptance_expired",
+        "acceptance_consumed",
+        "acceptance_revoked",
+        "acceptance_binding_mismatch",
+    ):
+        assert code in desc, code
+    props = _doc()["definitions"]["HeadRollbackRequest"]["properties"]
+    assert props["acceptance_id"]["x-content-class"] == "key_material"

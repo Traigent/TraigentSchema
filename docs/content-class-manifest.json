@@ -1025,6 +1025,7 @@
   "optimization/release_acceptance_schema.json#/definitions/HeadRollbackReceiptData/properties/acceptance_id": "key_material",
   "optimization/release_acceptance_schema.json#/definitions/HeadRollbackReceiptData/properties/best_config_id": "key_material",
   "optimization/release_acceptance_schema.json#/definitions/HeadRollbackReceiptData/properties/best_config_version": "number",
+  "optimization/release_acceptance_schema.json#/definitions/HeadRollbackRequest/properties/acceptance_id": "key_material",
   "optimization/release_acceptance_schema.json#/definitions/ReleaseAcceptance/oneOf/0/properties/consumed_at": "timestamp",
   "optimization/release_acceptance_schema.json#/definitions/ReleaseAcceptance/oneOf/0/properties/consumed_generation": "number",
   "optimization/release_acceptance_schema.json#/definitions/ReleaseAcceptance/oneOf/0/properties/revoked_at": "timestamp",

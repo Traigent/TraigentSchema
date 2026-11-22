@@ -28,6 +28,24 @@ def _load_planned_projects_spec() -> dict:
         return json.load(handle)
 
 
+def _resolve_path_item(item: dict) -> dict:
+    """Follow a path-item `$ref` into the canonical analytics catalog (C3-PR1c).
+
+    The eleven project analytics operations are declared once in
+    `analytics/analytics_endpoints.json`; this catalog keeps its path keys and
+    points each at that declaration.
+    """
+    ref = item.get("$ref")
+    if ref is None:
+        return item
+    file_part, pointer = ref.split("#", 1)
+    with open(get_schemas_dir() / file_part, encoding="utf-8") as handle:
+        node = json.load(handle)
+    for token in pointer.lstrip("/").split("/"):
+        node = node[token.replace("~1", "/").replace("~0", "~")]
+    return node
+
+
 def test_export_fine_tuning_manifest_path_matches_live_backend_route() -> None:
     spec = _load_planned_projects_spec()
     paths = spec["paths"]
@@ -36,8 +54,8 @@ def test_export_fine_tuning_manifest_path_matches_live_backend_route() -> None:
         "exportProjectFineTuningManifest must be declared at the real, shipped "
         f"analytics-blueprint path; got paths={sorted(paths)}"
     )
-    operation = paths[CORRECT_PATH]["get"]
-    assert operation["operationId"] == "exportProjectFineTuningManifest"
+    operation = _resolve_path_item(paths[CORRECT_PATH])["get"]
+    assert operation["operationId"] == "project_analytics.export_project_fine_tuning_manifest"
 
 
 def test_export_fine_tuning_manifest_no_longer_uses_drifted_core_exports_path() -> None:

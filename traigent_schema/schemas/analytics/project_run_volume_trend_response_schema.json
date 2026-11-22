@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/project_run_volume_trend_response_schema.json",
+  "title": "The run-volume trend Response",
+  "x-wrap-status": "wrapped",
+  "description": "Success envelope {success, message, data} for get the run-volume trend on every mount (the handler returns success_response(...); analytics_routes is listed as wrapped in success_envelope_schema.json). The payload under data is project_scoped_analytics_trend_schema.json.",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "../projects/project_scoped_analytics_trend_schema.json"
+    }
+  }
+}

@@ -381,9 +381,7 @@ _OVERVIEW_V1BETA = (
 
 # Built key-for-key from what the backend actually emits
 # (core_domain_analytics_service.get_optimization_overview_dashboard), NOT from
-# the schema's required list. Those two disagree, and a fixture written from the
-# schema would assert the schema against itself and hide that - see
-# test_real_response_is_still_rejected_on_one_payload_field below.
+# the schema's required list.
 _DASHBOARD_PAYLOAD = {
     "context": {
         "tenant_id": "t1",
@@ -393,9 +391,10 @@ _DASHBOARD_PAYLOAD = {
     },
     "range_days": 30,
     "summary_cards": {
-        # Exactly the eight keys the service emits; `experiments_in_range` is
-        # required by the payload schema and emitted by nothing.
+        # The nine keys the service emits, `experiments_in_range` included
+        # (core_domain_analytics_service.py: "experiments_in_range": len(recent_experiments)).
         "experiments_total": 3,
+        "experiments_in_range": 2,
         "experiment_runs_in_range": 5,
         "configuration_runs_in_range": 12,
         "priced_configuration_runs_in_range": 10,
@@ -413,9 +412,7 @@ _DASHBOARD_PAYLOAD = {
     "recent_experiments": [],
 }
 
-# The payload schema requires this key; the service never sets it. Adding it
-# makes the fixture schema-valid but no longer a real response.
-_UNEMITTED_REQUIRED_FIELD = "experiments_in_range"
+_EMITTED_REQUIRED_FIELD = "experiments_in_range"
 
 
 def _overview_response_validator():
@@ -436,11 +433,7 @@ def test_overview_dashboard_response_is_the_envelope_not_the_bare_payload():
     """
     val = _overview_response_validator()
 
-    schema_valid_payload = dict(_DASHBOARD_PAYLOAD)
-    schema_valid_payload["summary_cards"] = {
-        **_DASHBOARD_PAYLOAD["summary_cards"],
-        _UNEMITTED_REQUIRED_FIELD: 2,
-    }
+    schema_valid_payload = _DASHBOARD_PAYLOAD
     wrapped = {"success": True, "message": "ok", "data": schema_valid_payload}
     assert not list(val.iter_errors(wrapped))
 
@@ -456,7 +449,9 @@ def test_overview_dashboard_response_is_the_envelope_not_the_bare_payload():
 def test_both_overview_mounts_declare_the_envelope_response():
     """One analytics handler serves both mounts, so both must declare the same body."""
     v1 = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1]["get"]
-    v1beta = _load("planned_projects_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
+    # The planned catalog's path key is a path-item $ref to this same declaration
+    # (C3-PR1c); read the canonical item.
+    v1beta = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
 
     def ref(op):
         return op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
@@ -482,42 +477,33 @@ def test_analytics_routes_is_recorded_as_wrapped():
     assert "analytics_routes" not in (wrap_map.get("mixed") or {})
 
 
-def test_real_response_is_still_rejected_on_one_payload_field():
-    """The envelope fix narrowed the gap between contract and wire; it did not close it.
+def test_real_response_validates_against_the_envelope_and_payload():
+    """The backend emits every field the payload requires, so a real response is clean.
 
-    `summary_cards` requires nine keys and the service emits eight: nothing in
-    the backend ever sets `experiments_in_range` (grep over its source: zero
-    hits). So a validator fed a genuine response still rejects it - after the
-    envelope fix, for a different and much smaller reason.
-
-    This test pins both halves of that sentence, so it goes red if either moves:
-    nothing is wrong at the envelope level, and exactly one thing is wrong
-    inside the payload. Whichever way TraigentSchema#594 is settled - the schema
-    stops requiring the field, or the backend starts emitting it - this fails
-    and has to be updated deliberately.
-
-    Scope note: this validates against the envelope schema directly, so it does
-    NOT notice a route whose 200 stops pointing at that schema.
-    `test_both_overview_mounts_declare_the_envelope_response` owns that, and a
-    probe regressing both route `$ref`s leaves this test green and turns that
-    one red.
+    An earlier version of this test pinned `summary_cards.experiments_in_range` as
+    required-but-never-emitted (TraigentSchema#594). The service does emit it
+    (`core_domain_analytics_service.get_optimization_overview_dashboard`), so the
+    claim was stale; the field stays required.
     """
     val = _overview_response_validator()
     real = {"success": True, "message": "ok", "data": _DASHBOARD_PAYLOAD}
+    assert not list(val.iter_errors(real))
 
-    errors = list(val.iter_errors(real))
-
-    # The envelope half: an error with an empty path is one about the envelope's
-    # own keys (success / message / data) rather than the payload beneath it.
-    envelope_errors = [e for e in errors if not list(e.absolute_path)]
-    assert not envelope_errors, [e.message for e in envelope_errors]
-
-    # The payload half: exactly one divergence, pinned as a SET rather than a
-    # count. Same strictness - a second error still fails - but the failure
-    # names what appeared instead of reporting "2 != 1" and leaving the reader
-    # to find it. #594 guarantees this payload gets edited, so this assertion
-    # is written to be informative when it fires.
+    # The field is still required: dropping it is exactly one payload error.
+    missing = {
+        "success": True,
+        "message": "ok",
+        "data": {
+            **_DASHBOARD_PAYLOAD,
+            "summary_cards": {
+                k: v
+                for k, v in _DASHBOARD_PAYLOAD["summary_cards"].items()
+                if k != _EMITTED_REQUIRED_FIELD
+            },
+        },
+    }
+    errors = list(val.iter_errors(missing))
     assert {(tuple(e.absolute_path), e.validator) for e in errors} == {
         (("data", "summary_cards"), "required")
     }, [f"{list(e.absolute_path)}: {e.message}" for e in errors]
-    assert _UNEMITTED_REQUIRED_FIELD in errors[0].message
+    assert _EMITTED_REQUIRED_FIELD in errors[0].message

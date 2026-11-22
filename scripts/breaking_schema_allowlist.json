@@ -10369,6 +10369,23 @@
       "reason": "The extensions meta-schema is the registry of allowed x-* annotation keywords, not a wire payload: no request or response body is validated against it, so declaring the two new annotations x-write-only and x-requires-project-binding (used on the fleet_imports:write scope map entry) cannot make any consumer reject a payload. The registry is closed by design, so each new annotation must be added here.",
       "version": "Unreleased (fleet observe increment 1, fleet_imports:write scope)",
       "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiment-runs/runs/{experiment_run_id}/configurations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "a63364a382b161b9b6ec7d92d8702ba910b5185f3c39d07b42b3f96f7142e873"
+        }
+      ],
+      "reason": "Merges two equivalent templates for one URL (POST and GET on /api/v1/experiment-runs/runs/{id}/configurations): the POST's path parameter is renamed experiment_run_id -> run_id. The URL a client calls is unchanged; only the placeholder name moves, which is invalid OpenAPI otherwise (equivalent templates). Request and response bodies are unchanged.",
+      "version": "Unreleased pending (TraigentSchema, fix/experiment-run-configurations-template)",
+      "pr": "pending (TraigentSchema, fix/experiment-run-configurations-template, not yet opened)"
     }
   ]
 }

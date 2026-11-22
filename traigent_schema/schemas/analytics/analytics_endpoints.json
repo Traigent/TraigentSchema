@@ -2197,6 +2197,16 @@
           },
           "500": {
             "$ref": "#/components/responses/AnalyticsInternalError"
+          },
+          "503": {
+            "description": "Authentication dependency temporarily unavailable (transient auth database failure), returned through the ordinary error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

@@ -238,7 +238,12 @@ def test_existing_get_shares_the_response_schema_with_the_post():
         ("run_id", "path", True),
     ]
     assert "requestBody" not in get
-    assert sorted(get["responses"]) == ["200", "401", "403", "404", "429", "500"]
+    assert sorted(get["responses"]) == ["200", "401", "403", "404", "429", "500", "503"]
+    assert OP["responses"]["503"]["content"]["application/problem+json"]
+    assert (
+        get["responses"]["503"]["content"]["application/json"]["schema"]["$ref"]
+        == "../error_envelope_schema.json"
+    )
 
 
 def test_existing_get_is_unique_and_reachable():

@@ -60,7 +60,7 @@ def test_v1_and_v1beta_overview_declare_the_same_contract() -> None:
     either side, which is the failure the two mounts can actually have.
     """
     v1 = _operation("analytics/analytics_endpoints.json", V1_OVERVIEW)
-    v1beta = _operation("planned_projects_endpoints.json", V1BETA_OVERVIEW)
+    v1beta = _operation("analytics/analytics_endpoints.json", V1BETA_OVERVIEW)
 
     def response_target(operation: dict) -> str:
         ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
@@ -127,10 +127,10 @@ def test_v1beta_overview_entry_keeps_its_identity_and_payload() -> None:
     convention, and bringing the twin into line is a reasonable follow-up that
     this test must not turn red.
     """
-    v1beta = _operation("planned_projects_endpoints.json", V1BETA_OVERVIEW)
-    assert v1beta["operationId"] == "getProjectOptimizationOverviewDashboard"
+    v1beta = _operation("analytics/analytics_endpoints.json", V1BETA_OVERVIEW)
+    assert v1beta["operationId"] == "project_analytics.get_project_optimization_overview_dashboard"
     assert v1beta["responses"]["200"]["content"]["application/json"]["schema"] == {
-        "$ref": "./analytics/optimization_overview_dashboard_response_schema.json"
+        "$ref": "./optimization_overview_dashboard_response_schema.json"
     }
 
     envelope = json.loads(
@@ -174,5 +174,7 @@ def test_v1_overview_declares_the_error_responses_its_siblings_do() -> None:
         "decide whether the dashboard entry should follow it"
     )
 
+    # The dashboard follows the same set except that query validation is a 422
+    # (response_handler.validation_error_response), not the 400 the runs/* family declares.
     v1 = _operation("analytics/analytics_endpoints.json", V1_OVERVIEW)
-    assert set(v1["responses"]) == shared
+    assert set(v1["responses"]) == (shared - {"400"}) | {"422"}

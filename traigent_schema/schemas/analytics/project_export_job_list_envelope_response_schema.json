@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/project_export_job_list_envelope_response_schema.json",
+  "title": "Export jobs Response",
+  "x-wrap-status": "wrapped",
+  "description": "Success envelope {success, message, data} for list export jobs on every mount (the handler returns success_response(...); analytics_routes is listed as wrapped in success_envelope_schema.json). The payload under data is project_export_job_list_response_schema.json.",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "../projects/project_export_job_list_response_schema.json"
+    }
+  }
+}

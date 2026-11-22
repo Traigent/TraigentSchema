@@ -181,6 +181,9 @@
                 }
               }
             }
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           }
         }
       },
@@ -217,8 +220,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/AgentBody"
                 }
               }
             }
@@ -230,7 +232,7 @@
             "$ref": "#/components/responses/AgentsNotFound"
           },
           "400": {
-            "$ref": "#/components/responses/AgentsBadRequest"
+            "$ref": "#/components/responses/AgentsBadRequestEither"
           },
           "403": {
             "$ref": "#/components/responses/AgentsForbidden"
@@ -246,7 +248,7 @@
             }
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Subscription quota exceeded",
@@ -316,7 +318,7 @@
             "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
@@ -353,7 +355,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_create_request_schema.json"
+                "$ref": "./agent_import_request_schema.json"
               }
             }
           }
@@ -525,7 +527,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -577,7 +579,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_schema.json"
+                "$ref": "./agent_update_request_schema.json"
               }
             }
           }
@@ -588,8 +590,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/AgentBody"
                 }
               }
             }
@@ -598,10 +599,10 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
-            "$ref": "#/components/responses/AgentsBadRequest"
+            "$ref": "#/components/responses/AgentsBadRequestEither"
           },
           "403": {
             "$ref": "#/components/responses/AgentsForbidden"
@@ -610,7 +611,7 @@
             "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
@@ -669,7 +670,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -734,8 +735,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/AgentBody"
                 }
               }
             }
@@ -744,7 +744,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -805,8 +805,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/AgentBody"
                 }
               }
             }
@@ -815,7 +814,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -824,7 +823,7 @@
             "$ref": "#/components/responses/AgentsForbidden"
           },
           "409": {
-            "$ref": "#/components/responses/AgentsConflict"
+            "$ref": "#/components/responses/AgentsConflictEither"
           },
           "422": {
             "$ref": "#/components/responses/AgentsValidationFailed"
@@ -885,7 +884,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -949,7 +948,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1035,7 +1034,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1110,7 +1109,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1122,7 +1121,7 @@
             "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
@@ -1170,7 +1169,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./retriever_create_request_schema.json"
+                "$ref": "./project_retriever_create_request_schema.json"
               }
             }
           }
@@ -1190,7 +1189,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1202,7 +1201,7 @@
             "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
@@ -1260,7 +1259,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1313,7 +1312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_create_request_schema.json"
+                "$ref": "./project_model_parameters_create_request_schema.json"
               }
             }
           }
@@ -1333,7 +1332,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1411,7 +1410,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_schema.json"
+                "$ref": "./model_parameters_update_request_schema.json"
               }
             }
           }
@@ -1431,7 +1430,7 @@
             "$ref": "#/components/responses/AgentsUnauthenticated"
           },
           "404": {
-            "$ref": "#/components/responses/AgentsNotFound"
+            "$ref": "#/components/responses/AgentNotFoundEither"
           },
           "400": {
             "$ref": "#/components/responses/AgentsBadRequest"
@@ -1443,7 +1442,7 @@
             "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
-            "$ref": "#/components/responses/AgentsValidationFailed"
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
@@ -1944,6 +1943,47 @@
         ],
         "additionalProperties": false,
         "x-max-response-bytes": 2097152
+      },
+      "AgentBody": {
+        "type": "object",
+        "description": "BARE agent body (Agent.to_dict), not the success envelope. Returned by create (201), PUT, archive and unarchive.",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": true
+      },
+      "AgentsLegacyError": {
+        "type": "object",
+        "description": "Legacy (non-problem) error body that an agents handler returns from inside the handler: the app-wide JSON envelope {success, error, message, error_code, details} built by response_handler.error_response / not_found_response / validation_error_response, or a handler-built body such as {error} (delete) or {error, message} (create 400, export). The agents family is not in PROBLEM_FORMAT_FAMILIES (src/api_kit/problems.py), so only the guards' denials are problem documents. No field is required because the handler-built bodies differ; consumers branch on the status and the content type.",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "details": {}
+        },
+        "additionalProperties": true
       }
     },
     "responses": {
@@ -2003,6 +2043,66 @@
           "application/problem+json": {
             "schema": {
               "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentNotFoundEither": {
+        "description": "Not found. A project the caller cannot use is the closed problem document (guard); a missing or foreign agent inside a usable project is the app-wide JSON 404 (application/json), because the agents family is not a problem-format family.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsLegacyError"
+            }
+          }
+        }
+      },
+      "AgentsBadRequestEither": {
+        "description": "Malformed request. Closed problem document for a body that is not a JSON object; legacy application/json for list-bound violations and handler-built 400s.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsLegacyError"
+            }
+          }
+        }
+      },
+      "AgentsValidationFailedEither": {
+        "description": "Validation failed. The agents handlers answer request validation with the legacy field-attributed body (application/json, error_code VALIDATION_ERROR); the closed problem document remains for the list and search routes.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "../validation_error_schema.json"
+            }
+          }
+        }
+      },
+      "AgentsConflictEither": {
+        "description": "Conflicting state (error_code AGENT_ALREADY_EXISTS).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "./agent_conflict_error_schema.json"
             }
           }
         }

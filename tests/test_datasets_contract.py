@@ -185,7 +185,7 @@ def test_standalone_model_parameters_route_binds_its_own_request_schema():
         "standalone_model_parameters_create_request_schema"
     )
     assert v._endpoint_schemas["POST:/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters"] == (
-        "model_parameters_create_request_schema"
+        "project_model_parameters_create_request_schema"
     )
     body = {
         "agentId": "a1",

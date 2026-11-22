@@ -36,11 +36,6 @@ KNOWN_ORPHAN_ALLOWLIST: frozenset[str] = frozenset(
         "agents/agent_types_schema.json",
         "agents/model_schema.json",
         "agents/retriever_schema.json",
-        # Kept byte-identical for the JS SDK generator (RetrieverCreateRequestSchema,
-        # ModelParametersCreateRequestSchema); the project-scoped ops bind the
-        # project_* relaxed schemas, so no endpoint references these two any more.
-        "agents/retriever_create_request_schema.json",
-        "agents/model_parameters_create_request_schema.json",
         # Billing sub-schema referenced only by product code, not catalog.
         "billing/wallet_top_up_pack_schema.json",
         # Dataset internal sub-schemas (used by backend DTOs directly).

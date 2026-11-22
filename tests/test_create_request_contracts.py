@@ -127,3 +127,22 @@ def test_shared_create_schemas_keep_their_strict_shape():
     assert "model_id" not in _load("agents/model_parameters_create_request_schema.json")["properties"]
     assert _load("agents/project_retriever_create_request_schema.json")["required"] == ["name"]
     assert "model_id" in _load("agents/project_model_parameters_create_request_schema.json")["properties"]
+
+
+def test_shared_create_schemas_validate_through_their_own_files():
+    """Real validation against the two unchanged shared files (also keeps them reachable)."""
+    from jsonschema import Draft202012Validator
+
+    schemas_dir = S
+    retriever = json.loads(
+        (schemas_dir / "agents" / "retriever_create_request_schema.json").read_text(encoding="utf-8")
+    )
+    params = json.loads(
+        (schemas_dir / "agents" / "model_parameters_create_request_schema.json").read_text(encoding="utf-8")
+    )
+    ok = {"name": "r", "vector_store": {"type": "faiss"}, "k": 1, "retrieval_k": 1, "chunk_size": 10, "overlap": 0}
+    rv = Draft202012Validator(retriever)
+    assert not list(rv.iter_errors(ok))
+    assert list(rv.iter_errors({"name": "r"}))  # strict: missing required fields
+    pv = Draft202012Validator(params)
+    assert not list(pv.iter_errors({"modelId": "m"}))

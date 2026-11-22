@@ -108,12 +108,14 @@
     "user_id": {
       "type": "string",
       "x-content": true,
-      "description": "Owner user id; the route stamps the caller. The backend declares this field unbounded (StrictStr), so no maxLength is declared; x-content is the request-string lint's exemption for that."
+      "x-privacy-classification": "user_content",
+      "description": "Client-submitted string; the backend accepts and ignores it (it never sets the record owner from this field)."
     },
     "created_by": {
       "type": "string",
       "x-content": true,
-      "description": "Ignored: ownership is server-stamped at creation. The backend declares this field unbounded (StrictStr), so no maxLength is declared; x-content is the request-string lint's exemption for that."
+      "x-privacy-classification": "user_content",
+      "description": "Client-submitted string; the backend accepts and ignores it (it never sets the record owner from this field)."
     }
   }
 }

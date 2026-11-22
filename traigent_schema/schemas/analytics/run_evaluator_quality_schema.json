@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_evaluator_quality_schema.json",
+  "title": "Run Evaluator Quality",
+  "description": "IP-safe per-run evaluator-quality verdict: a hard allowlist projection of the internal evaluator-quality audit, mirroring the backend RunEvaluatorQuality model (src/shared_infrastructure/schemas/run_analytics.py). The internal audit report, its axis vector, veto reasons, bias battery and tensor internals are never part of this payload; every object is closed. This is the per-run payload, not the project dashboard (project_evaluator_quality_dashboard_response_schema.json). Returned by experiment_run.compute_evaluator_quality, whether the audit was computed by that request or was already stored.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "project_id",
+    "status",
+    "anchor",
+    "panel",
+    "payload_version"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the run this verdict describes, as the backend projection carries it.",
+      "x-privacy-classification": "system"
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the project the run belongs to.",
+      "x-privacy-classification": "system"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "directional",
+        "abstain",
+        "failed"
+      ],
+      "description": "Coarse verdict of the audit.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "insufficient_data",
+        "audit_abstained",
+        null
+      ],
+      "default": null,
+      "description": "Closed coarse reason code; null when none applies. An internal abstain reason never passes through.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "anchor": {
+      "$ref": "#/definitions/Anchor"
+    },
+    "evaluators": {
+      "type": "array",
+      "maxItems": 200,
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/Evaluator"
+      },
+      "description": "Coarse standing of each evaluator.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "panel": {
+      "$ref": "#/definitions/Panel"
+    },
+    "computed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null,
+      "description": "When the audit was computed (ISO 8601 text as the backend emits it); null when no audit exists.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "payload_version": {
+      "type": "string",
+      "const": "run_evaluator_quality.v1",
+      "default": "run_evaluator_quality.v1",
+      "description": "Version of this payload.",
+      "x-privacy-classification": "aggregate_safe"
+    }
+  },
+  "definitions": {
+    "Anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_type"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "description": "Coarse anchor descriptor: what kind of ground truth backed the audit. confidence_ceiling is the cap the audit places on evaluator confidence.",
+      "properties": {
+        "anchor_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Kind of anchor.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "confidence_ceiling": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Cap on evaluator confidence given the anchor strength; null when none.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "policy_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32,
+          "default": null,
+          "description": "Anchor policy version; null when none.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    },
+    "Score": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "description": "Capped per-evaluator quality interval (no axis decomposition).",
+      "properties": {
+        "lower_bound": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Lower bound of the quality interval.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "point": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Point estimate.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "ci_low": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Confidence interval lower end.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "ci_high": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Confidence interval upper end.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    },
+    "Evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_fingerprint",
+        "rank",
+        "eligible",
+        "quality"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "description": "One evaluator's coarse standing. The fingerprint is an opaque hash and never carries evaluator prompt or configuration content.",
+      "properties": {
+        "evaluator_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Opaque evaluator fingerprint.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rank of the evaluator.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "eligible": {
+          "type": "boolean",
+          "description": "Whether the evaluator is eligible.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "quality": {
+          "$ref": "#/definitions/Score"
+        }
+      }
+    },
+    "Panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-privacy-classification": "aggregate_safe",
+      "description": "Coarse panel-health summary (no redundancy graph, no axis internals).",
+      "properties": {
+        "effective_votes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Effective number of votes.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "redundancy_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Redundancy ratio.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "n_informative": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "default": null,
+          "description": "Count of informative evaluators.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    }
+  }
+}

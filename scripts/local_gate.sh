@@ -69,10 +69,16 @@ GATE_PY_SOURCE="python3 from PATH"
 if [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
   GATE_PY="${VIRTUAL_ENV}/bin/python"
   GATE_PY_SOURCE="active venv ${VIRTUAL_ENV}"
+  export PATH="${VIRTUAL_ENV}/bin:$PATH"
 elif [[ -z "${VIRTUAL_ENV:-}" && -x "$REPO_ROOT/.venv/bin/python" ]]; then
   GATE_PY="$REPO_ROOT/.venv/bin/python"
   GATE_PY_SOURCE="no venv was active, so the gate AUTO-USED $REPO_ROOT/.venv"
   export PATH="$REPO_ROOT/.venv/bin:$PATH"
+fi
+# Case 3 (python3 from PATH): put python3's own bin dir first so every tool the
+# gate runs through PATH resolves in the same place as $GATE_PY.
+if [[ "$GATE_PY" == "python3" ]] && py_path="$(command -v python3)"; then
+  export PATH="$(dirname "$py_path"):$PATH"
 fi
 
 GATE_MISSING=""
@@ -191,8 +197,8 @@ done
 # not add a format gate here (it would block on pre-existing, unrelated drift).
 if ! skip ruff; then
   section "ruff check (ci.yml: Run linting)"
-  if command -v ruff >/dev/null 2>&1; then
-    if ruff check traigent_schema/; then echo "  ✅ ruff check clean"
+  if "$GATE_PY" -m ruff --version >/dev/null 2>&1; then
+    if "$GATE_PY" -m ruff check traigent_schema/; then echo "  ✅ ruff check clean"
     else echo "  ❌ ruff check found issues — run 'ruff check --fix traigent_schema/'"; FAIL=1; fi
   else
     echo "  ❌ ruff not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
@@ -203,8 +209,8 @@ fi
 # ── 2. mypy (type check) ──────────────────────────────────────────────────
 if ! skip mypy; then
   section "mypy (ci.yml: Run type checking)"
-  if command -v mypy >/dev/null 2>&1; then
-    if mypy traigent_schema/ --ignore-missing-imports; then echo "  ✅ mypy clean"
+  if "$GATE_PY" -m mypy --version >/dev/null 2>&1; then
+    if "$GATE_PY" -m mypy traigent_schema/ --ignore-missing-imports; then echo "  ✅ mypy clean"
     else echo "  ❌ mypy found issues — fix the types above"; FAIL=1; fi
   else
     echo "  ❌ mypy not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
@@ -219,8 +225,8 @@ fi
 # on the machine. It is not hung.
 if ! skip pytest; then
   section "pytest — structural + contract gate (ci.yml: Run tests)"
-  if command -v pytest >/dev/null 2>&1; then
-    if pytest tests/ -q -p no:cacheprovider; then echo "  ✅ pytest clean"
+  if "$GATE_PY" -m pytest --version >/dev/null 2>&1; then
+    if "$GATE_PY" -m pytest tests/ -q -p no:cacheprovider; then echo "  ✅ pytest clean"
     else echo "  ❌ pytest failed — fix the contract/structural breakage above"; FAIL=1; fi
   else
     echo "  ❌ pytest not installed (pip install -e '.[dev]'); required because this gate mirrors CI"
@@ -249,8 +255,8 @@ fi
 # as a warning only. DETECT->ENFORCE (SCHEMA_219_ENFORCE) is a later issue.
 if ! skip authparity; then
   section "auth-taxonomy parity detector (auth-taxonomy-parity.yml — NON-BLOCKING)"
-  if command -v pytest >/dev/null 2>&1 && [[ -f tests/test_auth_taxonomy_parity.py ]]; then
-    if pytest tests/test_auth_taxonomy_parity.py -q -p no:cacheprovider; then
+  if "$GATE_PY" -m pytest --version >/dev/null 2>&1 && [[ -f tests/test_auth_taxonomy_parity.py ]]; then
+    if "$GATE_PY" -m pytest tests/test_auth_taxonomy_parity.py -q -p no:cacheprovider; then
       echo "  ✅ auth-taxonomy parity detector clean (all drift covered by the allowlist)"
     else
       echo "  ⚠️  auth-taxonomy drift not covered by the allowlist (or a stale row)."
@@ -345,7 +351,7 @@ if [[ "$MAIN_BOUND" == "1" ]] && ! skip sonar; then
     rm -f coverage.xml
     covrc="$(mktemp)"; printf '[run]\nrelative_files = True\n' > "$covrc"
     covlog="$(mktemp)"
-    pytest tests/ -q -p no:cacheprovider \
+    "$GATE_PY" -m pytest tests/ -q -p no:cacheprovider \
       --cov=traigent_schema --cov-config="$covrc" --cov-report=xml:coverage.xml >"$covlog" 2>&1 || true
     rm -f "$covrc"
     if [[ ! -s coverage.xml ]]; then

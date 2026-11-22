@@ -115,25 +115,31 @@ def _reject_parent_cycles(parent_of: Mapping[str, str | None]) -> None:
             state[visited] = 2
 
 
+def _member_entry(item: Any) -> tuple[str, str, str | None]:
+    """Validate one member mapping and return ``(kind, digest, parent)``."""
+    if not isinstance(item, Mapping) or not {"member_kind", "member_digest"} <= set(item):
+        raise _fail("member")
+    if not set(item) <= {"member_kind", "member_digest", "parent_member_digest"}:
+        raise _fail("member")
+    kind = item["member_kind"]
+    if kind not in _MEMBER_KINDS:
+        raise _fail("member_kind")
+    digest = _digest(item["member_digest"], "member_digest")
+    parent = item.get("parent_member_digest")
+    if parent is not None:
+        parent = _digest(parent, "parent_member_digest")
+        if parent == digest:
+            raise _fail("parent_member_digest")
+    return kind, digest, parent
+
+
 def _members(raw: Any) -> list[list[Any]]:
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
         raise _fail("members")
     seen: set[tuple[str, str, str | None]] = set()
     parent_of: dict[str, str | None] = {}
     for item in raw:
-        if not isinstance(item, Mapping) or not {"member_kind", "member_digest"} <= set(item):
-            raise _fail("member")
-        if not set(item) <= {"member_kind", "member_digest", "parent_member_digest"}:
-            raise _fail("member")
-        kind = item["member_kind"]
-        if kind not in _MEMBER_KINDS:
-            raise _fail("member_kind")
-        digest = _digest(item["member_digest"], "member_digest")
-        parent = item.get("parent_member_digest")
-        if parent is not None:
-            parent = _digest(parent, "parent_member_digest")
-            if parent == digest:
-                raise _fail("parent_member_digest")
+        kind, digest, parent = _member_entry(item)
         if parent_of.setdefault(digest, parent) != parent:
             raise _fail("member with two parents")
         seen.add((kind, digest, parent))
@@ -224,19 +230,8 @@ def _normalize_escapes(path: str) -> str:
     return _PERCENT.sub(fix, path)
 
 
-def canonical_repository(remote: str) -> str:
-    """Canonical ``host[:port]/path`` of a git remote (see ``identifier_canonicalization.json``).
-
-    Accepts ``scheme://[userinfo@]host[:port]/path[?query][#fragment]`` (schemes https, http,
-    ssh, git, git+ssh, ssh+git), the scp form ``[user@]host:path`` and an already-canonical
-    ``host[:port]/path``. Credentials, query and fragment are dropped before anything else.
-    Raises ``ValueError`` for anything else.
-    """
-    if not isinstance(remote, str):
-        raise ValueError(_ERR_REMOTE)
-    text = unicodedata.normalize("NFC", remote.strip(" \t"))
-    if not text or any(ord(c) <= 0x20 or ord(c) == 0x7F for c in text) or "\\" in text:
-        raise ValueError(_ERR_REMOTE)
+def _split_remote(text: str) -> tuple[str | None, str, str]:
+    """Split a normalised remote into ``(scheme, authority, path)``; credentials are dropped."""
     scheme = None
     if "://" in text:
         scheme, _, rest = text.partition("://")
@@ -257,6 +252,11 @@ def canonical_repository(remote: str) -> str:
             authority, _, path = text.partition("/")
             if "@" in authority:
                 raise ValueError(_ERR_REMOTE)
+    return scheme, authority, path
+
+
+def _host_and_port(authority: str, scheme: str | None) -> tuple[str, str | None]:
+    """Validate ``authority`` and return the lower-cased host and the non-default port."""
     match = _HOST_PORT.match(authority)
     if match is None:
         raise ValueError(_ERR_HOST)
@@ -270,6 +270,24 @@ def canonical_repository(remote: str) -> str:
         raise ValueError(_ERR_HOST)
     if port is not None and scheme is not None and port == _ALLOWED_SCHEMES[scheme]:
         port = None
+    return host, port
+
+
+def canonical_repository(remote: str) -> str:
+    """Canonical ``host[:port]/path`` of a git remote (see ``identifier_canonicalization.json``).
+
+    Accepts ``scheme://[userinfo@]host[:port]/path[?query][#fragment]`` (schemes https, http,
+    ssh, git, git+ssh, ssh+git), the scp form ``[user@]host:path`` and an already-canonical
+    ``host[:port]/path``. Credentials, query and fragment are dropped before anything else.
+    Raises ``ValueError`` for anything else.
+    """
+    if not isinstance(remote, str):
+        raise ValueError(_ERR_REMOTE)
+    text = unicodedata.normalize("NFC", remote.strip(" \t"))
+    if not text or any(ord(c) <= 0x20 or ord(c) == 0x7F for c in text) or "\\" in text:
+        raise ValueError(_ERR_REMOTE)
+    scheme, authority, path = _split_remote(text)
+    host, port = _host_and_port(authority, scheme)
     path = _normalize_escapes(path)
     path = re.sub(r"/{2,}", "/", path).strip("/")
     if path.endswith(".git"):

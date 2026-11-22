@@ -171,8 +171,10 @@ def test_create_429_is_the_quota_error_and_import_429_is_the_rate_limit() -> Non
 def test_import_request_accepts_the_export_wrapper_and_the_direct_format() -> None:
     schema = _request_schema("agent.import_agent")
     assert {"schema_version", "agent", "name"} <= set(schema["properties"])
-    assert "name" in schema["properties"]["agent"]["properties"]
-    assert schema["properties"]["schema_version"]["enum"] == ["1.0"]
+    # additive-only: the wrapper keys are documented without a constraint (the open import
+    # request used to accept any value for them); see test_agents_request_schemas_accept_compatible
+    assert "type" not in schema["properties"]["agent"]
+    assert "enum" not in schema["properties"]["schema_version"]
     assert not schema.get("required")  # the wrapper has no top-level name
 
 

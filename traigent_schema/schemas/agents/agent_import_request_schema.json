@@ -71,79 +71,12 @@
       "$ref": "./agent_create_request_schema.json#/properties/measure_ids"
     },
     "schema_version": {
-      "type": "string",
-      "enum": [
-        "1.0"
-      ]
+      "description": "Export-wrapper version (\"1.0\" for what GET .../export returns). Documented without a constraint so the open import request keeps accepting every earlier body.",
+      "x-privacy-classification": "aggregate_safe"
     },
     "agent": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "name": {
-          "$ref": "./agent_create_request_schema.json#/properties/name"
-        },
-        "agent_type_id": {
-          "$ref": "./agent_create_request_schema.json#/properties/agent_type_id"
-        },
-        "description": {
-          "$ref": "./agent_create_request_schema.json#/properties/description"
-        },
-        "prompt_template": {
-          "$ref": "./agent_create_request_schema.json#/properties/prompt_template"
-        },
-        "reasoning": {
-          "$ref": "./agent_create_request_schema.json#/properties/reasoning"
-        },
-        "style": {
-          "$ref": "./agent_create_request_schema.json#/properties/style"
-        },
-        "tone": {
-          "$ref": "./agent_create_request_schema.json#/properties/tone"
-        },
-        "format": {
-          "$ref": "./agent_create_request_schema.json#/properties/format"
-        },
-        "persona": {
-          "$ref": "./agent_create_request_schema.json#/properties/persona"
-        },
-        "guidelines": {
-          "$ref": "./agent_create_request_schema.json#/properties/guidelines"
-        },
-        "chat_history_params": {
-          "$ref": "./agent_create_request_schema.json#/properties/chat_history_params"
-        },
-        "extra_instructions": {
-          "$ref": "./agent_create_request_schema.json#/properties/extra_instructions"
-        },
-        "model_kwargs": {
-          "$ref": "./agent_create_request_schema.json#/properties/model_kwargs"
-        },
-        "custom_validations": {
-          "$ref": "./agent_create_request_schema.json#/properties/custom_validations"
-        },
-        "custom_tools": {
-          "$ref": "./agent_create_request_schema.json#/properties/custom_tools"
-        },
-        "custom_responses": {
-          "$ref": "./agent_create_request_schema.json#/properties/custom_responses"
-        },
-        "tags": {
-          "$ref": "./agent_create_request_schema.json#/properties/tags"
-        },
-        "example_sets": {
-          "$ref": "./agent_create_request_schema.json#/properties/example_sets"
-        },
-        "retrieval_configs": {
-          "$ref": "./agent_create_request_schema.json#/properties/retrieval_configs"
-        },
-        "model_parameters": {
-          "$ref": "./agent_create_request_schema.json#/properties/model_parameters"
-        },
-        "measure_ids": {
-          "$ref": "./agent_create_request_schema.json#/properties/measure_ids"
-        }
-      }
+      "description": "Export-wrapper agent (name, agent_type_id and the create-request properties). Documented without a constraint so the open import request keeps accepting every earlier body.",
+      "x-privacy-classification": "user_content"
     }
   }
 }

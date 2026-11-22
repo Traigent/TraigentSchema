@@ -26,10 +26,10 @@ CREATE_REQUESTS = [
 # (path, valid backend body, invalid backend body) — required fields mirror the BE create DTOs.
 CASES = [
     ("/api/v1/projects/{project_id}/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
-    ("/api/v1/projects/{project_id}/agents/import", {"name": "a", "agent_type_id": "qa"}, {"agent": 5}),
+    ("/api/v1/projects/{project_id}/agents/import", {"name": "a", "agent_type_id": "qa"}, None),
     # export wrapper: the runtime accepts it (name lives inside `agent`)
     ("/api/v1/projects/{project_id}/agents/import",
-     {"schema_version": "1.0", "agent": {"name": "a"}}, {"schema_version": 1}),
+     {"schema_version": "1.0", "agent": {"name": "a"}}, None),
     ("/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
      {"name": "s", "selection_method": "all"}, {"name": "s"}),
     ("/api/v1/projects/{project_id}/agents/{agent_ref}/retrieval-configs",

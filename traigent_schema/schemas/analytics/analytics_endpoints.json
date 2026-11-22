@@ -6,6 +6,158 @@
     "description": "Canonical backend routes for example-scoring analytics, the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights) and the eleven unchanged project analytics reads and exports, declared once per mount: /api/v1/analytics, /api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics. Operation ids equal the backend register ids (analytics.*, legacy_analytics.*, project_analytics.*)."
   },
   "paths": {
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute":{
+      "post": {
+        "operationId": "experiment_run.compute_evaluator_quality",
+        "summary": "Compute (or return the stored) evaluator-quality audit for one experiment run",
+        "description": "Ensures the evaluator-quality audit of one run exists and returns its coarse projection. Naturally idempotent on (tenant, project, run): a stored audit, including a stored abstention, is returned unchanged and never recomputed; an Idempotency-Key does not select another computation. Takes no request body and no query parameters (a nonempty body or any query parameter is a closed 422). Errors are application/problem+json with closed types; a missing WRITE grant is the closed 404, never a grant-specific 403. 409 is only evaluator_audit_in_progress. The raw internal audit report is never returned.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The audit projection: freshly computed by this request or already stored. A stored audit, including a stored abstention, is returned as is and never recomputed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or the optimization-only exclusion.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing or foreign run, missing WRITE grant, or denied project scope; identical in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request is computing this run's audit. The only 409 of this operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/EvaluatorAuditInProgressProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request: this operation takes no body and no query parameters.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ValidationFailedProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required dependency unavailable or deadline exhausted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/analytics/example-scoring/{experiment_run_id}/compute": {
       "post": {
         "summary": "Start example scoring computation",
@@ -1980,6 +2132,81 @@
           },
           "500": {
             "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator-quality verdict of one run",
+        "description": "IP-safe per-run evaluator-quality verdict, the project-scoped mount of the existing GET. Read access to the experiment and project role viewer or above. The body is the platform success envelope {success, message, data}, the same response schema as experiment_run.compute_evaluator_quality. Not a pure read: the service can lazily create the audit (persistence on GET). The raw internal audit report is never returned.",
+        "operationId": "project_analytics_runs.get_run_evaluator_quality",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run evaluator quality retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          },
+          "503": {
+            "description": "Authentication dependency temporarily unavailable (transient auth database failure), returned through the ordinary error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           }
         }
       }

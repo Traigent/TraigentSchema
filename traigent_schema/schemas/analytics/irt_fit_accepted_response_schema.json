@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/irt_fit_accepted_response_schema.json",
+  "title": "IrtFitAcceptedResponse",
+  "description": "Body of the 202 of POST /api/v1/analytics/experiments/{experiment_run_id}/fit-irt. The body is bare, not the success envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "status",
+    "submitted"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Scoring job identifier of the form score_<run id>_<unix seconds>_<8 hex>. It embeds the caller-chosen run id, so it is treated as user content; when submitted is false it is the id of an already-active scoring job for the run, not necessarily a fit job.",
+      "x-privacy-classification": "user_content",
+      "x-content": true
+    },
+    "status": {
+      "type": "string",
+      "const": "accepted",
+      "description": "Always accepted.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "submitted": {
+      "type": "boolean",
+      "description": "True when this request started a new job; false when an already-active scoring job for the run was reused.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  }
+}

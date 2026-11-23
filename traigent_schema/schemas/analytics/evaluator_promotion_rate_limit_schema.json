@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_promotion_rate_limit_schema.json",
+  "title": "DedicatedLimiterRateLimitBody",
+  "description": "429 body of the per-operation limiter on POST .../evaluator-promotion/evaluate. It follows the canonical rate-limit shape except that details also carries the integer limit and the remaining count, so it is not accepted by rate_limit_info_schema.json. Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset response headers are set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "error",
+    "error_code",
+    "details"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false,
+      "description": "Always false.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "enum": [
+        "Too many requests for this operation. Please retry later."
+      ],
+      "description": "Fixed phrase: Too many requests for this operation. Please retry later.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "error": {
+      "type": "string",
+      "enum": [
+        "Too many requests"
+      ],
+      "description": "Fixed phrase.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "error_code": {
+      "type": "string",
+      "const": "RATE_LIMIT_EXCEEDED",
+      "description": "Always RATE_LIMIT_EXCEEDED.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "retry_after",
+        "limit",
+        "remaining"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "expensive_provider"
+          ],
+          "description": "Limiter scope of this operation class.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "closed_enum"
+        },
+        "retry_after": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Seconds to wait before retrying.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000,
+          "description": "Configured request budget of the tripped window.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000,
+          "description": "Requests left in the tripped window; never negative.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        }
+      }
+    }
+  }
+}

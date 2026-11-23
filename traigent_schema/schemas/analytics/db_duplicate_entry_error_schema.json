@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/db_duplicate_entry_error_schema.json",
+  "title": "DatabaseDuplicateEntryError",
+  "description": "409 body for a uniqueness violation, in its production shape. Bare error body: no success flag, and no field or value is ever included.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "const": "Duplicate entry",
+      "description": "Always Duplicate entry.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "const": "This record already exists.",
+      "description": "Always This record already exists.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  }
+}

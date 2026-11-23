@@ -161,11 +161,18 @@ def test_v1_overview_declares_the_error_responses_its_siblings_do() -> None:
             encoding="utf-8"
         )
     )
+    # The evaluator-promotion operations are a separate route family with their own statuses
+    # (201 on the POST, 422 for validation); exclude exactly those two method/path pairs.
+    promotion = {
+        ("post", "/api/v1/analytics/runs/{run_id}/evaluator-promotion/evaluate"),
+        ("get", "/api/v1/analytics/runs/{run_id}/evaluator-promotion"),
+    }
     sibling_sets = [
         set(operation["responses"])
         for path, operations in document["paths"].items()
         if path.startswith("/api/v1/analytics/runs/{run_id}/")
-        for operation in operations.values()
+        for method, operation in operations.items()
+        if (method, path) not in promotion
     ]
     assert len(sibling_sets) >= 8, f"expected the runs/* family, found {len(sibling_sets)}"
     shared = set.intersection(*sibling_sets)

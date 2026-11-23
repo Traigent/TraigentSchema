@@ -644,7 +644,26 @@
         "metrics": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReportedMetrics"},
         "areas": {"$ref": "#/definitions/ScorecardAreas"}
       },
-      "required": ["basis", "config", "run_id", "run_completed_at", "metrics", "areas"]
+      "required": ["basis", "config", "run_id", "run_completed_at", "metrics", "areas"],
+      "allOf": [
+        {
+          "if": {"properties": {"basis": {"const": "ACTIVE_CONFIG"}}, "required": ["basis"]},
+          "then": {
+            "properties": {
+              "config": {
+                "not": {"type": "null"},
+                "properties": {"generation": {"minimum": 1}}
+              }
+            }
+          }
+        },
+        {
+          "if": {"properties": {"basis": {"const": "CURRENT_RUN"}}, "required": ["basis"]},
+          "then": {
+            "properties": {"config": {"type": "null"}, "run_id": {"type": "string"}}
+          }
+        }
+      ]
     },
     "ScorecardConfig": {
       "type": "object",

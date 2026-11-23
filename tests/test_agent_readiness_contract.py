@@ -1182,9 +1182,7 @@ def test_scorecard_is_optional_nullable_and_valid() -> None:
         detail["scorecard"] = value
         assert validator.validate_json(detail, name) == []
     detail = _detail_payload()
-    detail["scorecard"] = _scorecard()
-    detail["scorecard"]["config"] = None
-    detail["scorecard"]["run_id"] = None
+    detail["scorecard"] = _scorecard("CURRENT_RUN")
     detail["scorecard"]["areas"]["evaluation_progress"] = {
         "stage": None,
         "trials_run": None,
@@ -1211,3 +1209,25 @@ def test_scorecard_is_closed_everywhere() -> None:
         detail["scorecard"] = _scorecard()
         mutate(detail["scorecard"])
         assert validator.validate_json(detail, name)
+
+
+def test_scorecard_basis_invariants() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+
+    def bad(basis: str, mutate: Any) -> None:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard(basis)
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)
+
+    bad("ACTIVE_CONFIG", lambda s: s.update(config=None))
+    bad("ACTIVE_CONFIG", lambda s: s["config"].update(generation=0))
+    bad("CURRENT_RUN", lambda s: s.update(run_id=None))
+    bad("CURRENT_RUN", lambda s: s.update(config=_scorecard()["config"]))
+    # an active config whose run did not resolve is still valid (config set, run absent)
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard()
+    detail["scorecard"]["run_id"] = None
+    detail["scorecard"]["metrics"] = []
+    assert validator.validate_json(detail, name) == []

@@ -1531,15 +1531,24 @@ class _OperationScope:
     def emit(self, pointer: str, rule: str, severity: Severity, role: str, message: str) -> None:
         emit(self.findings, self.file, pointer, rule, severity, role, message)
 
-    def media(self, old_content: Any, new_content: Any, *, role: Role, pointer: str) -> None:
+    def media(
+        self,
+        old_content: Any,
+        new_content: Any,
+        *,
+        role: Role,
+        pointer: str,
+        old_base: str | None = None,
+        new_base: str | None = None,
+    ) -> None:
         _compare_media_schemas(
             old_content,
             new_content,
             role=role,
             file=self.file,
             pointer=pointer,
-            old_base=self.old_base,
-            new_base=self.new_base,
+            old_base=self.old_base if old_base is None else old_base,
+            new_base=self.new_base if new_base is None else new_base,
             old_reg=self.old_reg,
             new_reg=self.new_reg,
             findings=self.findings,
@@ -1695,12 +1704,52 @@ def _compare_responses(scope: _OperationScope, pointer: str, old_op: dict, new_o
                 ptr, "response_status_added", "INFO", "response", f"response status {status} added"
             )
         else:
-            scope.media(
-                _as_dict(old_resp[status]).get("content"),
-                _as_dict(new_resp[status]).get("content"),
-                role="response",
-                pointer=ptr,
-            )
+            _compare_response_pair(scope, ptr, old_resp[status], new_resp[status])
+
+
+def _compare_response_pair(scope: _OperationScope, ptr: str, old_raw: Any, new_raw: Any) -> None:
+    """Resolve a response given as a (possibly chained) `$ref` to its component on each side's
+    own document/registry, then compare the bodies. The media schemas resolve against the base
+    URI of the document the response object was found in, which may differ from the operation's."""
+    try:
+        old_r, old_base, _, old_cyclic = deref(old_raw, scope.old_base, scope.old_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the BASE side could not be resolved: {exc}",
+        )
+        return
+    try:
+        new_r, new_base, _, new_cyclic = deref(new_raw, scope.new_base, scope.new_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the HEAD side could not be resolved: {exc}",
+        )
+        return
+    if old_cyclic or new_cyclic:
+        scope.emit(
+            ptr,
+            "cyclic_ref",
+            "INFO",
+            "response",
+            "recursive response $ref chain detected; not compared further",
+        )
+        return
+    scope.media(
+        _as_dict(old_r).get("content"),
+        _as_dict(new_r).get("content"),
+        role="response",
+        pointer=ptr,
+        old_base=old_base,
+        new_base=new_base,
+    )
 
 
 def compare_endpoints_file(

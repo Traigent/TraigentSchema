@@ -103,6 +103,11 @@
       ]
     },
     "next_action_code": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NextActionCode"}
+,
+    "scorecard": {
+      "description": "Optional. The Agent scores and per-area stats measured against the latest ACTIVE config (the promoted Agent head, generation above 0; basis ACTIVE_CONFIG) or, when no config has been promoted, against the run currently assessed (the anchor run; basis CURRENT_RUN). Null when no run resolves. Ids, counts, refs and numbers only; no customer free text.",
+      "oneOf": [{"$ref": "#/definitions/Scorecard"}, {"type": "null"}]
+    }
   },
   "required": [
     "schema_version",
@@ -627,6 +632,65 @@
         }
       },
       "required": ["evaluation_dataset_association"]
+    },
+    "Scorecard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "basis": {"enum": ["ACTIVE_CONFIG", "CURRENT_RUN"]},
+        "config": {"oneOf": [{"$ref": "#/definitions/ScorecardConfig"}, {"type": "null"}]},
+        "run_id": {"oneOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, {"type": "null"}]},
+        "run_completed_at": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NullableDateTime"},
+        "metrics": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ReportedMetrics"},
+        "areas": {"$ref": "#/definitions/ScorecardAreas"}
+      },
+      "required": ["basis", "config", "run_id", "run_completed_at", "metrics", "areas"]
+    },
+    "ScorecardConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "best_config_id": {"oneOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, {"type": "null"}]},
+        "best_config_version": {"type": ["integer", "null"], "minimum": 0},
+        "generation": {"type": "integer", "minimum": 0},
+        "environment": {"type": "string", "minLength": 1, "maxLength": 64},
+        "promoted_at": {"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/NullableDateTime"},
+        "promoted_by_run_id": {"oneOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"}, {"type": "null"}]}
+      },
+      "required": ["best_config_id", "best_config_version", "generation", "environment", "promoted_at", "promoted_by_run_id"]
+    },
+    "ScorecardAreas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_set": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "example_count": {"type": ["integer", "null"], "minimum": 0},
+            "dataset_ref": {"oneOf": [{"$ref": "#/definitions/EvaluationDatasetRef"}, {"type": "null"}]}
+          },
+          "required": ["example_count", "dataset_ref"]
+        },
+        "evaluator": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "version_ref": {"oneOf": [{"$ref": "#/definitions/EvaluatorVersionRef"}, {"type": "null"}]}
+          },
+          "required": ["version_ref"]
+        },
+        "evaluation_progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stage": {"oneOf": [{"$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/ProcessStage"}, {"type": "null"}]},
+            "trials_run": {"type": ["integer", "null"], "minimum": 0}
+          },
+          "required": ["stage", "trials_run"]
+        }
+      },
+      "required": ["evaluation_set", "evaluator", "evaluation_progress"]
     },
     "JourneyItem": {
       "type": "object",

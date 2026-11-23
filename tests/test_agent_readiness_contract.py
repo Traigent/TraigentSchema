@@ -1142,3 +1142,72 @@ def test_response_objects_are_closed_and_forbidden_content_names_are_absent() ->
         "agent_lifecycle_history_response_schema",
     ):
         walk(json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8")))
+
+
+def _scorecard(basis: str = "ACTIVE_CONFIG") -> dict[str, Any]:
+    return {
+        "basis": basis,
+        "config": {
+            "best_config_id": "bc-1",
+            "best_config_version": 3,
+            "generation": 2,
+            "environment": "production",
+            "promoted_at": "2026-09-19T23:30:00Z",
+            "promoted_by_run_id": "run-anchor",
+        }
+        if basis == "ACTIVE_CONFIG"
+        else None,
+        "run_id": "run-anchor",
+        "run_completed_at": "2026-09-19T23:00:00Z",
+        "metrics": deepcopy(_detail_payload()["journey"]["items"][0]["reported_metrics"]),
+        "areas": {
+            "evaluation_set": {
+                "example_count": 12,
+                "dataset_ref": {"kind": "evaluation_dataset", "id": "dataset-v1"},
+            },
+            "evaluator": {
+                "version_ref": {"kind": "evaluator_version", "id": "eval-v1"}
+            },
+            "evaluation_progress": {"stage": "EVALUATION_COMPLETED", "trials_run": 4},
+        },
+    }
+
+
+def test_scorecard_is_optional_nullable_and_valid() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    assert validator.validate_json(_detail_payload(), name) == []
+    for value in (None, _scorecard(), _scorecard("CURRENT_RUN")):
+        detail = _detail_payload()
+        detail["scorecard"] = value
+        assert validator.validate_json(detail, name) == []
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard()
+    detail["scorecard"]["config"] = None
+    detail["scorecard"]["run_id"] = None
+    detail["scorecard"]["areas"]["evaluation_progress"] = {
+        "stage": None,
+        "trials_run": None,
+    }
+    assert validator.validate_json(detail, name) == []
+
+
+def test_scorecard_is_closed_everywhere() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    mutations = [
+        lambda s: s.update(extra=1),
+        lambda s: s["config"].update(extra=1),
+        lambda s: s["areas"].update(extra=1),
+        lambda s: s["areas"]["evaluation_set"].update(extra=1),
+        lambda s: s["areas"]["evaluator"].update(extra=1),
+        lambda s: s["areas"]["evaluation_progress"].update(extra=1),
+        lambda s: s.update(basis="OTHER"),
+        lambda s: s.pop("metrics"),
+        lambda s: s["areas"]["evaluation_progress"].update(stage="BOGUS"),
+    ]
+    for mutate in mutations:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard()
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)

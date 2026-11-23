@@ -615,8 +615,6 @@ def test_stored_ready_rejects_content_and_proprietary_fields(field):
         lambda d: d["decision"].update(id="has space"),
         lambda d: d["decision"].update(evidence_snapshot_hash="y" * 129),
         lambda d: d["decision"].update(category="not_a_category"),
-        lambda d: d["decision"].update(evidence_level="extreme"),
-        lambda d: d["decision"].update(action_kind="shell"),
         lambda d: d.update(next_steps=[{"id": "n"}]),
         lambda d: d.update(variant_assignment={"variant": "policy"}),
         lambda d: d.update(state="not_generated"),
@@ -627,6 +625,19 @@ def test_stored_ready_bounds_enforced(mutate):
     doc = json.loads(json.dumps(_READY))
     mutate(doc)
     assert _errs("ReadyResponse", doc)
+
+
+@pytest.mark.parametrize("field", ["evidence_level", "action_kind"])
+def test_stored_decision_tokens_follow_reader_rule(field):
+    # The backend reader returns any value matching ^[a-z_]{1,64}$ unchanged, else None.
+    for value in ("unknown", "tool", None):
+        doc = json.loads(json.dumps(_READY))
+        doc["decision"][field] = value
+        assert _errs("ReadyResponse", doc) == [], (field, value)
+    for value in ("Bad-Value", "a" * 65, "a b"):
+        doc = json.loads(json.dumps(_READY))
+        doc["decision"][field] = value
+        assert _errs("ReadyResponse", doc), (field, value)
 
 
 def test_stored_contract_is_additive_and_classified():

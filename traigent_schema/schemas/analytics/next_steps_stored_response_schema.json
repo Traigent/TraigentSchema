@@ -117,27 +117,15 @@
           "x-privacy-classification": "aggregate_safe"
         },
         "evidence_level": {
-          "description": "Coarse evidence level; null when the stored value is not a valid level.",
-          "oneOf": [
-            {
-              "$ref": "next_steps_schema.json#/properties/decision/properties/evidence_level"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "type": ["string", "null"],
+          "pattern": "^[a-z_]{1,64}$",
+          "description": "Coarse evidence level. Values matching the pattern are returned as stored; values that do not match are returned as null.",
           "x-privacy-classification": "aggregate_safe"
         },
         "action_kind": {
-          "description": "Action surface kind; null when the stored value is not valid.",
-          "oneOf": [
-            {
-              "$ref": "next_steps_schema.json#/properties/decision/properties/action/properties/kind"
-            },
-            {
-              "type": "null"
-            }
-          ],
+          "type": ["string", "null"],
+          "pattern": "^[a-z_]{1,64}$",
+          "description": "Action surface kind. Values matching the pattern are returned as stored; values that do not match are returned as null.",
           "x-privacy-classification": "aggregate_safe"
         }
       }

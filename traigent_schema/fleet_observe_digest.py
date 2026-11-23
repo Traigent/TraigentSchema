@@ -39,6 +39,9 @@ __all__ = [
 REQUEST_DIGEST_VERSION = "fleet_import_request_v1"
 IDEMPOTENCY_DOMAIN = "fleet_idem_v1\x1f"
 DEFAULT_RETENTION_CLASS = "ledger_minimal"
+_SHA256_PREFIX = "sha256:"
+_ERR_REMOTE = "invalid repository remote"
+_ERR_HOST = "invalid repository host"
 
 # Byte-identical to the API server contract mirror.
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -112,25 +115,31 @@ def _reject_parent_cycles(parent_of: Mapping[str, str | None]) -> None:
             state[visited] = 2
 
 
+def _member_entry(item: Any) -> tuple[str, str, str | None]:
+    """Validate one member mapping and return ``(kind, digest, parent)``."""
+    if not isinstance(item, Mapping) or not {"member_kind", "member_digest"} <= set(item):
+        raise _fail("member")
+    if not set(item) <= {"member_kind", "member_digest", "parent_member_digest"}:
+        raise _fail("member")
+    kind = item["member_kind"]
+    if kind not in _MEMBER_KINDS:
+        raise _fail("member_kind")
+    digest = _digest(item["member_digest"], "member_digest")
+    parent = item.get("parent_member_digest")
+    if parent is not None:
+        parent = _digest(parent, "parent_member_digest")
+        if parent == digest:
+            raise _fail("parent_member_digest")
+    return kind, digest, parent
+
+
 def _members(raw: Any) -> list[list[Any]]:
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
         raise _fail("members")
     seen: set[tuple[str, str, str | None]] = set()
     parent_of: dict[str, str | None] = {}
     for item in raw:
-        if not isinstance(item, Mapping) or not {"member_kind", "member_digest"} <= set(item):
-            raise _fail("member")
-        if not set(item) <= {"member_kind", "member_digest", "parent_member_digest"}:
-            raise _fail("member")
-        kind = item["member_kind"]
-        if kind not in _MEMBER_KINDS:
-            raise _fail("member_kind")
-        digest = _digest(item["member_digest"], "member_digest")
-        parent = item.get("parent_member_digest")
-        if parent is not None:
-            parent = _digest(parent, "parent_member_digest")
-            if parent == digest:
-                raise _fail("parent_member_digest")
+        kind, digest, parent = _member_entry(item)
         if parent_of.setdefault(digest, parent) != parent:
             raise _fail("member with two parents")
         seen.add((kind, digest, parent))
@@ -168,13 +177,15 @@ def canonical_preimage(request: Mapping[str, Any]) -> bytes:
 
 def request_digest(request: Mapping[str, Any]) -> str:
     """``sha256:<hex>`` of the canonical preimage."""
-    return "sha256:" + hashlib.sha256(canonical_preimage(request)).hexdigest()
+    return _SHA256_PREFIX + hashlib.sha256(canonical_preimage(request)).hexdigest()
 
 
 def idempotency_key(digest: str) -> str:
     """The idempotency key derived from a request digest (deterministic, not circular)."""
     _digest(digest, "request_digest")
-    return "sha256:" + hashlib.sha256((IDEMPOTENCY_DOMAIN + digest).encode("utf-8")).hexdigest()
+    return (
+        _SHA256_PREFIX + hashlib.sha256((IDEMPOTENCY_DOMAIN + digest).encode("utf-8")).hexdigest()
+    )
 
 
 def identifier_digest(key: bytes, role: str, source: str, canonical_id: str) -> str:
@@ -189,7 +200,7 @@ def identifier_digest(key: bytes, role: str, source: str, canonical_id: str) -> 
     if not text or "\x1f" in text or any(ord(c) < 0x20 or ord(c) == 0x7F for c in text):
         raise ValueError("identifier is empty or contains a control character")
     message = "\x1f".join(("tfl1", role, source, text)).encode("utf-8")
-    return "sha256:" + hmac.new(key, message, hashlib.sha256).hexdigest()
+    return _SHA256_PREFIX + hmac.new(key, message, hashlib.sha256).hexdigest()
 
 
 def key_id(key: bytes) -> str:
@@ -219,19 +230,8 @@ def _normalize_escapes(path: str) -> str:
     return _PERCENT.sub(fix, path)
 
 
-def canonical_repository(remote: str) -> str:
-    """Canonical ``host[:port]/path`` of a git remote (see ``identifier_canonicalization.json``).
-
-    Accepts ``scheme://[userinfo@]host[:port]/path[?query][#fragment]`` (schemes https, http,
-    ssh, git, git+ssh, ssh+git), the scp form ``[user@]host:path`` and an already-canonical
-    ``host[:port]/path``. Credentials, query and fragment are dropped before anything else.
-    Raises ``ValueError`` for anything else.
-    """
-    if not isinstance(remote, str):
-        raise ValueError("invalid repository remote")
-    text = unicodedata.normalize("NFC", remote.strip(" \t"))
-    if not text or any(ord(c) <= 0x20 or ord(c) == 0x7F for c in text) or "\\" in text:
-        raise ValueError("invalid repository remote")
+def _split_remote(text: str) -> tuple[str | None, str, str]:
+    """Split a normalised remote into ``(scheme, authority, path)``; credentials are dropped."""
     scheme = None
     if "://" in text:
         scheme, _, rest = text.partition("://")
@@ -251,20 +251,43 @@ def canonical_repository(remote: str) -> str:
         else:  # already canonical: host[:port]/path
             authority, _, path = text.partition("/")
             if "@" in authority:
-                raise ValueError("invalid repository remote")
+                raise ValueError(_ERR_REMOTE)
+    return scheme, authority, path
+
+
+def _host_and_port(authority: str, scheme: str | None) -> tuple[str, str | None]:
+    """Validate ``authority`` and return the lower-cased host and the non-default port."""
     match = _HOST_PORT.match(authority)
     if match is None:
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     host = match.group(1).lower()
     if not host.startswith("[") and host.endswith("."):
         host = host[:-1]  # exactly one trailing dot
     if host.endswith("."):
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     port = match.group(2)
     if not host or (port is not None and not 1 <= int(port) <= 65535):
-        raise ValueError("invalid repository host")
+        raise ValueError(_ERR_HOST)
     if port is not None and scheme is not None and port == _ALLOWED_SCHEMES[scheme]:
         port = None
+    return host, port
+
+
+def canonical_repository(remote: str) -> str:
+    """Canonical ``host[:port]/path`` of a git remote (see ``identifier_canonicalization.json``).
+
+    Accepts ``scheme://[userinfo@]host[:port]/path[?query][#fragment]`` (schemes https, http,
+    ssh, git, git+ssh, ssh+git), the scp form ``[user@]host:path`` and an already-canonical
+    ``host[:port]/path``. Credentials, query and fragment are dropped before anything else.
+    Raises ``ValueError`` for anything else.
+    """
+    if not isinstance(remote, str):
+        raise ValueError(_ERR_REMOTE)
+    text = unicodedata.normalize("NFC", remote.strip(" \t"))
+    if not text or any(ord(c) <= 0x20 or ord(c) == 0x7F for c in text) or "\\" in text:
+        raise ValueError(_ERR_REMOTE)
+    scheme, authority, path = _split_remote(text)
+    host, port = _host_and_port(authority, scheme)
     path = _normalize_escapes(path)
     path = re.sub(r"/{2,}", "/", path).strip("/")
     if path.endswith(".git"):

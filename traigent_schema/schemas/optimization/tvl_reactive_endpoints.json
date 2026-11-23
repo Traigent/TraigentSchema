@@ -10,7 +10,7 @@
       "post": {
         "summary": "Stage facts for one evaluation instant",
         "description": "TraigentBackend (planned) production reactive routes. Principals: P-ingest (SDK API key scoped to the agent) for customer-monitor and optimization-reporter facts; native-monitor facts are P-system only (403 fact_source_not_permitted). Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "stageTvlReactiveEvaluation",
+        "operationId": "production_reactive.stage_evaluation",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -164,7 +164,7 @@
       "post": {
         "summary": "Record a producer watermark or slot completion",
         "description": "Customer monitors post `completed_through_end`; optimization reporters complete or defer their slot. Native completion is evaluator-owned and cannot be posted. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "completeTvlReactiveEvaluationProducer",
+        "operationId": "production_reactive.complete_evaluation",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -318,7 +318,7 @@
       "post": {
         "summary": "Record a human approval decision for one effect of an attempt",
         "description": "P-human only (portal/API session of a user with agent write access); an SDK API key is 403 forbidden. The server clock sets expiry. Not accepted before the attempt exists (Freeze). Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "createTvlReactiveGrant",
+        "operationId": "production_reactive.create_grant",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -460,7 +460,7 @@
       "get": {
         "summary": "Read one recorded grant",
         "description": "Read model of an approval grant. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "getTvlReactiveGrant",
+        "operationId": "production_reactive.get_grant",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -571,7 +571,7 @@
       "get": {
         "summary": "List attempts of an agent",
         "description": "Newest first; `after` is the ordinal returned as `next_after`. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "listTvlReactiveAttempts",
+        "operationId": "production_reactive.list_attempts",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -706,7 +706,7 @@
       "get": {
         "summary": "Read one attempt",
         "description": "Read model of an attempt. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "getTvlReactiveAttempt",
+        "operationId": "production_reactive.get_attempt",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -817,7 +817,7 @@
       "post": {
         "summary": "Reserve an attempt's next effect against a valid grant",
         "description": "P-ingest. Atomic compare-and-set against a valid grant and a free attempt; returns the server-issued generation. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "reserveTvlReactiveAttempt",
+        "operationId": "production_reactive.reserve_attempt",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -968,7 +968,7 @@
       "post": {
         "summary": "Authorize the start of a reserved effect",
         "description": "P-ingest, reservation holder. The external run launches only after the 201. No second start on an occurrence. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "startTvlReactiveAttempt",
+        "operationId": "production_reactive.start_attempt",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1119,7 +1119,7 @@
       "post": {
         "summary": "Report an effect outcome fact",
         "description": "P-ingest, reservation-holder generation. Outcome facts: finished, deploy_result, authority. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "reportTvlReactiveAttemptResult",
+        "operationId": "production_reactive.report_attempt_result",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1270,7 +1270,7 @@
       "post": {
         "summary": "Renew the lease of a reserved or started effect",
         "description": "P-ingest, reservation holder. Bound to the existing reservation and generation. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "renewTvlReactiveAttemptLease",
+        "operationId": "production_reactive.heartbeat_attempt",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1421,7 +1421,7 @@
       "get": {
         "summary": "Read what an approver needs to build a grant",
         "description": "P-human only (an SDK API key is 403 forbidden). Returns candidate fingerprint, gate-result digest, optimization-start generation and current head generation (both shown) and the attempt state. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "getTvlReactiveApprovalContext",
+        "operationId": "production_reactive.get_approval_context",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1532,7 +1532,7 @@
       "post": {
         "summary": "Human cancel of a lapsed started effect",
         "description": "P-human only, after confirming the process is gone. OPTIMIZATION attempts only: appends finished{cancelled} on the same occurrence; any other state is 409 attempt_not_open (a lapsed deployment recovers through finalize and deploy_result). Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "cancelTvlReactiveAttempt",
+        "operationId": "production_reactive.cancel_attempt",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1683,7 +1683,7 @@
       "get": {
         "summary": "List recorded notifications with their guard decisions",
         "description": "Read model; a notification is a recorded row, never described as sent. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "listTvlReactiveNotifications",
+        "operationId": "production_reactive.list_notifications",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -1831,7 +1831,7 @@
       "get": {
         "summary": "Read one recorded notification",
         "description": "Read model. Tenant and project come from the authenticated request context only (X-Tenant-Id, query strings and unknown body fields are never consulted or are refused). Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 {\"success\":false,\"error\":\"reference_not_found\",\"error_code\":\"reference_not_found\",\"message\":\"Reference not found.\"} before authentication and body processing, indistinguishable from a missing or inaccessible reference. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "getTvlReactiveNotification",
+        "operationId": "production_reactive.get_notification",
         "x-asserted-against-backend": false,
         "parameters": [
           {

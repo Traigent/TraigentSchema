@@ -10767,6 +10767,23 @@
       "reason": "truncated and empty_reason are added to the required list of the fine-tuning manifest response because the backend emits both on every successful export (core_domain_analytics_service.export_fine_tuning_manifest always sets 'truncated' and 'empty_reason', including empty and failed-to-record-job cases). Response-only requirement matching the real payload; it cannot reject any response the backend produces. A third-party producer or mock that omits them would now fail validation, which is the intended tightening: the old schema rejected the real payload, the new one accepts it.",
       "version": "Unreleased (C3-PR1c, analytics contracts)",
       "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/scorecard",
+          "role": "response",
+          "subject": "scorecard",
+          "old": false,
+          "new": true,
+          "fingerprint": "7f2920e53827c1c974e0415f0e807e70c6a410739da7ba5d5a31a81893eeddd2"
+        }
+      ],
+      "reason": "The agent readiness detail response gains the optional, nullable top-level scorecard (scores and per-area stats against the latest active config, or the current run when none is promoted). The response is additionalProperties:false, so a strict reader built from the previous schema rejects a body carrying it. Rollout rule: strict readers of the detail response must upgrade to this schema before the Backend starts emitting scorecard; the Backend change ships with this contract. Payloads without the field still validate.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/readiness-scorecard)"
     }
   ]
 }

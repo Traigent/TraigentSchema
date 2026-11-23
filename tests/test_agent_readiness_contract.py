@@ -1142,3 +1142,123 @@ def test_response_objects_are_closed_and_forbidden_content_names_are_absent() ->
         "agent_lifecycle_history_response_schema",
     ):
         walk(json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8")))
+
+
+def _scorecard(basis: str = "ACTIVE_CONFIG") -> dict[str, Any]:
+    return {
+        "basis": basis,
+        "config": {
+            "best_config_id": "bc-1",
+            "best_config_version": 3,
+            "generation": 2,
+            "environment": "production",
+            "promoted_at": "2026-09-19T23:30:00Z",
+            "promoted_by_run_id": "run-anchor",
+        }
+        if basis == "ACTIVE_CONFIG"
+        else None,
+        "run_id": "run-anchor",
+        "run_completed_at": "2026-09-19T23:00:00Z",
+        "metrics": deepcopy(_detail_payload()["journey"]["items"][0]["reported_metrics"]),
+        "areas": {
+            "evaluation_set": {
+                "example_count": 12,
+                "dataset_ref": {"kind": "evaluation_dataset", "id": "dataset-v1"},
+            },
+            "evaluator": {
+                "version_ref": {"kind": "evaluator_version", "id": "eval-v1"}
+            },
+            "evaluation_progress": {"stage": "EVALUATION_COMPLETED", "trials_run": 4},
+        },
+    }
+
+
+def test_scorecard_is_optional_nullable_and_valid() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    assert validator.validate_json(_detail_payload(), name) == []
+    for value in (None, _scorecard(), _scorecard("CURRENT_RUN")):
+        detail = _detail_payload()
+        detail["scorecard"] = value
+        assert validator.validate_json(detail, name) == []
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard("CURRENT_RUN")
+    detail["scorecard"]["areas"]["evaluation_progress"] = {
+        "stage": None,
+        "trials_run": None,
+    }
+    assert validator.validate_json(detail, name) == []
+
+
+def test_scorecard_is_closed_everywhere() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    mutations = [
+        lambda s: s.update(extra=1),
+        lambda s: s["config"].update(extra=1),
+        lambda s: s["areas"].update(extra=1),
+        lambda s: s["areas"]["evaluation_set"].update(extra=1),
+        lambda s: s["areas"]["evaluator"].update(extra=1),
+        lambda s: s["areas"]["evaluation_progress"].update(extra=1),
+        lambda s: s.update(basis="OTHER"),
+        lambda s: s.pop("metrics"),
+        lambda s: s["areas"]["evaluation_progress"].update(stage="BOGUS"),
+    ]
+    for mutate in mutations:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard()
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)
+
+
+def test_scorecard_basis_invariants() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+
+    def bad(basis: str, mutate: Any) -> None:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard(basis)
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)
+
+    bad("ACTIVE_CONFIG", lambda s: s.update(config=None))
+    bad("ACTIVE_CONFIG", lambda s: s["config"].update(generation=0))
+    bad("CURRENT_RUN", lambda s: s.update(run_id=None))
+    bad("CURRENT_RUN", lambda s: s.update(config=_scorecard()["config"]))
+    # a null run_id carries no run-derived stats
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None))
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None, metrics=[], run_completed_at=None))
+    bad(
+        "ACTIVE_CONFIG",
+        lambda s: (
+            s.update(run_id=None, metrics=[], run_completed_at=None),
+            s["areas"]["evaluation_set"].update(example_count=None),
+        ),
+    )
+    for path, key, value in (
+        (("areas", "evaluation_progress"), "stage", "EVALUATION_COMPLETED"),
+        (("areas", "evaluation_set"), "dataset_ref", {"kind": "evaluation_dataset", "id": "d"}),
+        (("areas", "evaluator"), "version_ref", {"kind": "evaluator_version", "id": "e"}),
+    ):
+
+        def leak(s: dict[str, Any], path: Any = path, key: str = key, value: Any = value) -> None:
+            s.update(run_id=None, run_completed_at=None, metrics=[])
+            s["areas"] = {
+                "evaluation_set": {"example_count": None, "dataset_ref": None},
+                "evaluator": {"version_ref": None},
+                "evaluation_progress": {"stage": None, "trials_run": None},
+            }
+            s[path[0]][path[1]][key] = value
+
+        bad("ACTIVE_CONFIG", leak)
+    # an active config whose run did not resolve is valid with every run-derived stat null
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard()
+    unresolved = detail["scorecard"]
+    unresolved.update(run_id=None, run_completed_at=None, metrics=[])
+    unresolved["areas"] = {
+        "evaluation_set": {"example_count": None, "dataset_ref": None},
+        "evaluator": {"version_ref": None},
+        "evaluation_progress": {"stage": None, "trials_run": None},
+    }
+    assert validator.validate_json(detail, name) == []

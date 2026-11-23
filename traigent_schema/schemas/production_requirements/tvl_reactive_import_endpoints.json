@@ -10,7 +10,7 @@
       "post": {
         "summary": "Import a compiled TVL runtime contract",
         "description": "Existing create-only import route (Backend: POST /production-requirements/tvl-import). This contract models only the reactive receipt response; the legacy native response and the import request body are outside this contract (no schema for them exists in this repo). A zero-native contract creates no production requirement and returns ReactiveImportReceipt: 201 first import, new digest with the same semantics, or policy edit; 200 exact replay; 409 genuine native conflict or environment rebinding. P-human only. Tenant and project come from the authenticated request context only. Dark behind PRODUCTION_REQUIREMENTS_ENABLED: while off the route answers the closed 404 reference_not_found. Every error body is the closed envelope tvl_reactive_common_schema.json#/definitions/Refusal except 429.",
-        "operationId": "project_production_requirements.import_project_requirement_from_tvl",
+        "operationId": "importTvlReactiveContract",
         "x-asserted-against-backend": false,
         "parameters": [
           {

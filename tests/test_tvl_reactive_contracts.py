@@ -1574,7 +1574,7 @@ def _receipt(**o):
 
 def test_reactive_import_receipt_is_closed_and_the_only_modelled_response():
     post = load(IMPORT_CATALOG)["paths"][IMPORT_PATH]["post"]
-    assert post["operationId"] == "project_production_requirements.import_project_requirement_from_tvl"
+    assert post["operationId"] == "importTvlReactiveContract"
     assert {"200", "201", "409"} <= set(post["responses"])
     assert not RECEIPT(_receipt())
     assert not RECEIPT(_receipt(created=False, monitors=[]))

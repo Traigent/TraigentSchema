@@ -161,6 +161,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/compute": {
       "post": {
         "summary": "Start example scoring computation",
+        "operationId": "example_scoring.compute_example_scores",
         "requestBody": {
           "required": true,
           "content": {
@@ -182,6 +183,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/features": {
       "post": {
         "summary": "Upload example-scoring features",
+        "operationId": "example_scoring.upload_example_features",
         "requestBody": {
           "required": true,
           "content": {
@@ -203,6 +205,7 @@
     "/api/v1/analytics/example-scoring/jobs/{job_id}": {
       "get": {
         "summary": "Get scoring job status",
+        "operationId": "example_scoring.get_job_status",
         "responses": {
           "200": {
             "description": "Scoring job retrieved successfully",
@@ -220,6 +223,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/scores": {
       "get": {
         "summary": "Get example scores",
+        "operationId": "example_scoring.get_example_scores",
         "responses": {
           "200": {
             "description": "Example scores retrieved successfully",
@@ -240,6 +244,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality": {
       "get": {
         "summary": "Get dataset quality summary",
+        "operationId": "example_scoring.get_dataset_quality",
         "responses": {
           "200": {
             "description": "Dataset quality retrieved successfully",
@@ -257,6 +262,7 @@
     "/api/v1/analytics/experiments/{experiment_run_id}/next-steps": {
       "get": {
         "summary": "Get experiment next-step recommendations",
+        "operationId": "next_steps.get_next_steps",
         "responses": {
           "200": {
             "description": "Next-step recommendations retrieved successfully",
@@ -277,6 +283,7 @@
     "/api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt": {
       "post": {
         "summary": "Record an idempotent execution receipt for an authoritative next-step decision",
+        "operationId": "next_steps.record_next_step_receipt",
         "requestBody": {
           "required": true,
           "content": {
@@ -313,6 +320,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice": {
       "get": {
         "summary": "Get dataset curation advice",
+        "operationId": "example_scoring.get_curation_advice",
         "responses": {
           "200": {
             "description": "Curation advice retrieved successfully",
@@ -330,6 +338,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/summary": {
       "get": {
         "summary": "Get example-scoring summary",
+        "operationId": "example_scoring.get_scoring_summary",
         "responses": {
           "200": {
             "description": "Analytics summary retrieved successfully"

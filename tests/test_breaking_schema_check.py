@@ -2306,3 +2306,81 @@ def test_dialect_switch_in_a_referenced_document_gets_no_shortcut(tmp_path: Path
     assert "response_narrowed_by_allof" not in result.stdout, result.stdout
     assert "unresolved_ref" not in result.stdout, result.stdout
     assert result.returncode == 1, result.stdout
+
+
+# --- response-level $ref is resolved before bodies are compared ------------------------------
+def _ref_response_doc(response: dict, component: dict | None = None) -> dict:
+    doc: dict = {
+        "paths": {"/w": {"get": {"responses": {"200": response}}}},
+    }
+    if component is not None:
+        doc["components"] = {"responses": {"Widget": component}}
+    return doc
+
+
+def _widget_component(required: list[str], media_type: str = "application/json") -> dict:
+    return {
+        "description": "widget",
+        "content": {
+            media_type: {
+                "schema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": required,
+                }
+            }
+        },
+    }
+
+
+_WIDGET_REF = {"$ref": "#/components/responses/Widget"}
+
+
+def _response_ref_gate(tmp_path: Path, name: str, old_doc: dict, new_doc: dict):
+    filename = "widget_endpoints.json"
+    repo = _response_schema_repo(tmp_path / name, filename, old_doc)
+    _commit_schema_change(repo, "change", new_doc, "change", filename)
+    return _run_gate(repo, "master", "change")
+
+
+def test_response_ref_component_dropping_required_field_is_breaking(tmp_path: Path) -> None:
+    old = _ref_response_doc(_WIDGET_REF, _widget_component(["id", "name"]))
+    new = _ref_response_doc(_WIDGET_REF, _widget_component(["id"]))
+    result = _response_ref_gate(tmp_path, "drop", old, new)
+    assert result.returncode == 1, result.stdout
+    assert "role=response" in result.stdout, result.stdout
+
+
+def test_response_ref_component_media_type_change_is_breaking(tmp_path: Path) -> None:
+    old = _ref_response_doc(_WIDGET_REF, _widget_component(["id"]))
+    new = _ref_response_doc(_WIDGET_REF, _widget_component(["id"], "application/xml"))
+    result = _response_ref_gate(tmp_path, "media", old, new)
+    assert result.returncode == 1, result.stdout
+    assert "schema_removed" in result.stdout, result.stdout
+
+
+def test_identical_response_ref_has_no_finding(tmp_path: Path) -> None:
+    doc = _ref_response_doc(_WIDGET_REF, _widget_component(["id", "name"]))
+    other = json.loads(json.dumps(doc))
+    other["info"] = {"title": "unrelated edit"}
+    result = _response_ref_gate(tmp_path, "same", doc, other)
+    assert result.returncode == 0, result.stdout
+    assert "role=response" not in result.stdout, result.stdout
+
+
+def test_response_changing_from_inline_to_equivalent_ref_is_not_breaking(tmp_path: Path) -> None:
+    component = _widget_component(["id", "name"])
+    old = _ref_response_doc(json.loads(json.dumps(component)))
+    new = _ref_response_doc(_WIDGET_REF, component)
+    result = _response_ref_gate(tmp_path, "inline2ref", old, new)
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout, result.stdout
+
+
+def test_unresolvable_response_ref_is_breaking_not_silent(tmp_path: Path) -> None:
+    old = _ref_response_doc(_WIDGET_REF, _widget_component(["id"]))
+    new = _ref_response_doc({"$ref": "#/components/responses/Missing"}, _widget_component(["id"]))
+    result = _response_ref_gate(tmp_path, "dangling", old, new)
+    assert result.returncode == 1, result.stdout
+    assert "unresolved_ref" in result.stdout, result.stdout
+    assert "HEAD side" in result.stdout, result.stdout

@@ -56,6 +56,9 @@ CONTENT_FIELDS = {
     "evaluation/experiment_run_schema.json": ["message", "name", "description"],
     # the same narrative on the way in, at session creation.
     "optimization/optimization_endpoints.json": ["run_title", "run_description"],
+    # display names of the resolved tenant/project: customer-chosen labels, returned only to the
+    # authorized human reader (experiment context resolution).
+    "evaluation/experiment_context_schema.json": ["tenant_name", "project_name"],
 }
 
 

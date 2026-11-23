@@ -27,12 +27,16 @@
         "tenant_name": {
           "type": "string",
           "minLength": 1,
-          "description": "Optional display name of tenant_id, for the \"Opened in workspace X / project Y\" toast. Absent does not imply the tenant lacks a name; the client falls back to tenant_id."
+          "description": "Optional display name of tenant_id, for the \"Opened in workspace X / project Y\" toast. Absent does not imply the tenant lacks a name; the client falls back to tenant_id. Customer content: returned only to the authorized human reader; never logged, never sent to telemetry or the Director.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "project_name": {
           "type": "string",
           "minLength": 1,
-          "description": "Optional display name of project_id, for the same toast. Absent does not imply the project lacks a name; the client falls back to project_id."
+          "description": "Optional display name of project_id, for the same toast. Absent does not imply the project lacks a name; the client falls back to project_id. Customer content: returned only to the authorized human reader; never logged, never sent to telemetry or the Director.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         }
       }
     },

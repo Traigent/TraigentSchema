@@ -51,20 +51,6 @@ FULLY_COVERED = (
 # at runtime; giving them a 429 needs an owner decision on the envelope, so they are
 # excluded here rather than silently counted. The reason for each group is noted inline.
 DELIBERATE_EXCEPTIONS = {
-    # Every experiment-group 4xx/5xx must reference the strict ExperimentGroupErrorEnvelope
-    # subtype (test_experiment_group_contract.py), which has no 429 variant yet.
-    ("execution/execution_endpoints.json", "get", "/api/v1/experiment-groups"),
-    ("execution/execution_endpoints.json", "get", "/api/v1/experiment-groups/{group_id}"),
-    (
-        "execution/execution_endpoints.json",
-        "get",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs",
-    ),
-    (
-        "execution/execution_endpoints.json",
-        "post",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs/query",
-    ),
     # Pre-release v1beta ingest pins its response set to exactly {202, 410}
     # (test_observability_v2_contract.py).
     ("observability/observability_endpoints.json", "post", "/api/v1beta/observability/ingest"),
@@ -95,6 +81,17 @@ DELIBERATE_EXCEPTIONS = {
         "post",
         "/api/v1beta/evaluators/{evaluator_id}/execute",
     ),
+}
+
+# The experiment-group operations (API revision W9) declare their 429 as a closed
+# application/problem+json body (the GroupsRateLimited response component), not the
+# application/json rate_limit_info envelope.
+PROBLEM_JSON_429 = {
+    ("execution/execution_endpoints.json", "post", "/api/v1/projects/{project_id}/experiment-groups/search"),
+    ("execution/execution_endpoints.json", "get", "/api/v1/projects/{project_id}/experiment-groups/{group_ref}"),
+    ("execution/execution_endpoints.json", "get", "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs"),
+    ("execution/execution_endpoints.json", "post", "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query"),
+    ("execution/execution_endpoints.json", "get", "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments"),
 }
 
 # The v1 envelope, plus the v2 observability API's own error envelope (pre-existing on
@@ -161,6 +158,9 @@ def test_fixed_catalogs_429_points_at_the_canonical_rate_limit_envelope(rel: str
             or _is_exempt(path)
             or (rel, method, path) in DELIBERATE_EXCEPTIONS
         ):
+            continue
+        if (rel, method, path) in PROBLEM_JSON_429:
+            assert op["responses"]["429"] == {"$ref": "#/components/responses/GroupsRateLimited"}
             continue
         ref = op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"]
         resolved = posixpath.normpath(posixpath.join(posixpath.dirname(rel), ref))

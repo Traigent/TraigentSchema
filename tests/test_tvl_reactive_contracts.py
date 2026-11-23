@@ -780,11 +780,11 @@ def test_principal_split_is_stated_on_authority_routes():
         for item in load(OPT / "tvl_reactive_endpoints.json")["paths"].values()
         for o in item.values()
     }
-    assert "P-human only" in ops["createTvlReactiveGrant"]["description"]
-    assert "P-human only" in ops["cancelTvlReactiveAttempt"]["description"]
-    assert "P-ingest" in ops["reserveTvlReactiveAttempt"]["description"]
-    assert "fact_source_not_permitted" in ops["stageTvlReactiveEvaluation"]["description"]
-    assert "201" in ops["startTvlReactiveAttempt"]["description"]
+    assert "P-human only" in ops["production_reactive.create_grant"]["description"]
+    assert "P-human only" in ops["production_reactive.cancel_attempt"]["description"]
+    assert "P-ingest" in ops["production_reactive.reserve_attempt"]["description"]
+    assert "fact_source_not_permitted" in ops["production_reactive.stage_evaluation"]["description"]
+    assert "201" in ops["production_reactive.start_attempt"]["description"]
 
 
 def test_every_ref_resolves():
@@ -1056,8 +1056,8 @@ def test_approval_context_is_closed_and_human_only():
         for item in load(OPT / "tvl_reactive_endpoints.json")["paths"].values()
         for o in item.values()
     }
-    assert "P-human only" in ops["getTvlReactiveApprovalContext"]["description"]
-    assert "both shown" in ops["getTvlReactiveApprovalContext"]["description"]
+    assert "P-human only" in ops["production_reactive.get_approval_context"]["description"]
+    assert "both shown" in ops["production_reactive.get_approval_context"]["description"]
 
 
 def test_lease_renewal_is_bound_to_the_existing_reservation():
@@ -1574,7 +1574,7 @@ def _receipt(**o):
 
 def test_reactive_import_receipt_is_closed_and_the_only_modelled_response():
     post = load(IMPORT_CATALOG)["paths"][IMPORT_PATH]["post"]
-    assert post["operationId"] == "importTvlReactiveContract"
+    assert post["operationId"] == "project_production_requirements.import_project_requirement_from_tvl"
     assert {"200", "201", "409"} <= set(post["responses"])
     assert not RECEIPT(_receipt())
     assert not RECEIPT(_receipt(created=False, monitors=[]))

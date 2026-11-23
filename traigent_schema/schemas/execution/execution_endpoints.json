@@ -871,6 +871,7 @@
     "/api/v1/configuration-runs/runs/{experiment_run_id}/configurations": {
       "get": {
         "summary": "List configuration runs through configuration-run routes",
+        "operationId": "configuration_run.get_configuration_runs",
         "responses": {
           "200": {
             "description": "Configuration runs retrieved successfully"
@@ -889,6 +890,7 @@
       },
       "post": {
         "summary": "Create configuration run",
+        "operationId": "configuration_run.create_configuration_run",
         "requestBody": {
           "required": true,
           "content": {
@@ -919,6 +921,7 @@
     "/api/v1/configuration-runs/{config_run_id}": {
       "get": {
         "summary": "Get configuration run",
+        "operationId": "configuration_run.get_configuration_run",
         "responses": {
           "200": {
             "description": "Configuration run retrieved successfully",
@@ -944,6 +947,7 @@
       },
       "put": {
         "summary": "Update configuration run",
+        "operationId": "configuration_run.update_configuration_run",
         "requestBody": {
           "required": true,
           "content": {
@@ -972,6 +976,7 @@
       },
       "delete": {
         "summary": "Delete configuration run",
+        "operationId": "configuration_run.delete_configuration_run",
         "responses": {
           "204": {
             "description": "Configuration run deleted successfully"
@@ -992,6 +997,7 @@
     "/api/v1/configuration-runs/{config_run_id}/status": {
       "put": {
         "summary": "Update configuration run status",
+        "operationId": "configuration_run.update_configuration_run_status",
         "requestBody": {
           "required": true,
           "content": {
@@ -1037,6 +1043,7 @@
     "/api/v1/configuration-runs/{config_run_id}/measures": {
       "put": {
         "summary": "Update configuration run measures",
+        "operationId": "configuration_run.update_configuration_run_measures",
         "requestBody": {
           "required": true,
           "content": {
@@ -1067,6 +1074,7 @@
     "/api/v1/configuration-runs/{config_run_id}/summary-stats": {
       "put": {
         "summary": "Update configuration run summary stats",
+        "operationId": "configuration_run.update_configuration_run_summary_stats",
         "requestBody": {
           "required": true,
           "content": {
@@ -1106,6 +1114,7 @@
     "/api/v1/configuration-runs/{config_run_id}/workflow-metadata": {
       "put": {
         "summary": "Update configuration run workflow metadata",
+        "operationId": "configuration_run.update_configuration_run_workflow_metadata",
         "requestBody": {
           "required": true,
           "content": {
@@ -2050,6 +2059,40 @@
           },
           "429": {
             "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/configuration-runs/{config_run_id}/cancel": {
+      "post": {
+        "summary": "Cancel configuration run",
+        "operationId": "configuration_run.cancel_configuration_run",
+        "responses": {
+          "200": {
+            "description": "Configuration run cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../evaluation/configuration_run_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Configuration run not found"
+          },
+          "409": {
+            "description": "Configuration run is already in a terminal state"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {

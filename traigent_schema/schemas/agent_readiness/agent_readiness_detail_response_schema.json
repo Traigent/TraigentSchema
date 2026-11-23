@@ -662,6 +662,21 @@
           "then": {
             "properties": {"config": {"type": "null"}, "run_id": {"type": "string"}}
           }
+        },
+        {
+          "if": {"properties": {"run_id": {"type": "null"}}, "required": ["run_id"]},
+          "then": {
+            "properties": {
+              "run_completed_at": {"type": "null"},
+              "metrics": {"maxItems": 0},
+              "areas": {
+                "properties": {
+                  "evaluation_set": {"properties": {"example_count": {"type": "null"}}},
+                  "evaluation_progress": {"properties": {"trials_run": {"type": "null"}}}
+                }
+              }
+            }
+          }
         }
       ]
     },

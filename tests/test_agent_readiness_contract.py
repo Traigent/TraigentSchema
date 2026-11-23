@@ -1225,9 +1225,24 @@ def test_scorecard_basis_invariants() -> None:
     bad("ACTIVE_CONFIG", lambda s: s["config"].update(generation=0))
     bad("CURRENT_RUN", lambda s: s.update(run_id=None))
     bad("CURRENT_RUN", lambda s: s.update(config=_scorecard()["config"]))
-    # an active config whose run did not resolve is still valid (config set, run absent)
+    # a null run_id carries no run-derived stats
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None))
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None, metrics=[], run_completed_at=None))
+    bad(
+        "ACTIVE_CONFIG",
+        lambda s: (
+            s.update(run_id=None, metrics=[], run_completed_at=None),
+            s["areas"]["evaluation_set"].update(example_count=None),
+        ),
+    )
+    # an active config whose run did not resolve is valid with every run-derived stat null
     detail = _detail_payload()
     detail["scorecard"] = _scorecard()
-    detail["scorecard"]["run_id"] = None
-    detail["scorecard"]["metrics"] = []
+    unresolved = detail["scorecard"]
+    unresolved.update(run_id=None, run_completed_at=None, metrics=[])
+    unresolved["areas"] = {
+        "evaluation_set": {"example_count": None, "dataset_ref": None},
+        "evaluator": {"version_ref": None},
+        "evaluation_progress": {"stage": None, "trials_run": None},
+    }
     assert validator.validate_json(detail, name) == []

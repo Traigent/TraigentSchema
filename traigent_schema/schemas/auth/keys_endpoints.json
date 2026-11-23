@@ -13,12 +13,12 @@
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./api_key_create_request_schema.json"}}}},
         "responses": {
           "201": {"description": "API key created.", "content": {"application/json": {"schema": {"$ref": "./api_key_create_response_schema.json"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "409": {"$ref": "#/components/responses/Conflict"},
+          "400": {"$ref": "#/components/responses/ApiKeyBadRequest"},
+          "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"},
+          "403": {"$ref": "#/components/responses/ApiKeyForbidden"},
+          "409": {"$ref": "#/components/responses/ApiKeyConflict"},
           "429": {"description": "Too many requests.", "content": {"application/json": {"schema": {"$ref": "../rate_limit_info_schema.json"}}}},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       },
       "get": {
@@ -35,10 +35,10 @@
         ],
         "responses": {
           "200": {"description": "API keys page.", "content": {"application/json": {"schema": {"$ref": "./api_key_list_response_schema.json"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "400": {"$ref": "#/components/responses/ApiKeyBadRequest"},
+          "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"},
+          "403": {"$ref": "#/components/responses/ApiKeyForbidden"},
+          "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       }
     },
@@ -49,7 +49,7 @@
         "operationId": "getApiKey",
         "responses": {
           "200": {"description": "API key detail.", "content": {"application/json": {"schema": {"$ref": "./api_key_detail_response_schema.json"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       },
       "put": {
@@ -58,7 +58,7 @@
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./api_key_update_request_schema.json"}}}},
         "responses": {
           "200": {"description": "API key updated.", "content": {"application/json": {"schema": {"$ref": "./api_key_detail_response_schema.json"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "400": {"$ref": "#/components/responses/ApiKeyBadRequest"}, "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       },
       "delete": {
@@ -66,7 +66,7 @@
         "operationId": "revokeApiKey",
         "responses": {
           "200": {"description": "API key revoked.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       }
     },
@@ -78,7 +78,7 @@
         "requestBody": {"content": {"application/json": {"schema": {"$ref": "./api_key_rotate_request_schema.json"}}}},
         "responses": {
           "200": {"description": "API key rotated. The returned new_key is available only in this response.", "content": {"application/json": {"schema": {"$ref": "./api_key_rotate_response_schema.json"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "400": {"$ref": "#/components/responses/ApiKeyBadRequest"}, "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       }
     },
@@ -90,7 +90,7 @@
         "requestBody": {"content": {"application/json": {"schema": {"$ref": "./api_key_action_request_schema.json"}}}},
         "responses": {
           "200": {"description": "API key suspended.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "409": {"$ref": "#/components/responses/Conflict"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "409": {"$ref": "#/components/responses/ApiKeyConflict"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       }
     },
@@ -101,7 +101,7 @@
         "operationId": "reactivateApiKey",
         "responses": {
           "200": {"description": "API key reactivated.", "content": {"application/json": {"schema": {"$ref": "./api_key_action_response_schema.json"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}
+          "400": {"$ref": "#/components/responses/ApiKeyBadRequest"}, "401": {"$ref": "#/components/responses/ApiKeyUnauthorized"}, "403": {"$ref": "#/components/responses/ApiKeyForbidden"}, "404": {"$ref": "#/components/responses/ApiKeyNotFound"}, "500": {"$ref": "#/components/responses/ApiKeyInternalError"}
         }
       }
     },
@@ -123,12 +123,12 @@
   },
   "components": {
     "responses": {
-      "BadRequest": {"description": "Invalid request.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
-      "Unauthorized": {"description": "Authentication is required.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
-      "Forbidden": {"description": "The action is not permitted.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
-      "NotFound": {"description": "API key was not found.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
-      "Conflict": {"description": "The requested lifecycle action conflicts with the current API key state.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
-      "InternalError": {"description": "The request could not be completed.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
+      "ApiKeyBadRequest": {"description": "Invalid request.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "ApiKeyUnauthorized": {"description": "Authentication is required.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "ApiKeyForbidden": {"description": "The action is not permitted.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "ApiKeyNotFound": {"description": "API key was not found.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "ApiKeyConflict": {"description": "The requested lifecycle action conflicts with the current API key state.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
+      "ApiKeyInternalError": {"description": "The request could not be completed.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
     }
   }
 }

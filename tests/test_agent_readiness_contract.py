@@ -1235,6 +1235,22 @@ def test_scorecard_basis_invariants() -> None:
             s["areas"]["evaluation_set"].update(example_count=None),
         ),
     )
+    for path, key, value in (
+        (("areas", "evaluation_progress"), "stage", "EVALUATION_COMPLETED"),
+        (("areas", "evaluation_set"), "dataset_ref", {"kind": "evaluation_dataset", "id": "d"}),
+        (("areas", "evaluator"), "version_ref", {"kind": "evaluator_version", "id": "e"}),
+    ):
+
+        def leak(s: dict[str, Any], path: Any = path, key: str = key, value: Any = value) -> None:
+            s.update(run_id=None, run_completed_at=None, metrics=[])
+            s["areas"] = {
+                "evaluation_set": {"example_count": None, "dataset_ref": None},
+                "evaluator": {"version_ref": None},
+                "evaluation_progress": {"stage": None, "trials_run": None},
+            }
+            s[path[0]][path[1]][key] = value
+
+        bad("ACTIVE_CONFIG", leak)
     # an active config whose run did not resolve is valid with every run-derived stat null
     detail = _detail_payload()
     detail["scorecard"] = _scorecard()

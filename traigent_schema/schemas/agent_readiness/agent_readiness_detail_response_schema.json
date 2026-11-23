@@ -671,8 +671,13 @@
               "metrics": {"maxItems": 0},
               "areas": {
                 "properties": {
-                  "evaluation_set": {"properties": {"example_count": {"type": "null"}}},
-                  "evaluation_progress": {"properties": {"trials_run": {"type": "null"}}}
+                  "evaluation_set": {
+                    "properties": {"example_count": {"type": "null"}, "dataset_ref": {"type": "null"}}
+                  },
+                  "evaluator": {"properties": {"version_ref": {"type": "null"}}},
+                  "evaluation_progress": {
+                    "properties": {"trials_run": {"type": "null"}, "stage": {"type": "null"}}
+                  }
                 }
               }
             }

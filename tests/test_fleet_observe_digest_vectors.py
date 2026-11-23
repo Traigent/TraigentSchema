@@ -179,3 +179,21 @@ def test_repository_host_edge_rules():
     remotes = {v["remote"] for v in REPO["valid"]}
     assert {"git@forge:org/repo.git", "https://github.com./acme/agents"} <= remotes
     assert {"https://github.com../acme/agents", "git@forge..:org/repo.git"} <= set(REPO["invalid"])
+
+
+@pytest.mark.parametrize(
+    ("remote", "message"),
+    [
+        (5, "invalid repository remote"),
+        ("a@host/path", "invalid repository remote"),
+        ("https://[::1/p", "invalid repository host"),
+        ("https://host../p", "invalid repository host"),
+        ("https://host:70000/p", "invalid repository host"),
+        ("ftp://host/p", "unsupported repository scheme"),
+        ("https://host/..", "invalid repository path"),
+    ],
+)
+def test_repository_error_messages_are_stable(remote, message):
+    # Pins the messages across the helper extraction (old-vs-new fuzz, 200k inputs, was equal).
+    with pytest.raises(ValueError, match=message):
+        digest.canonical_repository(remote)

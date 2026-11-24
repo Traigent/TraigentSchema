@@ -1088,7 +1088,7 @@ def _compare_properties(
         if name in old_props and name not in new_props:
             _property_removed(scope, child_pointer, name, new_rank)
         elif name not in old_props and name in new_props:
-            _property_added(scope, child_pointer, name, old_rank)
+            _property_added(scope, child_pointer, name, old_rank, new_props[name], old)
         else:
             scope.recurse(old_props[name], new_props[name], child_pointer)
 
@@ -1117,7 +1117,85 @@ def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank
         )
 
 
-def _property_added(scope: _NodeScope, child_pointer: str, name: str, old_rank: int) -> None:
+# Keys that never reject a value. Anything else (type, enum, const, format, pattern, bounds,
+# items, properties, required, $ref, combinators, not, if/then/else, nullable) counts as a
+# constraint, so the test is deliberately conservative. x-* extensions are annotation-only.
+_NON_CONSTRAINING_KEYS = _ANNOTATION_KEYS | {"default", "deprecated", "readOnly", "writeOnly"}
+
+
+def _accepts_every_value(schema: Any) -> bool:
+    """True only when ``schema`` provably accepts every JSON value: ``true``, or an object
+    carrying nothing but annotation keywords (so ``{}``). Any other keyword, including an
+    unresolved ``$ref`` or an unknown one, is treated as a constraint."""
+    if schema is True:
+        return True
+    if not isinstance(schema, dict):
+        return False
+    return all(key in _NON_CONSTRAINING_KEYS or key.startswith("x-") for key in schema)
+
+
+def _pattern_matches(pattern: str, name: str) -> bool:
+    try:
+        return re.search(pattern, name) is not None
+    except re.error:
+        return True  # unknown regex: assume it governs the name (conservative)
+
+
+def _name_previously_accepted(old: dict, name: str, old_rank: int) -> bool:
+    """True when the old schema let a not-yet-declared key ``name`` through: the object was
+    open, an additionalProperties value schema applied, or an old patternProperties pattern
+    matched it. Only a fully closed object with no matching pattern rejected every value."""
+    if old_rank < 2:
+        return True
+    return any(_pattern_matches(pat, name) for pat in _as_dict(old.get("patternProperties")))
+
+
+def _request_narrowing_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    rule: str,
+    subject: str,
+    new_schema: Any,
+    *,
+    previously_accepted: bool,
+    old_rank: int,
+) -> bool:
+    """Request/conservative roles: a constrained schema newly applied to a key (or pattern)
+    the old schema accepted under any looser rule can reject previously valid payloads.
+    No equality shortcut: an identical-looking schema or $ref can resolve differently across
+    revisions, and pattern/property/additionalProperties rules combine per key. A genuinely
+    unchanged addition is acknowledged through the allowlist. Emits BREAKING and returns True
+    in that case."""
+    if scope.role == "response" or _accepts_every_value(new_schema):
+        return False
+    if scope.role == "conservative" and old_rank >= 1:
+        return False  # the union role is already BREAKING through the keyword routing below
+    if not previously_accepted:
+        return False
+    scope.emit(
+        child_pointer,
+        rule,
+        "BREAKING",
+        (
+            f"{rule.split('_')[0]} '{subject}' added with a constrained schema while the old "
+            "schema accepted that key under a looser rule; a previously valid payload the new "
+            f"schema rejects is now invalid [{subject}]"
+        ),
+        subject=subject,
+        old=False,
+        new=True,
+    )
+    return True
+
+
+def _property_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    name: str,
+    old_rank: int,
+    new_schema: Any = None,
+    old: dict | None = None,
+) -> None:
     # A request can safely grow an object shape: submissions valid against the
     # old schema remain valid.  A response is the mirror image only when old
     # consumers could already accept the new member.  An old closed object
@@ -1129,6 +1207,12 @@ def _property_added(scope: _NodeScope, child_pointer: str, name: str, old_rank: 
     # This intentionally applies whether the new property is optional or
     # required.  ``required`` answers whether the producer promises to emit
     # it, not whether an old strict consumer can parse it when it does.
+    if _request_narrowing_added(
+        scope, child_pointer, "property_added", name, new_schema,
+        previously_accepted=_name_previously_accepted(old or {}, name, old_rank),
+        old_rank=old_rank,
+    ):
+        return
     if old_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -1175,12 +1259,30 @@ def _compare_pattern_properties(
                 new=False,
             )
         elif pat not in old_pp and pat in new_pp:
-            _pattern_property_added(scope, child_pointer, pat, old_rank)
+            _pattern_property_added(scope, child_pointer, pat, old_rank, new_pp[pat], old)
         else:
             scope.recurse(old_pp[pat], new_pp[pat], child_pointer)
 
 
-def _pattern_property_added(scope: _NodeScope, child_pointer: str, pat: str, old_rank: int) -> None:
+def _pattern_property_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    pat: str,
+    old_rank: int,
+    new_schema: Any = None,
+    old: dict | None = None,
+) -> None:
+    has_old_patterns = bool(_as_dict((old or {}).get("patternProperties")))
+    if _request_narrowing_added(
+        scope, child_pointer, "patternProperties_added", pat, new_schema,
+        previously_accepted=(
+            old_rank < 2
+            or has_old_patterns
+            or any(_pattern_matches(pat, name) for name in _as_dict((old or {}).get("properties")))
+        ),
+        old_rank=old_rank,
+    ):
+        return
     if old_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -1429,15 +1531,24 @@ class _OperationScope:
     def emit(self, pointer: str, rule: str, severity: Severity, role: str, message: str) -> None:
         emit(self.findings, self.file, pointer, rule, severity, role, message)
 
-    def media(self, old_content: Any, new_content: Any, *, role: Role, pointer: str) -> None:
+    def media(
+        self,
+        old_content: Any,
+        new_content: Any,
+        *,
+        role: Role,
+        pointer: str,
+        old_base: str | None = None,
+        new_base: str | None = None,
+    ) -> None:
         _compare_media_schemas(
             old_content,
             new_content,
             role=role,
             file=self.file,
             pointer=pointer,
-            old_base=self.old_base,
-            new_base=self.new_base,
+            old_base=self.old_base if old_base is None else old_base,
+            new_base=self.new_base if new_base is None else new_base,
             old_reg=self.old_reg,
             new_reg=self.new_reg,
             findings=self.findings,
@@ -1593,12 +1704,52 @@ def _compare_responses(scope: _OperationScope, pointer: str, old_op: dict, new_o
                 ptr, "response_status_added", "INFO", "response", f"response status {status} added"
             )
         else:
-            scope.media(
-                _as_dict(old_resp[status]).get("content"),
-                _as_dict(new_resp[status]).get("content"),
-                role="response",
-                pointer=ptr,
-            )
+            _compare_response_pair(scope, ptr, old_resp[status], new_resp[status])
+
+
+def _compare_response_pair(scope: _OperationScope, ptr: str, old_raw: Any, new_raw: Any) -> None:
+    """Resolve a response given as a (possibly chained) `$ref` to its component on each side's
+    own document/registry, then compare the bodies. The media schemas resolve against the base
+    URI of the document the response object was found in, which may differ from the operation's."""
+    try:
+        old_r, old_base, _, old_cyclic = deref(old_raw, scope.old_base, scope.old_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the BASE side could not be resolved: {exc}",
+        )
+        return
+    try:
+        new_r, new_base, _, new_cyclic = deref(new_raw, scope.new_base, scope.new_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the HEAD side could not be resolved: {exc}",
+        )
+        return
+    if old_cyclic or new_cyclic:
+        scope.emit(
+            ptr,
+            "cyclic_ref",
+            "INFO",
+            "response",
+            "recursive response $ref chain detected; not compared further",
+        )
+        return
+    scope.media(
+        _as_dict(old_r).get("content"),
+        _as_dict(new_r).get("content"),
+        role="response",
+        pointer=ptr,
+        old_base=old_base,
+        new_base=new_base,
+    )
 
 
 def compare_endpoints_file(

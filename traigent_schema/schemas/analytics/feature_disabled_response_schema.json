@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/feature_disabled_response_schema.json",
+  "title": "FeatureDisabledResponse",
+  "description": "501 body returned by the IRT fit operation when the empirical intelligence feature is disabled for the deployment. Every text field is fixed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "error",
+    "message",
+    "error_code",
+    "feature",
+    "local_mode",
+    "upgrade_message"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false,
+      "description": "Always false.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "error": {
+      "type": "string",
+      "const": "Empirical Intelligence feature not implemented",
+      "description": "Always Empirical Intelligence feature not implemented: the only feature this operation requires.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "const": "The 'empirical_intelligence' feature is disabled in local mode",
+      "description": "Always The 'empirical_intelligence' feature is disabled in local mode.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "error_code": {
+      "type": "string",
+      "const": "FEATURE_DISABLED",
+      "description": "Always FEATURE_DISABLED.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "feature": {
+      "type": "string",
+      "const": "empirical_intelligence",
+      "description": "Always empirical_intelligence: the feature the operation requires.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "local_mode": {
+      "type": "boolean",
+      "description": "Whether the deployment runs in local mode.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "upgrade_message": {
+      "type": "string",
+      "enum": [
+        "This feature is available in our cloud platform. Contact us to upgrade."
+      ],
+      "description": "Fixed text: This feature is available in our cloud platform. Contact us to upgrade.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  }
+}

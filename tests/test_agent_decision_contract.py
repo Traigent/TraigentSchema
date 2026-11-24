@@ -313,12 +313,12 @@ def test_every_object_in_domain_is_closed():
 
 def test_endpoints_wire_schemas():
     cat = _load("agent_decision/agent_decision_endpoints.json")
-    base = "/api/v1beta/agent-decisions/"
-    ens = cat["paths"][base + "{agent_id}/ensure"]["post"]
+    base = "/api/v1/projects/{project_id}/agents/{agent_ref}/decisions/"
+    ens = cat["paths"][base + "ensure"]["post"]
     assert ens["requestBody"]["content"]["application/json"]["schema"]["$ref"] == (
         "./agent_decision_ensure_request_schema.json"
     )
-    assert "get" in cat["paths"][base + "{agent_id}/latest"]
+    assert "get" in cat["paths"][base + "latest"]
     ans = cat["paths"][base + "{decision_id}/answer"]["post"]
     assert set(ans["responses"]) == {"200", "401", "403", "404", "409", "410", "422", "429", "503"}
     for op in (ens, ans):
@@ -367,9 +367,9 @@ def test_error_reasons_include_agent_not_found():
 
 def test_endpoint_semantics_text_and_params():
     cat = _load("agent_decision/agent_decision_endpoints.json")
-    base = "/api/v1beta/agent-decisions/"
-    ens = cat["paths"][base + "{agent_id}/ensure"]["post"]
-    lat = cat["paths"][base + "{agent_id}/latest"]["get"]
+    base = "/api/v1/projects/{project_id}/agents/{agent_ref}/decisions/"
+    ens = cat["paths"][base + "ensure"]["post"]
+    lat = cat["paths"][base + "latest"]["get"]
     ans = cat["paths"][base + "{decision_id}/answer"]["post"]
     assert "AGENT_NOT_FOUND" in ens["responses"]["404"]["description"]
     assert "AGENT_NOT_FOUND" in lat["responses"]["404"]["description"]
@@ -385,9 +385,9 @@ def test_endpoint_semantics_text_and_params():
     ):
         assert text in ans["description"]
     for op in (ens, lat):
-        agent = [p for p in op["parameters"] if p["name"] == "agent_id"][0]["schema"]
+        agent = [p for p in op["parameters"] if p["name"] == "agent_ref"][0]["schema"]
         assert agent == {"type": "string", "minLength": 1, "maxLength": 255}
-    pid = ans["parameters"][0]["schema"]
+    pid = [p for p in ans["parameters"] if p["name"] == "decision_id"][0]["schema"]
     assert pid["pattern"] == "^dr_[0-9a-f]{32}$"
 
 

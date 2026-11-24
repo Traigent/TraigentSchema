@@ -1,6 +1,6 @@
 """Contract tests for AGB-74 slice 1: the Agent compliance-evidence response.
 
-New route: GET /api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}
+New route: GET /api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence
 New schema: agent_readiness/compliance_evidence_response_schema.json
 New endpoints module: agent_readiness/compliance_evidence_endpoints.json (registered in
 mep_endpoints.json).
@@ -26,7 +26,7 @@ SCHEMAS = get_schemas_dir()
 READINESS = SCHEMAS / "agent_readiness"
 RESPONSE_PATH = READINESS / "compliance_evidence_response_schema.json"
 ENDPOINTS_PATH = READINESS / "compliance_evidence_endpoints.json"
-ROUTE = "/api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}"
+ROUTE = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence"
 BANNER = "Evidence coverage, not a compliance determination."
 
 _REGISTRY = build_registry(SCHEMAS)
@@ -225,11 +225,106 @@ def test_endpoint_is_registered_and_wired() -> None:
     ).read_text(encoding="utf-8")
     endpoints = load_json(ENDPOINTS_PATH)
     operation = endpoints["paths"][ROUTE]["get"]
-    assert operation["operationId"] == "getProjectAgentComplianceEvidence"
+    assert operation["operationId"] == "project_agent_compliance_evidence.get_agent_compliance_evidence"
     ok = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ok == "./compliance_evidence_response_schema.json"
     for status in ("401", "403", "404"):
         err = operation["responses"][status]["content"]["application/json"]["schema"]["$ref"]
         assert err == "./agent_readiness_error_schema.json"
     param_names = {p["name"] for p in operation["parameters"]}
-    assert param_names == {"project_id", "agent_id"}  # tenant never travels as a parameter
+    assert param_names == {"project_id", "agent_ref"}  # tenant never travels as a parameter
+
+
+_ALL_EMPTY: dict[str, list[str]] = {
+    "supported": [],
+    "gap": [],
+    "not_assessed": [],
+    "expired": [],
+}
+
+
+def _with_ids(**ids: Any) -> dict[str, Any]:
+    instance = copy.deepcopy(_response())
+    instance["packs"][0]["coverage_ingredient_ids"] = ids
+    return instance
+
+
+def test_legacy_payload_without_coverage_ingredient_ids_validates() -> None:
+    assert "coverage_ingredient_ids" not in _response()["packs"][0]
+    assert _errors(_response()) == []
+
+
+def test_coverage_ingredient_ids_is_optional_in_the_schema() -> None:
+    pack = _SCHEMA["definitions"]["PackSummary"]
+    assert "coverage_ingredient_ids" in pack["properties"]
+    assert "coverage_ingredient_ids" not in pack["required"]
+
+
+def test_coverage_ingredient_ids_all_empty_arrays_validate_shape_only() -> None:
+    # Shape-only: the fixture's coverage counts are nonzero, so this payload is intentionally
+    # NOT count-consistent; the schema cannot enforce count/inventory relations.
+    assert _errors(_with_ids(**_ALL_EMPTY)) == []
+
+
+def test_coverage_ingredient_ids_semantically_consistent_example_validates() -> None:
+    # Semantically consistent: every id is in the ingredients inventory and links to the
+    # pack, and each array length equals the matching coverage count.
+    instance = copy.deepcopy(_response())
+    pack = instance["packs"][0]
+    assert pack["coverage"]["supported"] == 1 and pack["coverage"]["not_assessed"] == 2
+    instance["ingredients"].append(
+        {
+            "id": "M2",
+            "kind": "M",
+            "group": "Performance",
+            "title": "Second example ingredient",
+            "state": "NOT_ASSESSED",
+            "links": [_link()],
+        }
+    )
+    instance["ingredients"][1]["links"] = [_link()]  # A3b links to the pack
+    pack["coverage_ingredient_ids"] = {
+        "supported": ["M1"],
+        "gap": [],
+        "not_assessed": ["A3b", "M2"],
+        "expired": [],
+    }
+    inventory = {i["id"] for i in instance["ingredients"]}
+    ids = pack["coverage_ingredient_ids"]
+    for state, listed in ids.items():
+        assert len(listed) == pack["coverage"][state]
+        assert set(listed) <= inventory
+    assert _errors(instance) == []
+
+
+@pytest.mark.parametrize("missing", ["supported", "gap", "not_assessed", "expired"])
+def test_coverage_ingredient_ids_missing_array_is_rejected(missing: str) -> None:
+    ids = {k: v for k, v in _ALL_EMPTY.items() if k != missing}
+    assert _errors(_with_ids(**ids)) != []
+    assert _errors(_with_ids()) != []  # empty object
+
+
+@pytest.mark.parametrize(
+    "ids",
+    [
+        {"unknown": ["M1"]},  # unknown key
+        {"supported": ["M1", "M1"]},  # duplicate ids
+        {"supported": ["m1"]},  # bad id pattern
+        {"supported": ["M123"]},  # bad id pattern (too long)
+        {"supported": ["free text"]},  # customer-style content
+        {"supported": "M1"},  # not an array
+    ],
+)
+def test_coverage_ingredient_ids_invalid_shapes_are_rejected(ids: dict[str, Any]) -> None:
+    # Shape-only check: the other arrays are filled with empties, and the payloads are
+    # intentionally NOT count/inventory consistent (the schema cannot enforce that).
+    assert _errors(_with_ids(**{**_ALL_EMPTY, **ids})) != []
+
+
+def test_coverage_ingredient_ids_over_cap_is_rejected_shape_only() -> None:
+    # Shape-only: counts and inventory are intentionally inconsistent with the payload.
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    unique = [f"{c}{n}" for c in letters for n in range(1, 6)][:101]  # 101 distinct valid ids
+    assert len(set(unique)) == 101
+    assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique[:100]})) == []
+    assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique})) != []

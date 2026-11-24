@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_role_upsert_request_schema.json",
+  "title": "Crew Role Upsert Request",
+  "description": "POST /api/v1beta/projects/{project_id}/crews/{crew_id}/roles. Adds a role, or updates display meta of the role with the same role_key (idempotent by role_key within the crew). role_key itself is immutable; role_token is server-issued and never accepted from the client.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role_key"
+  ],
+  "properties": {
+    "role_key": {
+      "$ref": "./crew_common_schema.json#/definitions/RoleKey",
+      "x-content": true,
+      "x-privacy-classification": "user_content",
+      "description": "Role alias; upsert key."
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "color": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 7,
+          "pattern": "^#[0-9a-fA-F]{6}(?![\\s\\S])"
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "$ref": "./crew_common_schema.json#/definitions/RoleIcon"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "order": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "description": "Display meta; presentation only."
+    }
+  }
+}

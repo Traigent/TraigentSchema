@@ -126,6 +126,17 @@ PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS = {
     ("onboarding/onboarding_funnel_event_schema.json", "baseline"),
 }
 
+# audit_evaluate request: `empty` is one of the five unusable-gold kinds of a dataset file
+# summary (a count of rows whose gold value is the empty string) and `blocked` is one value of
+# the scorer probe status. Neither is the artifact-state lifecycle vocabulary this guard protects.
+# Exempt at these exact JSON positions only (file, token, path), not for the whole file.
+_AUDIT_REQUEST = "audit_evaluate/audit_evaluate_request_schema.json"
+PRE_EXISTING_NON_LIFECYCLE_PUBLIC_POSITIONS = {
+    (_AUDIT_REQUEST, "empty", "definitions/GoldMissing/properties/empty"),
+    (_AUDIT_REQUEST, "empty", "definitions/GoldMissing/required/4"),
+    (_AUDIT_REQUEST, "blocked", "definitions/Probe/properties/status/enum/2"),
+}
+
 
 @pytest.fixture
 def validator() -> SchemaValidator:
@@ -681,8 +692,14 @@ def _is_allowed_next_steps_action_category(
     )
 
 
-def _is_pre_existing_non_lifecycle_public_term(relative_path: str, token: str) -> bool:
-    return (relative_path, token.lower()) in PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS
+def _is_pre_existing_non_lifecycle_public_term(
+    relative_path: str, token: str, json_path: tuple[str, ...] = ()
+) -> bool:
+    return (relative_path, token.lower()) in PRE_EXISTING_NON_LIFECYCLE_PUBLIC_TERMS or (
+        relative_path,
+        token.lower(),
+        "/".join(json_path),
+    ) in PRE_EXISTING_NON_LIFECYCLE_PUBLIC_POSITIONS
 
 
 _AGENT_LIFECYCLE_COMMON_SCHEMA_PATH = "agent_lifecycle_record/agent_lifecycle_common_schema.json"
@@ -765,7 +782,7 @@ def _find_public_schema_lifecycle_leaks(
                 relative_path, json_path, value, token
             ):
                 continue
-            if _is_pre_existing_non_lifecycle_public_term(relative_path, token):
+            if _is_pre_existing_non_lifecycle_public_term(relative_path, token, json_path):
                 continue
             if token.lower() in value_lower:
                 findings.add(
@@ -783,7 +800,7 @@ def _find_public_schema_lifecycle_leaks(
         for token in LIFECYCLE_STATE_SURFACE_TIER_2_STRUCTURED_FORBIDDEN_TOKENS:
             if _is_allowed_next_steps_action_category(relative_path, json_path, value):
                 continue
-            if _is_pre_existing_non_lifecycle_public_term(relative_path, token):
+            if _is_pre_existing_non_lifecycle_public_term(relative_path, token, json_path):
                 continue
             if value.lower() == token:
                 findings.add(

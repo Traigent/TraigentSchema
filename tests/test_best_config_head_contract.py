@@ -47,43 +47,6 @@ def _validator(name):
     return Draft7Validator(_load(name), registry=_registry())
 
 
-REF = "agentref_" + "a" * 32
-
-
-def test_head_response_is_closed_and_has_no_raw_ids():
-    schema = _load("agent_head_by_ref_response_schema.json")
-    assert schema["additionalProperties"] is False
-    assert set(schema["properties"]) == {"agent_ref", "environment", "generation", "exists"}
-    assert set(schema["required"]) == set(schema["properties"])
-    assert schema["properties"]["agent_ref"]["$ref"].endswith("#/definitions/AgentRef")
-    assert schema["properties"]["environment"]["$ref"].endswith("#/definitions/SessionEnvironment")
-
-
-@pytest.mark.parametrize(
-    ("generation", "exists", "valid"),
-    [
-        (0, False, True),
-        (1, True, True),
-        (7, True, True),
-        (0, True, False),
-        (1, False, False),
-        (5, False, False),
-        (-1, False, False),
-    ],
-)
-def test_exists_is_false_iff_generation_is_zero(generation, exists, valid):
-    body = {"agent_ref": REF, "environment": "default", "generation": generation, "exists": exists}
-    assert (
-        not list(_validator("agent_head_by_ref_response_schema.json").iter_errors(body))
-    ) is valid
-
-
-def test_response_rejects_raw_ids_and_extra_members():
-    body = {"agent_ref": REF, "environment": "default", "generation": 0, "exists": False}
-    validator = _validator("agent_head_by_ref_response_schema.json")
-    assert not list(validator.iter_errors(body))
-    assert list(validator.iter_errors({**body, "agent_id": "pk"}))
-    assert list(validator.iter_errors({**body, "agent_ref": "pk-1"}))
 
 
 def test_refusal_envelope_is_closed_with_one_fixed_branch_per_code():
@@ -119,25 +82,32 @@ def test_stale_guidance_is_normative_and_never_says_reread_and_resubmit():
         assert forbidden not in text
         for path in (
             OPT / "best_config_head_endpoints.json",
-            OPT / "agent_head_by_ref_response_schema.json",
             SCHEMAS / "execution" / "best_config_endpoints.json",
         ):
             assert forbidden not in path.read_text(encoding="utf-8")
 
 
-def test_read_route_has_closed_errors_for_every_status_but_rate_limit():
+def test_read_route_is_project_scoped_and_declares_every_error_status():
     doc = _load("best_config_head_endpoints.json")
-    get = doc["paths"]["/api/v1/best-configs/agent-heads/by-ref/{agent_ref}"]["get"]
+    assert list(doc["paths"]) == [
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head"
+    ]
+    get = doc["paths"]["/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head"]["get"]
+    assert get["operationId"] == "best_configs.get_agent_head"
     names = {p["name"]: p for p in get["parameters"]}
-    assert names["agent_ref"]["schema"]["$ref"].endswith("#/definitions/AgentRef")
+    assert set(names) == {"project_id", "agent_ref", "environment"}
     assert names["environment"]["schema"]["$ref"].endswith("#/definitions/SessionEnvironment")
-    for status in ("400", "401", "403", "404", "500"):
-        schema = get["responses"][status]["content"]["application/json"]["schema"]
-        assert schema["$ref"].endswith("best_config_head_refusal_schema.json"), status
+    for status in ("200", "400", "401", "403", "404", "500"):
+        assert get["responses"][status]["content"]["application/json"]["schema"], status
     assert get["responses"]["429"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "rate_limit_info_schema.json"
     )
-    assert "ORDER OF REFUSALS" in get["description"]
+    ok = get["responses"]["200"]["content"]["application/json"]["schema"]
+    assert ok["$ref"].endswith("agent_head_response_schema.json")
+    data = _load("agent_head_response_schema.json")["properties"]["data"]
+    assert data["additionalProperties"] is False
+    assert data["properties"]["generation"]["minimum"] == 0
+    assert set(data["required"]) == set(data["properties"])
 
 
 def _publish():

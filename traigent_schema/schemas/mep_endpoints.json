@@ -49,8 +49,13 @@
     },
     {
       "name": "Best Config Agent Heads",
-      "description": "Content-less ref-addressed agent promotion head read (/api/v1/best-configs/agent-heads/by-ref/{agent_ref}).",
+      "description": "Project-scoped agent promotion head read (/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head).",
       "paths_file": "./optimization/best_config_head_endpoints.json"
+    },
+    {
+      "name": "Release Acceptance",
+      "description": "Project-scoped release acceptance, release and head rollback of the agent promotion head (/api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances and best-config-head/release, best-config-head/rollback).",
+      "paths_file": "./optimization/release_endpoints.json"
     },
     {
       "name": "Optimization Token Refs",
@@ -69,8 +74,18 @@
     },
     {
       "name": "TVL Reactive Policy Read",
-      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy; flag-gated, closed response).",
+      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy; flag-gated, closed response).",
       "paths_file": "./production_requirements/tvl_reactive_policy_endpoints.json"
+    },
+    {
+      "name": "Agent Production Status",
+      "description": "Read-only production status and breach history of one Agent (/api/v1/projects/{project_id}/agents/{agent_ref}/production-status and .../production-breaches; flag-gated).",
+      "paths_file": "./production_requirements/production_breaches_endpoints.json"
+    },
+    {
+      "name": "Fleet Observe",
+      "description": "Fleet Observe v1 routes (/api/v1beta/projects/{project_id}/fleet-observe: imports, clusters, coverage, diff, findings; flag-gated, human principals only; TRAIG-179).",
+      "paths_file": "./fleet_observe/fleet_observe_endpoints.json"
     },
     {
       "name": "TVL Reactive Import",
@@ -86,11 +101,6 @@
       "name": "Agent Head Pinned Config",
       "description": "Exact pinned-version config read of an agent head (TRAIG-101 plan 8.5; customer content, not a content-class lint root).",
       "paths_file": "./execution/best_config_agent_head_config_endpoints.json"
-    },
-    {
-      "name": "Prompt List",
-      "description": "Prompt list routes.",
-      "paths_file": "./prompts/prompts_list_endpoints.json"
     },
     {
       "name": "Observability",
@@ -203,14 +213,19 @@
       "paths_file": "./agent_readiness/agent_posture_endpoints.json"
     },
     {
-      "name": "Agent Readiness Fleet Posture",
-      "description": "The server-computed fleet debt/verdict view (per-agent debt items, verdict, validate-first ranking, fleet summary) for a project.",
-      "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
+      "name": "Crews",
+      "description": "Crew catalog: a named set of agents that cooperate on one job; roles, immutable revisions with bindings, archive. Declared ahead of the backend (x-asserted-against-backend false).",
+      "paths_file": "./crew/crew_endpoints.json"
     },
     {
       "name": "Agent Decisions",
       "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
       "paths_file": "./agent_decision/agent_decision_endpoints.json"
+    },
+    {
+      "name": "Audit Evaluate",
+      "description": "Closed project audit summary in, ordered findings and one next step out.",
+      "paths_file": "./audit_evaluate/audit_evaluate_endpoints.json"
     },
     {
       "name": "Agent Compliance Evidence",

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/project_model_parameters_create_request_schema.json",
+  "title": "Project-scoped Model Parameters Create Request",
+  "description": "POST /api/v1/agents/{agent_id}/model-parameters. The backend reads modelId (optional; a placeholder model is created if absent). Modeled on the backend create request (extra=allow / unknown=EXCLUDE \u2192 additionalProperties:true; the backend generates the id server-side). The backend reads `model_id` (must name an existing catalogue model, else 422) and the numeric parameters below; `modelId` is the legacy spelling and is ignored by the route. `model_id` is not marked required so the request schema does not narrow. The properties added beside `modelId` carry a description only, no type or bounds: this request was open and must keep accepting every earlier body.",
+  "type": "object",
+  "required": [],
+  "additionalProperties": true,
+  "properties": {
+    "modelId": {
+      "type": "string",
+      "description": "LLM model identifier.",
+      "maxLength": 128
+    },
+    "model_id": {
+      "description": "Backend-read model parameter `model_id`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "temperature": {
+      "description": "Backend-read model parameter `temperature`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "max_tokens": {
+      "description": "Backend-read model parameter `max_tokens`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "top_p": {
+      "description": "Backend-read model parameter `top_p`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "frequency_penalty": {
+      "description": "Backend-read model parameter `frequency_penalty`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "presence_penalty": {
+      "description": "Backend-read model parameter `presence_penalty`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "top_k": {
+      "description": "Backend-read model parameter `top_k`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "repetition_penalty": {
+      "description": "Backend-read model parameter `repetition_penalty`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "stop_sequences": {
+      "description": "Backend-read model parameter `stop_sequences`, documented without a constraint so the open request keeps accepting every body it accepted before (the backend validates the value).",
+      "x-privacy-classification": "aggregate_safe"
+    }
+  }
+}

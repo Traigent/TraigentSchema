@@ -91,6 +91,38 @@
         "title": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Catalogue-authored pack title." },
         "draft": { "type": "boolean" },
         "coverage": { "$ref": "#/definitions/Coverage" },
+        "coverage_ingredient_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["supported", "gap", "not_assessed", "expired"],
+          "description": "Optional drill-down for `coverage`; when the object is present all four arrays are required (an empty array means no ingredient in that state): the ids of the distinct ingredients counted in coverage.<state>, under the same exclusion rule as Coverage (an ingredient whose every link into this pack points to an obligation decided not_applicable is excluded). When present, len(coverage_ingredient_ids.<state>) == coverage.<state>, and every id appears in the response's `ingredients` inventory. An omitted coverage_ingredient_ids means drill-down is unavailable, not that the counts are zero. Catalogue ids only; no customer content.",
+          "properties": {
+            "supported": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 100,
+              "items": { "type": "string", "pattern": "^[A-Z][0-9]{1,2}[a-z]?$", "maxLength": 4 }
+            },
+            "gap": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 100,
+              "items": { "type": "string", "pattern": "^[A-Z][0-9]{1,2}[a-z]?$", "maxLength": 4 }
+            },
+            "not_assessed": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 100,
+              "items": { "type": "string", "pattern": "^[A-Z][0-9]{1,2}[a-z]?$", "maxLength": 4 }
+            },
+            "expired": {
+              "type": "array",
+              "uniqueItems": true,
+              "maxItems": 100,
+              "items": { "type": "string", "pattern": "^[A-Z][0-9]{1,2}[a-z]?$", "maxLength": 4 }
+            }
+          }
+        },
         "applicability": {
           "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_applicability_schema.json#/definitions/ApplicabilitySummary",
           "description": "Counts of the pack's obligations by effective applicability decision, and when the current screen was recorded. Never carries the screening answers or a rationale."

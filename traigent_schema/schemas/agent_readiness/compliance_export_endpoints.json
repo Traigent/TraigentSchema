@@ -1,16 +1,16 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Backend Compliance Evidence Export Routes",
+    "title": "Traigent Backend Compliance Evidence Export Routes (project level)",
     "version": "1.0.0",
     "description": "Project-scoped evidence export pack (AGB-74 slice 5). Ships dark behind the same operator flag as the evidence view: while off, the route answers the standard not-found envelope as if it did not exist. Human project members only; an API key is refused. The ZIP carries customer content and is never cached."
   },
   "paths": {
-    "/api/v1beta/projects/{project_id}/compliance-evidence-exports/agents/{agent_id}": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence-exports": {
       "post": {
         "summary": "Export the evidence pack of an Agent as a ZIP (human project member)",
         "description": "Synchronous. The body is an empty object. Files: manifest.json (see compliance_export_manifest_schema.json#/definitions/Manifest), coverage.json, coverage.html, applicability.json, attestations.json, documents.json, measurements.json. Refused closed with 413 above 20 MiB of file content. Every export writes an audit record holding the export id, the actor and the manifest SHA-256.",
-        "operationId": "exportProjectAgentComplianceEvidence",
+        "operationId": "project_compliance_evidence_exports.export_compliance_evidence",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -23,7 +23,7 @@
             }
           },
           {
-            "name": "agent_id",
+            "name": "agent_ref",
             "in": "path",
             "required": true,
             "schema": {

@@ -346,7 +346,7 @@ def test_list_response_declares_real_pagination() -> None:
         del broken["pagination"][field]
         assert _errors("ApplicabilityResponse", broken) != [], field
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    key = "/api/v1beta/projects/{project_id}/compliance-applicability/agents/{agent_id}"
+    key = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-applicability"
     names = {p["name"] for p in paths[key]["get"]["parameters"]}
     assert {"page", "per_page"} <= names
 
@@ -371,15 +371,16 @@ def test_customer_content_is_marked_and_the_facts_never_travel_in_a_path_or_quer
     for path, item in load_json(ENDPOINTS_PATH)["paths"].items():
         for operation in item.values():
             for parameter in operation["parameters"]:
-                assert parameter["name"] in {"project_id", "agent_id", "page", "per_page"}, path
+                assert parameter["name"] in {"project_id", "agent_ref", "page", "per_page"}, path
 
 
 def test_stale_revision_is_the_only_conflict_and_it_is_declared_on_the_write() -> None:
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    base = "/api/v1beta/projects/{project_id}/compliance-applicability"
+    base = "/api/v1/projects/{project_id}/compliance-applicability"
+    agent = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-applicability"
     conflict = paths[base]["post"]["responses"]["409"]["content"]["application/json"]["schema"]
     assert conflict["properties"]["error_code"]["enum"] == ["stale_revision"]
-    for path, method in ((base + "/suggestions", "post"), (base + "/agents/{agent_id}", "get")):
+    for path, method in ((base + "/suggestions", "post"), (agent, "get")):
         assert "409" not in paths[path][method]["responses"]
 
 
@@ -419,8 +420,9 @@ def test_endpoints_are_registered_and_wired() -> None:
         SCHEMAS / "mep_endpoints.json"
     ).read_text(encoding="utf-8")
     paths = load_json(ENDPOINTS_PATH)["paths"]
-    base = "/api/v1beta/projects/{project_id}/compliance-applicability"
-    assert set(paths) == {base, base + "/suggestions", base + "/agents/{agent_id}"}
+    base = "/api/v1/projects/{project_id}/compliance-applicability"
+    agent = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-applicability"
+    assert set(paths) == {base, base + "/suggestions", agent}
     for item in paths.values():
         for operation in item.values():
             assert operation["x-asserted-against-backend"] is False

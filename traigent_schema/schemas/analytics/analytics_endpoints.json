@@ -3,12 +3,165 @@
   "info": {
     "title": "Traigent Backend Analytics Routes",
     "version": "1.0.0",
-    "description": "Canonical backend routes for example-scoring analytics and the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights)."
+    "description": "Canonical backend routes for example-scoring analytics, the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights) and the eleven unchanged project analytics reads and exports, declared once per mount: /api/v1/analytics, /api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics. Operation ids equal the backend register ids (analytics.*, legacy_analytics.*, project_analytics.*)."
   },
   "paths": {
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
+      "post": {
+        "operationId": "experiment_run.compute_evaluator_quality",
+        "summary": "Compute (or return the stored) evaluator-quality audit for one experiment run",
+        "description": "Ensures the evaluator-quality audit of one run exists and returns its coarse projection. Naturally idempotent on (tenant, project, run): a stored audit, including a stored abstention, is returned unchanged and never recomputed; an Idempotency-Key does not select another computation. Takes no request body and no query parameters (a nonempty body or any query parameter is a closed 422). Errors are application/problem+json with closed types; a missing WRITE grant is the closed 404, never a grant-specific 403. 409 is only evaluator_audit_in_progress. The raw internal audit report is never returned.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The audit projection: freshly computed by this request or already stored. A stored audit, including a stored abstention, is returned as is and never recomputed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or the optimization-only exclusion.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing or foreign run, missing WRITE grant, or denied project scope; identical in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another request is computing this run's audit. The only 409 of this operation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/EvaluatorAuditInProgressProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request: this operation takes no body and no query parameters.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ValidationFailedProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Required dependency unavailable or deadline exhausted.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./evaluator_quality_compute_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/analytics/example-scoring/{experiment_run_id}/compute": {
       "post": {
         "summary": "Start example scoring computation",
+        "operationId": "example_scoring.compute_example_scores",
         "requestBody": {
           "required": true,
           "content": {
@@ -30,6 +183,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/features": {
       "post": {
         "summary": "Upload example-scoring features",
+        "operationId": "example_scoring.upload_example_features",
         "requestBody": {
           "required": true,
           "content": {
@@ -51,6 +205,7 @@
     "/api/v1/analytics/example-scoring/jobs/{job_id}": {
       "get": {
         "summary": "Get scoring job status",
+        "operationId": "example_scoring.get_job_status",
         "responses": {
           "200": {
             "description": "Scoring job retrieved successfully",
@@ -68,6 +223,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/scores": {
       "get": {
         "summary": "Get example scores",
+        "operationId": "example_scoring.get_example_scores",
         "responses": {
           "200": {
             "description": "Example scores retrieved successfully",
@@ -88,6 +244,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/dataset-quality": {
       "get": {
         "summary": "Get dataset quality summary",
+        "operationId": "example_scoring.get_dataset_quality",
         "responses": {
           "200": {
             "description": "Dataset quality retrieved successfully",
@@ -105,6 +262,7 @@
     "/api/v1/analytics/experiments/{experiment_run_id}/next-steps": {
       "get": {
         "summary": "Get experiment next-step recommendations",
+        "operationId": "next_steps.get_next_steps",
         "responses": {
           "200": {
             "description": "Next-step recommendations retrieved successfully",
@@ -125,6 +283,7 @@
     "/api/v1/analytics/experiments/{experiment_run_id}/next-steps/{decision_id}/receipt": {
       "post": {
         "summary": "Record an idempotent execution receipt for an authoritative next-step decision",
+        "operationId": "next_steps.record_next_step_receipt",
         "requestBody": {
           "required": true,
           "content": {
@@ -161,6 +320,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/curation-advice": {
       "get": {
         "summary": "Get dataset curation advice",
+        "operationId": "example_scoring.get_curation_advice",
         "responses": {
           "200": {
             "description": "Curation advice retrieved successfully",
@@ -178,6 +338,7 @@
     "/api/v1/analytics/example-scoring/{experiment_run_id}/summary": {
       "get": {
         "summary": "Get example-scoring summary",
+        "operationId": "example_scoring.get_scoring_summary",
         "responses": {
           "200": {
             "description": "Analytics summary retrieved successfully"
@@ -185,16 +346,117 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/optimization-overview": {
+    "/api/v1/analytics/summary": {
       "get": {
-        "summary": "Get the optimization overview dashboard for the caller's project",
-        "description": "Retrieve a prebuilt privacy-safe optimization overview dashboard. Served by the same backend handler as the project-scoped /api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview route (one analytics blueprint, registered under both mounts), so both declare the same response definition; both SDKs call this unscoped v1 form. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
-        "operationId": "getOptimizationOverviewDashboard",
+        "summary": "Get the project analytics summary",
+        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_analytics_summary",
         "parameters": [
           {
             "name": "days",
             "in": "query",
             "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics summary retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_analytics_summary_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/pricing-catalog": {
+      "get": {
+        "summary": "Get the project pricing catalog",
+        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_pricing_catalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pricing catalog retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_pricing_catalog_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/dashboards/optimization-overview": {
+      "get": {
+        "summary": "Get the optimization overview dashboard",
+        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_optimization_overview_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -206,6 +468,7 @@
             "name": "limit",
             "in": "query",
             "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
             "schema": {
               "type": "integer",
               "minimum": 1,
@@ -216,7 +479,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Optimization overview dashboard retrieved successfully. The body is the standard success envelope {success, message, data}, with the dashboard payload under data: the handler returns success_response(...), and success_envelope_schema.json's x-wrap-map lists analytics_routes under wrapped. The payload definition itself is unchanged and is what an SDK client validates after unwrapping. KNOWN RESIDUAL: the payload still requires summary_cards.experiments_in_range, which no producer emits, so a real response is narrowed to exactly one validation error rather than none - TraigentSchema#594.",
+            "description": "Optimization overview dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
             "content": {
               "application/json": {
                 "schema": {
@@ -225,48 +488,20 @@
               }
             }
           },
-          "400": {
-            "description": "Bad request — malformed query parameters.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
-          },
           "401": {
-            "description": "Unauthenticated — missing or invalid credentials.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
           },
           "403": {
-            "description": "Forbidden — caller lacks viewer access to the project.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
+            "$ref": "#/components/responses/AnalyticsForbidden"
           },
           "404": {
-            "description": "Project not found — no project matched the resolved id (PROJECT_NOT_FOUND).",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../error_envelope_schema.json"
-                }
-              }
-            }
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests: rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -276,7 +511,1704 @@
             }
           },
           "500": {
-            "description": "Internal server error.",
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/dashboards/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator quality dashboard",
+        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_evaluator_quality_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluator quality dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_evaluator_quality_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/dashboards/project-usage": {
+      "get": {
+        "summary": "Get the project usage dashboard",
+        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_usage_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project usage dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_usage_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/dashboards/observability-summary": {
+      "get": {
+        "summary": "Get the observability summary dashboard",
+        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_observability_summary_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observability summary dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_observability_summary_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/trends/run-volume": {
+      "get": {
+        "summary": "Get the run-volume trend",
+        "description": "Time-bucketed experiment-run and configuration-run counts for the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned when the named experiment does not exist or is not visible. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_run_volume_trend",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the trend to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "description": "Bucket width; omitted lets the server choose from the window.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run-volume trend retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_run_volume_trend_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/distributions/measures/{measure_key}": {
+      "get": {
+        "summary": "Get a measure distribution",
+        "description": "Histogram and summary statistics of one numeric measure across the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned for an unknown measure key or an experiment that does not exist or is not visible. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_measure_distribution",
+        "parameters": [
+          {
+            "name": "measure_key",
+            "in": "path",
+            "required": true,
+            "description": "Key of the numeric measure.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the distribution to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "bins",
+            "in": "query",
+            "required": false,
+            "description": "Number of histogram bins.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Measure distribution retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_measure_distribution_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/exports/fine-tuning.manifest": {
+      "get": {
+        "summary": "Generate a fine-tuning export manifest",
+        "description": "Generates a fine-tuning manifest and stores it as an export artifact; despite being a GET it creates an export job record and writes a required audit record, and an export whose audit record cannot be written is refused with a 500 (EXPORT_AUDIT_FAILED) and its artifact removed. Records carry hashes and references by default; content is included only with include_content=true and only when the project's export policy allows materialized exports (otherwise 403, PROJECT_EXPORT_POLICY_DENIED). `truncated` is true when more rows matched than `limit`; `empty_reason` is non-null exactly when no record was produced. `job_id` is null when recording the export job failed (job recording is best effort; the audit record is not). Write access to experiments and project role editor or above; subject to the bulk expensive-operation rate limit. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.export_project_fine_tuning_manifest",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment run.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of rows to export.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "include_content",
+            "in": "query",
+            "required": false,
+            "description": "Materialize prompt and response content. Requires the project export policy to allow materialized exports.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fine-tuning manifest generated successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_fine_tuning_manifest_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsExportPolicyDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsExportFailed"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/export-jobs": {
+      "get": {
+        "summary": "List export jobs",
+        "description": "Page of export job records for the active project, newest first. Pagination is page-number based (`page`, `per_page`). Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.list_project_export_jobs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export jobs retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_list_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/export-jobs/{job_id}": {
+      "get": {
+        "summary": "Get one export job",
+        "description": "One export job record. A job that does not exist, belongs to another project, or is owned by another user returns the same 404 JSON error (code NOT_FOUND). Authorized by project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "analytics.get_project_export_job",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "description": "Export job identifier returned by the export and list operations.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export job retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/summary": {
+      "get": {
+        "summary": "Get the project analytics summary",
+        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_analytics_summary",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics summary retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_analytics_summary_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/pricing-catalog": {
+      "get": {
+        "summary": "Get the project pricing catalog",
+        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_pricing_catalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pricing catalog retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_pricing_catalog_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/dashboards/optimization-overview": {
+      "get": {
+        "summary": "Get the optimization overview dashboard",
+        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_optimization_overview_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimization overview dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_overview_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/dashboards/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator quality dashboard",
+        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_evaluator_quality_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluator quality dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_evaluator_quality_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/dashboards/project-usage": {
+      "get": {
+        "summary": "Get the project usage dashboard",
+        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_usage_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project usage dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_usage_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/dashboards/observability-summary": {
+      "get": {
+        "summary": "Get the observability summary dashboard",
+        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_observability_summary_dashboard",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observability summary dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_observability_summary_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/trends/run-volume": {
+      "get": {
+        "summary": "Get the run-volume trend",
+        "description": "Time-bucketed experiment-run and configuration-run counts for the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned when the named experiment does not exist or is not visible. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_run_volume_trend",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the trend to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "description": "Bucket width; omitted lets the server choose from the window.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run-volume trend retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_run_volume_trend_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/distributions/measures/{measure_key}": {
+      "get": {
+        "summary": "Get a measure distribution",
+        "description": "Histogram and summary statistics of one numeric measure across the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned for an unknown measure key or an experiment that does not exist or is not visible. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_measure_distribution",
+        "parameters": [
+          {
+            "name": "measure_key",
+            "in": "path",
+            "required": true,
+            "description": "Key of the numeric measure.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the distribution to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "bins",
+            "in": "query",
+            "required": false,
+            "description": "Number of histogram bins.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Measure distribution retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_measure_distribution_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/exports/fine-tuning.manifest": {
+      "get": {
+        "summary": "Generate a fine-tuning export manifest",
+        "description": "Generates a fine-tuning manifest and stores it as an export artifact; despite being a GET it creates an export job record and writes a required audit record, and an export whose audit record cannot be written is refused with a 500 (EXPORT_AUDIT_FAILED) and its artifact removed. Records carry hashes and references by default; content is included only with include_content=true and only when the project's export policy allows materialized exports (otherwise 403, PROJECT_EXPORT_POLICY_DENIED). `truncated` is true when more rows matched than `limit`; `empty_reason` is non-null exactly when no record was produced. `job_id` is null when recording the export job failed (job recording is best effort; the audit record is not). Write access to experiments and project role editor or above; subject to the bulk expensive-operation rate limit. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.export_project_fine_tuning_manifest",
+        "parameters": [
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment run.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of rows to export.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "include_content",
+            "in": "query",
+            "required": false,
+            "description": "Materialize prompt and response content. Requires the project export policy to allow materialized exports.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fine-tuning manifest generated successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_fine_tuning_manifest_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsExportPolicyDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsExportFailed"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/export-jobs": {
+      "get": {
+        "summary": "List export jobs",
+        "description": "Page of export job records for the active project, newest first. Pagination is page-number based (`page`, `per_page`). Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.list_project_export_jobs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export jobs retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_list_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/analytics/export-jobs/{job_id}": {
+      "get": {
+        "summary": "Get one export job",
+        "description": "One export job record. A job that does not exist, belongs to another project, or is owned by another user returns the same 404 JSON error (code NOT_FOUND). Authorized by project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "operationId": "legacy_analytics.get_project_export_job",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "description": "Export job identifier returned by the export and list operations.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export job retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/summary": {
+      "get": {
+        "summary": "Get the project analytics summary",
+        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_analytics_summary",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics summary retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_analytics_summary_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/pricing-catalog": {
+      "get": {
+        "summary": "Get the project pricing catalog",
+        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_pricing_catalog",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pricing catalog retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_pricing_catalog_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview": {
+      "get": {
+        "summary": "Get the optimization overview dashboard",
+        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_optimization_overview_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimization overview dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./optimization_overview_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator quality dashboard",
+        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_evaluator_quality_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluator quality dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_evaluator_quality_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator-quality verdict of one run",
+        "description": "IP-safe per-run evaluator-quality verdict, the project-scoped mount of the existing GET. Read access to the experiment and project role viewer or above. The body is the platform success envelope {success, message, data}, the same response schema as experiment_run.compute_evaluator_quality. Not a pure read: the service can lazily create the audit (persistence on GET). The raw internal audit report is never returned.",
+        "operationId": "project_analytics_runs.get_run_evaluator_quality",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run evaluator quality retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          },
+          "503": {
+            "description": "Authentication dependency temporarily unavailable (transient auth database failure), returned through the ordinary error envelope.",
             "content": {
               "application/json": {
                 "schema": {
@@ -288,9 +2220,604 @@
         }
       }
     },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/project-usage": {
+      "get": {
+        "summary": "Get the project usage dashboard",
+        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_usage_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project usage dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_usage_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary": {
+      "get": {
+        "summary": "Get the observability summary dashboard",
+        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above.",
+        "operationId": "project_analytics.get_project_observability_summary_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of ranked rows in the dashboard.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observability summary dashboard retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_observability_summary_dashboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/trends/run-volume": {
+      "get": {
+        "summary": "Get the run-volume trend",
+        "description": "Time-bucketed experiment-run and configuration-run counts for the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned when the named experiment does not exist or is not visible. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_run_volume_trend",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the trend to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "Look-back window in days.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3660,
+              "default": 30
+            }
+          },
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": false,
+            "description": "Bucket width; omitted lets the server choose from the window.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run-volume trend retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_run_volume_trend_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/distributions/measures/{measure_key}": {
+      "get": {
+        "summary": "Get a measure distribution",
+        "description": "Histogram and summary statistics of one numeric measure across the active project, optionally narrowed to one experiment. A 404 JSON error with code NOT_FOUND is returned for an unknown measure key or an experiment that does not exist or is not visible. Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.get_project_measure_distribution",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "measure_key",
+            "in": "path",
+            "required": true,
+            "description": "Key of the numeric measure.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the distribution to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "bins",
+            "in": "query",
+            "required": false,
+            "description": "Number of histogram bins.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Measure distribution retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_measure_distribution_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest": {
+      "get": {
+        "summary": "Generate a fine-tuning export manifest",
+        "description": "Generates a fine-tuning manifest and stores it as an export artifact; despite being a GET it creates an export job record and writes a required audit record, and an export whose audit record cannot be written is refused with a 500 (EXPORT_AUDIT_FAILED) and its artifact removed. Records carry hashes and references by default; content is included only with include_content=true and only when the project's export policy allows materialized exports (otherwise 403, PROJECT_EXPORT_POLICY_DENIED). `truncated` is true when more rows matched than `limit`; `empty_reason` is non-null exactly when no record was produced. `job_id` is null when recording the export job failed (job recording is best effort; the audit record is not). Write access to experiments and project role editor or above; subject to the bulk expensive-operation rate limit.",
+        "operationId": "project_analytics.export_project_fine_tuning_manifest",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_id",
+            "in": "query",
+            "required": false,
+            "description": "Restrict the export to one experiment run.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of rows to export.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "include_content",
+            "in": "query",
+            "required": false,
+            "description": "Materialize prompt and response content. Requires the project export policy to allow materialized exports.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fine-tuning manifest generated successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_fine_tuning_manifest_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsExportPolicyDenied"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsExportFailed"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/export-jobs": {
+      "get": {
+        "summary": "List export jobs",
+        "description": "Page of export job records for the active project, newest first. Pagination is page-number based (`page`, `per_page`). Read access to experiments and project role viewer or above.",
+        "operationId": "project_analytics.list_project_export_jobs",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export jobs retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_list_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsProjectNotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/analytics/export-jobs/{job_id}": {
+      "get": {
+        "summary": "Get one export job",
+        "description": "One export job record. A job that does not exist, belongs to another project, or is owned by another user returns the same 404 JSON error (code NOT_FOUND). Authorized by project role viewer or above.",
+        "operationId": "project_analytics.get_project_export_job",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "description": "Export job identifier returned by the export and list operations.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Export job retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./project_export_job_envelope_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsUnauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsResourceNotFound"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsInternalError"
+          }
+        }
+      }
+    },
     "/api/v1/analytics/runs/{run_id}/decision-payload": {
       "get": {
         "summary": "Get the decision payload for a run",
+        "operationId": "analytics.get_run_decision_payload",
         "responses": {
           "200": {
             "description": "Decision payload returned",
@@ -368,6 +2895,7 @@
     "/api/v1/analytics/runs/{run_id}/report": {
       "get": {
         "summary": "Get the analytics report payload for a run",
+        "operationId": "analytics.get_run_report",
         "responses": {
           "200": {
             "description": "Run report payload returned",
@@ -445,41 +2973,7 @@
     "/api/v1/analytics/runs/{run_id}/pareto": {
       "get": {
         "summary": "Get the Pareto-frontier analysis for a run",
-        "parameters": [
-          {
-            "name": "x_measure",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100,
-              "default": "cost"
-            }
-          },
-          {
-            "name": "y_measure",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100,
-              "default": "quality"
-            }
-          },
-          {
-            "name": "request_count",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000,
-              "default": 1
-            }
-          }
-        ],
+        "operationId": "analytics_runs.get_run_pareto",
         "responses": {
           "200": {
             "description": "Run Pareto analysis returned",
@@ -551,38 +3045,48 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "x_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "cost"
+            }
+          },
+          {
+            "name": "y_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality"
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ]
       }
     },
     "/api/v1/analytics/runs/{run_id}/correlations": {
       "get": {
         "summary": "Get the correlation analysis for a run",
-        "parameters": [
-          {
-            "name": "method",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pearson",
-                "spearman"
-              ],
-              "default": "pearson"
-            }
-          },
-          {
-            "name": "min_sample",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 2,
-              "maximum": 10000,
-              "default": 3
-            }
-          }
-        ],
+        "operationId": "analytics_runs.get_run_correlations",
         "responses": {
           "200": {
             "description": "Run correlation analysis returned",
@@ -654,69 +3158,39 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/v1/analytics/runs/{run_id}/leaderboard": {
-      "get": {
-        "summary": "Get the ranked configuration leaderboard for a run",
+        },
         "parameters": [
           {
-            "name": "objective",
+            "name": "method",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
               "enum": [
-                "weighted",
-                "quality",
-                "cost",
-                "latency"
+                "pearson",
+                "spearman"
               ],
-              "default": "weighted"
+              "default": "pearson"
             }
           },
           {
-            "name": "weights",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
-            }
-          },
-          {
-            "name": "constraints",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
-            }
-          },
-          {
-            "name": "request_count",
+            "name": "min_sample",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
-              "minimum": 1,
-              "maximum": 1000000,
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 200,
-              "default": 50
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 3
             }
           }
-        ],
+        ]
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/leaderboard": {
+      "get": {
+        "summary": "Get the ranked configuration leaderboard for a run",
+        "operationId": "analytics_runs.get_run_leaderboard",
         "responses": {
           "200": {
             "description": "Run leaderboard returned",
@@ -788,47 +3262,70 @@
               }
             }
           }
-        }
-      }
-    },
-    "/api/v1/analytics/runs/{run_id}/parameter-insights": {
-      "get": {
-        "summary": "Get parameter-importance insights for a run",
+        },
         "parameters": [
           {
-            "name": "target_measure",
+            "name": "objective",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 100,
-              "default": "quality"
+              "enum": [
+                "weighted",
+                "quality",
+                "cost",
+                "latency"
+              ],
+              "default": "weighted"
             }
           },
           {
-            "name": "min_trials",
+            "name": "weights",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "minimum": 2,
-              "maximum": 10000,
-              "default": 10
+              "type": "string",
+              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
             }
           },
           {
-            "name": "top_k",
+            "name": "constraints",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "JSON object string mapping measure name to a finite number. Keys match ^[a-zA-Z_][a-zA-Z0-9_.-]*$; at most 50 keys."
+            }
+          },
+          {
+            "name": "request_count",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "default": 10
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
             }
           }
-        ],
+        ]
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/parameter-insights": {
+      "get": {
+        "summary": "Get parameter-importance insights for a run",
+        "operationId": "analytics_runs.get_run_parameter_insights",
         "responses": {
           "200": {
             "description": "Run parameter insights returned",
@@ -900,12 +3397,48 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "target_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality"
+            }
+          },
+          {
+            "name": "min_trials",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 10
+            }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          }
+        ]
       }
     },
     "/api/v1/analytics/runs/{run_id}/example-insights": {
       "get": {
         "summary": "Get privacy-bounded example-level insights for a run",
+        "operationId": "analytics_runs.get_run_example_insights",
         "responses": {
           "200": {
             "description": "Run example insights returned",
@@ -976,6 +3509,65 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator-quality verdict of one run",
+        "operationId": "analytics_runs.get_run_evaluator_quality",
+        "x-privacy-classification": "aggregate_safe",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run whose evaluator-quality verdict is read.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run evaluator quality retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
           }
         }
       }
@@ -1064,6 +3656,640 @@
                   "$ref": "../error_envelope_schema.json"
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-promotion/evaluate": {
+      "post": {
+        "operationId": "evaluator_promotion.evaluate_evaluator_promotion",
+        "summary": "Compute and persist an advisory evaluator promotion decision for one run",
+        "description": "Compares a challenger evaluator against an incumbent on evaluator-independent anchor evidence and persists one append-only decision row. Advisory only: it never changes experiments, sessions, evaluator configs or optimization state. Requires the experiment WRITE grant, the experiment.write permission and the editor project role. Rate limited per principal as an expensive operation.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run to evaluate.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluator_promotion_evaluate_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Decision computed and persisted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_promotion_evaluate_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestPostPersisting"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "409": {
+            "description": "Conflict: an idempotency conflict on a request with an Idempotency-Key (different payload, in progress, or key already used; Retry-After may be set), or a uniqueness violation (Duplicate entry).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./idempotency_middleware_error_schema.json"
+                    },
+                    {
+                      "$ref": "./db_duplicate_entry_error_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "description": "Too many requests: the shared rate limiter or this operation's dedicated limiter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "./evaluator_promotion_rate_limit_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailablePost"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-promotion": {
+      "get": {
+        "operationId": "evaluator_promotion.list_evaluator_promotion_decisions",
+        "summary": "List the advisory evaluator promotion decisions recorded for one run",
+        "description": "Read-only history of the run's evaluator promotion decisions, newest first. Requires experiment read access and the viewer project role. Unknown query parameters are rejected.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run whose decisions are listed.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of decisions to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decisions retrieved (possibly an empty list).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_promotion_decisions_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "description": "Validation failed: unknown query parameter or limit out of range, or an invalid tenant or project context. The error_code is context-specific (VALIDATION_ERROR for query validation).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/experiments/{experiment_run_id}/fit-irt": {
+      "post": {
+        "operationId": "next_steps.fit_irt_model",
+        "summary": "Submit an internal IRT fit job for an experiment run",
+        "description": "Submits an IRT fit job for the run and returns immediately; the job runs asynchronously. A 202 with submitted false returns the ID of the active scoring job already running for the run. Takes no request body. Requires the experiment.write permission, the editor project role and the empirical intelligence feature; a disabled feature answers 501.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "experiment_run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run to fit.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Job accepted. submitted is true for a new job; false when the id points at an already-active scoring job for the run, which is not necessarily a fit job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./irt_fit_accepted_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestPost"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/AnalyticsMwIdempotencyConflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "501": {
+            "description": "The empirical intelligence feature is disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./feature_disabled_response_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailablePost"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/reference-review": {
+      "get": {
+        "operationId": "analytics_runs.get_run_reference_review",
+        "summary": "Get the paged queue of examples whose reference answer needs a check",
+        "description": "Read-only, paged queue of the run's examples whose stored class says the reference answer needs a check, with an opaque reference per example and the customer's own example identifier when usable. Requires experiment read access and the viewer project role. Unknown query parameters and out-of-range page values are rejected with 422; the body never echoes the submitted value. Answers 404 when the run does not exist or is not visible in the caller's project, and 500 when the composed queue fails its own contract.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run to read.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "One-based page number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Examples per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reference review queue retrieved (possibly empty or unavailable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_reference_review_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "AnalyticsUnauthenticated": {
+        "description": "Unauthenticated: missing or invalid credentials.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsForbidden": {
+        "description": "Forbidden: the caller lacks the required permission.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsProjectNotFound": {
+        "description": "Project not found (error_code PROJECT_NOT_FOUND, ordinary error envelope). Raised by project-context resolution (TraigentBackend src/security/project_context.py, ProjectContextError status 404) when the requested project (X-Project-Id or route project_id) does not exist or the caller holds no role in it; unified_auth (src/security/unified_auth.py:2072-2073, :1980-1985) renders it through error_response (src/utils/response_handler.py:332-378) as the ordinary JSON envelope, not application/problem+json. The analytics mounts carry no project-entry guards today.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsResourceNotFound": {
+        "description": "Not found (error_code NOT_FOUND or PROJECT_NOT_FOUND, ordinary error envelope). A missing experiment, measure or export job is emitted by the handler through not_found_response (src/routes/analytics_routes.py); an unknown or inaccessible project comes from project-context resolution. Never application/problem+json: the analytics mounts carry no project-entry guards today.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsValidationFailed": {
+        "description": "Query validation failed (error_code VALIDATION_ERROR). Unknown parameters and out-of-range values are rejected with 422; the body lists closed per-field reasons and never echoes the submitted value.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../validation_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsInternalError": {
+        "description": "Internal server error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsExportPolicyDenied": {
+        "description": "Materialized export is disabled by the project export policy (error_code PROJECT_EXPORT_POLICY_DENIED); also used for an ordinary permission denial.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsExportFailed": {
+        "description": "Export failed (error_code EXPORT_FAILED), the artifact could not be stored (EXPORT_STORAGE_FAILED), or its required audit record could not be written (EXPORT_AUDIT_FAILED).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestGet": {
+        "description": "Bad request: a provider credential in a request header or query parameter is never accepted (application/problem+json, code provider_credential_not_accepted).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestPost": {
+        "description": "Bad request. application/json: unsupported content type (this check also applies to POSTs with an empty body), an Idempotency-Key longer than 200 characters, a body that cannot be fingerprinted for idempotency, or the API's catch-all error body. application/problem+json: a provider credential in a request header or query parameter, which is never accepted (code provider_credential_not_accepted).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./unsupported_content_type_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          },
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestPostPersisting": {
+        "description": "Bad request. application/json: unsupported content type (also applies to empty POSTs), an Idempotency-Key longer than 200 characters, a body that cannot be fingerprinted for idempotency, a database integrity refusal (Reference not found, Data integrity error), or the API's catch-all error body. application/problem+json: a provider credential in a request header or query parameter, which is never accepted (code provider_credential_not_accepted).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./unsupported_content_type_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                },
+                {
+                  "$ref": "./db_integrity_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          },
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnauthorized": {
+        "description": "Unauthenticated: missing, invalid or expired credentials. The standard error envelope, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwForbidden": {
+        "description": "Forbidden: an authorization, project role or tenant policy refusal, including an account without an active access period (entitlement_required). The standard error envelope, the entitlement body, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../entitlement_required_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwNotFound": {
+        "description": "Not found: the resource is missing, not in the caller's project, or not owned by the caller. The body is a not-found error envelope whose code is NOT_FOUND or RESOURCE_NOT_FOUND; the message varies by source.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwPayloadTooLarge": {
+        "description": "Request exceeds the maximum allowed size: the early body-size check body, the request gate body, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./body_too_large_schema.json"
+                },
+                {
+                  "$ref": "./payload_too_large_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwIdempotencyConflict": {
+        "description": "Idempotency conflict on a POST with an explicit Idempotency-Key: the key was used with a different payload, a request with the key is still in progress (Retry-After may be set), or the key was already used.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./idempotency_middleware_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnprocessable": {
+        "description": "Validation failed (error_code VALIDATION_ERROR), or a string the server cannot store was refused, or the tenant or project context is invalid. The body never echoes submitted values.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../validation_error_schema.json"
+                },
+                {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwRateLimited": {
+        "description": "Too many requests: the shared rate limiter's body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../rate_limit_info_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwInternal": {
+        "description": "Internal server error: the standard error envelope, the API's catch-all error body for an unhandled failure, or a bare error and message body (optionally with request_id, or recovery for an aborted database transaction).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                },
+                {
+                  "$ref": "./middleware_message_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnavailableGet": {
+        "description": "Service unavailable: rate limiting is temporarily unavailable (error_code RATE_LIMIT_UNAVAILABLE) and the request is refused rather than admitted, the authentication backend is unavailable (error_code AUTH_BACKEND_UNAVAILABLE), the access decision is unavailable (error_code ACCESS_DECISION_UNAVAILABLE), or the session or tenant context is unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnavailablePost": {
+        "description": "Service unavailable: rate limiting is temporarily unavailable (error_code RATE_LIMIT_UNAVAILABLE), the authentication backend is unavailable (error_code AUTH_BACKEND_UNAVAILABLE), the access decision is unavailable (error_code ACCESS_DECISION_UNAVAILABLE), the session or tenant context is unavailable, or the idempotency store is unavailable on a request with an Idempotency-Key.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                }
+              ]
             }
           }
         }

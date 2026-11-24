@@ -595,3 +595,129 @@ def test_leaderboard_numeric_bounds_match_backend(param: str, accepted, rejected
     validator = Draft7Validator(schema)
     assert all(validator.is_valid(v) for v in accepted)
     assert not any(validator.is_valid(v) for v in rejected)
+# --- stored-guidance read: closed not_generated / ready contracts (additive) ---
+
+_STORED = "analytics/next_steps_stored_response_schema.json"
+
+
+def _stored_validator(definition: str):
+    from jsonschema import Draft7Validator, FormatChecker
+
+    root = {"$ref": f"https://schemas.traigent.ai/{_STORED}#/definitions/{definition}"}
+    v = SchemaValidator(contract="backend")
+    return Draft7Validator(root, registry=v._registry, format_checker=FormatChecker())
+
+
+_NOT_GENERATED = {
+    "state": "not_generated",
+    "decision": None,
+    "next_steps": [],
+    "variant_assignment": None,
+}
+_READY = {
+    "state": "ready",
+    "decision": {
+        "id": "dec_0123456789abcdef",
+        "category": "run_optimization",
+        "evidence_snapshot_hash": "sha256:" + "a" * 64,
+        "evidence_level": "medium",
+        "action_kind": "sdk",
+    },
+    "next_steps": [],
+    "variant_assignment": None,
+}
+
+
+def _errs(definition, doc):
+    return list(_stored_validator(definition).iter_errors(doc))
+
+
+def test_stored_not_generated_is_exact_empty_body():
+    assert _errs("NotGeneratedResponse", _NOT_GENERATED) == []
+    for extra in ({"rationale": "x"}, {"experiment_run_id": "r1"}):
+        assert _errs("NotGeneratedResponse", {**_NOT_GENERATED, **extra})
+    for key, bad in (
+        ("state", "ready"),
+        ("decision", {"id": "d"}),
+        ("next_steps", [{}]),
+        ("variant_assignment", {"variant": "rules"}),
+    ):
+        assert _errs("NotGeneratedResponse", {**_NOT_GENERATED, key: bad}), key
+    assert _errs("NotGeneratedResponse", {k: v for k, v in _NOT_GENERATED.items() if k != "decision"})
+
+
+def test_stored_ready_fixture_validates_and_nullables():
+    assert _errs("ReadyResponse", _READY) == []
+    doc = json.loads(json.dumps(_READY))
+    doc["decision"].update(evidence_level=None, action_kind=None)
+    assert _errs("ReadyResponse", doc) == []
+
+
+@pytest.mark.parametrize("field", ["rationale", "command_template", "operation_kind", "signal_scores", "prompt"])
+def test_stored_ready_rejects_content_and_proprietary_fields(field):
+    doc = json.loads(json.dumps(_READY))
+    doc["decision"][field] = "Alice_has_diabetes"
+    assert _errs("ReadyResponse", doc)
+    top = {**_READY, field: "Alice_has_diabetes"}
+    assert _errs("ReadyResponse", top)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d["decision"].update(id="x" * 129),
+        lambda d: d["decision"].update(id=""),
+        lambda d: d["decision"].update(id="has space"),
+        lambda d: d["decision"].update(evidence_snapshot_hash="y" * 129),
+        lambda d: d["decision"].update(category="not_a_category"),
+        lambda d: d.update(next_steps=[{"id": "n"}]),
+        lambda d: d.update(variant_assignment={"variant": "policy"}),
+        lambda d: d.update(state="not_generated"),
+        lambda d: d.update(decision=None),
+    ],
+)
+def test_stored_ready_bounds_enforced(mutate):
+    doc = json.loads(json.dumps(_READY))
+    mutate(doc)
+    assert _errs("ReadyResponse", doc)
+
+
+@pytest.mark.parametrize("field", ["evidence_level", "action_kind"])
+def test_stored_decision_tokens_follow_reader_rule(field):
+    # The backend reader returns any value matching ^[a-z_]{1,64}$ unchanged, else None.
+    for value in ("unknown", "tool", None):
+        doc = json.loads(json.dumps(_READY))
+        doc["decision"][field] = value
+        assert _errs("ReadyResponse", doc) == [], (field, value)
+    for value in ("Bad-Value", "a" * 65, "a b"):
+        doc = json.loads(json.dumps(_READY))
+        doc["decision"][field] = value
+        assert _errs("ReadyResponse", doc), (field, value)
+
+
+def test_stored_contract_is_additive_and_classified():
+    from traigent_schema.utils import get_schemas_dir
+
+    schemas_dir = get_schemas_dir()
+    root = json.loads(
+        (schemas_dir / "analytics" / "next_steps_stored_response_schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    def walk(node):
+        if isinstance(node, dict):
+            props = node.get("properties")
+            if isinstance(props, dict):
+                for name, prop in props.items():
+                    assert "x-privacy-classification" in prop, name
+            if node.get("x-content"):
+                assert "x-privacy-classification" in node
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(root)
+    assert "x-content" not in json.dumps(root)

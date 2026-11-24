@@ -45,10 +45,10 @@ def test_wrapped_detail_response_wraps_resource_in_envelope():
 # ---- #128 ----
 
 DETAIL_GETS = {
-    "agents/agents_endpoints.json": ["/api/v1/agents/{agent_id}"],
+    "agents/agents_endpoints.json": ["/api/v1/projects/{project_id}/agents/{agent_ref}"],
     "datasets/datasets_endpoints.json": ["/api/v1/datasets/{dataset_id}"],
     "execution/execution_endpoints.json": [
-        "/api/v1/experiments/{experiment_id}",
+        "/api/v1/projects/{project_id}/experiments/{experiment_ref}",
         "/api/v1/experiment-runs/runs/{run_id}",
         "/api/v1/configuration-runs/{config_run_id}",
     ],
@@ -69,11 +69,18 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     # GET /agents/{id} must reference the AGENT resource, not agent_response_schema
     # (which is an execution/run response with required input/status/result).
     agents = _load("agents/agents_endpoints.json")
-    ref = agents["paths"]["/api/v1/agents/{agent_id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
-    assert ref.endswith("agent_schema.json"), ref
-    # bare detail GETs reference the resource schema directly
+    # The wire is the success envelope {success, message, data: <agent>}
+    # (agent_routes.get_agent -> success_response), so the 200 is an envelope
+    # whose data is the agent resource.
+    ref = agents["paths"]["/api/v1/projects/{project_id}/agents/{agent_ref}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    assert ref == "#/components/schemas/AgentDetailEnvelope", ref
+    envelope = agents["components"]["schemas"]["AgentDetailEnvelope"]
+    assert envelope["properties"]["data"]["$ref"].endswith("agent_schema.json")
+    assert "data" in envelope["required"]
+    # bare detail GETs reference the resource schema directly (the canonical experiment detail via
+    # ExperimentRead, the resource with experiment_ref required)
     expected = {
-        ("execution/execution_endpoints.json", "/api/v1/experiments/{experiment_id}"): "experiment_schema.json",
+        ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/experiments/{experiment_ref}"): "experiment_reads_schema.json#/definitions/ExperimentRead",
         ("execution/execution_endpoints.json", "/api/v1/measures/{measure_id}".replace("measures", "configuration-runs").replace("measure_id", "config_run_id")): "configuration_run_schema.json",
         ("measures/measures_endpoints.json", "/api/v1/measures/{measure_id}"): "measure_schema.json",
     }
@@ -117,9 +124,9 @@ LIST_AND_RESULTS_GETS = {
 
 EXPERIMENT_GROUP_GETS = {
     "execution/execution_endpoints.json": [
-        "/api/v1/experiment-groups",
-        "/api/v1/experiment-groups/{group_id}",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments",
     ],
 }
 
@@ -238,34 +245,41 @@ def test_experiment_group_read_surfaces_have_2xx_response_schemas():
 def test_experiment_group_query_surface_has_a_2xx_response_schema():
     """The read-only configuration-run query POST joins the response-schema coverage set."""
     spec = _load("execution/execution_endpoints.json")
-    op = spec["paths"]["/api/v1/experiment-groups/{group_id}/configuration-runs/query"]["post"]
+    op = spec["paths"][
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query"
+    ]["post"]
     schema = op["responses"]["200"].get("content", {}).get("application/json", {}).get("schema", {})
     assert schema.get("$ref"), "experiment-group query POST 200 has no response schema"
-    assert schema["$ref"].endswith("#/definitions/GroupedConfigurationRunQueryResponse")
+    assert schema["$ref"].endswith("#/definitions/GroupConfigurationRunsPageEnvelope")
 
 
 def test_experiment_group_response_schemas_wrap_payloads_in_data():
-    """Response definitions are success envelopes; the former bare bodies live under data."""
+    """The ACTIVE W9 operations' 200 bodies are success envelopes with the payload under data."""
+    spec = _load("execution/execution_endpoints.json")
     schema = _load("execution/experiment_group_schema.json")
-    expected_payload_refs = {
-        "ExperimentGroupListResponse": "ExperimentGroupListPayload",
-        "ExperimentGroupDetailResponse": "ExperimentGroupDetailPayload",
-        "GroupedConfigurationRunListResponse": "GroupedConfigurationRunListPayload",
-        "GroupedConfigurationRunQueryResponse": "GroupedConfigurationRunQueryPayload",
-    }
-
-    for response_name, payload_name in expected_payload_refs.items():
-        definition = schema["definitions"][response_name]
-        payload_definition = schema["definitions"][payload_name]
+    base = "/api/v1/projects/{project_id}/experiment-groups"
+    operations = [
+        ("post", f"{base}/search"),
+        ("get", f"{base}/{{group_ref}}"),
+        ("get", f"{base}/{{group_ref}}/configuration-runs"),
+        ("post", f"{base}/{{group_ref}}/configuration-runs/query"),
+        ("get", f"{base}/{{group_ref}}/experiments"),
+    ]
+    for method, path in operations:
+        ref = spec["paths"][path][method]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        prefix = "./experiment_group_schema.json#/definitions/"
+        assert ref.startswith(prefix), (path, ref)
+        definition = schema["definitions"][ref[len(prefix) :]]
         properties = definition["properties"]
 
-        assert {"$ref": "../success_envelope_schema.json"} in definition.get("allOf", [])
-        assert {"success", "message", "data"} <= set(definition["required"])
-        assert properties["success"].get("const") is True
-        assert properties["data"]["$ref"] == f"#/definitions/{payload_name}"
-        assert payload_definition["additionalProperties"] is False
+        assert {"success", "message", "data"} <= set(definition["required"]), path
+        assert properties["success"].get("const") is True, path
+        assert properties["message"]["minLength"] == 1, path
+        assert properties["data"]["additionalProperties"] is False, path
         for bare_top_level_key in ("items", "group", "source_experiments", "pagination"):
-            assert bare_top_level_key not in properties
+            assert bare_top_level_key not in properties, (path, bare_top_level_key)
 
 
 # ---- #136 follow-up — a route file can be MIXED, and pagination is nested ---- #
@@ -374,9 +388,7 @@ _OVERVIEW_V1BETA = (
 
 # Built key-for-key from what the backend actually emits
 # (core_domain_analytics_service.get_optimization_overview_dashboard), NOT from
-# the schema's required list. Those two disagree, and a fixture written from the
-# schema would assert the schema against itself and hide that - see
-# test_real_response_is_still_rejected_on_one_payload_field below.
+# the schema's required list.
 _DASHBOARD_PAYLOAD = {
     "context": {
         "tenant_id": "t1",
@@ -386,9 +398,10 @@ _DASHBOARD_PAYLOAD = {
     },
     "range_days": 30,
     "summary_cards": {
-        # Exactly the eight keys the service emits; `experiments_in_range` is
-        # required by the payload schema and emitted by nothing.
+        # The nine keys the service emits, `experiments_in_range` included
+        # (core_domain_analytics_service.py: "experiments_in_range": len(recent_experiments)).
         "experiments_total": 3,
+        "experiments_in_range": 2,
         "experiment_runs_in_range": 5,
         "configuration_runs_in_range": 12,
         "priced_configuration_runs_in_range": 10,
@@ -406,9 +419,7 @@ _DASHBOARD_PAYLOAD = {
     "recent_experiments": [],
 }
 
-# The payload schema requires this key; the service never sets it. Adding it
-# makes the fixture schema-valid but no longer a real response.
-_UNEMITTED_REQUIRED_FIELD = "experiments_in_range"
+_EMITTED_REQUIRED_FIELD = "experiments_in_range"
 
 
 def _overview_response_validator():
@@ -429,11 +440,7 @@ def test_overview_dashboard_response_is_the_envelope_not_the_bare_payload():
     """
     val = _overview_response_validator()
 
-    schema_valid_payload = dict(_DASHBOARD_PAYLOAD)
-    schema_valid_payload["summary_cards"] = {
-        **_DASHBOARD_PAYLOAD["summary_cards"],
-        _UNEMITTED_REQUIRED_FIELD: 2,
-    }
+    schema_valid_payload = _DASHBOARD_PAYLOAD
     wrapped = {"success": True, "message": "ok", "data": schema_valid_payload}
     assert not list(val.iter_errors(wrapped))
 
@@ -449,7 +456,9 @@ def test_overview_dashboard_response_is_the_envelope_not_the_bare_payload():
 def test_both_overview_mounts_declare_the_envelope_response():
     """One analytics handler serves both mounts, so both must declare the same body."""
     v1 = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1]["get"]
-    v1beta = _load("planned_projects_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
+    # The planned catalog's path key is a path-item $ref to this same declaration
+    # (C3-PR1c); read the canonical item.
+    v1beta = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
 
     def ref(op):
         return op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
@@ -475,42 +484,33 @@ def test_analytics_routes_is_recorded_as_wrapped():
     assert "analytics_routes" not in (wrap_map.get("mixed") or {})
 
 
-def test_real_response_is_still_rejected_on_one_payload_field():
-    """The envelope fix narrowed the gap between contract and wire; it did not close it.
+def test_real_response_validates_against_the_envelope_and_payload():
+    """The backend emits every field the payload requires, so a real response is clean.
 
-    `summary_cards` requires nine keys and the service emits eight: nothing in
-    the backend ever sets `experiments_in_range` (grep over its source: zero
-    hits). So a validator fed a genuine response still rejects it - after the
-    envelope fix, for a different and much smaller reason.
-
-    This test pins both halves of that sentence, so it goes red if either moves:
-    nothing is wrong at the envelope level, and exactly one thing is wrong
-    inside the payload. Whichever way TraigentSchema#594 is settled - the schema
-    stops requiring the field, or the backend starts emitting it - this fails
-    and has to be updated deliberately.
-
-    Scope note: this validates against the envelope schema directly, so it does
-    NOT notice a route whose 200 stops pointing at that schema.
-    `test_both_overview_mounts_declare_the_envelope_response` owns that, and a
-    probe regressing both route `$ref`s leaves this test green and turns that
-    one red.
+    An earlier version of this test pinned `summary_cards.experiments_in_range` as
+    required-but-never-emitted (TraigentSchema#594). The service does emit it
+    (`core_domain_analytics_service.get_optimization_overview_dashboard`), so the
+    claim was stale; the field stays required.
     """
     val = _overview_response_validator()
     real = {"success": True, "message": "ok", "data": _DASHBOARD_PAYLOAD}
+    assert not list(val.iter_errors(real))
 
-    errors = list(val.iter_errors(real))
-
-    # The envelope half: an error with an empty path is one about the envelope's
-    # own keys (success / message / data) rather than the payload beneath it.
-    envelope_errors = [e for e in errors if not list(e.absolute_path)]
-    assert not envelope_errors, [e.message for e in envelope_errors]
-
-    # The payload half: exactly one divergence, pinned as a SET rather than a
-    # count. Same strictness - a second error still fails - but the failure
-    # names what appeared instead of reporting "2 != 1" and leaving the reader
-    # to find it. #594 guarantees this payload gets edited, so this assertion
-    # is written to be informative when it fires.
+    # The field is still required: dropping it is exactly one payload error.
+    missing = {
+        "success": True,
+        "message": "ok",
+        "data": {
+            **_DASHBOARD_PAYLOAD,
+            "summary_cards": {
+                k: v
+                for k, v in _DASHBOARD_PAYLOAD["summary_cards"].items()
+                if k != _EMITTED_REQUIRED_FIELD
+            },
+        },
+    }
+    errors = list(val.iter_errors(missing))
     assert {(tuple(e.absolute_path), e.validator) for e in errors} == {
         (("data", "summary_cards"), "required")
     }, [f"{list(e.absolute_path)}: {e.message}" for e in errors]
-    assert _UNEMITTED_REQUIRED_FIELD in errors[0].message
+    assert _EMITTED_REQUIRED_FIELD in errors[0].message

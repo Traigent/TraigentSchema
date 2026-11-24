@@ -52,13 +52,13 @@
     },
     "x-content-class": {
       "type": "string",
-      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
-      "description": "Content class of a value carried on an optimization channel (docs/content-classes.md). opaque_ref = server-issued reference; closed_enum = value from a closed vocabulary (booleans included); number = bounded number; digest = approved hash/digest; key_material = public key, signature, salt or nonce (base64url, bounded); timestamp; code_identifier = verified code identifier (GNFR-PRIV-003 carve-out); encrypted_blob = label-service ciphertext; auth_header = allow-listed transport/authentication header. legacy_content is the transitional value: the field carries (or may carry) customer content today and is scheduled for removal by the content-less plan; it must carry x-content-note and may only be removed through a disposition record (docs/content-class-dispositions.json). Placed on every property, array item, map value, propertyNames schema, parameter schema and response-header schema of an optimization-channel contract; enforced by scripts/content_class_lint.py."
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "version", "server_text", "legacy_content"],
+      "description": "Content class of a value carried on an optimization channel (docs/content-classes.md). opaque_ref = server-issued reference; closed_enum = value from a closed vocabulary (booleans included); number = bounded number; digest = approved hash/digest; key_material = public key, signature, salt or nonce (base64url, bounded); timestamp; code_identifier = verified code identifier (GNFR-PRIV-003 carve-out); encrypted_blob = label-service ciphertext; auth_header = allow-listed transport/authentication header; version = dotted numeric version string (digit groups only, bounded); server_text = server-composed text from fixed templates (bounded, noted, server-to-client bodies only). legacy_content is the transitional value: the field carries (or may carry) customer content today and is scheduled for removal by the content-less plan; it must carry x-content-note and may only be removed through a disposition record (docs/content-class-dispositions.json). Placed on every property, array item, map value, propertyNames schema, parameter schema and response-header schema of an optimization-channel contract; enforced by scripts/content_class_lint.py."
     },
     "x-content-key-class": {
       "type": "string",
-      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "legacy_content"],
-      "description": "Content class of the KEYS of a map-shaped object (additionalProperties / patternProperties) when propertyNames carries no x-content-class. Same vocabulary as x-content-class; legacy_content means the keys are customer-chosen names (knob names, metric names) today."
+      "enum": ["opaque_ref", "closed_enum", "number", "digest", "key_material", "timestamp", "code_identifier", "encrypted_blob", "auth_header", "version", "legacy_content"],
+      "description": "Content class of the KEYS of a map-shaped object (additionalProperties / patternProperties) when propertyNames carries no x-content-class. Same vocabulary as x-content-class except server_text; legacy_content means the keys are customer-chosen names (knob names, metric names) today."
     },
     "x-content-note": {
       "type": "string",
@@ -173,6 +173,10 @@
       "type": "integer",
       "description": "Maximum HTTP JSON body size in bytes for a request envelope (e.g. observability v2 ingest, 5242880 = 5 MiB). Enforced by the admission edge, not by JSON Schema; declared on the request schema so the limit is discoverable from the contract."
     },
+    "x-max-response-bytes": {
+      "type": "integer",
+      "description": "Maximum serialized HTTP JSON response size in bytes for a response envelope (e.g. one page of experiment search, 4194304 = 4 MiB). Enforced by the producer, not by JSON Schema; declared on the response schema so the limit is discoverable from the contract."
+    },
     "x-naming-convention": {
       "type": "object",
       "description": "Documents the naming convention enforced for keys within a vocabulary schema (e.g. timing metrics must carry a '_ms' suffix). Placed at the top-level schema object. Contains 'description', 'canonical_suffix', and similar descriptor fields.",
@@ -252,9 +256,17 @@
       "type": "string",
       "description": "A $ref-style pointer to the vocabulary schema definition that enumerates all allowed values for x-required-permission on this endpoint or schema. Used to link endpoint contracts to the canonical permission token enum."
     },
+    "x-requires-project-binding": {
+      "type": "boolean",
+      "description": "On an x-scope-permission-map entry: a key carrying this scope MUST be bound to exactly one project (non-null project); the backend rejects minting or use of it otherwise."
+    },
     "x-resource-alias-of": {
       "type": "string",
       "description": "Names the canonical resource that this scope-permission-map entry's resource is an alias of at runtime (see x-known-resource-aliases for the full explanation). Placed on an x-scope-permission-map entry."
+    },
+    "x-write-only": {
+      "type": "boolean",
+      "description": "On an x-scope-permission-map entry: the scope grants write permissions only and implies no read permission (no .read permission token and no read: compatibility alias). The backend must not add an implied read during scope normalization."
     },
     "x-response-headers": {
       "type": "object",
@@ -434,6 +446,11 @@
     "x-traigent-spec-hash": {
       "type": "object",
       "description": "The frozen, complete spec_hash rule of a legacy spec envelope (traigent.best_config.v1): applies_to, covered and excluded keys, the recursive validation exclusions, the identifier/environment normalization applied before hashing, the serialization options, and the vector file that pins it. Placed at the top level of the schema that defines the envelope; the Backend and every SDK must produce exactly this digest."
+    },
+    "x-replay": {
+      "type": "string",
+      "enum": ["read"],
+      "description": "Marks a POST operation as a non-mutating read (a search whose filter travels in the request body). Such an operation takes no idempotency key and is never replayed or deduplicated. Placed on the operation object."
     },
     "x-user-requestable-scopes": {
       "type": "array",

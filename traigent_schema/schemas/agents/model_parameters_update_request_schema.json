@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/model_parameters_update_request_schema.json",
+  "title": "Model Parameters Update Request",
+  "description": "Body of PUT .../model-parameters/{parameter_ref}: any subset of the model parameters; nothing is required (update_model_parameters applies only the keys present).",
+  "type": "object",
+  "required": [],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "./model_parameters_schema.json#/properties/id"
+    },
+    "model_id": {
+      "$ref": "./model_parameters_schema.json#/properties/model_id"
+    },
+    "temperature": {
+      "$ref": "./model_parameters_schema.json#/properties/temperature"
+    },
+    "max_tokens": {
+      "$ref": "./model_parameters_schema.json#/properties/max_tokens"
+    },
+    "top_p": {
+      "$ref": "./model_parameters_schema.json#/properties/top_p"
+    },
+    "frequency_penalty": {
+      "$ref": "./model_parameters_schema.json#/properties/frequency_penalty"
+    },
+    "presence_penalty": {
+      "$ref": "./model_parameters_schema.json#/properties/presence_penalty"
+    },
+    "top_k": {
+      "$ref": "./model_parameters_schema.json#/properties/top_k"
+    },
+    "repetition_penalty": {
+      "$ref": "./model_parameters_schema.json#/properties/repetition_penalty"
+    },
+    "stop_sequences": {
+      "$ref": "./model_parameters_schema.json#/properties/stop_sequences"
+    },
+    "created_at": {
+      "$ref": "./model_parameters_schema.json#/properties/created_at"
+    },
+    "updated_at": {
+      "$ref": "./model_parameters_schema.json#/properties/updated_at"
+    },
+    "metadata": {
+      "$ref": "./model_parameters_schema.json#/properties/metadata"
+    }
+  }
+}

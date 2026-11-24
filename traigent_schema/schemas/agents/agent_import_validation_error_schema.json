@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_import_validation_error_schema.json",
+  "title": "Agent Import Validation Error (400)",
+  "description": "400 body when an agent import fails validation. `details` is a list of closed per-item entries `{index, code}`; the code never quotes the request. IMPORT_TOO_LARGE is one of these codes (an import whose re-serialized JSON exceeds 1 MiB) and arrives here as a 400, not a 413. A request body over 1 MiB on the wire is refused earlier with the provider-credential 400 (see agent_import_credential_error_schema.json) instead.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "error", "message", "details"],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "code"],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "AGENT_ID_TOO_LONG",
+              "AGENT_NOT_AN_OBJECT",
+              "EXAMPLES_NOT_A_LIST",
+              "EXAMPLE_SETS_NOT_A_LIST",
+              "EXAMPLE_SET_NOT_AN_OBJECT",
+              "IMPORT_NOT_AN_OBJECT",
+              "IMPORT_TOO_LARGE",
+              "INVALID_AGENT_TYPE_ID",
+              "INVALID_IMPORT",
+              "LIST_TOO_LARGE",
+              "MAX_TOKENS_NOT_POSITIVE",
+              "MISSING_AGENT_FIELD",
+              "MISSING_REQUIRED_FIELD",
+              "MODEL_ID_NOT_A_STRING",
+              "MODEL_PARAMETERS_NOT_A_LIST",
+              "MODEL_PARAMETER_BOUNDS",
+              "MODEL_PARAMETER_NOT_AN_OBJECT",
+              "SCHEMA_VIOLATION",
+              "TEMPERATURE_OUT_OF_RANGE",
+              "UNSUPPORTED_SCHEMA_VERSION"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

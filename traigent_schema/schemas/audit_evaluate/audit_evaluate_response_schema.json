@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_response_schema.json",
+  "title": "Audit Evaluate Response",
+  "description": "Success envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "const": true,
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "const": "Audit summary evaluated",
+      "x-content-class": "closed_enum"
+    },
+    "data": {
+      "$ref": "#/definitions/Result"
+    }
+  },
+  "definitions": {
+    "Result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "ruleset_version",
+        "status",
+        "findings",
+        "next_step",
+        "instructions"
+      ],
+      "properties": {
+        "protocol_version": {
+          "const": 2,
+          "x-content-class": "closed_enum"
+        },
+        "ruleset_version": {
+          "enum": [
+            "audit-ruleset-1"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "enum": [
+            "evaluated",
+            "abstained"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "abstain_reason": {
+          "enum": [
+            "none",
+            "unsupported_collector",
+            "unsupported_protocol",
+            "feature_disabled",
+            "summary_inconsistent",
+            "ruleset_unavailable"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "finding_id",
+              "severity",
+              "priority",
+              "subject"
+            ],
+            "properties": {
+              "ref": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 63,
+                "x-content-class": "number"
+              },
+              "finding_id": {
+                "enum": [
+                  "AGT_NO_ENTRY_POINT",
+                  "AGT_BLANK_SPACE",
+                  "AGT_ALL_KNOBS_UNREAD",
+                  "AGT_SOME_KNOBS_UNREAD",
+                  "AGT_SPACE_NOT_INVENTORIED",
+                  "AGT_KNOBS_MAYBE_READ",
+                  "INV_PARSE_GAP",
+                  "INV_TRUNCATED",
+                  "SCR_NONE_FOUND",
+                  "SCR_NOT_MEASURED",
+                  "SCR_PROBE_UNSTABLE",
+                  "SCR_PROBE_MISORDERED",
+                  "SCR_PROBE_ERRORS",
+                  "SCR_PROBE_NONFINITE",
+                  "SCR_PROBE_FAILED",
+                  "SCR_PROBE_BLOCKED",
+                  "SCR_PROBE_SYNTHETIC",
+                  "DS_NONE_FOUND",
+                  "DS_UNREADABLE",
+                  "DS_ROWS_NO_SDK_INPUT",
+                  "DS_GOLD_ABSENT",
+                  "DS_GOLD_UNUSABLE",
+                  "DS_BELOW_SMOKE",
+                  "DS_BELOW_TUNING",
+                  "DS_NO_HOLDOUT",
+                  "DS_HOLDOUT_SHORT",
+                  "DS_HOLDOUT_OVERLAP",
+                  "DS_EXACT_DUPES",
+                  "DS_NEAR_DUPES",
+                  "DS_NEAR_DUPES_UNCHECKED",
+                  "DS_CROSS_SPLIT_NEAR",
+                  "DS_CROSS_SPLIT_UNCHECKED",
+                  "DS_LABEL_DOMINANT",
+                  "DS_LABEL_FIELD_MISSING",
+                  "DS_LABEL_FIELD_SINGLE_VALUE",
+                  "DS_LABEL_MINORITY_SHORT",
+                  "DS_STRUCTURED_GOLD_UNCHECKED",
+                  "DS_JSON_CONSTANTS",
+                  "DS_LINES_SKIPPED",
+                  "DS_ROWS_TRUNCATED",
+                  "DS_FILES_TRUNCATED",
+                  "DS_SPLIT_MARKER_CONFLICT",
+                  "EVAL_INCOMPLETE",
+                  "ALL_CLEAR"
+                ],
+                "x-content-class": "closed_enum"
+              },
+              "severity": {
+                "enum": [
+                  "blocking",
+                  "high",
+                  "medium",
+                  "info"
+                ],
+                "x-content-class": "closed_enum"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64,
+                "x-content-class": "number"
+              },
+              "subject": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "project",
+                      "entry",
+                      "dataset"
+                    ],
+                    "x-content-class": "closed_enum"
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 19,
+                    "x-content-class": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "next_step": {
+          "enum": [
+            "wire_entry_point",
+            "adjust_config_space",
+            "build_scorer",
+            "assess_scorer",
+            "prepare_dataset",
+            "fix_inventory_then_rerun",
+            "run_mock_dry_run",
+            null
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "next_step_ref": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 63,
+          "x-content-class": "number"
+        },
+        "skills": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "enum": [
+              "traigent-setup-quickstart",
+              "traigent-setup-decorator",
+              "traigent-optimize-config-space",
+              "traigent-eval-build",
+              "traigent-eval-audit",
+              "traigent-dataset-curate",
+              "traigent-optimize-run"
+            ],
+            "x-content-class": "closed_enum"
+          }
+        },
+        "instructions": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ref",
+              "template_id",
+              "text"
+            ],
+            "properties": {
+              "ref": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 63,
+                "x-content-class": "number"
+              },
+              "template_id": {
+                "enum": [
+                  "step.a.no_entry_point",
+                  "step.b.all_unread",
+                  "step.b.blank",
+                  "step.c.no_scorer",
+                  "step.d.probe_not_ready",
+                  "step.e.not_measured",
+                  "step.e.placeholder_probe",
+                  "step.f.fact",
+                  "step.f.holdout_overlap",
+                  "step.f.missing_gold",
+                  "step.f.no_dataset",
+                  "step.f.only_unread_facts",
+                  "step.f.scan_truncated",
+                  "step.f.short",
+                  "step.f.short_holdout_named",
+                  "step.f.unloadable",
+                  "step.f.unread_beside_analysed",
+                  "step.f.unread_none_analysed",
+                  "step.g.all_clear",
+                  "step.h.not_inventoried",
+                  "step.h.partly_unread",
+                  "step.h.possibly_read",
+                  "step.i.incomplete",
+                  "step.i.parse_gap",
+                  "step.i.truncated"
+                ],
+                "x-content-class": "closed_enum"
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 400,
+                "x-content-class": "server_text",
+                "x-content-note": "Server-authored from fixed templates; carries no client-supplied text."
+              }
+            }
+          }
+        }
+      },
+      "x-privacy-classification": "aggregate_safe"
+    }
+  }
+}

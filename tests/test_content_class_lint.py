@@ -14,6 +14,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "content_class_lint.py"
 META = (
     Path(__file__).resolve().parent.parent
@@ -36,6 +38,8 @@ CONTENT_FREE = {
     "code_identifier",
     "encrypted_blob",
     "auth_header",
+    "version",
+    "server_text",
 }
 
 
@@ -110,8 +114,9 @@ def test_lint_walks_the_best_config_publish_and_rollback_contracts() -> None:
 
 def test_class_vocabulary_matches_the_registered_extension() -> None:
     meta = json.loads(META.read_text(encoding="utf-8"))["properties"]
-    for key in ("x-content-class", "x-content-key-class"):
-        assert set(meta[key]["enum"]) == set(lint.CONTENT_CLASSES)
+    assert set(meta["x-content-class"]["enum"]) == set(lint.CONTENT_CLASSES)
+    # server_text is a value class at one allow-listed location, never a map-key class
+    assert set(meta["x-content-key-class"]["enum"]) == set(lint.CONTENT_CLASSES) - {"server_text"}
     assert "x-content-note" in meta
     assert "legacy_content" in lint.CONTENT_CLASSES
 
@@ -309,6 +314,265 @@ def _ok(tmp_path: Path, prop: dict) -> None:
 
 UUID = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 B64 = "^[A-Za-z0-9_-]+$"
+
+
+VERSION = "^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}(?![\\s\\S])"
+SERVER_TEXT = {
+    "type": "string",
+    "maxLength": 400,
+    "x-content-note": "Server-authored from fixed templates.",
+    "x-content-class": "server_text",
+}
+
+
+def test_version_requires_an_anchored_digit_group_pattern_and_max_length(tmp_path: Path) -> None:
+    assert _bad(tmp_path, {"type": "string", "x-content-class": "version"})
+    assert _bad(tmp_path, {"type": "string", "pattern": VERSION, "x-content-class": "version"})
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": "^[0-9a-z.]+$", "x-content-class": "version"},
+    )
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": r"^[0-9]{1,3}\.[0-9]{1,3}", "x-content-class": "version"},
+    )
+    assert _bad(
+        tmp_path, {"type": "integer", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"}
+    )
+    # the `$` end anchor lets a trailing newline through: only the absolute-end form is accepted
+    assert _bad(
+        tmp_path,
+        {
+            "type": "string",
+            "maxLength": 11,
+            "pattern": VERSION.replace("(?![\\s\\S])", "$"),
+            "x-content-class": "version",
+        },
+    )
+    _ok(
+        tmp_path,
+        {"type": "string", "maxLength": 11, "pattern": VERSION, "x-content-class": "version"},
+    )
+
+
+def _mini_at(tmp_path: Path, schema: dict, rel: str):
+    path = tmp_path / "schemas" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(schema), encoding="utf-8")
+    return lint.run_lint(tmp_path / "schemas")
+
+
+def _allow_server_text(monkeypatch, loc: str) -> None:
+    monkeypatch.setattr(lint, "SERVER_TEXT_LOCATIONS", frozenset({loc}))
+
+
+def test_server_text_requires_max_length_and_a_source_note(tmp_path: Path, monkeypatch) -> None:
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/properties/a")
+    assert _bad(tmp_path, {"type": "string", "x-content-class": "server_text"})
+    assert _bad(tmp_path, {"type": "string", "maxLength": 400, "x-content-class": "server_text"})
+    assert _bad(
+        tmp_path,
+        {"type": "string", "maxLength": 400, "x-content-note": " ", "x-content-class": "server_text"},
+    )
+    assert _bad(
+        tmp_path,
+        {"type": "integer", "maxLength": 400, "x-content-note": "n", "x-content-class": "server_text"},
+    )
+    _ok(tmp_path, SERVER_TEXT)
+
+
+def test_server_text_is_accepted_at_the_allow_listed_location_only(
+    tmp_path: Path, monkeypatch
+) -> None:
+    schema = {"type": "object", "properties": {"a": SERVER_TEXT, "b": SERVER_TEXT}}
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/properties/a")
+    result = _mini(tmp_path, schema)
+    assert [m for m in result.invalid if "#/properties/b" in m], result.invalid
+    assert not [m for m in result.invalid if "#/properties/a:" in m], result.invalid
+
+
+def test_server_text_is_rejected_in_a_request_field(tmp_path: Path) -> None:
+    # nothing allow-listed here: a request field labelled server_text fails
+    rel = "optimization/session_submit_results_request_schema.json"
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"customer_text": SERVER_TEXT},
+    }
+    result = _mini_at(tmp_path, schema, rel)
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+
+
+def _real_audit_lint(mutate) -> list[str]:
+    """Lint the real tree with one audit document mutated in memory; return its invalid list."""
+    linter = lint.Linter()
+    request_rel = "audit_evaluate/audit_evaluate_request_schema.json"
+    response_rel = "audit_evaluate/audit_evaluate_response_schema.json"
+    endpoints_rel = "audit_evaluate/audit_evaluate_endpoints.json"
+    docs = {r: linter.load(r) for r in (request_rel, response_rel, endpoints_rel)}
+    if mutate.__code__.co_argcount == 3:
+        mutate(docs[request_rel], docs[response_rel], docs[endpoints_rel])
+    else:
+        mutate(docs[request_rel], docs[response_rel])
+    return linter.run().invalid
+
+
+def test_the_real_tree_has_one_allow_listed_server_text_field_and_it_passes() -> None:
+    assert _real_audit_lint(lambda req, resp: None) == []
+
+
+def test_a_request_field_labelled_server_text_fails_in_the_real_request() -> None:
+    def mutate(req, resp):
+        req["properties"]["customer_text"] = dict(SERVER_TEXT)
+
+    invalid = _real_audit_lint(mutate)
+    assert any("customer_text" in m and "allow-listed" in m for m in invalid), invalid
+
+
+def test_a_second_response_field_labelled_server_text_fails() -> None:
+    def mutate(req, resp):
+        item = resp["definitions"]["Result"]["properties"]["instructions"]["items"]
+        item["properties"]["extra_text"] = dict(SERVER_TEXT)
+
+    invalid = _real_audit_lint(mutate)
+    assert any("extra_text" in m and "allow-listed" in m for m in invalid), invalid
+
+
+_RESP = "./audit_evaluate_response_schema.json#/definitions/Result"
+_ABS = "https://schemas.traigent.ai/audit_evaluate/audit_evaluate_response_schema.json#"
+
+
+def _ref_cases():
+    text = next(iter(lint.SERVER_TEXT_LOCATIONS)).split("#", 1)[1]
+    return {
+        "field": "./audit_evaluate_response_schema.json#" + text,
+        "item": _RESP + "/properties/instructions/items",
+        "array": _RESP + "/properties/instructions",
+        "object": _RESP,
+        "absolute_url": _ABS + "/definitions/Result",
+    }
+
+
+@pytest.mark.parametrize("name", ["field", "item", "array", "object", "absolute_url"])
+def test_a_ref_from_a_request_property_to_the_field_or_any_enclosing_node_fails(name) -> None:
+    ref = _ref_cases()[name]
+
+    def mutate(req, resp, ep):
+        req["properties"]["reused"] = {"$ref": ref}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), (name, invalid)
+
+
+@pytest.mark.parametrize("wrap", ["allOf", "anyOf", "patternProperties", "items", "chain"])
+def test_a_wrapped_ref_to_an_enclosing_object_fails(wrap) -> None:
+    ref = {"$ref": _RESP}
+
+    def mutate(req, resp, ep):
+        props = req["properties"]
+        if wrap == "allOf":
+            props["reused"] = {"allOf": [ref]}
+        elif wrap == "anyOf":
+            props["reused"] = {"anyOf": [ref, {"type": "null"}]}
+        elif wrap == "patternProperties":
+            props["reused"] = {
+                "type": "object",
+                "patternProperties": {"^k$": ref},
+                "x-content-key-class": "closed_enum",
+            }
+        elif wrap == "items":
+            props["reused"] = {"type": "array", "maxItems": 1, "items": ref}
+        else:  # through an intermediate definition of the request document
+            req["definitions"]["Hop"] = ref
+            props["reused"] = {"$ref": "#/definitions/Hop"}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), (wrap, invalid)
+
+
+def test_a_path_parameter_ref_to_an_enclosing_node_fails() -> None:
+    def mutate(req, resp, ep):
+        param = ep["paths"][next(iter(ep["paths"]))]["post"]["parameters"][0]
+        param["schema"] = {"$ref": _RESP + "/properties/instructions/items"}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), invalid
+
+
+def test_a_request_body_of_another_endpoints_document_cannot_reach_it() -> None:
+    def mutate(req, resp, ep):
+        post = ep["paths"][next(iter(ep["paths"]))]["post"]
+        post["requestBody"]["content"]["application/json"]["schema"] = {"$ref": _RESP}
+
+    invalid = _real_audit_lint(mutate)
+    assert any("allow-listed" in m for m in invalid), invalid
+
+
+def test_server_text_is_rejected_in_a_parameter_and_as_a_map_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _allow_server_text(monkeypatch, "optimization/t_schema.json#/nowhere")
+    doc = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x/{p}": {
+                "get": {
+                    "parameters": [{"name": "p", "in": "path", "required": True, "schema": SERVER_TEXT}],
+                    "responses": {},
+                }
+            }
+        },
+    }
+    result = _mini_at(tmp_path, doc, "optimization/t_endpoints.json")
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+    keyed = {
+        "type": "object",
+        "additionalProperties": {"type": "integer", "minimum": 0, "x-content-class": "number"},
+        "x-content-key-class": "server_text",
+        "x-content-note": "n",
+    }
+    result = _mini(tmp_path, {"type": "object", "properties": {"m": keyed}}, "t2_schema.json")
+    assert any("allow-listed" in m for m in result.invalid), result.invalid
+
+
+def test_server_text_reached_through_a_ref_from_elsewhere_fails(tmp_path: Path, monkeypatch) -> None:
+    allowed = "optimization/t_defs_schema.json#/definitions/Text"
+    _allow_server_text(monkeypatch, allowed)
+    root = tmp_path / "schemas" / "optimization"
+    root.mkdir(parents=True)
+    (root / "t_defs_schema.json").write_text(
+        json.dumps({"definitions": {"Text": SERVER_TEXT}}), encoding="utf-8"
+    )
+    (root / "t_use_schema.json").write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"a": {"$ref": "./t_defs_schema.json#/definitions/Text"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = lint.run_lint(tmp_path / "schemas")
+    assert any("t_use_schema.json#/properties/a" in m and "allow-listed" in m for m in result.invalid)
+
+
+def test_server_text_is_not_a_key_class_in_the_meta_schema() -> None:
+    props = json.loads(META.read_text(encoding="utf-8"))["properties"]
+    assert "server_text" in props["x-content-class"]["enum"]
+    assert "server_text" not in props["x-content-key-class"]["enum"]
+
+
+def test_a_bare_32_hex_problem_id_is_an_opaque_ref_but_free_text_is_not(tmp_path: Path) -> None:
+    _ok(
+        tmp_path,
+        {"type": "string", "pattern": "^[0-9a-f]{32}(?![\\s\\S])", "x-content-class": "opaque_ref"},
+    )
+    assert _bad(tmp_path, {"type": "string", "pattern": "^[0-9a-f]{32}$", "x-content-class": "opaque_ref"})
+    assert _bad(
+        tmp_path, {"type": "string", "pattern": "^[0-9a-f]{1,32}$", "x-content-class": "opaque_ref"}
+    )
+    assert _bad(tmp_path, {"type": "string", "maxLength": 64, "x-content-class": "opaque_ref"})
 
 
 def test_closed_enum_requires_enum_or_const(tmp_path: Path) -> None:
@@ -1061,3 +1325,54 @@ def test_old_dialect_refuses_nested_ids_and_non_root_definitions(tmp_path: Path)
             modern = {**schema, "$schema": "https://json-schema.org/draft/2019-09/schema"}
             ok = _mini(tmp_path / f"m{i}{j}", modern)
             assert not any(lint.OLD_DIALECT_BASE_ERROR in line for line in ok.invalid)
+
+
+# --- Fleet Observe signed pagination cursor: approved only at its own definition ------------
+
+
+def _cursor_node(**over) -> dict:
+    node = {
+        "type": "string",
+        "maxLength": 512,
+        "pattern": lint.CURSOR_PATTERN,
+        "x-content-class": "opaque_ref",
+    }
+    node.update(over)
+    return node
+
+
+def test_cursor_pattern_is_rejected_outside_its_allowed_locations(tmp_path: Path) -> None:
+    # same node at an arbitrary location: the semantic check passes, the location check refuses
+    assert lint.semantic_problem("opaque_ref", _cursor_node()) is None
+    result = _mini_at(
+        tmp_path,
+        {"type": "object", "additionalProperties": False, "properties": {"a": _cursor_node()}},
+        "optimization/t_schema.json",
+    )
+    assert any("signed-cursor pattern is approved only" in line for line in result.invalid)
+
+
+def test_cursor_pattern_is_accepted_at_an_allowed_location_with_a_length_bound(
+    tmp_path: Path, monkeypatch
+) -> None:
+    loc = "optimization/t_schema.json#/properties/a"
+    monkeypatch.setattr(lint, "CURSOR_LOCATIONS", frozenset({loc}))
+    schema = {"type": "object", "additionalProperties": False, "properties": {"a": _cursor_node()}}
+    assert not _mini_at(tmp_path / "ok", schema, "optimization/t_schema.json").invalid
+    unbounded = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"a": {k: v for k, v in _cursor_node().items() if k != "maxLength"}},
+    }
+    result = _mini_at(tmp_path / "unb", unbounded, "optimization/t_schema.json")
+    assert any("needs maxLength" in line for line in result.invalid)
+    oversize = {**schema, "properties": {"a": _cursor_node(maxLength=4096)}}
+    result = _mini_at(tmp_path / "big", oversize, "optimization/t_schema.json")
+    assert any("needs maxLength" in line for line in result.invalid)
+
+
+def test_the_real_cursor_definition_is_the_only_cursor_location() -> None:
+    assert lint.CURSOR_LOCATIONS == {
+        "fleet_observe/fleet_observe_responses_schema.json#/definitions/Cursor"
+    }
+    assert lint.run_lint().invalid == []

@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/idempotency_middleware_error_schema.json",
+  "title": "IdempotencyMiddlewareError",
+  "description": "Body of the idempotency layer's refusals on a POST that carries an explicit Idempotency-Key: 400 (key longer than 200 characters, or the body cannot be fingerprinted), 409 (key reused with a different payload, a request with the key still in progress, an already-used key, or a record in an unknown state; an in-progress 409 may carry Retry-After) and 503 (idempotency store or lease unavailable). It is not the standard error envelope: there is no success flag. The message is a fixed server phrase.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "enum": [
+        "Invalid Idempotency-Key",
+        "Invalid idempotent request",
+        "Idempotency conflict",
+        "Request in progress",
+        "Idempotency unavailable"
+      ],
+      "description": "Fixed server phrase naming the refusal.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "enum": [
+        "Key too long",
+        "Unable to fingerprint request body",
+        "Idempotency-Key already used with different payload",
+        "Idempotency record is in an unknown state",
+        "Idempotency key already used",
+        "A request with this Idempotency-Key is currently processing",
+        "Operation is not registered",
+        "Unable to reserve idempotency lease",
+        "Unable to reserve idempotency lease for billable request",
+        "Stored idempotent response is unreadable",
+        "Unable to sanitize hybrid replay receipt",
+        "Unable to finalize idempotency record"
+      ],
+      "description": "Fixed server phrase describing the refusal; it is determined by the error phrase and never echoes the key or the body.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Invalid Idempotency-Key"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "Key too long"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Invalid idempotent request"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "Unable to fingerprint request body"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Idempotency conflict"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "Idempotency-Key already used with different payload",
+              "Idempotency record is in an unknown state",
+              "Idempotency key already used"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Request in progress"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "A request with this Idempotency-Key is currently processing"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Idempotency unavailable"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "Operation is not registered",
+              "Unable to reserve idempotency lease",
+              "Unable to reserve idempotency lease for billable request",
+              "Stored idempotent response is unreadable",
+              "Unable to sanitize hybrid replay receipt",
+              "Unable to finalize idempotency record"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

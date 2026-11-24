@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_promotion_evaluate_response_schema.json",
+  "title": "EvaluatorPromotionEvaluateResponse",
+  "description": "Platform success envelope for the 201 of POST .../evaluator-promotion/evaluate; the decision is nested under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "./evaluator_promotion_evaluate_data_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

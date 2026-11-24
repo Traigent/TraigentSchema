@@ -4845,13 +4845,13 @@
    "findings": [
     {
      "file": "main/main_schema.json",
-     "message": "property 'z' added while the old schema's additionalProperties was constrained (a value schema); an old response consumer may reject that newly-emitted member [z]",
+     "message": "property 'z' added with a constrained schema while the old schema accepted that key under a looser rule; a previously valid payload the new schema rejects is now invalid [z]",
      "new": true,
      "old": false,
      "pointer": "#/properties/z",
      "role": "request",
      "rule": "property_added",
-     "severity": "INFO",
+     "severity": "BREAKING",
      "subject": "z"
     }
    ]

@@ -1,0 +1,635 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/production_status_response_schema.json",
+  "title": "Production requirement status of one Agent (Backend-owned, portal)",
+  "description": "GET /api/v1/projects/{project_id}/agents/{agent_ref}/production-status. One item per effective requirement of the Agent (floor-only keys included) plus history-only items for retired declarations and keys with breach rows but no effective requirement. Closed view model: counts, enums, times, server-issued ids and, on this authorised portal read only, the requirement's environment label and the declaring user's display name. Never a trace, span, input, output, statistical method identifier or organisation-floor id. The window verdict (headline_state) and the breach lifecycle (breach, closure) are independent.",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/definitions/ProductionStatusItem"
+      },
+      "type": "array"
+    },
+    "server_now": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "computed_at": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "items",
+    "server_now",
+    "computed_at"
+  ],
+  "type": "object",
+  "definitions": {
+    "ProductionStatusItem": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement_ref": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "latency_threshold_ms": {
+          "type": "integer"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "agent_head_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent_revision_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "floor_only": {
+          "type": "boolean"
+        },
+        "tenant_policy_applied": {
+          "type": "boolean"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_revision_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declared_by_display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "declared_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effective_from": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effective_profile": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StatusEffectiveProfile"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StatusLastEvaluation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headline_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "NOT_YET_EVALUATED",
+                "MET",
+                "BREACHED",
+                "UNKNOWN"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "breach": {
+          "$ref": "#/definitions/StatusBreach"
+        },
+        "closure": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StatusClosure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StatusSchedule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "requirement_ref",
+        "active",
+        "kind",
+        "latency_threshold_ms",
+        "environment",
+        "agent_head_id",
+        "agent_revision_id",
+        "floor_only",
+        "tenant_policy_applied",
+        "provenance",
+        "revision_number",
+        "last_revision_status",
+        "declared_by_display_name",
+        "declared_at",
+        "effective_from",
+        "effective_profile",
+        "last_evaluation",
+        "headline_state",
+        "breach",
+        "closure",
+        "schedule"
+      ],
+      "type": "object"
+    },
+    "StatusBreach": {
+      "additionalProperties": false,
+      "properties": {
+        "open_breach_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "open_breach_count": {
+          "type": "integer"
+        },
+        "step_breach_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "open_breach_id",
+        "open_breach_count",
+        "step_breach_id"
+      ],
+      "type": "object"
+    },
+    "StatusClosure": {
+      "additionalProperties": false,
+      "description": "Progress of an open breach toward closing, by the predicate that closes it.",
+      "properties": {
+        "met_in_a_row": {
+          "type": "integer"
+        },
+        "needed": {
+          "type": "integer"
+        },
+        "oldest_counted_window_end": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "oldest_counts_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blocked_by_lag": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "met_in_a_row",
+        "needed",
+        "oldest_counted_window_end",
+        "oldest_counts_until",
+        "blocked_by_lag"
+      ],
+      "type": "object"
+    },
+    "StatusCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "type": "integer"
+        },
+        "k": {
+          "type": "integer"
+        },
+        "u": {
+          "type": "integer"
+        },
+        "unattributed": {
+          "type": "integer"
+        },
+        "unplaceable": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "k",
+        "u",
+        "unattributed",
+        "unplaceable"
+      ],
+      "type": "object"
+    },
+    "StatusEffectiveProfile": {
+      "additionalProperties": false,
+      "description": "The rule being enforced now (agent requirement composed with any organisation floor).",
+      "properties": {
+        "max_violation_rate": {
+          "type": "number"
+        },
+        "confidence": {
+          "type": "number"
+        },
+        "window_hours": {
+          "type": "integer"
+        },
+        "grace_minutes": {
+          "type": "integer"
+        },
+        "min_samples": {
+          "type": "integer"
+        },
+        "max_unresolved_fraction": {
+          "type": "number"
+        },
+        "closure_windows": {
+          "type": "integer"
+        },
+        "closure_max_age_hours": {
+          "type": "integer"
+        },
+        "false_alarm_budget": {
+          "type": "number"
+        },
+        "horizon_days": {
+          "type": "integer"
+        },
+        "field_origins": {
+          "$ref": "#/definitions/StatusFieldOrigins"
+        },
+        "healthy_floor_samples": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_samples_below_healthy_floor": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "max_violation_rate",
+        "confidence",
+        "window_hours",
+        "grace_minutes",
+        "min_samples",
+        "max_unresolved_fraction",
+        "closure_windows",
+        "closure_max_age_hours",
+        "false_alarm_budget",
+        "horizon_days",
+        "field_origins",
+        "healthy_floor_samples",
+        "min_samples_below_healthy_floor"
+      ],
+      "type": "object"
+    },
+    "StatusFieldOrigins": {
+      "additionalProperties": false,
+      "properties": {
+        "max_violation_rate": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "window_hours": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "grace_minutes": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "min_samples": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "max_unresolved_fraction": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "closure_windows": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "closure_max_age_hours": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "false_alarm_budget": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        },
+        "horizon_days": {
+          "enum": [
+            "agent",
+            "floor"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "max_violation_rate",
+        "confidence",
+        "window_hours",
+        "grace_minutes",
+        "min_samples",
+        "max_unresolved_fraction",
+        "closure_windows",
+        "closure_max_age_hours",
+        "false_alarm_budget",
+        "horizon_days"
+      ],
+      "type": "object"
+    },
+    "StatusLastEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_id": {
+          "type": "string"
+        },
+        "window_start": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "window_end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "evaluated_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "MET",
+            "BREACHED",
+            "UNKNOWN"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "$ref": "#/definitions/StatusCounts"
+        },
+        "observed_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "evaluation_id",
+        "window_start",
+        "window_end",
+        "evaluated_at",
+        "outcome",
+        "reason",
+        "counts",
+        "observed_rate"
+      ],
+      "type": "object"
+    },
+    "StatusPendingWindow": {
+      "additionalProperties": false,
+      "description": "The oldest window that is due but has no record yet.",
+      "properties": {
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "result_not_before": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "result_expected_by": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "result_not_before",
+        "result_expected_by"
+      ],
+      "type": "object"
+    },
+    "StatusSchedule": {
+      "additionalProperties": false,
+      "properties": {
+        "in_progress_window": {
+          "$ref": "#/definitions/StatusWindow"
+        },
+        "pending_window": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/StatusPendingWindow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluator_interval_seconds": {
+          "type": "integer"
+        },
+        "overdue": {
+          "type": "boolean"
+        },
+        "server_now": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "computed_at": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "in_progress_window",
+        "pending_window",
+        "evaluator_interval_seconds",
+        "overdue",
+        "server_now",
+        "computed_at"
+      ],
+      "type": "object"
+    },
+    "StatusWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "type": "object"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 """Contract tests for Lane 3's fleet-agent lifecycle-history bridge.
 
-New route: GET /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history
+New route: GET /api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history
 New schema: agent_readiness/agent_lifecycle_history_response_schema.json
 Operation added to the existing agent_readiness/agent_readiness_endpoints.json module
 (already registered in mep_endpoints.json; no new endpoints module needed).
@@ -35,7 +35,7 @@ READINESS = SCHEMAS / "agent_readiness"
 RESPONSE_SCHEMA_PATH = READINESS / "agent_lifecycle_history_response_schema.json"
 ENDPOINTS_PATH = READINESS / "agent_readiness_endpoints.json"
 ERROR_SCHEMA_PATH = READINESS / "agent_readiness_error_schema.json"
-ROUTE = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history"
+ROUTE = "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history"
 
 _load = load_json
 _REGISTRY = build_registry(SCHEMAS)
@@ -70,11 +70,11 @@ def _item(
     }
 
 
-def _response(*, items: list[dict[str, Any]], page: int = 1, per_page: int = 25) -> dict[str, Any]:
+def _response(*, items: list[dict[str, Any]], limit: int = 20) -> dict[str, Any]:
     return {
         "schema_version": "1.0.0-beta.1",
         "items": items,
-        "pagination": {"page": page, "per_page": per_page, "total": len(items)},
+        "pagination": {"limit": limit, "next_cursor": None, "has_more": False},
     }
 
 
@@ -184,46 +184,45 @@ def _numbered_item(i: int) -> dict[str, Any]:
     )
 
 
-def test_items_maxitems_50_accepted() -> None:
-    instance = _response(items=[_numbered_item(i) for i in range(50)])
+def test_items_maxitems_100_accepted() -> None:
+    instance = _response(items=[_numbered_item(i) for i in range(100)])
     assert _errors(_RESPONSE_ID, instance) == []
 
 
-def test_items_maxitems_51_rejected() -> None:
-    instance = _response(items=[_numbered_item(i) for i in range(51)])
+def test_items_maxitems_101_rejected() -> None:
+    instance = _response(items=[_numbered_item(i) for i in range(101)])
     assert _errors(_RESPONSE_ID, instance)
 
 
-@pytest.mark.parametrize("per_page", [0, 51])
-def test_rejects_per_page_out_of_bounds(per_page: int) -> None:
-    instance = _response(items=[], per_page=per_page)
+@pytest.mark.parametrize("limit", [0, 101])
+def test_rejects_limit_out_of_bounds(limit: int) -> None:
+    instance = _response(items=[], limit=limit)
     assert _errors(_RESPONSE_ID, instance)
 
 
-@pytest.mark.parametrize("per_page", [1, 25, 50])
-def test_accepts_per_page_in_bounds(per_page: int) -> None:
-    instance = _response(items=[], per_page=per_page)
+@pytest.mark.parametrize("limit", [1, 20, 100])
+def test_accepts_limit_in_bounds(limit: int) -> None:
+    instance = _response(items=[], limit=limit)
     assert _errors(_RESPONSE_ID, instance) == []
 
 
-def test_rejects_page_below_one() -> None:
-    instance = _response(items=[], page=0)
-    assert _errors(_RESPONSE_ID, instance)
-
-
-def test_rejects_page_above_int32_max() -> None:
-    instance = _response(items=[], page=2147483648)
-    assert _errors(_RESPONSE_ID, instance)
-
-
-def test_accepts_page_at_int32_max() -> None:
-    instance = _response(items=[], page=2147483647)
-    assert _errors(_RESPONSE_ID, instance) == []
-
-
-def test_rejects_negative_total() -> None:
+def test_accepts_a_next_cursor_string_and_has_more() -> None:
     instance = _response(items=[])
-    instance["pagination"]["total"] = -1
+    instance["pagination"]["next_cursor"] = "c" * 4096
+    instance["pagination"]["has_more"] = True
+    assert _errors(_RESPONSE_ID, instance) == []
+
+
+def test_rejects_an_over_long_next_cursor() -> None:
+    instance = _response(items=[])
+    instance["pagination"]["next_cursor"] = "c" * 4097
+    assert _errors(_RESPONSE_ID, instance)
+
+
+@pytest.mark.parametrize("retired", ["page", "per_page", "total"])
+def test_rejects_retired_page_number_pagination_fields(retired: str) -> None:
+    instance = _response(items=[])
+    instance["pagination"][retired] = 1
     assert _errors(_RESPONSE_ID, instance)
 
 
@@ -275,7 +274,7 @@ def test_rejects_response_missing_a_required_top_level_field(missing: str) -> No
     assert _errors(_RESPONSE_ID, instance)
 
 
-@pytest.mark.parametrize("missing", ["page", "per_page", "total"])
+@pytest.mark.parametrize("missing", ["limit", "next_cursor", "has_more"])
 def test_rejects_pagination_missing_a_required_field(missing: str) -> None:
     instance = _response(items=[])
     del instance["pagination"][missing]
@@ -304,22 +303,21 @@ def test_endpoint_registered_with_expected_params_and_responses() -> None:
     params = {p["name"]: p for p in op["parameters"]}
     assert params["project_id"]["in"] == "path"
     assert params["project_id"]["required"] is True
-    assert params["agent_id"]["in"] == "path"
-    assert params["agent_id"]["required"] is True
+    assert params["agent_ref"]["in"] == "path"
+    assert params["agent_ref"]["required"] is True
 
-    page = params["page"]
-    assert page["in"] == "query"
-    assert page["required"] is False
-    assert page["schema"]["minimum"] == 1
-    assert page["schema"]["maximum"] == 2147483647
-    assert page["schema"]["default"] == 1
+    limit = params["limit"]
+    assert limit["in"] == "query"
+    assert limit["required"] is False
+    assert limit["schema"]["minimum"] == 1
+    assert limit["schema"]["maximum"] == 100
+    assert limit["schema"]["default"] == 20
 
-    per_page = params["per_page"]
-    assert per_page["in"] == "query"
-    assert per_page["required"] is False
-    assert per_page["schema"]["minimum"] == 1
-    assert per_page["schema"]["maximum"] == 50
-    assert per_page["schema"]["default"] == 25
+    cursor = params["cursor"]
+    assert cursor["in"] == "query"
+    assert cursor["required"] is False
+    assert cursor["schema"] == {"type": "string", "maxLength": 4096}
+    assert "page" not in params and "per_page" not in params
 
 
 def test_error_responses_validate_against_the_shared_error_schema() -> None:

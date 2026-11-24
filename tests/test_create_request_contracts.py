@@ -15,6 +15,8 @@ CREATE_REQUESTS = [
     "datasets/example_set_create_request_schema.json",
     "agents/retriever_create_request_schema.json",
     "agents/model_parameters_create_request_schema.json",
+    "agents/project_retriever_create_request_schema.json",
+    "agents/project_model_parameters_create_request_schema.json",
     "evaluation/experiment_create_request_schema.json",
     "evaluation/configuration_run_create_request_schema.json",
     "measures/measure_create_request_schema.json",
@@ -23,14 +25,20 @@ CREATE_REQUESTS = [
 
 # (path, valid backend body, invalid backend body) — required fields mirror the BE create DTOs.
 CASES = [
-    ("/api/v1/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
-    ("/api/v1/agents/import", {"name": "a", "agent_type_id": "qa"}, {"agent_type_id": "qa"}),
-    ("/api/v1/agents/{agent_id}/example-sets",
+    ("/api/v1/projects/{project_id}/agents", {"name": "a", "agent_type_id": "qa"}, {"name": "a"}),
+    ("/api/v1/projects/{project_id}/agents/import", {"name": "a", "agent_type_id": "qa"}, None),
+    # export wrapper: the runtime accepts it (name lives inside `agent`)
+    ("/api/v1/projects/{project_id}/agents/import",
+     {"schema_version": "1.0", "agent": {"name": "a"}}, None),
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
      {"name": "s", "selection_method": "all"}, {"name": "s"}),
-    ("/api/v1/agents/{agent_id}/retrieval-configs",
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/retrieval-configs",
      {"name": "r", "vector_store": {}, "k": 1, "retrieval_k": 1, "chunk_size": 100, "overlap": 0},
-     {"name": "r", "vector_store": {}}),
-    ("/api/v1/agents/{agent_id}/model-parameters", {}, None),
+     {"vector_store": {}}),
+    # only the name is required: the route defaults k, retrieval_k, chunk_size and overlap
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/retrieval-configs",
+     {"name": "r"}, {"name": "r", "k": "five"}),
+    ("/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters", {}, None),
     ("/api/v1/experiments",
      {"name": "e", "dataset_id": "d", "agent_id": "a"}, {"name": "e"}),
     ("/api/v1/experiment-runs/runs/{experiment_run_id}/configurations",
@@ -85,27 +93,27 @@ def test_example_set_similarity_threshold_matches_backend_bounds():
     base = {"name": "set", "selection_method": "all"}
 
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 0.7},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 0},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 1},
     ) == []
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": -0.01},
     )
     assert v.validate_request(
-        "/api/v1/agents/{agent_id}/example-sets",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets",
         "POST",
         {**base, "similarity_threshold": 1.01},
     )
@@ -135,7 +143,7 @@ EXAMPLE_SET_TYPES = {
     "evaluation",
     "other",
 }
-EXAMPLE_SET_ROUTE = "/api/v1/agents/{agent_id}/example-sets"
+EXAMPLE_SET_ROUTE = "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets"
 
 
 def test_example_set_create_enums_and_tag_cap_match_backend():
@@ -174,3 +182,30 @@ def test_example_set_create_rejects_unknown_selection_method_type_and_too_many_t
     assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "type": "bogus"})
     assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "tags": ["t"] * 101})
     assert v.validate_request(EXAMPLE_SET_ROUTE, "POST", {**base, "tags": ["t"] * 100}) == []
+def test_shared_create_schemas_keep_their_strict_shape():
+    """The JS SDK generates RetrieverCreateRequestSchema from these two files: they stay
+    unchanged; the project-scoped relaxed shapes live in project_* files."""
+    assert _load("agents/retriever_create_request_schema.json")["required"] == [
+        "name", "vector_store", "k", "retrieval_k", "chunk_size", "overlap"]
+    assert "model_id" not in _load("agents/model_parameters_create_request_schema.json")["properties"]
+    assert _load("agents/project_retriever_create_request_schema.json")["required"] == ["name"]
+    assert "model_id" in _load("agents/project_model_parameters_create_request_schema.json")["properties"]
+
+
+def test_shared_create_schemas_validate_through_their_own_files():
+    """Real validation against the two unchanged shared files (also keeps them reachable)."""
+    from jsonschema import Draft202012Validator
+
+    schemas_dir = S
+    retriever = json.loads(
+        (schemas_dir / "agents" / "retriever_create_request_schema.json").read_text(encoding="utf-8")
+    )
+    params = json.loads(
+        (schemas_dir / "agents" / "model_parameters_create_request_schema.json").read_text(encoding="utf-8")
+    )
+    ok = {"name": "r", "vector_store": {"type": "faiss"}, "k": 1, "retrieval_k": 1, "chunk_size": 10, "overlap": 0}
+    rv = Draft202012Validator(retriever)
+    assert not list(rv.iter_errors(ok))
+    assert list(rv.iter_errors({"name": "r"}))  # strict: missing required fields
+    pv = Draft202012Validator(params)
+    assert not list(pv.iter_errors({"modelId": "m"}))

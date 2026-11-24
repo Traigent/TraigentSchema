@@ -757,7 +757,7 @@ def test_catalogs_are_registered_and_every_error_is_the_closed_envelope():
         for route, item in load(cat)["paths"].items():
             assert route.startswith(
                 (
-                    "/api/v1/production-reactive/agents/{agent_ref}",
+                    "/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/",
                     "/api/v1/best-configs/agent-heads/{agent_ref}",
                     "/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy",
                     "/api/v1/projects/{project_id}/production-requirements/tvl-import",

@@ -10825,6 +10825,127 @@
       "reason": "BREAKING PUBLIC CHANGE. Backend API revision W9 moves the experiment-group reads to project-scoped paths and removes the old ones: GET /api/v1/experiment-groups becomes POST /api/v1/projects/{project_id}/experiment-groups/search (experiment_group.list_groups; cursor-only, filters and search text in the body); GET /api/v1/experiment-groups/{group_id} becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref} (experiment_group.get_group); GET /api/v1/experiment-groups/{group_id}/configuration-runs becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs (experiment_group.list_group_runs); POST /api/v1/experiment-groups/{group_id}/configuration-runs/query becomes POST /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query (experiment_group.query_group_runs). The group detail no longer embeds source_experiments: they are paged by the new GET .../{group_ref}/experiments (experiment_group.list_group_experiments). page, per_page and offset are gone (cursor and limit only) and errors are closed application/problem+json bodies. Consumers: the Traigent portal (updated in the same release) and the Python SDK (traigent 0.34). The shapes match the backend implementation of API revision W9.",
       "version": "Unreleased (API revision W9, experiment-group endpoints)",
       "pr": "pending (TraigentSchema, feature/api-w9-experiment-groups, not yet opened)"
+    },
+    {
+      "file": "optimization/tvl_reactive_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1ba71edc5fcd54f34f8b2d8515f8841e1294c2d503f5fdd364a8ecec8fefb548"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c363c4590740cfaa7807fb1d2205cb4550b9e5ab6dc1ca88084aaf1710c01160"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/approval-context/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3325434fedbc726d00384937f7da5e38925dc84d5090e3b6d7e87da95af47997"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/cancel/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dce653042a5b5cf98db6e20a003cd6e2bdfc98ff77e4adcc7c01296e460aa51c"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/heartbeat/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "60caa2edf34fe3cd27d92671d199e8dd8be3dcece17dfd1fd99e55698ba04e02"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/reservations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "972118984daf3be800fe1e68427b4b564ca8205848f66c5bf0e81bdaa92bf944"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/results/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "645abf1d2266e37e53f9256e31507dd62a81aedbd140d815735f9983d9c4d2dd"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/start/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "bb4cc6547a6ae1dd1d6001181579a10502f6ea48849f19a703dbe52880159df7"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/evaluations/{instant}/complete/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "07eb6f121f54d235e85992ead618f5bb81e219bd555a6599a5e21ee5b33b629b"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/evaluations/{instant}/stage/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "48c10282d142a1f80b6b2f1eabab4110b7f96aba4c7358ba9159349fbadbdf03"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/grants/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9d18dda244e210edda0aa8f27700b9faffa77b3118d577e0cfa7deca09869c94"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/grants/{grant_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7ce53f72a8a8d00882fc244e333523f4f0f0853c580b5cc54f2dab3d582b7fc4"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/notifications/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "952ab67bdcee31925144f3cdca368667aa63a0ccae559404680559ce217e77fe"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/notifications/{notification_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9dd06a2be98f6c3a2868ceeb74e012f782bb5102f9c4f4b62e36ebdd5912f1ed"
+        }
+      ],
+      "reason": "Unreleased pre-release path move (API cutover U1): the 14 production reactive operations in optimization/tvl_reactive_endpoints.json move from /api/v1/production-reactive/agents/{agent_ref}/... to /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/... and gain the project_id path parameter. operationIds, methods, bodies and responses are unchanged. The backend operation table already serves only the new paths and answers the closed 404 on the old ones; there is no released client of the old paths, and the feature is dark behind PRODUCTION_REQUIREMENTS_ENABLED. Rollout rule: the Backend change ships with this contract.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/pa-u1-reactive-project-paths)"
     }
   ]
 }

@@ -1,0 +1,501 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Release Acceptance and Head Rollback Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped release acceptance, release and head rollback of the agent promotion head. Closed wire contracts: no free text crosses these routes. Planned routes; the Backend is asserted against these contracts when it ships them."
+  },
+  "paths": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances": {
+      "post": {
+        "summary": "Record a person's acceptance of one candidate for release",
+        "description": "TraigentBackend (planned). Person only: an authenticated user session with editor role and agent WRITE; an API key is 403 forbidden. Tenant and project come from the authenticated request context and the path project, never from a header. The server validates the binding against the stored best-config version, checks the head generation now, stamps decided_by_user_id and sets expires_at. Every error body is the closed envelope release_acceptance_schema.json#/definitions/ReleaseRefusal except 429.",
+        "operationId": "best_configs.create_release_acceptance",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./release_acceptance_schema.json#/definitions/CreateReleaseAcceptanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored acceptance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseAcceptanceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "acceptance_binding_mismatch, head_generation_stale. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List release acceptances of an agent",
+        "description": "TraigentBackend (planned). Read access to the agent. Newest decision first, at most `limit` items. Closed refusal envelope on every error except 429.",
+        "operationId": "best_configs.list_release_acceptances",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "Closed run environment; absent means every environment.",
+            "schema": {
+              "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum items, default 50.",
+            "schema": {
+              "x-content-class": "number",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Acceptances of the agent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseAcceptanceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head/release": {
+      "post": {
+        "summary": "Release an accepted candidate: move the agent head",
+        "description": "TraigentBackend (planned). Editor with agent WRITE, including an SDK API key: the person's decision is the acceptance. One transaction locks the head, rechecks the acceptance and moves the head, then marks the acceptance consumed. A refused call moves no head. Every error body is the closed envelope release_acceptance_schema.json#/definitions/ReleaseRefusal except 429.",
+        "operationId": "best_configs.release_agent_head",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new head generation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "acceptance_required, acceptance_expired, acceptance_consumed, acceptance_revoked, acceptance_binding_mismatch, head_generation_stale. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head/rollback": {
+      "post": {
+        "summary": "Roll the agent head back to an earlier accepted generation",
+        "description": "Person only: an API key or service token is refused 403 forbidden. The target must be a generation that was already accepted or released, and the request carries a fresh release acceptance (recorded by a person through the release-acceptances route, bound to the target's pinned config) that the rollback consumes, exactly as a release consumes its own. The move is a new head generation with the actor and the consumed acceptance recorded. Every error body is the closed envelope release_acceptance_schema.json#/definitions/ReleaseRefusal except 429.",
+        "operationId": "best_configs.rollback_agent_head",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./release_acceptance_schema.json#/definitions/HeadRollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new head generation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/HeadRollbackReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "head_generation_stale, rollback_target_not_accepted, acceptance_required, acceptance_expired, acceptance_consumed, acceptance_revoked, acceptance_binding_mismatch. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

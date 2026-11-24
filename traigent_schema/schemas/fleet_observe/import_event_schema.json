@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/import_event_schema.json",
+  "title": "import_event_schema.json",
+  "description": "One accepted import event (F10/F11). idempotency_key is a sha256 digest the importer derives from (source_ref, boundary, source-side event identity); replaying the same key must not create a second event. observed_at is when the source says the thing was observed; the server receipt time is not part of this shape. retention_class states how long retained content behind the event is kept.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "import_event_ref",
+    "idempotency_key",
+    "source_ref",
+    "source_kind",
+    "observed_at",
+    "boundary",
+    "retention_class",
+    "member_count"
+  ],
+  "properties": {
+    "import_event_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ImportEventRef"
+    },
+    "idempotency_key": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Sha256Digest"
+    },
+    "source_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/SourceRef"
+    },
+    "source_kind": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ImportSourceKind"
+    },
+    "observed_at": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Timestamp"
+    },
+    "boundary": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ObservationBoundary"
+    },
+    "retention_class": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/RetentionClass"
+    },
+    "member_count": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Count"
+    }
+  }
+}

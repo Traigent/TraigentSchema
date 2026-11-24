@@ -4,7 +4,8 @@
     "optimizer.grid-enumeration",
     "multi-objective.normalization-selection",
     "optimize.stop-limits",
-    "optimize.stop-rules"
+    "optimize.stop-rules",
+    "crew.declarations"
   ],
   "fixtures": [
     "optimizer.grid-enumeration.v1",

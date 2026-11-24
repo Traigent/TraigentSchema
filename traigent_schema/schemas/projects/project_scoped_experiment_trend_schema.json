@@ -8,9 +8,6 @@
     "project_id": {
       "type": "string"
     },
-    "experiment_id": {
-      "type": "string"
-    },
     "experiment_name": {
       "type": "string"
     },
@@ -37,8 +34,12 @@
             "minimum": 0
           }
         },
-        "required": ["date", "count"]
-      }
+        "required": [
+          "date",
+          "count"
+        ]
+      },
+      "maxItems": 366
     },
     "daily_configuration_runs": {
       "type": "array",
@@ -55,8 +56,12 @@
             "minimum": 0
           }
         },
-        "required": ["date", "count"]
-      }
+        "required": [
+          "date",
+          "count"
+        ]
+      },
+      "maxItems": 366
     },
     "measure_summary": {
       "type": "object",
@@ -78,18 +83,30 @@
             "type": "number"
           }
         },
-        "required": ["count", "mean", "min", "max"]
-      }
+        "required": [
+          "count",
+          "mean",
+          "min",
+          "max"
+        ]
+      },
+      "maxProperties": 200
+    },
+    "experiment_ref": {
+      "$ref": "../evaluation/experiment_reads_schema.json#/definitions/ExperimentRef",
+      "description": "The experiment's server-minted reference, echoed from the request path. The historical experiment id is not returned."
     }
   },
   "required": [
     "project_id",
-    "experiment_id",
+    "experiment_ref",
     "experiment_name",
     "runs_total",
     "configuration_runs_total",
     "daily_runs",
     "daily_configuration_runs",
     "measure_summary"
-  ]
+  ],
+  "x-max-response-bytes": 1048576,
+  "description": "Run and configuration-run trend of one experiment, addressed by experiment_ref (project_core_metrics.get_experiment_trend). Bounded by new canonical-operation budgets that the backend window-1b cutover will enforce (not existing backend behaviour): at most 366 daily points per series, the most recent 366 dates when the experiment has more, at most 200 measure summaries and 1048576 serialized bytes."
 }

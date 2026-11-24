@@ -61,7 +61,7 @@
             "name": "X-Traigent-Expected-Head-Generation",
             "in": "header",
             "required": false,
-            "description": "The head generation the run captured when it STARTED (the `generation` of GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}). Compare-and-set precondition of the promotion of that run's own result; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion). Never refreshed to cure a stale refusal.",
+            "description": "The head generation the run captured when it STARTED (the `generation` of GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head). Compare-and-set precondition of the promotion of that run's own result; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion). Never refreshed to cure a stale refusal.",
             "schema": {
               "x-content-class": "number",
               "type": "integer",

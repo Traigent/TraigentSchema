@@ -2,18 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/evaluation/experiment_context_schema.json",
   "title": "Experiment Context Resolution",
-  "description": "GET /api/v1beta/experiments/{experiment_id}/context (SPEC: ~/.claude/plans/deeplink-context/SPEC.md, astra APPROVE WITH CHANGES 2026-09-28). Deep-link recovery for SDK/Claude Code links of the form .../experiments/view/{id}: when a link opens under the wrong tenant, the frontend calls this route once to learn which tenant/project the experiment actually lives in, then atomically switches and retries. The route is authenticated but CONTEXT-INDEPENDENT -- it does not require or consume X-Tenant-Id/X-Project-Id and is exempt from stale tenant/project context middleware rejection; only authentication is retained. Human sessions (JWT/cookie) only: an API-key principal is rejected uniformly before any lookup (403, error_code CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against the key owner's memberships. The lookup enumerates only the authenticated human's own ACTIVE tenant memberships (existing self-membership discovery) and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it -- so an experiment that exists but is not visible to the caller in any of their active tenants is indistinguishable from one that does not exist at all: both return the exact same closed 404 (ExperimentContextNotFoundError). Active tenant membership is required even for platform admins; there is no cross-tenant admin bypass on this route. The membership probe is bounded (a fixed cap on tenants probed and on wall time); exceeding the bound is a 503 (ExperimentContextBudgetExceededError, error_code CONTEXT_RESOLUTION_BUDGET_EXCEEDED) so a caller never receives a false 404 from a silently truncated search. The 200 body is bare (x-wrap-status: bare, not the {success,message,data} envelope) and closed: experiment_id/project_id/tenant_id are always present; tenant_name/project_name are optional display strings for the frontend's \"Opened in workspace X / project Y\" toast and carry no authorization meaning of their own. Every response (success or error) is sent with Cache-Control: private, no-store.",
+  "description": "POST /api/v1/experiment-context/resolve, body {experiment_ref} (moved from GET /api/v1beta/experiments/{experiment_id}/context in API revision Phase 3 slice 3.3 window 1b; operationId experiment_context.get_experiment_context, replay class read: no reservation, fingerprint or replay row; the request body is closed and the reference is never echoed in any error). Original design: (SPEC: ~/.claude/plans/deeplink-context/SPEC.md, astra APPROVE WITH CHANGES 2026-09-28). Deep-link recovery for SDK/Claude Code links of the form .../experiments/view/{id}: when a link opens under the wrong tenant, the frontend calls this route once to learn which tenant/project the experiment actually lives in, then atomically switches and retries. The route is authenticated but CONTEXT-INDEPENDENT -- it does not require or consume X-Tenant-Id/X-Project-Id and is exempt from stale tenant/project context middleware rejection; only authentication is retained. Human sessions (JWT/cookie) only: an API-key principal is rejected uniformly before any lookup (403, error_code CONTEXT_RESOLUTION_HUMAN_ONLY), never enumerated against the key owner's memberships. The lookup enumerates only the authenticated human's own ACTIVE tenant memberships (existing self-membership discovery) and, within each tenant, reuses the experiment detail route's real visibility policy (project read role + ownership visibility) rather than re-deriving it -- so an experiment that exists but is not visible to the caller in any of their active tenants is indistinguishable from one that does not exist at all: both return the exact same closed 404 (ExperimentContextNotFoundError). Active tenant membership is required even for platform admins; there is no cross-tenant admin bypass on this route. The membership probe is bounded (a fixed cap on tenants probed and on wall time); exceeding the bound is a 503 (ExperimentContextBudgetExceededError, error_code CONTEXT_RESOLUTION_BUDGET_EXCEEDED) so a caller never receives a false 404 from a silently truncated search. The 200 body is bare (x-wrap-status: bare, not the {success,message,data} envelope) and closed: experiment_id/project_id/tenant_id are always present; tenant_name/project_name are optional display strings for the frontend's \"Opened in workspace X / project Y\" toast and carry no authorization meaning of their own. Every response (success or error) is sent with Cache-Control: private, no-store.",
   "definitions": {
     "ExperimentContextResponse": {
       "type": "object",
       "additionalProperties": false,
-      "description": "200 body, bare (no success/message/data envelope). experiment_id is the requested path parameter, echoed back only after the lookup has authorized it; project_id/tenant_id are the resolved owning scope the frontend must pin before retrying the experiment fetch. tenant_name/project_name are optional convenience labels for the toast only.",
-      "required": ["experiment_id", "project_id", "tenant_id"],
+      "description": "200 body, bare (no success/message/data envelope). experiment_ref is the requested body member, echoed back only after the lookup has authorized it; project_id/tenant_id are the resolved owning scope the frontend must pin before retrying the experiment fetch. tenant_name/project_name are optional convenience labels for the toast only.",
+      "required": ["experiment_ref", "project_id", "tenant_id"],
       "properties": {
-        "experiment_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The requested experiment id, echoed back. Present only once the lookup has confirmed the caller may read this experiment in tenant_id/project_id."
+        "experiment_ref": {
+          "$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef",
+          "description": "The requested experiment reference, echoed back. Present only once the lookup has confirmed the caller may read this experiment in tenant_id/project_id."
         },
         "project_id": {
           "type": "string",
@@ -28,19 +27,45 @@
         "tenant_name": {
           "type": "string",
           "minLength": 1,
-          "description": "Optional display name of tenant_id, for the \"Opened in workspace X / project Y\" toast. Absent does not imply the tenant lacks a name; the client falls back to tenant_id."
+          "description": "Optional display name of tenant_id, for the \"Opened in workspace X / project Y\" toast. Absent does not imply the tenant lacks a name; the client falls back to tenant_id. Customer content: returned only to the authorized human reader; never logged, never sent to telemetry or the Director.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         },
         "project_name": {
           "type": "string",
           "minLength": 1,
-          "description": "Optional display name of project_id, for the same toast. Absent does not imply the project lacks a name; the client falls back to project_id."
+          "description": "Optional display name of project_id, for the same toast. Absent does not imply the project lacks a name; the client falls back to project_id. Customer content: returned only to the authorized human reader; never logged, never sent to telemetry or the Director.",
+          "x-content": true,
+          "x-privacy-classification": "user_content"
         }
+      }
+    },
+    "ExperimentContextResolveRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "x-max-request-bytes": 512,
+      "description": "POST body of experiment_context.get_experiment_context. Closed: experiment_ref is the only member and is required; any other key, a missing or non-string reference, or a value that is not experiment_ plus 32 lowercase hex is a 400 ExperimentContextBadRequestError, validated before any membership lookup. A legacy experiment id is not a reference and is rejected the same way; nothing casts between the two.",
+      "required": ["experiment_ref"],
+      "properties": {
+        "experiment_ref": {"$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef"}
+      }
+    },
+    "ExperimentContextBadRequestError": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "400, closed. One fixed body for every malformed request (unknown key, missing member, wrong type, malformed reference). It never echoes the submitted key, value or reference and carries no details member.",
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Request is invalid."},
+        "error": {"const": "Bad request"},
+        "error_code": {"const": "INVALID_REQUEST"}
       }
     },
     "ExperimentContextNotFoundError": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The single closed 404 shape, returned identically whether experiment_id names no experiment anywhere, or names one the caller cannot read in any of their active tenants. Deliberately indistinguishable: no field here can reveal existence.",
+      "description": "The single closed 404 shape, returned identically whether experiment_ref names no experiment anywhere, or names one the caller cannot read in any of their active tenants. Deliberately indistinguishable: no field here can reveal existence.",
       "required": ["success", "message", "error", "error_code"],
       "properties": {
         "success": {"const": false},

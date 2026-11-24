@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_promotion_evaluate_request_schema.json",
+  "title": "EvaluatorPromotionEvaluateRequest",
+  "description": "Body of POST /api/v1/analytics/runs/{run_id}/evaluator-promotion/evaluate. The server rejects unknown fields. An absent body is treated as an empty object, which fails validation because challenger_fingerprint is required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "challenger_fingerprint"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "challenger_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "minLength": 64,
+      "maxLength": 64,
+      "description": "Fingerprint (sha256 hex digest) of the evaluator version being judged for promotion.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "digest"
+    },
+    "incumbent_fingerprint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$",
+      "maxLength": 64,
+      "default": null,
+      "description": "Fingerprint of the evaluator to beat. When null or omitted the server picks the most frequent non-challenger evaluator fingerprint among the run's outcome cells.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "digest"
+    },
+    "delta": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1,
+      "default": 0.05,
+      "description": "Failure probability of each one-sided conservative bound; smaller is stricter. Exclusive bounds (0, 1).",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "min_pairs": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 100000,
+      "default": 10,
+      "description": "Minimum number of shared anchor-backed pairs required to decide at all.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    }
+  }
+}

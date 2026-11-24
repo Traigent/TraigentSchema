@@ -231,20 +231,20 @@ class TestValidateRequest:
         for policy in ("strict", "warn", "allow"):
             v = SchemaValidator(unknown_endpoint_policy=policy)
             errors = v.validate_request(
-                "/api/v1/agents", "POST", {"name": "Test Agent"}
+                "/api/v1/projects/{project_id}/agents", "POST", {"name": "Test Agent"}
             )
             assert errors, f"registered-endpoint validation should still run under policy={policy}"
 
     def test_returns_list(self, validator):
         """Should always return a list."""
         data = {"test": "data"}
-        errors = validator.validate_request("/api/v1/agents", "POST", data)
+        errors = validator.validate_request("/api/v1/projects/{project_id}/agents", "POST", data)
         assert isinstance(errors, list)
 
     def test_agent_request_uses_endpoint_module_mapping(self, validator):
         """Agent validation should resolve through the modular endpoint catalog."""
         errors = validator.validate_request(
-            "/api/v1/agents",
+            "/api/v1/projects/{project_id}/agents",
             "POST",
             {
                 "name": "Test Agent",
@@ -255,7 +255,7 @@ class TestValidateRequest:
     def test_agent_request_reports_validation_errors(self, validator):
         """Invalid agent payloads should fail request validation."""
         errors = validator.validate_request(
-            "/api/v1/agents",
+            "/api/v1/projects/{project_id}/agents",
             "POST",
             {"name": "Test Agent"},
         )
@@ -386,12 +386,21 @@ class TestValidateRequest:
         unregistered endpoint rather than silently passing.
         """
         errors = validator.validate_request(
-            "/api/v1beta/projects/project_abc/analytics/summary",
+            "/api/v1beta/projects/project_abc/memberships",
             "GET",
             {},
         )
         assert errors != []
         assert any("UNVALIDATED_ENDPOINT" in error for error in errors)
+
+    def test_default_backend_contract_knows_the_project_analytics_routes(self, validator):
+        """C3-PR1c: the project analytics reads are declared in the backend contract itself."""
+        errors = validator.validate_request(
+            "/api/v1beta/projects/project_abc/analytics/summary",
+            "GET",
+            {},
+        )
+        assert errors == []
 
     def test_default_backend_contract_validates_trace_score_summary_route(self, validator):
         errors = validator.validate_request(
@@ -1081,6 +1090,8 @@ class TestSchemaValidation:
             "include_content": False,
             "job_id": "export_job_123",
             "record_count": 1,
+            "truncated": False,
+            "empty_reason": None,
             "records": [
                 {
                     "record_id": "config_1",
@@ -1122,6 +1133,8 @@ class TestSchemaValidation:
             "include_content": False,
             "job_id": "export_job_123",
             "record_count": 1,
+            "truncated": False,
+            "empty_reason": None,
             "records": [
                 {
                     "record_id": "config_1",

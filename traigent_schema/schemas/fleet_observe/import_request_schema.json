@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/import_request_schema.json",
+  "title": "import_request_schema.json",
+  "description": "Body of POST /api/v1beta/projects/{project_id}/fleet-observe/imports (TRAIG-179). Field names are the API server's own. Closed: unknown keys are a 400. source_kind lists the producer states the API server accepts in Observe v1; the reserved mediated_enforcement_connector is rejected. observed_at has a future-skew bound only (5 minutes, API server-enforced). The canonical request digest and the derived idempotency_key are specified in data/fleet_observe/request_digest_v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_kind",
+    "boundary",
+    "idempotency_key",
+    "observed_at",
+    "members"
+  ],
+  "properties": {
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "cloud_iam_principal",
+        "credential_inventory",
+        "kubernetes_workload",
+        "llm_gateway_log",
+        "otel_trace_export",
+        "sdk_declaration",
+        "spawn_parent_report",
+        "parent_evidence_inherit",
+        "vendor_platform_registry"
+      ],
+      "x-content-class": "closed_enum"
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_kind",
+        "boundary_digest"
+      ],
+      "properties": {
+        "boundary_kind": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/BoundaryKind"
+        },
+        "boundary_digest": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+        }
+      }
+    },
+    "idempotency_key": {
+      "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+    },
+    "observed_at": {
+      "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+    },
+    "retention_class": {
+      "$ref": "./fleet_observe_common_schema.json#/definitions/RetentionClass",
+      "description": "Optional; the API server applies ledger_minimal when absent."
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5000,
+      "items": {
+        "$ref": "#/definitions/ImportMember"
+      }
+    }
+  },
+  "definitions": {
+    "ImportMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member_kind",
+        "member_digest"
+      ],
+      "properties": {
+        "member_kind": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/MemberKind"
+        },
+        "member_digest": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+        },
+        "parent_member_digest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+            }
+          ]
+        }
+      },
+      "description": "One imported principal, credential or workload by digest. parent_member_digest is optional and may be explicit null (same as omitted); when a digest, it must differ from member_digest. Not expressible in JSON Schema and enforced by the API server (closed 400): one member_digest with two different parents in one request; a parent cycle inside one request. Exact duplicate members collapse server-side."
+    }
+  }
+}

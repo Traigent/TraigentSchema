@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_evaluator_quality_response_schema.json",
+  "title": "Run Evaluator Quality Success Response",
+  "description": "Platform success envelope for POST /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute. The run evaluator-quality payload is nested under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "https://schemas.traigent.ai/analytics/run_evaluator_quality_schema.json"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data"
+  ]
+}

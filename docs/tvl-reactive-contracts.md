@@ -32,7 +32,7 @@ walks the `optimization/` documents (the manifest `docs/content-class-manifest.j
 
 ## Policy read
 
-`GET /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy`
+`GET /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy`
 (response `optimization/tvl_reactive_policy_schema.json`; route in the portal catalog `production_requirements/tvl_reactive_policy_endpoints.json`, registered in `mep_endpoints.json`) is the
 authoritative read of the declared policy: P-human portal read, tenant and project from the
 authenticated context, project and agent authorized before anything is returned. It returns
@@ -126,7 +126,7 @@ from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`
 3. The deploy publish-result/finalize contracts are content-class lint roots; the pinned config read and deploy publication
    request (they carry config content) are the explicit allow-listed exception.
 4. Deploy publication is a separate route from `POST /api/v1/best-configs`, which is left untouched (see above).
-5. Paths are `/api/v1/production-reactive/agents/{agent_ref}/...` with the project from the auth context only.
+5. Paths are `/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/...`; the project comes from the path and must match the authenticated request context (never a header or query string).
 6. `agent_ref` (`agentref_<hex>`) is the only agent addressing form, including the pinned config read.
 7. Attempt read routes were added: a human has no other way to learn the `attempt_ref` a grant needs.
 8. The stage schema accepts the full fact vocabulary (including `approval`, `started`, `deploy_started`) so harnesses can post

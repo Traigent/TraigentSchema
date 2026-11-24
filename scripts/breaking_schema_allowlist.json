@@ -9087,6 +9087,1889 @@
       "reason": "Promotion of develop to main: the POST /api/v1/sessions request allOf gains two conditional if/then branches (10 -> 12 against main). TraigentSchema#610 adds the optional evaluator_code_digest, guarded by a branch that fires only when the field is present. TraigentSchema#615 adds the optional snapshot_g1_required and snapshot_g1_deadline_days, guarded by a branch that fires only when snapshot_g1_deadline_days is present. Each branch was already acknowledged individually against develop. Request bodies that omit these fields validate exactly as before, so a client built on the current main contract is not rejected; the published Python SDK 0.31.1 contains none of the three fields. The gate cannot align branches positionally when the count changes, so it flags this conservatively.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/615"
+    },
+    {
+      "file": "prompts/prompts_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ed02bcd1d9870b7619c5e55838d15245ee2962a0e02cfd87f8221cd1cd5da6ec"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/labels/patch",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "fbea68b9670f4a07e99034ed2f2ce0296c7b70191227d88a90401783272ee207"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/playground/run/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "21de76bb73fc9204e7790180a48d80654c862a49fe96f7b170111b6e9dc827c2"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/prompts/{prompt_name}/versions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "893fa0f26171d187f758299700c0ec8b88db5c3acdc52c42d406beb7f674862b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dc90e88e8f0886097fe46085f66a3f93602a15c08db5b23a830d618513e195b4"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/labels/patch",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "b86574f1ab88927cd0acb0bf998fd3b1818bca5d6cd1d81d2cc9be88d5809e19"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/playground/run/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0ea49e5c73901ef79f8d0159ed9f0fe7e1fd26ff66b060057faad88cfd39189a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/prompts/{prompt_name}/versions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "38a0a80e12f37e8fd97fe378067152bef06e0ff965c424e257741925c2ab72a5"
+        }
+      ],
+      "reason": "API refactor Phase 1 replaces the eight planned, name-addressed /api/v1beta prompts routes (never served; no external clients, owner ruling) with the eleven /api/v1/projects/{project_id}/prompts operations addressed by server-minted prompt_ref, with POST search and resolve and cursor pagination. The removed routes were retired in the backend; the replacement operations are declared in the same file.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
+    },
+    {
+      "file": "prompts/prompts_list_endpoints.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8018d97209be571307c81ea1ed0d696cc66efc2d2617727cf1c881c2d91b928e"
+        }
+      ],
+      "reason": "API refactor Phase 1 retires the two v1beta prompt list GETs (GET /api/v1beta/prompts and GET /api/v1beta/projects/{project_id}/prompts) that prompts/prompts_list_endpoints.json declared on develop (#720). They are replaced by prompt_management.list_prompts (GET /api/v1/projects/{project_id}/prompts, cursor pagination with limit and cursor, prompt_type filter) and prompt_management.search_prompts (POST .../prompts/search, which carries search, label and prompt_type in its body), both declared in prompts/prompts_endpoints.json. The file is removed outright, not deprecated: there are no external clients (owner ruling), and its mep_endpoints.json index entry is removed in the same change. The sort_by and sort_order parameters of the retired list are carried by prompt_management.search_prompts (sort_by: updated_at, name, version_count; sort_order: asc, desc, null for the key default).",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract, not yet opened)"
+    },
+    {
+      "file": "audit/audit_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/audit/soc2/security-incidents/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "6c7d0432ad0e4a0b3cd5531c2958665a144a50d72efb5f69e251ec9085677666"
+        }
+      ],
+      "reason": "API refactor Phase 1 retires the legacy SOC2-scoped alias GET /api/v1/audit/soc2/security-incidents, which returned the same response as the canonical GET /api/v1/audit/security/incidents (kept, unchanged). TraigentBackend #6097 deletes the alias route (batch 1d); there are no external clients (owner ruling). The description of security_incidents_response_schema.json no longer names the alias.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feature/api-p1-prompts-contract; backend TraigentBackend#6097)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/packs/items/properties/coverage_ingredient_ids",
+          "role": "response",
+          "subject": "coverage_ingredient_ids",
+          "old": false,
+          "new": true,
+          "fingerprint": "f33fc24de8c7e4d85d09cb0b49656e9e8a88870ed7bc1c60b88d6944b8453b83"
+        }
+      ],
+      "reason": "Owner decision (2026-11-13): a client must be able to drill down from each compliance pack's coverage counts to the exact ingredients counted, so a count is never a number without proof. PackSummary gains the optional closed object coverage_ingredient_ids (four arrays of catalogue ingredient ids). PackSummary is additionalProperties:false, so a strict reader built from the previous schema rejects a pack that carries the new field. Rollout rule: strict readers of the compliance-evidence response must upgrade to this schema before the Backend starts emitting coverage_ingredient_ids; the Backend must not emit the field until then. Payloads without the field still validate, and an omitted field means drill-down is unavailable, not that the counts are zero.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/compliance-coverage-ingredient-ids)"
+    },
+    {
+      "file": "datasets/datasets_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/example-sets/get/responses/200/content/application/json/schema/properties/data/properties/items/items",
+          "role": "response",
+          "subject": "examples",
+          "old": true,
+          "new": false,
+          "fingerprint": "476b92e49bf1f5e839c85cde27bafabb26d55534c1cfd9c935f8f8ef24804293"
+        }
+      ],
+      "reason": "API revision Phase 2 (TraigentBackend #6114, merged to develop) makes the example-set list summary-only: GET /api/v1/example-sets no longer serializes example rows (input, output, explanation text) and returns num_examples only. The previously required `examples` field is removed from the list item so the schema matches what the backend emits; nothing reads `examples` from the list (the per-set GET /api/v1/example-sets/{set_id}/examples is unchanged and remains the way to read rows). Response narrowing is intentional and was reviewed against the backend change.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/api-p2-contract-declarations; backend TraigentBackend#6114)"
+    },
+    {
+      "file": "datasets/example_set_list_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/data/properties/items/items",
+          "role": "response",
+          "subject": "examples",
+          "old": true,
+          "new": false,
+          "fingerprint": "34b0bf8fb8e86dfbc860a4e7039ce759746c4650927f40d7e2302c1275a593fd"
+        }
+      ],
+      "reason": "API revision Phase 2 (TraigentBackend #6114, merged to develop) makes the example-set list summary-only: GET /api/v1/example-sets no longer serializes example rows (input, output, explanation text) and returns num_examples only. The previously required `examples` field is removed from the list item so the schema matches what the backend emits; nothing reads `examples` from the list (the per-set GET /api/v1/example-sets/{set_id}/examples is unchanged and remains the way to read rows). Response narrowing is intentional and was reviewed against the backend change.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/api-p2-contract-declarations; backend TraigentBackend#6114)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_endpoints.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2ebbe7c7ac3c816eea3fc6e6a3b18e1fe1a7107f82d409d6ebda513c89b27dbb"
+        }
+      ],
+      "reason": "Owner decision product-2026-11-16-api-p3-agents-identity = A: fleet-posture definitions are private and are removed from the public schema. The GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture route was declared contract-first (x-asserted-against-backend false) and is not part of the agents Phase 3 mount. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/fleet_posture_response_schema.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "5b760cdcf3a380dad294cbd872f0fe11b1de8871d8579b7f911b0e45cf63ff97"
+        }
+      ],
+      "reason": "Owner decision product-2026-11-16-api-p3-agents-identity = A: fleet-posture definitions are private and are removed from the public schema. The GET /api/v1beta/projects/{project_id}/agent-readiness/fleet-posture route was declared contract-first (x-asserted-against-backend false) and is not part of the agents Phase 3 mount. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/agents/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e34680829f7569a44eb3ca93600cf893bdd264bad242cfbebd14da52fa2e6478"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "196d0b4f540e5cdd9e987b4c9b1928ccdb33d96d38d34db18bf9b5d6226fb41f"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/agent-types/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7f59b6b046e3a11a878068a7bb5a7e3dcfa331c637cb7be5c8433023ddad5c10"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/import/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7029a084f52014513907971e2f39e14a012802f0026911fe9ef3fae9f63bca19"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/delete",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3dfe96e6fd617352e9c98e1f822762a369870e9d26e2147d6161d3bd2fb06480"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "41272195514c7125ac7f1270817763618d132e6a604cf24c72f0039ff6ada0a0"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9ab460b3b45dd8b1985c0870a4a3cd2947cfc03f5b2cfb8d72739b87270a7b38"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/check-deletion/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "e2e38a2d5f862b87440d5688433bf701902a4ba825718ec64b990a715f371144"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/example-sets/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9bff536f5ad7edeeb0e5b074021f71de262d29a1d6d194ba6f70319ec20bb3f5"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/experiments/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "146830bd0a47a2e312dcdbcb119fda275f88a2234c7c6da41a6dd7e45e8b1b58"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/export/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dda0732ddc33c7084362c227a884a0a1a7a83263cbbbff13dc46c8f59c5b25bd"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "b4e176c0b090095b2d6fdb87f86137a6414071ce69046fa88202b8fd90feafd8"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c2abbe0831e71b84266b8d7747b973d887226b87d6803d102f970a87f4233e6e"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/model-parameters/{param_id}/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "85fcb2ad15e7e669ff5ecdb0582a47f08eace62c0d8f7c793e0f5313e3017b21"
+        },
+        {
+          "pointer": "#/paths//api/v1/agents/{agent_id}/retrieval-configs/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "18b5105b65a0bc4e5bf0d5806fe480d1a65cf17b62196354a641af8b94005fad"
+        }
+      ],
+      "reason": "API revision Phase 3 (TraigentBackend #6193): the agents family is served only at /api/v1/projects/{project_id}/agents[...] with opaque agent_ref paths; GET /api/v1/agent-types replaces /api/v1/agents/agent-types; agent search and optimization-summaries are POST .../search with JSON bodies; create ignores client ids. The retired /api/v1/agents/... (and /api/v1beta/projects/{project_id}/agents) routes answer a closed 404 and are no longer declared. GET /api/v1/agents/admin/stats and POST /api/v1/model-parameters are unchanged. Pre-release contract and no external clients, so no consumer is affected; consumers regenerate from the new paths.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-paths; backend TraigentBackend#6193)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-paths, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/x-content-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"server_text\"",
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "70ed48e4836c3b9cb36d33344f9eb5cf3605c994e476b8e93168e9f6c734e81e"
+        },
+        {
+          "pointer": "#/properties/x-content-key-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"version\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "bca081b5838a338eed8b6f2969c0bd55d64ed819fa4973b909289980dd3a17dc"
+        }
+      ],
+      "reason": "Two content classes join the vocabulary for the audit evaluate contract: version joins x-content-class and x-content-key-class (an anchored dotted-digit pattern, proven by the lint) and server_text joins x-content-class only (server-composed text from fixed templates, bounded and noted). Additive: no existing value changes meaning and no existing document uses them; the lint accepts server_text only at one allow-listed response location, never as a map-key class, and tests/test_content_class_lint.py pins both classes.",
+      "version": "unreleased (audit evaluate contract, additive)",
+      "pr": "#732"
+    },
+    {
+      "file": "agent_readiness/agent_posture_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2525c335cc58b6cb4c295fafc9befb14637b3ff553cab0e96d199fbfa2b171f1"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the agent posture write moves from /api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions to POST /api/v1/projects/{project_id}/agents/{agent_ref}/posture-revisions (operationId project_agent_readiness.create_agent_posture_revision). Request and response bodies are unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8d7fb0cb89848c5dd8f9b054537fee71ea40e8e228d738e639d651593cacb471"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "763f845631cf6b5f78973f3386d4b5b7dbd349fe063a746d2bd7d681ba30bf9a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "70ec10d63c46d20498ee3f8a76273a1f40e2f06f964dfd782bc3649cbcd8e639"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "876a75e705edb577db10208465a2d43b7d5a0d2de4a45b8deb970d927bdc5bd5"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the agent readiness module moves under /api/v1/projects/{project_id}. The list becomes POST /agent-readiness/search with the former query parameters in the request body; readiness detail, lifecycle history and target revisions move to /agents/{agent_ref}/readiness, /lifecycle-history and /target-revisions; operationIds become the backend operation ids. next-step is added. Response shapes are unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "d46d50ad84e1ddea33c78c0d527e2ca43bdf8da88eaed608e831e497271a6090"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): agent compliance evidence moves from /api/v1beta/projects/{project_id}/agent-compliance-evidence/{agent_id} to GET /api/v1/projects/{project_id}/agents/{agent_ref}/compliance-evidence (operationId project_agent_compliance_evidence.get_agent_compliance_evidence). Response unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "production_requirements/tvl_reactive_policy_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "db686ac623b9362f673c34841edbbd9e76487f635562ceb29f6e0efaa4082583"
+        }
+      ],
+      "reason": "API revision Phase 3 (satellites): the reactive policy read keeps its project-level mount but the agent path parameter is renamed from agent_id to agent_ref and the operationId becomes project_production_reactive_policy.read_policy, matching the backend. Response unchanged. Pre-release contract, no external clients.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-replay",
+          "role": "conservative",
+          "subject": "x-replay",
+          "old": false,
+          "new": true,
+          "fingerprint": "66334f3bb9b3226273fa3f0af58384b4c3668e04124a5f8f8e77ef724c2a77a8"
+        }
+      ],
+      "reason": "Adds the x-replay vocabulary entry (value 'read') that marks a POST operation as a non-mutating search. The meta schema is a vocabulary document that is not applied to request or response bodies at runtime, so no consumer can observe the new property.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-readiness-satellites-paths; backend API revision Phase 3 satellites)",
+      "pr": "pending (TraigentSchema, feat/api-p3-readiness-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "658226d652dd4a119676fe92ce60387d60b213597df49221aaa71367c6d635cd"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "169911ca606df1fff82c85803af9602c1d769af27ccbefeeb0a6b981e4168919"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-applicability/suggestions/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "278b3c5560bec93bea37ae8ac3a742039486d4cb582b9effb6bcf50ae0c4fa37"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9a61742142cd5265ae9ed677a3841906e0007a2b06d57bc260f9a9456119f8b3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c4e1270948930a48d824d432d03d4f25a3e6ac8919194bd5c2f903a3e5cf058e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/capabilities/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3385664b03cdd9e3191b9db9a0da063d38c395d728998215affeb96762486fe1"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attestations/{attestation_id}/revocations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ac9c057e54053400fd5b28a56a31094121a94b14ddada85a46d551bec11d132a"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "62bb36322f1c6157143146367b3367d900c0693239d841f47cbe71cb1249af13"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "65867365fa11a87832c6375f34f289f44c8f805554bfc568ab67879fab0b4b95"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-attester-grants/{grant_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "34a30a5ce97698a7f062ee5fd3d594368045808734df9a15453d8f15c9f86cb6"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_document_ref_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "cd42a4a8422d5269d7ae430471a05a795fee4becfdfb7aedff0be2794d9b72c3"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/agents/{agent_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ec0e5855c2f63819855b741804f52a82b9ba6e92e568f9300ada278db55825da"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-document-refs/{reference_id}/withdrawals/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "156c3fa99ec0315f78726f10c36410baf823b6f1691374eec49fe0592e0b5dd9"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_export_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/compliance-evidence-exports/agents/{agent_id}/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "ff2b69682d254d57ee7d2395ec577b7563eab482ce3b1b80d6ce1e67a4dd8ece"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2 (TraigentBackend feat/api-p3-compliance-satellites): the compliance operations are served only at /api/v1/projects/{project_id}[/agents/{agent_ref}]/compliance-...; the agent_id path parameter becomes agent_ref, operationIds equal the policy-register operation ids, and the retired /api/v1beta/projects/{project_id}/compliance-... routes answer a closed 404 and are no longer declared. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/agent_head_by_ref_response_schema.json",
+      "rule": "file_removed",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "n/a",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "30a042ae2756d1330685243bb1e9486f5d8282275bda1dcb05f03d142414afbb"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "optimization/best_config_head_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/agent-heads/by-ref/{agent_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "306bf455255550cfc8fa16f7e44ff55a8f529da6eb4dc9756c6132a33ee8c84a"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-2: the agent head read is served only at /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head (best_configs.get_agent_head). The by-ref form GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref} was declared but the backend never served it (no handler; the greedy agent-heads rule answered 404 AGENT_NOT_FOUND or a different body shape), so it is removed and its response schema agent_head_by_ref_response_schema.json is deleted. The new response is declared in agent_head_response_schema.json from the backend handler. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-compliance-satellites-paths; backend API revision Phase 3 satellites slice 2 PR-2)",
+      "pr": "pending (TraigentSchema, feat/api-p3-compliance-satellites-paths, not yet opened)"
+    },
+    {
+      "file": "agent_decision/agent_decision_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{agent_id}/ensure/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "54283ede7bc358035a9bea842801a14ccd724c3a418ba81e552b31bb1f99becf"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{agent_id}/latest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3417195b5b4a82040ccc57723adb5acfa9b869941454c6d342639ac3453d8c82"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/agent-decisions/{decision_id}/answer/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d86562e7fd17701b8b65300560268f550e4a0683ea885f0aae7235c42afe967"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the host-prompt decision operations are served only at /api/v1/projects/{project_id}/agents/{agent_ref}/decisions/{ensure,latest,{decision_id}/answer}; operationIds equal the policy-register operation ids and the retired /api/v1beta/agent-decisions/... routes answer the standard closed 404. Request and response bodies are unchanged. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/agent_ref",
+          "role": "request",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "44c2209b7573a9492e517dc42a91c4f086d7ef97b90a4f9186ae6caf24a0450d"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/lifecycle_agent_ref",
+          "role": "response",
+          "subject": "lifecycle_agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "68343a537ae2aa05a4019923cd195e9d87303e2d58ef55a1e65c7062522625f4"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_agent_revision_register_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "a921988d59a36971ff3ef28a5c7c6afc99fcf5859fb8a2a75b728aa30ec135b2"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/lifecycle_agent_ref",
+          "role": "response",
+          "subject": "lifecycle_agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "f7a3847c46ddfd35202189f6e9fa604862880fc41412e2e3ce6698a0761d57fb"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": true,
+          "new": false,
+          "fingerprint": "bd6cd79019caa637b351d0e16bbaefdc82818ff86a44fdd7e560cd8cbeab7355"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3 (TraigentBackend feat/api-p3-decisions-lifecycle): the wire field agent_ref of the agent-lifecycle revision documents is renamed lifecycle_agent_ref (database column and agent_<hex> id format unchanged) so it cannot be confused with the agent_ref path parameter of the project-level routes. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/agents/admin/stats/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1581d3f83c91362cfc06d36af149b00cbea9bcaaefb43dd895976d2bd98546b2"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 2 PR-3: the cross-tenant agent statistics route is platform-admin only (served privately at /api/v1/admin/agents/stats) and leaves the public Schema. It was declared with a bare 200 and no body schema. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths; backend API revision Phase 3 satellites slice 2 PR-3)",
+      "pr": "pending (TraigentSchema, feat/api-p3-decisions-lifecycle-paths, not yet opened)"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_metrics",
+          "role": "conservative",
+          "subject": "best_metrics",
+          "old": false,
+          "new": true,
+          "fingerprint": "40e3db613ca427383963a91a675ff1c446bc1ef2d347cee79b0f543667cc0c16"
+        },
+        {
+          "pointer": "#/properties/experiment_run/oneOf/0/properties/best_trial_id",
+          "role": "conservative",
+          "subject": "best_trial_id",
+          "old": false,
+          "new": true,
+          "fingerprint": "f500f6711ca939c6e8589f8d89f27b853c3b6156d01cb0445cf1020f8d8df4ee"
+        }
+      ],
+      "reason": "The experiments-list run summary gains two optional, nullable members so the portal list can show the best trial's score: best_trial_id and best_metrics, read from the selection the backend already records at finalize. Both are additive and not required. The only consumer that validates this closed object is the Traigent portal, which updates in step with the backend, so an older consumer rejecting the new members is an accepted, reviewed risk.",
+      "version": "Unreleased"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "611ac0082044b041dada4cef70b45aa63fec794a92c26fd25d37081f56833be8"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination/properties/has_more",
+          "role": "response",
+          "subject": "has_more",
+          "old": false,
+          "new": true,
+          "fingerprint": "197c39fa2cf1a8b543a8d18167809c7a27dfcc526d0f9b5ee5eee7051e228d57"
+        },
+        {
+          "pointer": "#/properties/pagination/properties/limit",
+          "role": "response",
+          "subject": "limit",
+          "old": false,
+          "new": true,
+          "fingerprint": "63a937692badd3c2127b6f9791a57d06efb2cbca8c684dad47bbce5ac1a27ee6"
+        },
+        {
+          "pointer": "#/properties/pagination/properties/next_cursor",
+          "role": "response",
+          "subject": "next_cursor",
+          "old": false,
+          "new": true,
+          "fingerprint": "eb2ec960bfce6c2f5c62effd616f0c86c32b1de50934102f51af16c1cbd8f95d"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_lifecycle_history_response_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "dc49925047a7f1118fa567431b02290be6fa15d356e6f651cc721260130bb56d"
+        },
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "a93e046b336ffa50bd622589ee28db94a380100d1174374dfac323b3eef1a699"
+        },
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "ca42dc2757cd4c75e7ba2737f85f2f62d3911bb32e5f52ecb3979b551324e40a"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "ae1a5fb247507bb9263a29ab148122002c1609f60884022a8751766e647d07f9"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "c725002a8182053bb54399e5741b5ac64bfb93b9bea91b7009dfe23981cf0fc8"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/journey/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "2f60d82bb571c2bfcfba8b57e1e50678a89eec68f78ebb2507f62fa141bdb1de"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/responses/200/content/application/json/schema/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "186646b16171084237cd8895bcbcf2d3d68489d66c8e3fb473bb3effcdf44f35"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "87bca3aed3cf707fd5d68a8b0aa01f2fee1f6dbbd6f35e3cc2504323cc0807cc"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "e9662d15189ac48ac4591fd59283eff258719a5ad4e263c8566e83ef3031ad55"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/items",
+          "role": "response",
+          "subject": "maxItems",
+          "old": 50,
+          "new": 100,
+          "fingerprint": "979b66f95f9af6cef7210c64831b1b295b55b9f2348f0f45ce272443bf6989a9"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/has_more",
+          "role": "response",
+          "subject": "has_more",
+          "old": false,
+          "new": true,
+          "fingerprint": "79f22af4948cd479e6ea509f1114e0ea13ce19f0bdb158920b1fd5bdd0401111"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/limit",
+          "role": "response",
+          "subject": "limit",
+          "old": false,
+          "new": true,
+          "fingerprint": "26e6b2e1b771b7a5df0a091a78b79a72584b8f1ae8f2b1284d20ea90c96523ce"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination/properties/next_cursor",
+          "role": "response",
+          "subject": "next_cursor",
+          "old": false,
+          "new": true,
+          "fingerprint": "67463ceccf31f92538aac9d4dae13ae9a49757590473be2b6f3596e26c8afcd3"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/requestBody/content/application/json/schema/properties/page",
+          "role": "request",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "cf13d50ccc0dc90dead3489aec030b4bf37c92d04b29178bcfc6350ce44f3738"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/requestBody/content/application/json/schema/properties/per_page",
+          "role": "request",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "a1013620cdab350d004cc63df4d2a73b9b6518492d182030107736a40d9146db"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "2b70e66979278c85627e7d85f24ee75fca3c1c1911ac5df55fb2d5010cbe72e0"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "1caa4d6eb339c54d13597a55cb8beffb906868310c93b533fbe26a55e22e4b3b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history/get/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "89aefbf723a47cd76432ed10d16b427669d60f50abcca6f8827105e87ff6c0e5"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agent-readiness/search/post/responses/200/content/application/json/schema/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "0bedf07a29d9abc0d74d79ab70db45c7c7d740290cc3e81caf8b43846e1417a9"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/readiness/get/responses/200/content/application/json/schema/properties/journey/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "d6d46f1c8f0a5d1fffc5f7e2db9e1b4856d7b3157d908ce58152e35d37c72f2e"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agent-readiness search body loses page/per_page for limit/cursor, and the portfolio, lifecycle-history and readiness-detail responses carry the cursor pagination block {limit, next_cursor, has_more} instead of the page/total block; history and journey item pages are bounded at 100 (was 50). Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "6f744372ca095a33cc542e8992c8fbeb0bef355c3ffa49b8c0c246801eca480f"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_portfolio_response_schema.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/properties/pagination",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "object"
+            ]
+          },
+          "old": null,
+          "new": [
+            "object"
+          ],
+          "fingerprint": "8757e4a6938d3bf6c3e8fad0954cc199e4f642cb1c7eec082270220704deb66b"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the response pagination block moves from the page/per_page/total shape to the cursor shape {limit, next_cursor, has_more} (limit 1-100, default 20; next_cursor opaque, maxLength 4096, null on the last page), and the item page bound rises from 50 to 100 where the page size cap moved to 100. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/search/post/requestBody/content/application/json/schema/properties/page",
+          "role": "request",
+          "subject": "page",
+          "old": true,
+          "new": false,
+          "fingerprint": "5e42816729f5527d0422b5d7d2393d100a6f9847ba11832841917351d57e2336"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/search/post/requestBody/content/application/json/schema/properties/per_page",
+          "role": "request",
+          "subject": "per_page",
+          "old": true,
+          "new": false,
+          "fingerprint": "e35147c42a73bac47e16427f0e66e425775a07bc89678e3d9c014bee56dba5d2"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "agents/agents_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "agent_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "b96fcb09bb33c958bdf0b90f2655542e0dd93a6dd7f67a88e8e881af8ff05586"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "experiments",
+          "old": true,
+          "new": false,
+          "fingerprint": "aeabb578f90cf9986d8b49ed10c2c35cb4064bddf2ad852ed2c2eacc04cb0e76"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/experiments/get/responses/200/content/application/json/schema",
+          "role": "response",
+          "subject": "total",
+          "old": true,
+          "new": false,
+          "fingerprint": "671769c5fd6bc13d58b87fdea10671f2be72b93104aced2cebc908459db3e620"
+        }
+      ],
+      "reason": "API revision Phase 3 (agents-family cursor pagination): the agents list, search and nested experiments reads page by an opaque cursor. Search request bodies lose page/per_page for limit/cursor (limit 1-100, default 20; cursor maxLength 4096; page, per_page and offset are rejected by the backend with a closed 400), and the nested experiments read becomes a success envelope {success, message, data:{agent_id, items, pagination}} with pagination {limit, next_cursor, has_more}, replacing the bare {agent_id, total, experiments} body. Pre-release contract and no external clients, so no consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feat/api-p3-agents-cursor-pagination; backend API revision Phase 3 agents-family cursor pagination)",
+      "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
+    },
+    {
+      "file": "evaluation/experiment_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_ref",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "dd516bc518636175e5557e3f2c0e402751d0654fc83d31e12428d623dc7a484f"
+        }
+      ],
+      "reason": "The experiment resource gains the optional, read-only experiment_ref (experiment_ plus 32 lowercase hex), the server-minted URL reference returned by the project-scoped experiment reads; the historical id stays. Additive and not required, so a response without it still validates.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiments/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "4123dc1d06f4939004bd75b73b53ae06c8d16f6e1e21bdb77375b0daa58f0bcc"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiments/{experiment_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "488d9fc780e1e12c4a0d68f7d9948ade7668045c5d4a3c2e47d206b4ce8031df"
+        },
+        {
+          "pointer": "#/paths//api/v1/traces/experiments/{experiment_id}/graphs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3792ba9d529e4cc492a6a643730dbdfd1d995db71329f4656d743542295e613c"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/experiments/{experiment_id}/context/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "d7eef8359d4f4d7ce8694d58c6f6132346d350c063e2806d66997ec18572d5f4"
+        }
+      ],
+      "reason": "API revision Phase 3 slice 3.3 window 1b moves the experiment reads to project-level reference paths: GET /api/v1/experiments becomes POST /api/v1/projects/{project_id}/experiments/search, GET /api/v1/experiments/{experiment_id} becomes GET /api/v1/projects/{project_id}/experiments/{experiment_ref}, GET /api/v1/traces/experiments/{experiment_id}/graphs becomes GET /api/v1/projects/{project_id}/experiments/{experiment_ref}/graphs, and GET /api/v1beta/experiments/{experiment_id}/context becomes POST /api/v1/experiment-context/resolve with body experiment_ref. Operation ids are retained; the old declarations are removed from the contract in the same change. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "57ff1a46270d77112dd4eebe7ffae522dd45d119867ae3c682bf083906813147"
+        }
+      ],
+      "reason": "The project experiment trend moves from GET /api/v1beta/projects/{project_id}/core-metrics/experiments/{experiment_id}/trend to GET /api/v1/projects/{project_id}/experiments/{experiment_ref}/trend with operation id project_core_metrics.get_experiment_trend; the legacy compatibility sibling is retired in favour of it. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "maxItems",
+      "findings": [
+        {
+          "pointer": "#/properties/daily_configuration_runs",
+          "role": "conservative",
+          "subject": "maxItems",
+          "old": null,
+          "new": 366,
+          "fingerprint": "aa30bff03d2f0ce6632de3df51005174dd39cec7f69774efe4c86e0479f07c86"
+        },
+        {
+          "pointer": "#/properties/daily_runs",
+          "role": "conservative",
+          "subject": "maxItems",
+          "old": null,
+          "new": 366,
+          "fingerprint": "710593288b0346733619619bd639850d0c84cfacff11bf5202132a46656c99e1"
+        }
+      ],
+      "reason": "The experiment trend declares numeric cardinality budgets: at most 366 daily points per series, the most recent 366 dates when the experiment has more. This is a new canonical-operation bound that the backend window-1b cutover will enforce; it does not match existing backend behaviour, which returns all history. Tightening of an unbounded response array, declared so clients and tests read the bound from the contract. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "maxProperties",
+      "findings": [
+        {
+          "pointer": "#/properties/measure_summary",
+          "role": "conservative",
+          "subject": "maxProperties",
+          "old": null,
+          "new": 200,
+          "fingerprint": "6303145386fade65d922d856fe1f64ae5ece6d10fb81916ebdeb1f4963755f76"
+        }
+      ],
+      "reason": "The experiment trend measure summary map is bounded to 200 entries, a new canonical-operation cardinality budget that the backend window-1b cutover will enforce; it does not describe existing backend behaviour. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_ref",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "e39ac6972ab447fe449f9e30bb1b06486e87bfbdbe056e8973efddef80ecbeaa"
+        }
+      ],
+      "reason": "The experiment trend response gains experiment_ref, the server-minted reference of the experiment that the request path now names; it replaces experiment_id in the same response. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "property_removed",
+      "findings": [
+        {
+          "pointer": "#/properties/experiment_id",
+          "role": "conservative",
+          "subject": "experiment_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "07637eff3b8cbe97d42e042a398e3d32bff53106af5667164b8e43e45408b138"
+        }
+      ],
+      "reason": "The experiment trend response drops the historical experiment_id; the experiment is now identified only by experiment_ref so the primary key is not exposed by the reference-addressed read. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_experiment_trend_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "experiment_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "dfcc01e005ea86b9ac53abf9bd97764fc0781ddc56fb816fcaa70a92dfccff8b"
+        },
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "experiment_id",
+          "old": true,
+          "new": false,
+          "fingerprint": "ec31f7b48772a83bb342974cb621deab96a1df1603d314a424a2e2b0feb378cc"
+        }
+      ],
+      "reason": "experiment_ref replaces experiment_id in the required set of the experiment trend response, following the move of the read to reference addressing. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-max-response-bytes",
+          "role": "conservative",
+          "subject": "x-max-response-bytes",
+          "old": false,
+          "new": true,
+          "fingerprint": "831c099819ec8c769cd51e5abbf7879a574c8e61e817ef994fe754c9c4015302"
+        }
+      ],
+      "reason": "The x-* vocabulary gains x-max-response-bytes, the response-side counterpart of x-max-request-bytes, so numeric response byte budgets are discoverable from the contract. Additive vocabulary entry.",
+      "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
+      "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/x-requires-project-binding",
+          "role": "conservative",
+          "subject": "x-requires-project-binding",
+          "old": false,
+          "new": true,
+          "fingerprint": "6d8c6285340e9e8048582e30204e40110416ea326fb867f830bb821aa338ffdb"
+        },
+        {
+          "pointer": "#/properties/x-write-only",
+          "role": "conservative",
+          "subject": "x-write-only",
+          "old": false,
+          "new": true,
+          "fingerprint": "e9faeb34d7732082d951d6f1943a1751a17b727bd8eb058e36ad8ff9742cbb7e"
+        }
+      ],
+      "reason": "The extensions meta-schema is the registry of allowed x-* annotation keywords, not a wire payload: no request or response body is validated against it, so declaring the two new annotations x-write-only and x-requires-project-binding (used on the fleet_imports:write scope map entry) cannot make any consumer reject a payload. The registry is closed by design, so each new annotation must be added here.",
+      "version": "Unreleased (fleet observe increment 1, fleet_imports:write scope)",
+      "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "response_status_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/400",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "380b75f916fecfb9774f8f2809e9833c294fe37bfee2b6acc99707e0ac173d04"
+        }
+      ],
+      "reason": "The 400 on GET /api/v1/analytics/dashboards/optimization-overview documented a status the backend never returns for this operation: query validation is ProjectOptimizationOverviewDashboardQuery through response_handler.validation_error_response, which pins HTTP 422 with error_code VALIDATION_ERROR (TraigentBackend src/utils/response_handler.py validation_error_response; handler src/routes/analytics_routes.py get_project_optimization_overview_dashboard). The 422 is now declared in its place, so a client written to the old 400 would never have seen it fire. No malformed request changed behaviour; only the declaration was wrong.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "schema_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/401/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c07d87902fb3d7ec6d6324c335aee72ffb33ed05f62a26384aca575933bfed0b"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/403/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f37bdb77c228c5d26c9f6b7966c97817772d62faf5e1bfd81731a59680214b3e"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/404/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "8bb8db7b15587c57ea7de1727f4c2dcc4b0da1baf53940d74383040ab8edc0ea"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get/responses/500/content/application/json/schema",
+          "role": "response",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "01be65fc628a900b30c682584e48730889db8cecf9a1d093072fffd8f2d3b532"
+        }
+      ],
+      "reason": "The 401/403/404/500 responses of GET /api/v1/analytics/dashboards/optimization-overview keep a body schema: they moved into shared #/components/responses entries (AnalyticsUnauthenticated, AnalyticsForbidden, AnalyticsProjectNotFound, AnalyticsInternalError) that all 33 analytics operations share, and the checker does not follow response $refs, so it reads the move as removal. The 401, 403 and 500 bodies are unchanged (error_envelope_schema.json). The 404 body is unchanged in shape: it stays the ordinary application/json error envelope (error_envelope_schema.json), now shared as AnalyticsProjectNotFound; a project that does not exist, or in which the caller holds no role, returns 404 PROJECT_NOT_FOUND through project-context resolution (TraigentBackend src/security/project_context.py, caught by unified_auth in src/security/unified_auth.py:2072-2073, rendered via src/security/unified_auth.py:1980-1985 and error_response in src/utils/response_handler.py:332-378). No application/problem+json 404 is declared because the analytics mounts carry no project-entry guards (src/routes/api_v1beta.py:117, src/api_kit/mounts.py:247). AnalyticsResourceNotFound additionally covers the handler not_found_response branches (missing experiment, measure or export job); this overview has no such branch.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "planned_projects_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/evaluator-quality/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "6e6ddc9be4cded798b2cc87ae1933958302ca395fb4e460c59d5ff18c8e07c3b"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/observability-summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "5c961acc361ebd99f382186cb1199d745947fbbdf128803a9c9a0560ab36e8fa"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "38ca77f4821c8ba8f3c774e279f4c8448af463b257e73ce135d000efcd92ff4f"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/dashboards/project-usage/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "55062a7aea5deaee2e5c6ec8e980ba63735ece18ef87d3d2b1cee58276db7422"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/distributions/measures/{measure_key}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d02ebb26b1326729f0e72a2936fdaa0cb147ef6daaabdb4238333aef9b18139"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/export-jobs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1d5ec6158c1231e9a0fa92385f102bcd17722a13185ceb759aff7b5f41dbc588"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/export-jobs/{job_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2c97937598136d8db03d0bd8cd1680128a643979d1b38aaa8d718d468cce5113"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/exports/fine-tuning.manifest/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7f17801cbca0fa777031b091b6d0cd34033435c2bdf8f14006f35d625eed5936"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/pricing-catalog/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "bd2fb342e0b556b0206d09eb9588288e30fd5dd8acf14b9df9b6e5ed9d739bfa"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "20c13706224700309dc195422d8b350f7d116b779446f7bf850304e2ee7bb993"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/projects/{project_id}/analytics/trends/run-volume/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "87678426d7d73c644504d032dbfd5103e870c4fce4eb2ba2843b7b204a203114"
+        }
+      ],
+      "reason": "The eleven project analytics path keys in planned_projects_endpoints.json are not removed from the contract: each keeps its path key and now carries a path-item $ref to the canonical declaration in analytics/analytics_endpoints.json (the backend master catalog loads that file), where it is declared once with its backend operation id project_analytics.<suffix>, the same method and the same path. The checker reads the planned catalog without following path-item $refs, so it reports the move as removal; the same operations appear as endpoint_added in analytics/analytics_endpoints.json for all three mounts. SchemaValidator resolves the path-item $ref, so contract=planned_projects still knows all eleven (tests/test_validator.py, tests/test_planned_projects_endpoint_paths.py). The operationIds change from camel-case ids (getProjectAnalyticsSummary and ten siblings) to the backend ids; the Python SDK, JS SDK and portal pins checked for the plan do not dispatch through them.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_fine_tuning_manifest_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/empty_reason",
+          "role": "conservative",
+          "subject": "empty_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "76ea497239637c602c06fdef9243a752535a7d4574b3bbb2ec0a58c460b2c7c1"
+        },
+        {
+          "pointer": "#/properties/truncated",
+          "role": "conservative",
+          "subject": "truncated",
+          "old": false,
+          "new": true,
+          "fingerprint": "362d2bf71409dc0b08913395b90f6dc63553143ee450b9096f8f9b02432d635f"
+        }
+      ],
+      "reason": "The fine-tuning manifest response gains the two members the backend always emits, truncated (boolean) and empty_reason (null or the one closed reason string), at core_domain_analytics_service.export_fine_tuning_manifest (the return dict, 'truncated' and 'empty_reason'). The schema is closed (additionalProperties false) and omitted them, so a strict validator already rejected every real manifest; declaring them makes real responses valid. Response-only: no request body changes, and a producer that emits the backend's actual payload is unaffected.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "projects/project_scoped_fine_tuning_manifest_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "empty_reason",
+          "old": false,
+          "new": true,
+          "fingerprint": "95f267e86fcae341bca35c0a7e5985139faee0e3e0c05efb4e96ddfdc7631220"
+        },
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": "truncated",
+          "old": false,
+          "new": true,
+          "fingerprint": "c05cb096f136affa4e3018fee4fb7735711ac9ff4a20cd79aca5af444da665a9"
+        }
+      ],
+      "reason": "truncated and empty_reason are added to the required list of the fine-tuning manifest response because the backend emits both on every successful export (core_domain_analytics_service.export_fine_tuning_manifest always sets 'truncated' and 'empty_reason', including empty and failed-to-record-job cases). Response-only requirement matching the real payload; it cannot reject any response the backend produces. A third-party producer or mock that omits them would now fail validation, which is the intended tightening: the old schema rejected the real payload, the new one accepts it.",
+      "version": "Unreleased (C3-PR1c, analytics contracts)",
+      "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/agent_readiness_detail_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/scorecard",
+          "role": "response",
+          "subject": "scorecard",
+          "old": false,
+          "new": true,
+          "fingerprint": "7f2920e53827c1c974e0415f0e807e70c6a410739da7ba5d5a31a81893eeddd2"
+        }
+      ],
+      "reason": "The agent readiness detail response gains the optional, nullable top-level scorecard (scores and per-area stats against the latest active config, or the current run when none is promoted). The response is additionalProperties:false, so a strict reader built from the previous schema rejects a body carrying it. Rollout rule: strict readers of the detail response must upgrade to this schema before the Backend starts emitting scorecard; the Backend change ships with this contract. Payloads without the field still validate.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feature/readiness-scorecard)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "01ac918cb90bfa91d09519ec05a05c124062c545358c9c4b184eed18be44475a"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f2d61967791c0928dbd7f6a66e6aef04ed6792c87a523a5f05ea18c6077a16ac"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/configuration-runs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0981eeda37bc61cbba5bd7f4f069f7dfe7b9bf0fb5bb8173afe8d132e1b903a2"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/configuration-runs/query/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "106c5f903d4cad463804458418231d3efe3b37a506a49b084df93bbeaaa6ed23"
+        }
+      ],
+      "reason": "BREAKING PUBLIC CHANGE. Backend API revision W9 moves the experiment-group reads to project-scoped paths and removes the old ones: GET /api/v1/experiment-groups becomes POST /api/v1/projects/{project_id}/experiment-groups/search (experiment_group.list_groups; cursor-only, filters and search text in the body); GET /api/v1/experiment-groups/{group_id} becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref} (experiment_group.get_group); GET /api/v1/experiment-groups/{group_id}/configuration-runs becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs (experiment_group.list_group_runs); POST /api/v1/experiment-groups/{group_id}/configuration-runs/query becomes POST /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query (experiment_group.query_group_runs). The group detail no longer embeds source_experiments: they are paged by the new GET .../{group_ref}/experiments (experiment_group.list_group_experiments). page, per_page and offset are gone (cursor and limit only) and errors are closed application/problem+json bodies. Consumers: the Traigent portal (updated in the same release) and the Python SDK (traigent 0.34). The shapes match the backend implementation of API revision W9.",
+      "version": "Unreleased (API revision W9, experiment-group endpoints)",
+      "pr": "pending (TraigentSchema, feature/api-w9-experiment-groups, not yet opened)"
+    },
+    {
+      "file": "optimization/tvl_reactive_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1ba71edc5fcd54f34f8b2d8515f8841e1294c2d503f5fdd364a8ecec8fefb548"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c363c4590740cfaa7807fb1d2205cb4550b9e5ab6dc1ca88084aaf1710c01160"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/approval-context/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "3325434fedbc726d00384937f7da5e38925dc84d5090e3b6d7e87da95af47997"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/cancel/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "dce653042a5b5cf98db6e20a003cd6e2bdfc98ff77e4adcc7c01296e460aa51c"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/heartbeat/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "60caa2edf34fe3cd27d92671d199e8dd8be3dcece17dfd1fd99e55698ba04e02"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/reservations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "972118984daf3be800fe1e68427b4b564ca8205848f66c5bf0e81bdaa92bf944"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/results/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "645abf1d2266e37e53f9256e31507dd62a81aedbd140d815735f9983d9c4d2dd"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/attempts/{attempt_ref}/start/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "bb4cc6547a6ae1dd1d6001181579a10502f6ea48849f19a703dbe52880159df7"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/evaluations/{instant}/complete/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "07eb6f121f54d235e85992ead618f5bb81e219bd555a6599a5e21ee5b33b629b"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/evaluations/{instant}/stage/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "48c10282d142a1f80b6b2f1eabab4110b7f96aba4c7358ba9159349fbadbdf03"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/grants/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9d18dda244e210edda0aa8f27700b9faffa77b3118d577e0cfa7deca09869c94"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/grants/{grant_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "7ce53f72a8a8d00882fc244e333523f4f0f0853c580b5cc54f2dab3d582b7fc4"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/notifications/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "952ab67bdcee31925144f3cdca368667aa63a0ccae559404680559ce217e77fe"
+        },
+        {
+          "pointer": "#/paths//api/v1/production-reactive/agents/{agent_ref}/notifications/{notification_ref}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9dd06a2be98f6c3a2868ceeb74e012f782bb5102f9c4f4b62e36ebdd5912f1ed"
+        }
+      ],
+      "reason": "Unreleased pre-release path move (API cutover U1): the 14 production reactive operations in optimization/tvl_reactive_endpoints.json move from /api/v1/production-reactive/agents/{agent_ref}/... to /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/... and gain the project_id path parameter. operationIds, methods, bodies and responses are unchanged. The backend operation table already serves only the new paths and answers the closed 404 on the old ones; there is no released client of the old paths, and the feature is dark behind PRODUCTION_REQUIREMENTS_ENABLED. Rollout rule: the Backend change ships with this contract.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/pa-u1-reactive-project-paths)"
+    },
+    {
+      "file": "audit/audit_endpoints.json",
+      "rule": "enum",
+      "reason": "Release 8.0.0 promotion of develop to main: the audit log permission value set, shared by GET /api/v1/audit/logs, GET /api/v1/audit/logs/{log_id} and the audit logs export response, gains the member fleet_import.write (three response-side enum additions, one per operation). It follows the new user-requestable API-key scope fleet_imports:write (CHANGELOG, Unreleased entry now in 8.0.0) whose use is recorded in the audit log. The enum widens only what the server may return; readers that treat the permission as an open string are unaffected, and no request body changes. The gate flags a response enum addition conservatively against main.",
+      "version": "8.0.0",
+      "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
     }
   ]
 }

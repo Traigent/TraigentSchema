@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_reference_review_schema.json",
+  "title": "Run Reference Review Queue",
+  "description": "Paged queue of examples whose reference answer needs a check, selected only by each example's stored class. Every object is closed. An example carries its own identifier only when that identifier is usable; the opaque reference is always present.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "privacy_mode",
+    "status",
+    "unavailable_reason",
+    "counts",
+    "page",
+    "page_size",
+    "total_count",
+    "total_pages",
+    "items"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the run the queue belongs to.",
+      "x-privacy-classification": "user_content",
+      "x-content": true,
+      "x-content-class": "legacy_content",
+      "x-content-note": "INV-GAP: run_id: the backend preserves caller-supplied run ids"
+    },
+    "privacy_mode": {
+      "type": "string",
+      "const": "safe_agent_projection",
+      "description": "Always safe_agent_projection.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "unavailable"
+      ],
+      "description": "available: classified results exist (not that classification is complete or the dataset healthy); unavailable: see unavailable_reason.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "unavailable_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "dataset_quality_missing",
+        "diagnostics_missing",
+        "classification_missing",
+        null
+      ],
+      "description": "Why the queue is unavailable: no dataset-quality record, no per-example diagnostics, or no example with a recognised class. null when status is available.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needs_reference_check",
+        "insufficient_evidence",
+        "unclassified",
+        "classified"
+      ],
+      "description": "Tallies over the run's distinct examples that have a task identifier.",
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "needs_reference_check": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Examples whose reference answer needs a check; equals total_count.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        },
+        "insufficient_evidence": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Examples without enough evidence to classify.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        },
+        "unclassified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Examples with no recognised class.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        },
+        "classified": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Examples with a recognised class, including the two above.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "number"
+        }
+      }
+    },
+    "page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Page number returned.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "page_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "description": "Page size used.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "total_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Examples in the whole queue.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "total_pages": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Pages in the whole queue: total_count divided by page_size, rounded up; 0 for an empty queue.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "safe_example_ref"
+        ],
+        "description": "One example in the queue.",
+        "x-privacy-classification": "aggregate_safe",
+        "properties": {
+          "safe_example_ref": {
+            "type": "string",
+            "pattern": "^exref_[0-9a-f]{16}$",
+            "minLength": 22,
+            "maxLength": 22,
+            "description": "Opaque server-issued reference derived from the run and the example; carries no example content.",
+            "x-privacy-classification": "aggregate_safe",
+            "x-content-class": "opaque_ref"
+          },
+          "example_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "The customer's own example identifier. Present only when it is non-blank and at most 255 characters; omitted otherwise. Customer-chosen text.",
+            "x-privacy-classification": "user_content",
+            "x-content": true,
+            "x-content-class": "legacy_content",
+            "x-content-note": "INV-GAP: example_id: customer-chosen example identifiers can carry free text"
+          }
+        }
+      },
+      "description": "The requested page of the queue; empty beyond the last page.",
+      "x-privacy-classification": "aggregate_safe"
+    }
+  }
+}

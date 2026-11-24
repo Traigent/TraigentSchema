@@ -3,7 +3,7 @@
   "$id": "https://schemas.traigent.ai/projects/project_scoped_observability_summary_dashboard_schema.json",
   "type": "object",
   "title": "Project Scoped Observability Summary Dashboard Schema",
-  "description": "Prebuilt privacy-safe observability summary dashboard for the active project.",
+  "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts).",
   "x-privacy-classification": "aggregate_safe",
   "additionalProperties": false,
   "properties": {

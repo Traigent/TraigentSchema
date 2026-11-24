@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 476
+      "refOrEndpointGraph": 570
     },
-    "reachableCount": 509,
-    "schemaFileCount": 560,
-    "unreachableCount": 51
+    "reachableCount": 603,
+    "schemaFileCount": 666,
+    "unreachableCount": 63
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -26,6 +26,7 @@
     "agent_lifecycle_record/agent_lifecycle_record_response_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_request_schema.json",
     "agent_lifecycle_record/agent_lifecycle_run_plan_issue_response_schema.json",
+    "analytics/next_steps_stored_response_schema.json",
     "auth/rbac_privilege_vocabulary_schema.json",
     "certification/agent_quality_v1_schema.json",
     "certification/certificate_claim_templates_v0_schema.json",
@@ -41,12 +42,23 @@
     "connectors/connector_run_summary.json",
     "connectors/correlation_summary.json",
     "connectors/dataset_revision_summary.json",
+    "crew/crew_binding_schema.json",
+    "crew/crew_declaration_schema.json",
+    "crew/crew_handoff_schema.json",
+    "crew/crew_member_execution_schema.json",
+    "crew/crew_run_schema.json",
+    "crew/crew_trial_allocation_schema.json",
     "evaluation/evaluation_request_schema.json",
     "evaluation/evaluation_results_schema.json",
     "evaluation/evaluation_schema.json",
     "execution/dataset_storage_schema.json",
     "execution/saas_execution_schema.json",
     "execution/service_registration_schema.json",
+    "fleet_observe/agent_observation_record_schema.json",
+    "fleet_observe/evidence_record_schema.json",
+    "fleet_observe/import_bundle_schema.json",
+    "fleet_observe/source_evidence_class_map_schema.json",
+    "fleet_observe/spawn_tree_schema.json",
     "labels/label_epoch_schema.json",
     "labels/label_key_binding_schema.json",
     "labels/label_local_protection_schema.json",

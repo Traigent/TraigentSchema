@@ -1,0 +1,556 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/evidence_record_schema.json",
+  "title": "evidence_record_schema.json",
+  "description": "Evidence record carrying the working tuple (origin_trust_level, evidence_class) (A5). evidence_class is authoritative and is never merged with another class; origin_trust_level is the existing 3-value TrustLevel kept as a derived compatibility field. The schema pins which trust levels each class may carry and, per source_kind, the exact class and trust level (see traigent_schema/data/fleet_observe/source_evidence_class_map.json, which a test keeps identical to these conditionals). Corrections and invalidations are appended records, never edits: record_operation (assert, correct, invalidate) with supersedes naming the prior evidence_ref; invalidate also carries a closed invalidation_reason. A consumer must treat a record as current only if no later correct/invalidate record supersedes it. A record cannot be proven to differ from the one it supersedes in draft-07: supersedes must not equal evidence_ref, a consumer-side check. constraint_enforced is structurally legal but reserved: Observe v1 has no producer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_ref",
+    "source_kind",
+    "origin_trust_level",
+    "evidence_class",
+    "observed_at",
+    "boundary",
+    "retention_class",
+    "payload_digest"
+  ],
+  "properties": {
+    "evidence_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceRef"
+    },
+    "source_kind": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ImportSourceKind"
+    },
+    "origin_trust_level": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/TrustLevel"
+    },
+    "evidence_class": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceClass"
+    },
+    "observed_at": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Timestamp"
+    },
+    "boundary": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ObservationBoundary"
+    },
+    "retention_class": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/RetentionClass"
+    },
+    "payload_digest": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/Sha256Digest"
+    },
+    "import_event_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "fleet_observe_common_schema.json#/definitions/ImportEventRef"
+        }
+      ]
+    },
+    "cluster_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "fleet_observe_common_schema.json#/definitions/ClusterRef"
+        }
+      ]
+    },
+    "record_operation": {
+      "type": "string",
+      "enum": [
+        "assert",
+        "correct",
+        "invalidate"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Absent means assert. correct and invalidate require supersedes."
+    },
+    "supersedes": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceRef"
+        }
+      ]
+    },
+    "invalidation_reason": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "source_changed",
+            "model_or_template_changed",
+            "source_revoked",
+            "superseded_by_independent_evidence",
+            "recorded_in_error"
+          ],
+          "x-content-class": "closed_enum"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "independent_observed"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "backend_observed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "self_reported"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "client_attested"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "lineage_internal"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "client_attested"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "inherited_conditional"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "client_attested"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "vendor_claimed"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "client_attested"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_class": {
+            "const": "constraint_enforced"
+          }
+        },
+        "required": [
+          "evidence_class"
+        ]
+      },
+      "then": {
+        "properties": {
+          "origin_trust_level": {
+            "enum": [
+              "server_verified"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "cloud_iam_principal"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "independent_observed"
+          },
+          "origin_trust_level": {
+            "const": "backend_observed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "credential_inventory"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "independent_observed"
+          },
+          "origin_trust_level": {
+            "const": "backend_observed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "kubernetes_workload"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "independent_observed"
+          },
+          "origin_trust_level": {
+            "const": "backend_observed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "llm_gateway_log"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "independent_observed"
+          },
+          "origin_trust_level": {
+            "const": "backend_observed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "otel_trace_export"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "self_reported"
+          },
+          "origin_trust_level": {
+            "const": "client_attested"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "sdk_declaration"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "self_reported"
+          },
+          "origin_trust_level": {
+            "const": "client_attested"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "spawn_parent_report"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "lineage_internal"
+          },
+          "origin_trust_level": {
+            "const": "client_attested"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "parent_evidence_inherit"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "inherited_conditional"
+          },
+          "origin_trust_level": {
+            "const": "client_attested"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "vendor_platform_registry"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "vendor_claimed"
+          },
+          "origin_trust_level": {
+            "const": "client_attested"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "mediated_enforcement_connector"
+          }
+        },
+        "required": [
+          "source_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_class": {
+            "const": "constraint_enforced"
+          },
+          "origin_trust_level": {
+            "const": "server_verified"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_operation": {
+            "enum": [
+              "correct",
+              "invalidate"
+            ]
+          }
+        },
+        "required": [
+          "record_operation"
+        ]
+      },
+      "then": {
+        "required": [
+          "supersedes"
+        ],
+        "properties": {
+          "supersedes": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceRef"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "supersedes": {
+            "$ref": "fleet_observe_common_schema.json#/definitions/EvidenceRef"
+          }
+        },
+        "required": [
+          "supersedes"
+        ]
+      },
+      "then": {
+        "required": [
+          "record_operation"
+        ],
+        "properties": {
+          "record_operation": {
+            "enum": [
+              "correct",
+              "invalidate"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_operation": {
+            "const": "invalidate"
+          }
+        },
+        "required": [
+          "record_operation"
+        ]
+      },
+      "then": {
+        "required": [
+          "invalidation_reason"
+        ],
+        "properties": {
+          "invalidation_reason": {
+            "enum": [
+              "source_changed",
+              "model_or_template_changed",
+              "source_revoked",
+              "superseded_by_independent_evidence",
+              "recorded_in_error"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "invalidation_reason": {
+            "enum": [
+              "source_changed",
+              "model_or_template_changed",
+              "source_revoked",
+              "superseded_by_independent_evidence",
+              "recorded_in_error"
+            ]
+          }
+        },
+        "required": [
+          "invalidation_reason"
+        ]
+      },
+      "then": {
+        "required": [
+          "record_operation"
+        ],
+        "properties": {
+          "record_operation": {
+            "const": "invalidate"
+          }
+        }
+      }
+    }
+  ]
+}

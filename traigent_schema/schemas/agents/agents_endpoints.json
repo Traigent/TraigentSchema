@@ -1,22 +1,209 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Backend Agent Routes",
+    "title": "Traigent Backend Agents Routes",
     "version": "1.0.0",
-    "description": "Canonical backend routes for agent management."
+    "description": "Backend routes for agent management (API refactor Phase 3). Agents are served only under /api/v1/projects/{project_id}/agents with opaque agent_ref paths and problem+json denials; GET /api/v1/agent-types lists the agent types. The retired /api/v1/agents/... and /api/v1beta/projects/{project_id}/agents mounts are no longer declared. The standalone POST /api/v1/model-parameters remains live and unchanged. The platform-admin agent statistics route is private and not declared here."
   },
   "paths": {
-    "/api/v1/agents": {
+    "/api/v1/agent-types": {
       "get": {
-        "summary": "List agents",
+        "operationId": "agent.get_agent_types",
+        "summary": "List the kinds an agent can be (public static catalog)",
+        "x-asserted-against-backend": false,
         "responses": {
           "200": {
-            "description": "Agents retrieved successfully"
+            "description": "The agent types",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTypesList"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents": {
+      "get": {
+        "operationId": "agent.get_agents",
+        "summary": "List the project's agents",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor of the previous page, bound to the caller, project, filters and sort.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped. page, per_page and offset are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "description": "Sort column",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "name",
+                "agent_type_id",
+                "id"
+              ]
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "description": "asc or desc",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "agent_type_id",
+            "in": "query",
+            "required": false,
+            "description": "Closed filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "agent_platform",
+            "in": "query",
+            "required": false,
+            "description": "Closed filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "Closed filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_validation",
+            "in": "query",
+            "required": false,
+            "description": "Closed filter",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "chat_history",
+            "in": "query",
+            "required": false,
+            "description": "Closed filter",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "description": "The query string carries only bounded cursor pagination and the closed filters; a name, search term or free-form text filter (style, tone) is customer text and goes in the body of agent.search_agents (such a query parameter is a 400, as are page, per_page and offset).",
+        "responses": {
+          "200": {
+            "description": "A page of agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentsPageEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentsNotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           }
         }
       },
       "post": {
-        "summary": "Create agent",
+        "operationId": "agent.create_agent",
+        "summary": "Create an agent; the response carries its server-minted id",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "A client-chosen id is ignored: the returned id is the agent_ref used in every other path.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29,7 +216,39 @@
         },
         "responses": {
           "201": {
-            "description": "Agent created successfully"
+            "description": "The created agent (the agent object itself, not wrapped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentsNotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequestEither"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "description": "An active agent with the same key already exists in the project (error_code AGENT_ALREADY_EXISTS).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_conflict_error_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
           },
           "429": {
             "description": "Subscription quota exceeded",
@@ -44,93 +263,827 @@
         }
       }
     },
-    "/api/v1/agents/{agent_id}": {
-      "get": {
-        "summary": "Get agent",
-        "responses": {
-          "200": {
-            "description": "Agent retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./agent_schema.json"
-                }
-              }
-            },
-            "x-wrap-status": "unclassified — agent_routes not in the #136 wrap-map; documents the bare agent resource shape (data only). Reconcile envelope status in the #136 follow-up."
+    "/api/v1/projects/{project_id}/agents/search": {
+      "post": {
+        "operationId": "agent.search_agents",
+        "summary": "Search the project's agents by name and text",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
           }
-        }
-      },
-      "put": {
-        "summary": "Update agent",
+        ],
+        "description": "A read, served as POST so the name and search terms stay out of URLs, logs and traces.",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_schema.json"
+                "$ref": "#/components/schemas/AgentSearchRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Agent updated successfully"
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete agent",
-        "responses": {
-          "204": {
-            "description": "Agent deleted successfully"
+            "description": "A page of matching agents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentsPageEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentsNotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/v1/agents/agent-types": {
-      "get": {
-        "summary": "List agent types",
-        "responses": {
-          "200": {
-            "description": "Agent types retrieved successfully"
-          }
-        }
-      }
-    },
-    "/api/v1/agents/import": {
+    "/api/v1/projects/{project_id}/agents/import": {
       "post": {
-        "summary": "Import agent",
+        "operationId": "agent.import_agent",
+        "summary": "Import an agent from an exported configuration",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./agent_create_request_schema.json"
+                "$ref": "./agent_import_request_schema.json"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Agent imported successfully"
+            "description": "The imported agent (bare {message, agent})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentImportResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentsNotFound"
+          },
+          "400": {
+            "description": "Import refused. Either the closed per-item validation list (details are `{index, code}`; code IMPORT_TOO_LARGE is returned here as a 400, not a 413), or the closed `provider_credential_not_accepted` problem document when the request carries a provider credential or is too large to scan. The credential refusal is served as `application/problem+json`; the validation list as `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_import_validation_error_schema.json"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./agent_import_credential_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/v1/agents/{agent_id}/export": {
-      "get": {
-        "summary": "Export agent",
+    "/api/v1/projects/{project_id}/agents/optimization-summaries/search": {
+      "post": {
+        "operationId": "agent.get_agent_optimization_summaries",
+        "summary": "Latest optimization summaries for several agents",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "A read served as POST: the list of agent refs is bounded by the request body, not by URL length.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentOptimizationSummariesRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Agent exported successfully"
+            "description": "One summary per visible requested agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSummariesEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentsNotFound"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/v1/agents/{agent_id}/example-sets": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}": {
+      "get": {
+        "operationId": "agent.get_agent",
+        "summary": "Get one agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDetailEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "agent.update_agent",
+        "summary": "Update an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./agent_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated agent (the agent object itself, not wrapped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequestEither"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "agent.delete_agent",
+        "summary": "Delete an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted; affected experiments were updated (bare tracking body)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDeleteTrackingResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Deleted; no experiments were affected (no body)"
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "description": "The agent cannot be hard-deleted because it has registered builds, bound runs, readiness declarations or referencing experiments (error_code AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING or the experiment-specific closed code). `can_archive` is true and `archive_url_template` is a server-built template, never a client value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_conflict_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/archive": {
       "post": {
-        "summary": "Attach example set to agent",
+        "operationId": "agent.archive_agent",
+        "summary": "Archive an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The archived agent (the agent object itself, not wrapped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/unarchive": {
+      "post": {
+        "operationId": "agent.unarchive_agent",
+        "summary": "Unarchive an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The unarchived agent (the agent object itself, not wrapped)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflictEither"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailed"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/check-deletion": {
+      "get": {
+        "operationId": "agent.check_agent_deletion",
+        "summary": "Whether the agent can be deleted",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The deletion status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentDeletionCheck"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/export": {
+      "get": {
+        "operationId": "agent.export_agent",
+        "summary": "Export an agent configuration as JSON",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The export document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/experiments": {
+      "get": {
+        "operationId": "agent.get_agent_experiments",
+        "summary": "One cursor page of the agent's experiments",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, default 20, maximum 100; above 100 is rejected with a 400 problem, never clamped.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque next_cursor of the previous page, bound to the caller, project, parent agent and this operation.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Experiment summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentExperimentsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "description": "One cursor page of the experiments of an agent. Keeps its method, path and operation id; items now carry experiment_ref (experiment_ plus 32 lowercase hex) instead of the historical experiment id. limit above 100, retired offset vocabulary and a malformed or foreign cursor are closed 400 problems before any lookup; the cursor is sealed and never carries a caller-chosen identifier."
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/example-sets": {
+      "post": {
+        "operationId": "agent.add_example_set",
+        "summary": "Add an example set to an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -142,56 +1095,253 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Example set attached successfully"
-          }
-        }
-      }
-    },
-    "/api/v1/agents/{agent_id}/retrieval-configs": {
-      "post": {
-        "summary": "Attach retrieval config to agent",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./retriever_create_request_schema.json"
+          "201": {
+            "description": "The created example set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
               }
             }
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Retrieval config attached successfully"
-          }
         }
       }
     },
-    "/api/v1/agents/{agent_id}/model-parameters": {
-      "get": {
-        "summary": "List model parameters for an agent",
-        "responses": {
-          "200": {
-            "description": "Model parameters retrieved successfully"
-          }
-        }
-      },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/retrieval-configs": {
       "post": {
-        "summary": "Create model parameters for an agent",
+        "operationId": "agent.add_retrieval_config",
+        "summary": "Add a retrieval config to an agent",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_create_request_schema.json"
+                "$ref": "./project_retriever_create_request_schema.json"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Model parameters created successfully"
+            "description": "The created retrieval config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters": {
+      "get": {
+        "operationId": "agent.get_model_parameters",
+        "summary": "The agent's model parameters",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "agent.add_model_parameters",
+        "summary": "Add model parameters; the response carries the server-minted parameter_ref",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "A client-chosen model_parameters_id is ignored: the returned id is the parameter_ref of the update path.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./project_model_parameters_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created model parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
           },
           "422": {
             "description": "Validation failed. Emitted as a field-attributed VALIDATION_ERROR by response_handler.validation_error_response, which pins the status to 422 (TraigentBackend src/utils/response_handler.py:361-388), from the BoundaryValidationError raised by validate_model_parameter_bounds (src/routes/agent_routes.py:1164-1181). Since TraigentBackend#3347 this includes an unresolvable `model_id`: `model_parameters.model_id` is a NOT NULL FK onto `models.id`, so the id is resolved against the catalog before the row is constructed (src/validators/persistence_boundary.py `_model_id_references_existing_model`) and `details` carries `{\"model_id\": [\"Field does not reference an existing model\"]}` instead of the request reaching the insert and surfacing as a 500.",
@@ -202,26 +1352,107 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/v1/agents/{agent_id}/model-parameters/{param_id}": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters/{parameter_ref}": {
       "put": {
-        "summary": "Update model parameters",
+        "operationId": "agent.update_model_parameters",
+        "summary": "Update one of the agent's model parameter rows",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque agent reference: the id returned by create and list. New agents get a server-minted id; ids that already exist stay valid references.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "parameter_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted, opaque id of a model parameters row (the id returned by add and get).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "./model_parameters_schema.json"
+                "$ref": "./model_parameters_update_request_schema.json"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Model parameters updated successfully"
+            "description": "The updated model parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/AgentsUnauthenticated"
+          },
+          "404": {
+            "$ref": "#/components/responses/AgentNotFoundEither"
+          },
+          "400": {
+            "$ref": "#/components/responses/AgentsBadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/AgentsForbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/AgentsConflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/AgentsValidationFailedEither"
+          },
+          "429": {
+            "description": "Too many requests: rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
           }
         }
       }
@@ -266,7 +1497,9 @@
                       "type": "object",
                       "title": "Bare model-parameters request error",
                       "description": "Pre-envelope shape retained by the payload-level guards at src/routes/model_parameters_routes.py:114-117. Not the canonical envelope: no `success`, no `message`, no `error_code`.",
-                      "required": ["error"],
+                      "required": [
+                        "error"
+                      ],
                       "additionalProperties": false,
                       "properties": {
                         "error": {
@@ -312,33 +1545,565 @@
           }
         }
       }
-    },
-    "/api/v1/agents/admin/stats": {
-      "get": {
-        "summary": "Get agent admin stats",
-        "responses": {
-          "200": {
-            "description": "Agent stats retrieved successfully"
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentsEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentsPageEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "next_cursor": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "next_cursor",
+                  "has_more"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentsProblem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ]
+      },
+      "AgentSearchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "search": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": [
+              "created_at",
+              "updated_at",
+              "name",
+              "agent_type_id",
+              "id"
+            ]
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ]
+          },
+          "agent_type_id": {
+            "type": "string"
+          },
+          "agent_platform": {
+            "type": "string"
+          },
+          "style": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "response_validation": {
+            "type": [
+              "string",
+              "boolean"
+            ]
+          },
+          "chat_history": {
+            "type": [
+              "string",
+              "boolean"
+            ]
           }
         }
-      }
-    },
-    "/api/v1/agents/{agent_id}/check-deletion": {
-      "get": {
-        "summary": "Check whether an agent can be deleted",
-        "responses": {
-          "200": {
-            "description": "Deletion check completed"
+      },
+      "AgentOptimizationSummariesRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "agent_ids": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "string"
+            }
           }
         }
+      },
+      "AgentTypesList": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string",
+              "nullable": true
+            },
+            "label": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          "required": [
+            "value",
+            "label"
+          ]
+        }
+      },
+      "AgentDetailEnvelope": {
+        "type": "object",
+        "description": "Success envelope {success, message, data} from response_handler.success_response; data is the agent (agent_routes.py get_agent).",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "./agent_schema.json"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentSummariesEnvelope": {
+        "type": "object",
+        "description": "Success envelope; data is {items, total} (get_agent_optimization_summaries).",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "items",
+              "total"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "data"
+        ]
+      },
+      "AgentImportResponse": {
+        "type": "object",
+        "description": "BARE body {message, agent}, not the success envelope (import_agent).",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "message",
+          "agent"
+        ],
+        "additionalProperties": true
+      },
+      "AgentDeleteTrackingResponse": {
+        "type": "object",
+        "description": "BARE body returned with 200 when deleting affected experiment tracking (delete_agent); otherwise the delete is 204 with no body.",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "tracking": {
+            "type": "object",
+            "properties": {
+              "affected_experiments": {
+                "type": "array",
+                "items": {}
+              },
+              "updated_experiments": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "message",
+          "tracking"
+        ],
+        "additionalProperties": true
+      },
+      "AgentDeletionCheck": {
+        "type": "object",
+        "description": "BARE body (check_agent_deletion).",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "affected_experiments": {
+            "type": "array",
+            "items": {}
+          },
+          "active_experiments": {
+            "type": "array",
+            "items": {}
+          },
+          "warning": {}
+        },
+        "required": [
+          "allowed"
+        ],
+        "additionalProperties": true
+      },
+      "AgentExperimentsResponse": {
+        "type": "object",
+        "description": "Success envelope around one cursor page of the agent's experiments (newest first), each identified by experiment_ref; total_runs and active_runs are aggregate counts. Closed: at most 100 items per page, pagination {limit, next_cursor, has_more} with next_cursor at most 4096 characters, and a serialized response of at most 2097152 bytes.",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "agent_id": {
+                "type": "string",
+                "description": "The agent reference of the parent, echoed."
+              },
+              "items": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "$ref": "../evaluation/experiment_reads_schema.json#/definitions/AgentExperimentItem"
+                }
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "next_cursor": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 4096
+                  },
+                  "has_more": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "next_cursor",
+                  "has_more"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "agent_id",
+              "items",
+              "pagination"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false,
+        "x-max-response-bytes": 2097152
+      },
+      "AgentBody": {
+        "type": "object",
+        "description": "BARE agent body (Agent.to_dict), not the success envelope. Returned by create (201), PUT, archive and unarchive.",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": true
+      },
+      "AgentsLegacyError": {
+        "type": "object",
+        "description": "Legacy (non-problem) error body that an agents handler returns from inside the handler: the app-wide JSON envelope {success, error, message, error_code, details} built by response_handler.error_response / not_found_response / validation_error_response, or a handler-built body such as {error} (delete) or {error, message} (create 400, export). The agents family is not in PROBLEM_FORMAT_FAMILIES (src/api_kit/problems.py), so only the guards' denials are problem documents. No field is required because the handler-built bodies differ; consumers branch on the status and the content type.",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "error": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "details": {}
+        },
+        "additionalProperties": true
       }
     },
-    "/api/v1/agents/{agent_id}/experiments": {
-      "get": {
-        "summary": "List experiments for an agent",
-        "responses": {
-          "200": {
-            "description": "Agent experiments retrieved successfully"
+    "responses": {
+      "AgentsBadRequest": {
+        "description": "Malformed request (closed problem)",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentsConflict": {
+        "description": "Conflicting state",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentsForbidden": {
+        "description": "Authenticated but not allowed",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentsNotFound": {
+        "description": "Not found or not visible to the caller (identical for missing and foreign)",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentsUnauthenticated": {
+        "description": "Unauthenticated",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentsValidationFailed": {
+        "description": "Validation failed (closed: no field names or values)",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          }
+        }
+      },
+      "AgentNotFoundEither": {
+        "description": "Not found. A project the caller cannot use is the closed problem document (guard); a missing or foreign agent inside a usable project is the app-wide JSON 404 (application/json), because the agents family is not a problem-format family.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsLegacyError"
+            }
+          }
+        }
+      },
+      "AgentsBadRequestEither": {
+        "description": "Malformed request. Closed problem document for a body that is not a JSON object; legacy application/json for list-bound violations and handler-built 400s.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsLegacyError"
+            }
+          }
+        }
+      },
+      "AgentsValidationFailedEither": {
+        "description": "Validation failed. The agents handlers answer request validation with the legacy field-attributed body (application/json, error_code VALIDATION_ERROR); the closed problem document remains for the list and search routes.",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "../validation_error_schema.json"
+            }
+          }
+        }
+      },
+      "AgentsConflictEither": {
+        "description": "Conflicting state (error_code AGENT_ALREADY_EXISTS).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/AgentsProblem"
+            }
+          },
+          "application/json": {
+            "schema": {
+              "$ref": "./agent_conflict_error_schema.json"
+            }
           }
         }
       }

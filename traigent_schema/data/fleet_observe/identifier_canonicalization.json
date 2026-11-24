@@ -1,0 +1,274 @@
+{
+  "canonicalization_version": 1,
+  "description": "How a customer-side identifier becomes the sha256 digest that crosses to Traigent. Customer-chosen identifiers are content and never cross as text. The label map and the digest key stay on the customer machine.",
+  "digest": {
+    "algorithm": "HMAC-SHA256",
+    "preimage": "tfl1 U+001F role U+001F source U+001F canonical_id (UTF-8)",
+    "separator_codepoint": "U+001F",
+    "domain_tag": "tfl1",
+    "output": "sha256:<64 lowercase hex> (the Sha256Digest form)",
+    "roles": [
+      "boundary",
+      "principal",
+      "credential",
+      "workload"
+    ],
+    "key": {
+      "scope": "one 32-byte key per (tenant, project), held by the customer",
+      "key_id": "first 16 hex of HMAC-SHA256(key, 'tfl1-key-id'); carried in the bundle and manifest as digest_key_id",
+      "rotation": "changes every digest: clusters do not carry over, so rotation or key loss means re-onboarding"
+    }
+  },
+  "global_rules": [
+    "Apply Unicode NFC.",
+    "No case folding, no trimming, no other rewriting unless a source rule below says so.",
+    "An empty identifier, or one containing U+001F or any other control character (U+0000-U+001F, U+007F), is rejected locally and never digested.",
+    "The identifier is digested as a whole string; it is never split, truncated or logged."
+  ],
+  "sources": {
+    "sdk_declaration": {
+      "boundary": {
+        "identifier": "repository identity: the declared repository id, else the git remote canonicalized by repository_remote_rules",
+        "normalize": "repository_remote_rules",
+        "example": "github.com/acme/agents",
+        "note": "A remote that carries credentials is content: userinfo is dropped before digesting. A declared repository id is used as is (NFC only) and must not be a URL."
+      },
+      "principal": {
+        "identifier": "the agent identity: literal agent_name, else literal experiment_name (the deprecated alias; agent_name wins)",
+        "normalize": [],
+        "pattern": "any non-empty string without control characters"
+      },
+      "credential": {
+        "identifier": "the declared run-as principal name",
+        "normalize": []
+      },
+      "workload": {
+        "identifier": "the declared spawned child name",
+        "normalize": []
+      }
+    },
+    "aws_iam": {
+      "boundary": {
+        "identifier": "the 12-digit AWS account id",
+        "normalize": [],
+        "pattern": "^[0-9]{12}$"
+      },
+      "principal": {
+        "identifier": "the full IAM role or user ARN as IAM returns it",
+        "normalize": [],
+        "pattern": "^arn:aws[a-z-]*:iam::[0-9]{12}:(role|user)/.+$",
+        "note": "ARN case is significant and is not folded."
+      },
+      "credential": {
+        "identifier": "the access key id of a selected IAM user (roles have no listable long-lived keys)",
+        "normalize": [],
+        "pattern": "^[A-Z0-9]{16,128}$"
+      }
+    }
+  },
+  "test_key_notice": "PUBLIC TEST KEY ONLY. test_key_hex exists so vectors are reproducible; it is public and must never be used to digest real identifiers or in production.",
+  "test_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "test_key_id": "aa681adb04aa5995",
+  "vectors": [
+    {
+      "role": "boundary",
+      "source": "sdk_declaration",
+      "canonical_id": "github.com/acme/agents",
+      "expected_digest": "sha256:ac25ebd1e3fd698a797b89544a5a6029e3c25cd595d062c006833b726f09d2dd"
+    },
+    {
+      "role": "principal",
+      "source": "sdk_declaration",
+      "canonical_id": "support-triage-agent",
+      "expected_digest": "sha256:8a6706f1b240221ebe73bb7258dedbdee9647b7c4252ad24fda70cf24c01e09c"
+    },
+    {
+      "role": "credential",
+      "source": "sdk_declaration",
+      "canonical_id": "svc-triage-runner",
+      "expected_digest": "sha256:89cc882cc0649619fc32a94882bca512b1113dabb4106b258d79c3b7ea691f16"
+    },
+    {
+      "role": "workload",
+      "source": "sdk_declaration",
+      "canonical_id": "triage-worker",
+      "expected_digest": "sha256:f47352f9fae1276bbbd191419b9616a1fcdf42da2483cefceb12cdbeae647679"
+    },
+    {
+      "role": "boundary",
+      "source": "aws_iam",
+      "canonical_id": "123456789012",
+      "expected_digest": "sha256:2549e39805c2d7dce1ccc0837841d7c865704f6f0bdc722e8c696c4f5053da31"
+    },
+    {
+      "role": "principal",
+      "source": "aws_iam",
+      "canonical_id": "arn:aws:iam::123456789012:role/agents/triage-role",
+      "expected_digest": "sha256:72a00b3389081d07a400df44bc2fb30df324edeaf4acf76e7bce17d5746757bd"
+    },
+    {
+      "role": "principal",
+      "source": "aws_iam",
+      "canonical_id": "arn:aws:iam::123456789012:user/agents/triage-bot",
+      "expected_digest": "sha256:5453ef41b3dcd243290a6de8d01f0dc0be3c4c9a765e95078a80534ba2ae32f7"
+    },
+    {
+      "role": "credential",
+      "source": "aws_iam",
+      "canonical_id": "AKIAIOSFODNN7EXAMPLE",
+      "expected_digest": "sha256:16723d70d434576c7b4ab74e14c9ff991a47c96df5af2ebac5eee4a55919889a"
+    },
+    {
+      "role": "principal",
+      "source": "sdk_declaration",
+      "canonical_id": "caf\u00e9-agent",
+      "expected_digest": "sha256:39928284bfb7275eb258f8b116a0bf4649837a8d97f18ba6d600e7890653f63c"
+    },
+    {
+      "role": "principal",
+      "source": "sdk_declaration",
+      "canonical_id": "cafe\u0301-agent",
+      "expected_digest": "sha256:39928284bfb7275eb258f8b116a0bf4649837a8d97f18ba6d600e7890653f63c",
+      "note": "decomposed input; NFC makes it equal the composed vector"
+    }
+  ],
+  "repository_remote_rules": [
+    "Strip ASCII space and tab around the remote. Reject an empty value, any other whitespace or control character, and any backslash.",
+    "Apply Unicode NFC.",
+    "Accepted forms: scheme://[userinfo@]host[:port]/path[?query][#fragment] with scheme (case-insensitive) one of https, http, ssh, git, git+ssh, ssh+git; the scp form [user@]host:path (a form without a scheme whose host is followed by a colon, as git reads it: the text after the colon is always the path, never a port); and an already-canonical host/path with no port. Any other scheme (file, ftp, ...) is rejected. The scp form needs no dot in the host.",
+    "Drop everything from the first ? or # (query, fragment), then drop userinfo (everything up to the last @ in the authority). Credentials never reach the digest.",
+    "Host: lowercase ASCII; remove exactly one trailing dot, and reject a host that still ends with a dot afterwards. A host without any dot (git@forge:org/repo.git, localhost) is valid, in the scp form too. An IPv6 literal keeps its brackets, lowercased. No IDNA conversion. Reject an empty host.",
+    "Port: a port equal to the scheme default (https 443, http 80, ssh and git+ssh and ssh+git 22, git 9418) is dropped; any other port is kept as host:port; a port outside 1-65535 is rejected. The scp form has no port. The canonical output of a remote that keeps a port is not itself a valid input: re-derive from the raw remote.",
+    "Path: percent-decode escapes that stand for an unreserved character (A-Z a-z 0-9 - . _ ~); uppercase the hex of every other escape (so %2f becomes %2F and is never decoded). Collapse runs of / to one /. Path case is preserved.",
+    "Then, in this order: strip leading and trailing /; remove one trailing .git (case-sensitive, so .GIT stays); strip trailing / again. Remove .git once only: repo.git.git becomes repo.git.",
+    "Reject an empty path and any path segment equal to . or ..",
+    "Canonical form: host[:port]/path (no scheme, no userinfo, no leading or trailing slash)."
+  ],
+  "repository_vectors": {
+    "valid": [
+      {
+        "remote": "https://github.com/acme/agents.git",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "git@github.com:acme/agents.git",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "ssh://git@GitHub.com:22/acme/agents.git/",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "https://user:tok@github.com/acme/agents",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "HTTPS://GitHub.COM:443/acme/Agents?tab=x#readme",
+        "canonical": "github.com/acme/Agents"
+      },
+      {
+        "remote": "https://github.com/acme/agents/.git",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "https://github.com//acme///agents.git",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "https://github.com/acme/%61gents.git",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "https://github.com/acme/my%20repo",
+        "canonical": "github.com/acme/my%20repo"
+      },
+      {
+        "remote": "https://github.com/acme/a%2fb",
+        "canonical": "github.com/acme/a%2Fb"
+      },
+      {
+        "remote": "https://gitlab.example.com:8443/group/sub/repo.git",
+        "canonical": "gitlab.example.com:8443/group/sub/repo"
+      },
+      {
+        "remote": "github.com/acme/agents",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "https://github.com/acme/agents.git.git",
+        "canonical": "github.com/acme/agents.git"
+      },
+      {
+        "remote": "https://github.com/acme/agents.GIT",
+        "canonical": "github.com/acme/agents.GIT"
+      },
+      {
+        "remote": "https://[::1]:3000/r.git",
+        "canonical": "[::1]:3000/r"
+      },
+      {
+        "remote": "git@host.example:~user/r.git",
+        "canonical": "host.example/~user/r"
+      },
+      {
+        "remote": "ssh://git@bitbucket.org:7999/proj/r.git/",
+        "canonical": "bitbucket.org:7999/proj/r"
+      },
+      {
+        "remote": "https://github.com./acme/agents",
+        "canonical": "github.com/acme/agents"
+      },
+      {
+        "remote": "github.com:8080/acme/x.git",
+        "canonical": "github.com/8080/acme/x"
+      },
+      {
+        "remote": "  https://github.com/a/b  ",
+        "canonical": "github.com/a/b"
+      },
+      {
+        "remote": "http://example.org:80/x/y",
+        "canonical": "example.org/x/y"
+      },
+      {
+        "remote": "git://example.org:9418/x/y.git",
+        "canonical": "example.org/x/y"
+      },
+      {
+        "remote": "ssh://example.org:2222/x/y",
+        "canonical": "example.org:2222/x/y"
+      },
+      {
+        "remote": "git@forge:org/repo.git",
+        "canonical": "forge/org/repo"
+      },
+      {
+        "remote": "forge:org/repo",
+        "canonical": "forge/org/repo"
+      },
+      {
+        "remote": "localhost:acme",
+        "canonical": "localhost/acme"
+      },
+      {
+        "remote": "git@forge.:org/repo.git",
+        "canonical": "forge/org/repo"
+      }
+    ],
+    "invalid": [
+      "",
+      "https://github.com",
+      "https://github.com/",
+      "ftp://x/y",
+      "https://host/a/../b",
+      "https://host/a b",
+      "https:///a/b",
+      "file:///repo",
+      "https://host:99999/a",
+      "https://github.com/.git",
+      "https://host/a\\b",
+      "https://github.com../acme/agents",
+      "git@forge..:org/repo.git"
+    ]
+  }
+}

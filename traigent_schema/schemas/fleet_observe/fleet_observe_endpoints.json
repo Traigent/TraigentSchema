@@ -1,0 +1,744 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent API Fleet Observe Routes (project level)",
+    "version": "1.0.0",
+    "description": "Fleet Observe v1 routes (TRAIG-179), grounded in the API server. Tenant and project come from the canonical context, never a header or the body. Errors are closed. The route wrapper rewrites only 403 and 404 to the closed 404; a 401 from the shared authentication layer keeps its status and is declared. The platform masks unhandled 5xx and the limiter's fail-closed 503 to a generic body. Customer-chosen names are content and are not accepted: digests only."
+  },
+  "paths": {
+    "/api/v1beta/projects/{project_id}/fleet-observe/imports": {
+      "post": {
+        "summary": "Import a batch of principals, credentials and workloads (digests only)",
+        "operationId": "project_fleet_observe.create_import",
+        "x-asserted-against-backend": true,
+        "description": "Accepts up to 5000 members per request (body at most 4 MiB). 201 for a new import, 200 when the idempotency key was already accepted (data.replayed true). Human editor only today; a project-bound API key with fleet_imports:write is planned. Same key with a different request is the planned closed 409; today the API server replays on the key alone.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./import_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Import accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ImportResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Idempotency key already accepted; nothing new stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ImportResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Same idempotency key with a different request (planned; not emitted yet)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Limiter fail-closed or other masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited, or the planned project quota",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ImportTooManyRequestsBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/fleet-observe/clusters": {
+      "get": {
+        "summary": "List identity clusters",
+        "operationId": "project_fleet_observe.list_clusters",
+        "x-asserted-against-backend": true,
+        "description": "Snapshot-consistent, cursor-paginated. order=rank is bounded to 5000 entries and says so in truncation. Human principals only (an API key gets the closed 404); project role viewer. Feature flag FLEET_OBSERVE_ENABLED, default off in every environment: off answers the closed 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "x-content-class": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./fleet_observe_responses_schema.json#/definitions/Cursor"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ref",
+                "rank"
+              ],
+              "x-content-class": "closed_enum",
+              "default": "ref"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "candidate",
+                "unknown"
+              ],
+              "x-content-class": "closed_enum"
+            }
+          },
+          {
+            "name": "confidence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/ConfidenceLevel"
+            }
+          },
+          {
+            "name": "boundary_ref",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/BoundaryRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clusters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ListClustersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable (closed, read is whole or absent), or the platform's masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                    },
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitedBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/fleet-observe/clusters/{cluster_ref}": {
+      "get": {
+        "summary": "Get one identity cluster",
+        "operationId": "project_fleet_observe.get_cluster",
+        "x-asserted-against-backend": true,
+        "description": "Latest revision of one non-empty cluster with up to 1000 members; a missing or foreign cluster is the closed 404. Human principals only (an API key gets the closed 404); project role viewer. Feature flag FLEET_OBSERVE_ENABLED, default off in every environment: off answers the closed 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          },
+          {
+            "name": "cluster_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/ClusterRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cluster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/GetClusterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable (closed, read is whole or absent), or the platform's masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                    },
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitedBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/fleet-observe/coverage": {
+      "get": {
+        "summary": "Per-boundary coverage counts",
+        "operationId": "project_fleet_observe.get_coverage",
+        "x-asserted-against-backend": true,
+        "description": "Counts per boundary with boundary_ref; never a ratio (the denominator is the internal import, coverage_state is always unknown). Human principals only (an API key gets the closed 404); project role viewer. Feature flag FLEET_OBSERVE_ENABLED, default off in every environment: off answers the closed 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Coverage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/CoverageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable (closed, read is whole or absent), or the platform's masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                    },
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitedBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/fleet-observe/diff": {
+      "get": {
+        "summary": "What changed since an import",
+        "operationId": "project_fleet_observe.get_diff",
+        "x-asserted-against-backend": true,
+        "description": "since is an import_event_ref of this project; absent means the predecessor of the latest import. Human principals only (an API key gets the closed 404); project role viewer. Feature flag FLEET_OBSERVE_ENABLED, default off in every environment: off answers the closed 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/ImportEventRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Diff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/DiffResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable (closed, read is whole or absent), or the platform's masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                    },
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitedBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1beta/projects/{project_id}/fleet-observe/findings": {
+      "get": {
+        "summary": "Identity-conflict findings with a server-side rollup",
+        "operationId": "project_fleet_observe.list_findings",
+        "x-asserted-against-backend": true,
+        "description": "The first page lists one surfaced representative per conflict basis (at most surface_limit); the folded remainder follows through page.next_cursor. Human principals only (an API key gets the closed 404); project role viewer. Feature flag FLEET_OBSERVE_ENABLED, default off in every environment: off answers the closed 404.",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^project_(default_[0-9a-f]{16}|personal_[0-9a-f]{32}|[0-9a-f]{32})(?![\\s\\S])",
+              "maxLength": 64,
+              "x-content-class": "opaque_ref"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "x-content-class": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "./fleet_observe_responses_schema.json#/definitions/Cursor"
+            }
+          },
+          {
+            "name": "surface_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "x-content-class": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Findings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/FindingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed not found: flag off, API key principal, not a project member of the required role, or missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Closed internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage unavailable (closed, read is whole or absent), or the platform's masked 5xx",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/ErrorBody"
+                    },
+                    {
+                      "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitUnavailableBody"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (shared authentication layer; not rewritten to 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/AuthErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./fleet_observe_responses_schema.json#/definitions/RateLimitedBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

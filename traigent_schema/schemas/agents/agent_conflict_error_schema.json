@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_conflict_error_schema.json",
+  "title": "Agent Conflict Error (409)",
+  "description": "409 body for an agent write that conflicts with current state. Two families share it. (1) AGENT_ALREADY_EXISTS: an active agent with the same key already exists in the project (create, or unarchive after the key was taken); no id is returned: `details` is absent. Clients resolve the existing agent via the agents list/search; the submitted name and key are never echoed. (2) Deletion refusals (AGENT_HAS_BUILDS, AGENT_DELETE_BLOCKED_TRACKING, or the closed code explaining why experiments block deletion): the agent can only be archived, so `can_archive` is true and `archive_url_template` is a SERVER-BUILT path template, never a value the client sent. The client substitutes its own project id and agent reference for the placeholders and POSTs to it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "error",
+    "message",
+    "error_code"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Fixed phrase: \"Agent already exists\" or \"Cannot delete agent\"."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "error_code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Closed code, for example AGENT_ALREADY_EXISTS, AGENT_HAS_BUILDS or AGENT_DELETE_BLOCKED_TRACKING."
+    },
+    "can_archive": {
+      "type": "boolean",
+      "const": true,
+      "description": "Deletion refusals only: the agent can be archived instead."
+    },
+    "archive_url_template": {
+      "type": "string",
+      "const": "/api/v1/projects/{project_id}/agents/{agent_ref}/archive",
+      "description": "Deletion refusals only: fixed server-built path template with `{project_id}` and `{agent_ref}` placeholders the client fills in. Not a resolved URL."
+    },
+    "affected_experiments": {
+      "type": "array",
+      "description": "Deletion refusals caused by experiments: experiments that reference the agent.",
+      "items": {}
+    },
+    "active_experiments": {
+      "type": "array",
+      "description": "Deletion refusals caused by experiments: experiments with an active run.",
+      "items": {}
+    }
+  }
+}

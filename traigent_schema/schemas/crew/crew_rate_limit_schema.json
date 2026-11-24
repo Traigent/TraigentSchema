@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/crew/crew_rate_limit_schema.json",
+  "title": "Crew Rate Limit Error",
+  "description": "Closed 429 body for crew routes. Unlike the shared rate_limit_info_schema.json there is no details object and no free-string scope/limit: the message is fixed, error_code is a constant, and retry_after (seconds, mirrors the Retry-After header) is the only variable field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "error",
+    "error_code",
+    "retry_after"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": false
+    },
+    "message": {
+      "type": "string",
+      "const": "Too many requests."
+    },
+    "error": {
+      "type": "string",
+      "const": "rate_limited",
+      "x-content-class": "closed_enum"
+    },
+    "error_code": {
+      "type": "string",
+      "const": "crew_rate_limited",
+      "x-content-class": "closed_enum"
+    },
+    "retry_after": {
+      "type": "integer",
+      "minimum": 1,
+      "x-content-class": "number"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/project_usage_dashboard_response_schema.json",
+  "title": "The project usage dashboard Response",
+  "x-wrap-status": "wrapped",
+  "description": "Success envelope {success, message, data} for get the project usage dashboard on every mount (the handler returns success_response(...); analytics_routes is listed as wrapped in success_envelope_schema.json). The payload under data is project_scoped_project_usage_dashboard_schema.json.",
+  "allOf": [
+    {
+      "$ref": "https://schemas.traigent.ai/success_envelope_schema.json"
+    }
+  ],
+  "properties": {
+    "data": {
+      "$ref": "../projects/project_scoped_project_usage_dashboard_schema.json"
+    }
+  }
+}

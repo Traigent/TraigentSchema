@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/global_error_schema.json",
+  "title": "Global API Error Body",
+  "description": "Closed error body returned by the API's catch-all error handler for failures no route handled itself (most commonly an unhandled 500). It is a different shape from error_envelope_schema.json: there is no `message` and the machine code is `code`, not `error_code`. `error` is a fixed phrase chosen by the server for the status (for a 5xx always \"Internal server error\"); it never carries exception text or any value the client sent. The body never carries a request id; the id travels only in the `X-Request-ID` response header. Operations whose route wraps its own failures keep declaring error_envelope_schema.json or their own bare body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["success", "error", "code"],
+  "properties": {
+    "success": {
+      "x-content-class": "closed_enum",
+      "type": "boolean",
+      "const": false,
+      "description": "Discriminator. Always false for error responses."
+    },
+    "error": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "Server-chosen fixed phrase for the status; not provably closed in the schema.",
+      "type": "string",
+      "minLength": 1,
+      "description": "Fixed server-authored phrase for the status (for example \"Internal server error\"). Never an exception string or client value."
+    },
+    "code": {
+      "x-content-class": "legacy_content",
+      "x-content-note": "Server-chosen closed code; not enumerated here.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Z0-9_]+$",
+      "description": "Stable upper-snake machine code for the status (for example \"INTERNAL_ERROR\", or \"PROJECT_CONTEXT_REQUIRED\" for a 422 write-scope refusal)."
+    }
+  }
+}

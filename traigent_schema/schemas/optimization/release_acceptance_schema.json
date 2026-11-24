@@ -1,0 +1,939 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/release_acceptance_schema.json",
+  "title": "ReleaseAcceptance",
+  "description": "Closed contracts for releasing an agent's best config: a person's recorded acceptance of one candidate, the release that consumes it, head rollback, their refusals, and the head-history entry with actor and acceptance. Reviewed closed-contract expansion; every field is a closed enum, a bounded number, a digest, an opaque id or a timestamp, with no free text.",
+  "definitions": {
+    "AcceptanceId": {
+      "x-content-class": "key_material",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Server-issued id of a release acceptance."
+    },
+    "GateResultDigest": {
+      "anyOf": [
+        {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest"
+        },
+        {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "const": "no_gate_run"
+        }
+      ],
+      "description": "Digest of the promotion-gate result the person saw, or the fixed value `no_gate_run` meaning that no gate was run for this candidate. Required on every acceptance: an absent gate result is stated, never implied by omission. The portal shows `no_gate_run` as such."
+    },
+    "AgentCodeVersion": {
+      "x-content-class": "digest",
+      "type": "string",
+      "pattern": "^(?:(?:src|tag):[0-9a-f]{64}|[0-9a-f]{64}|[0-9a-f]{40})(?![\\s\\S])",
+      "minLength": 40,
+      "maxLength": 68,
+      "description": "Digest of the agent code the person accepted: a 40-hex git commit id, or a 64-hex sha256 optionally prefixed 'src:' (SDK digest of the module source) or 'tag:' (SDK digest of a version the user typed; the readable tag stays on the customer side). Bound by the acceptance: a release against different agent code is refused as acceptance_binding_mismatch."
+    },
+    "ErasableUserRef": {
+      "anyOf": [
+        {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/UserRef"
+        },
+        {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "allOf": [
+            {
+              "pattern": "^deleted_user_[0-9a-f]{24}(?![\\s\\S])"
+            }
+          ]
+        }
+      ],
+      "description": "A person who decided: the user UUID, or, after the user was erased, the canonical tombstone `deleted_user_` plus 24 lowercase hex characters that erasure leaves in place of the id. Read models accept both so an erased user's records stay readable."
+    },
+    "AcceptanceState": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": [
+        "accepted",
+        "consumed",
+        "revoked"
+      ],
+      "description": "Lifecycle of an acceptance. accepted -> consumed (by exactly one release) or accepted -> revoked. consumed and revoked are final."
+    },
+    "ActorKind": {
+      "x-content-class": "closed_enum",
+      "type": "string",
+      "enum": [
+        "user",
+        "service_principal"
+      ],
+      "description": "Who moved a head: a person (`user`) or a key or service identity (`service_principal`)."
+    },
+    "CreateReleaseAcceptanceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "best_config_id",
+        "best_config_version",
+        "candidate_fingerprint",
+        "gate_result_digest",
+        "configuration_space_digest",
+        "agent_code_version",
+        "expected_head_generation"
+      ],
+      "properties": {
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "best_config_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the best config the person accepts."
+        },
+        "best_config_version": {
+          "x-content-class": "number",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Exact best-config version accepted."
+        },
+        "candidate_fingerprint": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "Fingerprint of the candidate configuration (lowercase-hex sha256 of the TVL canonical JSON, the convention of the reactive grant)."
+        },
+        "gate_result_digest": {
+          "$ref": "./release_acceptance_schema.json#/definitions/GateResultDigest"
+        },
+        "configuration_space_digest": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "Digest of the configuration space the candidate was chosen from."
+        },
+        "agent_code_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AgentCodeVersion"
+        },
+        "expected_head_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "Head generation the person saw when accepting. A release is refused as head_generation_stale if the head has moved."
+        }
+      },
+      "description": "Body of POST /api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances. A person's decision to release one exact candidate; person only (an API key is refused). The server binds these fields immutably, stamps the decider from the authenticated person and sets the expiry from its own clock. Every field is required; there is no free text."
+    },
+    "ReleaseAcceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "agent_id",
+        "environment",
+        "best_config_id",
+        "best_config_version",
+        "candidate_fingerprint",
+        "gate_result_digest",
+        "configuration_space_digest",
+        "agent_code_version",
+        "expected_head_generation",
+        "decided_by_user_id",
+        "decided_at",
+        "expires_at",
+        "state",
+        "consumed_at",
+        "consumed_generation",
+        "revoked_at"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AcceptanceId"
+        },
+        "agent_id": {
+          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+          "description": "The agent ref of the path, returned unchanged."
+        },
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "best_config_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the best config the person accepts."
+        },
+        "best_config_version": {
+          "x-content-class": "number",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Exact best-config version accepted."
+        },
+        "candidate_fingerprint": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "Fingerprint of the candidate configuration (lowercase-hex sha256 of the TVL canonical JSON, the convention of the reactive grant)."
+        },
+        "gate_result_digest": {
+          "$ref": "./release_acceptance_schema.json#/definitions/GateResultDigest"
+        },
+        "configuration_space_digest": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "Digest of the configuration space the candidate was chosen from."
+        },
+        "agent_code_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AgentCodeVersion"
+        },
+        "expected_head_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "Head generation the person saw when accepting. A release is refused as head_generation_stale if the head has moved."
+        },
+        "decided_by_user_id": {
+          "$ref": "./release_acceptance_schema.json#/definitions/ErasableUserRef"
+        },
+        "decided_at": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp",
+          "description": "Server time of the decision."
+        },
+        "expires_at": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp",
+          "description": "Server-set expiry; a release after it is refused as acceptance_expired."
+        },
+        "state": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AcceptanceState"
+        },
+        "consumed_at": {
+          "x-content-class": "timestamp",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "maxLength": 40,
+          "description": "When the acceptance was consumed by a release; null unless state is consumed."
+        },
+        "consumed_generation": {
+          "x-content-class": "number",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Head generation the consuming release produced; null unless state is consumed."
+        },
+        "revoked_at": {
+          "x-content-class": "timestamp",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "maxLength": 40,
+          "description": "When the acceptance was revoked; null unless state is revoked."
+        }
+      },
+      "description": "Stored acceptance record: the receipt of POST .../release-acceptances and the read model of GET. Only the lifecycle members (state, consumed_at, consumed_generation, revoked_at) change after creation. Lifecycle consistency: accepted has all three null; consumed has consumed_at and consumed_generation and no revoked_at; revoked has revoked_at and neither consumed member.",
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "x-content-class": "closed_enum",
+              "const": "accepted"
+            },
+            "consumed_at": {
+              "x-content-class": "timestamp",
+              "type": "null"
+            },
+            "consumed_generation": {
+              "x-content-class": "number",
+              "type": "null"
+            },
+            "revoked_at": {
+              "x-content-class": "timestamp",
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "x-content-class": "closed_enum",
+              "const": "consumed"
+            },
+            "consumed_at": {
+              "x-content-class": "timestamp",
+              "type": "string",
+              "format": "date-time"
+            },
+            "consumed_generation": {
+              "x-content-class": "number",
+              "type": "integer"
+            },
+            "revoked_at": {
+              "x-content-class": "timestamp",
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "x-content-class": "closed_enum",
+              "const": "revoked"
+            },
+            "consumed_at": {
+              "x-content-class": "timestamp",
+              "type": "null"
+            },
+            "consumed_generation": {
+              "x-content-class": "number",
+              "type": "null"
+            },
+            "revoked_at": {
+              "x-content-class": "timestamp",
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "ReleaseAcceptanceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Release acceptance recorded"
+          ]
+        },
+        "data": {
+          "$ref": "./release_acceptance_schema.json#/definitions/ReleaseAcceptance"
+        }
+      },
+      "description": "201 body of POST .../release-acceptances and the item shape of the list: the stored acceptance in the standard success envelope."
+    },
+    "ReleaseAcceptanceListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "./release_acceptance_schema.json#/definitions/ReleaseAcceptance"
+          }
+        }
+      },
+      "description": "200 body of GET .../release-acceptances: acceptances of the agent, newest decided_at first, at most 100."
+    },
+    "ReleaseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptance_id",
+        "expected_head_generation",
+        "agent_code_version",
+        "configuration_space_digest",
+        "gate_result_digest"
+      ],
+      "properties": {
+        "acceptance_id": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AcceptanceId"
+        },
+        "expected_head_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "Head generation the caller expects; must equal both the live head and the generation bound by the acceptance, else head_generation_stale."
+        },
+        "agent_code_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AgentCodeVersion",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
+        },
+        "configuration_space_digest": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
+        },
+        "gate_result_digest": {
+          "$ref": "./release_acceptance_schema.json#/definitions/GateResultDigest",
+          "description": "the caller's current value; the release is refused if it differs from the acceptance"
+        }
+      },
+      "description": "Body of POST .../best-config-head/release. The person's decision is the acceptance, not the call, so an editor key may call it. One transaction locks the head, rechecks the acceptance (not expired, consumed or revoked; every binding equal), moves the head and consumes the acceptance. A second use is refused."
+    },
+    "ReleaseReceiptData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "environment",
+        "generation",
+        "best_config_id",
+        "best_config_version",
+        "acceptance_id"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+          "description": "The agent ref of the path, returned unchanged."
+        },
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "The NEW head generation after the move."
+        },
+        "best_config_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the best config now pinned by the head."
+        },
+        "best_config_version": {
+          "x-content-class": "number",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version now pinned by the head."
+        },
+        "acceptance_id": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AcceptanceId"
+        }
+      },
+      "description": "Data of a successful release."
+    },
+    "ReleaseReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Release recorded"
+          ]
+        },
+        "data": {
+          "$ref": "./release_acceptance_schema.json#/definitions/ReleaseReceiptData"
+        }
+      },
+      "description": "200 body of a successful release: the new head generation and the pinned best config and acceptance that authorized it."
+    },
+    "HeadRollbackRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "target_generation",
+        "expected_head_generation"
+      ],
+      "properties": {
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment",
+          "description": "Environment whose head is rolled back; heads are scoped by environment."
+        },
+        "target_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "An earlier head generation to return to; it must be a generation that a person accepted or that a release produced."
+        },
+        "expected_head_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "Head generation the caller expects now; a stale value is refused as head_generation_stale."
+        },
+        "acceptance_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of a NEW release acceptance, recorded by a person for this rollback: accepted, unexpired, unconsumed, in the same project, agent and environment, naming the target generation's best config id, version, candidate fingerprint and agent code version. The rollback consumes it (single use). Absent or null is acceptance_required."
+        }
+      },
+      "description": "Body of POST .../best-config-head/rollback. Person only (a key or service token is refused 403 forbidden). The target must be a generation that was already accepted or released (else rollback_target_not_accepted, for every caller), and acceptance_id names a fresh acceptance recorded by a person that binds the target's pinned config; a missing, revoked, expired, consumed or non-matching acceptance is refused with the closed code of the release route. The move is a new head generation recorded in the history, never an edit of the past."
+    },
+    "HeadRollbackReceiptData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "environment",
+        "generation",
+        "best_config_id",
+        "best_config_version",
+        "rolled_back_to_generation",
+        "acceptance_id"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+          "description": "The agent ref of the path, returned unchanged."
+        },
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "The NEW head generation after the move."
+        },
+        "best_config_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the best config now pinned by the head."
+        },
+        "best_config_version": {
+          "x-content-class": "number",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version now pinned by the head."
+        },
+        "rolled_back_to_generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "The earlier generation whose pin the head now carries."
+        },
+        "acceptance_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The fresh acceptance this rollback consumed; it is also the acceptance id of the new head history row."
+        }
+      },
+      "description": "Data of a successful head rollback."
+    },
+    "HeadRollbackReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Head rolled back"
+          ]
+        },
+        "data": {
+          "$ref": "./release_acceptance_schema.json#/definitions/HeadRollbackReceiptData"
+        }
+      },
+      "description": "200 body of a successful head rollback."
+    },
+    "HeadHistoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "environment",
+        "generation",
+        "best_config_id",
+        "best_config_version",
+        "actor_id",
+        "actor_kind",
+        "acceptance_id",
+        "valid_from"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "../labels/label_common_schema.json#/definitions/AgentRef",
+          "description": "The agent ref of the path, returned unchanged."
+        },
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "generation": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Generation",
+          "description": "The NEW head generation after the move."
+        },
+        "best_config_id": {
+          "x-content-class": "key_material",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the best config now pinned by the head."
+        },
+        "best_config_version": {
+          "x-content-class": "number",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version now pinned by the head."
+        },
+        "actor_id": {
+          "x-content-class": "key_material",
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Server-issued id of the actor that moved the head: a user id when actor_kind is user, a key or service identity id when service_principal. Null on entries written before actors were recorded."
+        },
+        "actor_kind": {
+          "x-content-class": "closed_enum",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "user",
+            "service_principal",
+            null
+          ],
+          "description": "Who moved the head: a person (`user`) or a key or service identity (`service_principal`); null on entries written before actors were recorded."
+        },
+        "acceptance_id": {
+          "x-content-class": "key_material",
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Acceptance that authorized the move; null for moves that carry none."
+        },
+        "valid_from": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp",
+          "description": "Server time from which this entry was the head."
+        }
+      },
+      "description": "One entry of an agent's head history. No head history read model existed in this repository before this contract; this is the minimal entry, with the actor and acceptance members. No route returns it yet."
+    },
+    "HeadHistoryResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "./release_acceptance_schema.json#/definitions/HeadHistoryEntry"
+          }
+        }
+      },
+      "description": "Head history of an agent in an environment, newest generation first, at most 100 entries."
+    },
+    "ReleaseRefusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "error",
+        "error_code",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": false
+        },
+        "error": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "unauthenticated",
+            "forbidden",
+            "reference_not_found",
+            "release_precondition_refused",
+            "internal_error"
+          ],
+          "description": "Fixed broad error name for the code."
+        },
+        "error_code": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "unauthenticated",
+            "forbidden",
+            "reference_not_found",
+            "acceptance_required",
+            "acceptance_expired",
+            "acceptance_consumed",
+            "acceptance_revoked",
+            "acceptance_binding_mismatch",
+            "head_generation_stale",
+            "rollback_target_not_accepted",
+            "internal_error"
+          ],
+          "description": "Closed refusal code. invalid_request (400); unauthenticated (401); forbidden (403: includes an API key or service token calling the person-only acceptance route or the person-only head rollback route); reference_not_found (404: project, agent or acceptance unknown, foreign or not visible, indistinguishable); acceptance_required (409: no acceptance supplied or none for this scope); acceptance_expired (409); acceptance_consumed (409: second use); acceptance_revoked (409); acceptance_binding_mismatch (409: the candidate, gate result, configuration space, agent code version, best-config version or environment differs from what was accepted); head_generation_stale (409: the head moved; the caller MUST NOT refresh and resubmit the same acceptance, a new decision is needed); rollback_target_not_accepted (409: the target generation was never accepted or released, or does not exist in the history, for every caller); internal_error (500). Responses never echo a request value, id, digest or generation."
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "Request is invalid.",
+            "Authentication required.",
+            "Forbidden.",
+            "Reference not found.",
+            "A release acceptance is required.",
+            "The release acceptance has expired.",
+            "The release acceptance was already used.",
+            "The release acceptance was revoked.",
+            "The release does not match the acceptance.",
+            "Agent head moved since the acceptance.",
+            "The rollback target was not accepted.",
+            "Internal error."
+          ],
+          "description": "Fixed text per code, in the order of error_code."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "invalid_request"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Request is invalid."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "unauthenticated"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "unauthenticated"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Authentication required."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "forbidden"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "forbidden"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Forbidden."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_found"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_found"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Reference not found."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_required"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "A release acceptance is required."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_expired"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "The release acceptance has expired."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_consumed"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "The release acceptance was already used."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_revoked"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "The release acceptance was revoked."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_binding_mismatch"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "The release does not match the acceptance."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "head_generation_stale"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Agent head moved since the acceptance."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "release_precondition_refused"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "rollback_target_not_accepted"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "The rollback target was not accepted."
+            }
+          }
+        },
+        {
+          "properties": {
+            "error": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "internal_error"
+            },
+            "message": {
+              "x-content-class": "closed_enum",
+              "const": "Internal error."
+            }
+          }
+        }
+      ],
+      "description": "Closed refusal envelope of the release-acceptance, release and head-rollback routes (every 4xx/5xx except 429). `error_code` is one of a fixed set and `message` is the fixed text for that code; nothing of the request is echoed (no id, digest, version, generation, header or key). A refused call writes no acceptance state change and moves no head. Precedence when several apply: authentication, permission, malformed body (invalid_request), unknown reference, acceptance_required, acceptance_revoked, acceptance_expired, acceptance_consumed, acceptance_binding_mismatch, head_generation_stale, rollback_target_not_accepted."
+    }
+  }
+}

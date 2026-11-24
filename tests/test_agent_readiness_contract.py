@@ -164,14 +164,7 @@ def _portfolio_payload() -> dict[str, Any]:
             "by_attention": {"ACTIONABLE": 1, "NO_PORTAL_ACTION": 0},
         },
         "ordering": "STAGE_THEN_LEAST_RECENT_ACTIVITY",
-        "pagination": {
-            "page": 1,
-            "per_page": 25,
-            "total": 1,
-            "total_pages": 1,
-            "has_next": False,
-            "has_prev": False,
-        },
+        "pagination": {"limit": 20, "next_cursor": None, "has_more": False},
     }
 
 
@@ -317,14 +310,7 @@ def _detail_payload() -> dict[str, Any]:
                     "evaluator_reference_change": "FIRST_RECORDED_REFERENCE",
                 }
             ],
-            "pagination": {
-                "page": 2,
-                "per_page": 1,
-                "total": 2,
-                "total_pages": 2,
-                "has_next": False,
-                "has_prev": True,
-            },
+            "pagination": {"limit": 1, "next_cursor": None, "has_more": False},
         },
         "anchor_summary": {
             "experiment_id": "experiment-anchor",
@@ -603,15 +589,15 @@ def test_anchor_null_and_pagination_limits_are_enforced() -> None:
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
-    detail["journey"]["pagination"]["per_page"] = 51
+    detail["journey"]["pagination"]["limit"] = 101
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     detail = _detail_payload()
-    detail["journey"]["items"] = detail["journey"]["items"] * 51
+    detail["journey"]["items"] = detail["journey"]["items"] * 101
     assert validator.validate_json(detail, "agent_readiness_detail_response_schema")
 
     portfolio = _portfolio_payload()
-    portfolio["pagination"]["per_page"] = 101
+    portfolio["pagination"]["limit"] = 101
     assert validator.validate_json(
         portfolio, "agent_readiness_portfolio_response_schema"
     )
@@ -1015,65 +1001,62 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
     )
     paths = inventory["paths"]
     assert set(paths) == {
-        "/api/v1beta/projects/{project_id}/agent-readiness",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history",
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
+        "/api/v1/projects/{project_id}/agent-readiness/search",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/readiness",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/next-step",
     }
-    assert paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
+    assert paths["/api/v1/projects/{project_id}/agent-readiness/search"]["post"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_portfolio_response_schema.json"
     )
     list_bad_request = paths[
-        "/api/v1beta/projects/{project_id}/agent-readiness"
-    ]["get"]["responses"]["400"]
+        "/api/v1/projects/{project_id}/agent-readiness/search"
+    ]["post"]["responses"]["400"]
     assert all(
         parameter in list_bad_request["description"].lower()
         for parameter in ("pagination", "search", "stage", "attention")
     )
-    assert paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
+    assert paths["/api/v1/projects/{project_id}/agents/{agent_ref}/readiness"]["get"][
         "responses"
     ]["200"]["content"]["application/json"]["schema"]["$ref"].endswith(
         "agent_readiness_detail_response_schema.json"
     )
     assert (
-        paths["/api/v1beta/projects/{project_id}/agent-readiness"]["get"][
+        paths["/api/v1/projects/{project_id}/agent-readiness/search"]["post"][
             "x-asserted-against-backend"
         ]
         is False
     )
     assert (
-        paths["/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}"]["get"][
+        paths["/api/v1/projects/{project_id}/agents/{agent_ref}/readiness"]["get"][
             "x-asserted-against-backend"
         ]
         is False
     )
-    target_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions"
+    target_path = "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions"
     assert "post" in paths[target_path]
     assert paths[target_path]["post"]["responses"]["201"]["content"]["application/json"][
         "schema"
     ]["$ref"].endswith("agent_readiness_target_schema.json#/definitions/DeclaredTarget")
 
-    history_path = "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/lifecycle-history"
+    history_path = "/api/v1/projects/{project_id}/agents/{agent_ref}/lifecycle-history"
     history_get = paths[history_path]["get"]
     assert history_get["x-asserted-against-backend"] is False
     assert history_get["responses"]["200"]["content"]["application/json"]["schema"][
         "$ref"
     ].endswith("agent_lifecycle_history_response_schema.json")
     history_params = {p["name"]: p for p in history_get["parameters"]}
-    assert history_params["page"]["schema"] == {
+    assert history_params["limit"]["schema"] == {
         "type": "integer",
         "minimum": 1,
-        "maximum": 2147483647,
-        "default": 1,
+        "maximum": 100,
+        "default": 20,
     }
-    assert history_params["per_page"]["schema"] == {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 50,
-        "default": 25,
-    }
+    assert history_params["cursor"]["schema"] == {"type": "string", "maxLength": 4096}
+    assert "page" not in history_params and "per_page" not in history_params
     for status in ("400", "401", "403", "404"):
         assert history_get["responses"][status]["content"]["application/json"]["schema"][
             "$ref"
@@ -1083,12 +1066,16 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
         for operation in path.values():
             if not isinstance(operation, dict) or "responses" not in operation:
                 continue
-            for response in operation["responses"].values():
+            for status, response in operation["responses"].items():
                 if response.get("content"):
                     schema = response["content"]["application/json"]["schema"]
                     if "$ref" in schema:
                         assert (
-                            schema["$ref"] == "./agent_readiness_error_schema.json"
+                            (
+                                status == "429"
+                                and schema["$ref"] == "../rate_limit_info_schema.json"
+                            )
+                            or schema["$ref"] == "./agent_readiness_error_schema.json"
                             or schema["$ref"].endswith(
                                 "agent_readiness_portfolio_response_schema.json"
                             )
@@ -1100,6 +1087,9 @@ def test_endpoint_inventory_registers_project_scoped_read_and_target_routes() ->
                             )
                             or schema["$ref"].endswith(
                                 "agent_lifecycle_history_response_schema.json"
+                            )
+                            or schema["$ref"].endswith(
+                                "agent_next_step_response_schema.json"
                             )
                         )
                     else:
@@ -1152,3 +1142,123 @@ def test_response_objects_are_closed_and_forbidden_content_names_are_absent() ->
         "agent_lifecycle_history_response_schema",
     ):
         walk(json.loads((SCHEMAS / f"{name}.json").read_text(encoding="utf-8")))
+
+
+def _scorecard(basis: str = "ACTIVE_CONFIG") -> dict[str, Any]:
+    return {
+        "basis": basis,
+        "config": {
+            "best_config_id": "bc-1",
+            "best_config_version": 3,
+            "generation": 2,
+            "environment": "production",
+            "promoted_at": "2026-09-19T23:30:00Z",
+            "promoted_by_run_id": "run-anchor",
+        }
+        if basis == "ACTIVE_CONFIG"
+        else None,
+        "run_id": "run-anchor",
+        "run_completed_at": "2026-09-19T23:00:00Z",
+        "metrics": deepcopy(_detail_payload()["journey"]["items"][0]["reported_metrics"]),
+        "areas": {
+            "evaluation_set": {
+                "example_count": 12,
+                "dataset_ref": {"kind": "evaluation_dataset", "id": "dataset-v1"},
+            },
+            "evaluator": {
+                "version_ref": {"kind": "evaluator_version", "id": "eval-v1"}
+            },
+            "evaluation_progress": {"stage": "EVALUATION_COMPLETED", "trials_run": 4},
+        },
+    }
+
+
+def test_scorecard_is_optional_nullable_and_valid() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    assert validator.validate_json(_detail_payload(), name) == []
+    for value in (None, _scorecard(), _scorecard("CURRENT_RUN")):
+        detail = _detail_payload()
+        detail["scorecard"] = value
+        assert validator.validate_json(detail, name) == []
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard("CURRENT_RUN")
+    detail["scorecard"]["areas"]["evaluation_progress"] = {
+        "stage": None,
+        "trials_run": None,
+    }
+    assert validator.validate_json(detail, name) == []
+
+
+def test_scorecard_is_closed_everywhere() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+    mutations = [
+        lambda s: s.update(extra=1),
+        lambda s: s["config"].update(extra=1),
+        lambda s: s["areas"].update(extra=1),
+        lambda s: s["areas"]["evaluation_set"].update(extra=1),
+        lambda s: s["areas"]["evaluator"].update(extra=1),
+        lambda s: s["areas"]["evaluation_progress"].update(extra=1),
+        lambda s: s.update(basis="OTHER"),
+        lambda s: s.pop("metrics"),
+        lambda s: s["areas"]["evaluation_progress"].update(stage="BOGUS"),
+    ]
+    for mutate in mutations:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard()
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)
+
+
+def test_scorecard_basis_invariants() -> None:
+    validator = SchemaValidator()
+    name = "agent_readiness_detail_response_schema"
+
+    def bad(basis: str, mutate: Any) -> None:
+        detail = _detail_payload()
+        detail["scorecard"] = _scorecard(basis)
+        mutate(detail["scorecard"])
+        assert validator.validate_json(detail, name)
+
+    bad("ACTIVE_CONFIG", lambda s: s.update(config=None))
+    bad("ACTIVE_CONFIG", lambda s: s["config"].update(generation=0))
+    bad("CURRENT_RUN", lambda s: s.update(run_id=None))
+    bad("CURRENT_RUN", lambda s: s.update(config=_scorecard()["config"]))
+    # a null run_id carries no run-derived stats
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None))
+    bad("ACTIVE_CONFIG", lambda s: s.update(run_id=None, metrics=[], run_completed_at=None))
+    bad(
+        "ACTIVE_CONFIG",
+        lambda s: (
+            s.update(run_id=None, metrics=[], run_completed_at=None),
+            s["areas"]["evaluation_set"].update(example_count=None),
+        ),
+    )
+    for path, key, value in (
+        (("areas", "evaluation_progress"), "stage", "EVALUATION_COMPLETED"),
+        (("areas", "evaluation_set"), "dataset_ref", {"kind": "evaluation_dataset", "id": "d"}),
+        (("areas", "evaluator"), "version_ref", {"kind": "evaluator_version", "id": "e"}),
+    ):
+
+        def leak(s: dict[str, Any], path: Any = path, key: str = key, value: Any = value) -> None:
+            s.update(run_id=None, run_completed_at=None, metrics=[])
+            s["areas"] = {
+                "evaluation_set": {"example_count": None, "dataset_ref": None},
+                "evaluator": {"version_ref": None},
+                "evaluation_progress": {"stage": None, "trials_run": None},
+            }
+            s[path[0]][path[1]][key] = value
+
+        bad("ACTIVE_CONFIG", leak)
+    # an active config whose run did not resolve is valid with every run-derived stat null
+    detail = _detail_payload()
+    detail["scorecard"] = _scorecard()
+    unresolved = detail["scorecard"]
+    unresolved.update(run_id=None, run_completed_at=None, metrics=[])
+    unresolved["areas"] = {
+        "evaluation_set": {"example_count": None, "dataset_ref": None},
+        "evaluator": {"version_ref": None},
+        "evaluation_progress": {"stage": None, "trials_run": None},
+    }
+    assert validator.validate_json(detail, name) == []

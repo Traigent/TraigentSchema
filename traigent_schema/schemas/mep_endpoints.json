@@ -49,8 +49,13 @@
     },
     {
       "name": "Best Config Agent Heads",
-      "description": "Content-less ref-addressed agent promotion head read (/api/v1/best-configs/agent-heads/by-ref/{agent_ref}).",
+      "description": "Project-scoped agent promotion head read (/api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head).",
       "paths_file": "./optimization/best_config_head_endpoints.json"
+    },
+    {
+      "name": "Release Acceptance",
+      "description": "Project-scoped release acceptance, release and head rollback of the agent promotion head (/api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances and best-config-head/release, best-config-head/rollback).",
+      "paths_file": "./optimization/release_endpoints.json"
     },
     {
       "name": "Optimization Token Refs",
@@ -69,8 +74,18 @@
     },
     {
       "name": "TVL Reactive Policy Read",
-      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy; flag-gated, closed response).",
+      "description": "Authorized human portal read of an agent's declared reactive policy (TRAIG-101; /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy; flag-gated, closed response).",
       "paths_file": "./production_requirements/tvl_reactive_policy_endpoints.json"
+    },
+    {
+      "name": "Agent Production Status",
+      "description": "Read-only production status and breach history of one Agent (/api/v1/projects/{project_id}/agents/{agent_ref}/production-status and .../production-breaches; flag-gated).",
+      "paths_file": "./production_requirements/production_breaches_endpoints.json"
+    },
+    {
+      "name": "Fleet Observe",
+      "description": "Fleet Observe v1 routes (/api/v1beta/projects/{project_id}/fleet-observe: imports, clusters, coverage, diff, findings; flag-gated, human principals only; TRAIG-179).",
+      "paths_file": "./fleet_observe/fleet_observe_endpoints.json"
     },
     {
       "name": "TVL Reactive Import",
@@ -198,14 +213,44 @@
       "paths_file": "./agent_readiness/agent_posture_endpoints.json"
     },
     {
-      "name": "Agent Readiness Fleet Posture",
-      "description": "The server-computed fleet debt/verdict view (per-agent debt items, verdict, validate-first ranking, fleet summary) for a project.",
-      "paths_file": "./agent_readiness/fleet_posture_endpoints.json"
+      "name": "Crews",
+      "description": "Crew catalog: a named set of agents that cooperate on one job; roles, immutable revisions with bindings, archive. Declared ahead of the backend (x-asserted-against-backend false).",
+      "paths_file": "./crew/crew_endpoints.json"
     },
     {
       "name": "Agent Decisions",
       "description": "Host-prompt decision requests: the backend issues a closed question about an agent, the customer's coding agent asks the human and posts back a closed answer. No customer content crosses the channel.",
       "paths_file": "./agent_decision/agent_decision_endpoints.json"
+    },
+    {
+      "name": "Audit Evaluate",
+      "description": "Closed project audit summary in, ordered findings and one next step out.",
+      "paths_file": "./audit_evaluate/audit_evaluate_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence",
+      "description": "Read-only evidence-coverage view of one Agent against the regulation catalogue crosswalk (ingredient states and coverage counts; not a compliance determination).",
+      "paths_file": "./agent_readiness/compliance_evidence_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Attestations",
+      "description": "Per-statement attester grants and authenticated attestations about an Agent (AGB-74 slice 2): grant, withdraw, sign, revoke, list and a can-sign capabilities read.",
+      "paths_file": "./agent_readiness/compliance_attestation_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Document References",
+      "description": "Customer-declared document references (a link plus a declared SHA-256) about an Agent (AGB-74 slice 3): record, withdraw and list. The platform never fetches or verifies the document.",
+      "paths_file": "./agent_readiness/compliance_document_ref_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Applicability",
+      "description": "Applicability screen of an Agent against the regulation catalogue (AGB-74 slice 4): closed screening answers, pure suggestions, human decisions per obligation as immutable snapshots, current plus history.",
+      "paths_file": "./agent_readiness/compliance_applicability_endpoints.json"
+    },
+    {
+      "name": "Agent Compliance Evidence Export",
+      "description": "Evidence export pack of an Agent as a ZIP with an integrity manifest (AGB-74 slice 5): human project members only, synchronous, size-capped, never cached.",
+      "paths_file": "./agent_readiness/compliance_export_endpoints.json"
     }
   ]
 }

@@ -921,54 +921,6 @@
       },
       "additionalProperties": false
     },
-    "ExperimentGroupDetailPayload": {
-      "type": "object",
-      "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}, nested under success-envelope data.",
-      "required": [
-        "group",
-        "source_experiments"
-      ],
-      "properties": {
-        "group": {
-          "$ref": "#/definitions/ExperimentGroupOverview"
-        },
-        "source_experiments": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ExperimentGroupSourceExperiment"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "ExperimentGroupDetailResponse": {
-      "type": "object",
-      "description": "Success-envelope response for GET /api/v1/experiment-groups/{group_id}. experiment_group_routes uses response_handler.success_response, so the group detail payload is nested under data.",
-      "allOf": [
-        {
-          "$ref": "../success_envelope_schema.json"
-        }
-      ],
-      "required": [
-        "success",
-        "message",
-        "data"
-      ],
-      "properties": {
-        "success": {
-          "type": "boolean",
-          "const": true
-        },
-        "message": {
-          "type": "string",
-          "maxLength": 240
-        },
-        "data": {
-          "$ref": "#/definitions/ExperimentGroupDetailPayload"
-        }
-      },
-      "additionalProperties": false
-    },
     "GroupedConfigurationRunListPayload": {
       "type": "object",
       "description": "Route-specific payload for GET /api/v1/experiment-groups/{group_id}/configuration-runs, nested under success-envelope data. Page/per_page mode returns pagination; cursor mode returns cursor. Exactly one mode drives a response - the oneOf below rejects a payload carrying both pagination and cursor as well as one carrying neither. column_manifest is optional here for backward compatibility with existing producers, and describes the full group rather than the returned window whenever present.",
@@ -1446,6 +1398,317 @@
           }
         }
       ]
+    },
+    "ExperimentGroupSearchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "search": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dataset_scope": {
+          "type": "string",
+          "enum": [
+            "all",
+            "with_dataset",
+            "without_dataset"
+          ],
+          "default": "all"
+        },
+        "sort_by": {
+          "type": "string",
+          "enum": [
+            "created_at",
+            "updated_at",
+            "agent_id",
+            "experiment_count",
+            "experiment_run_count",
+            "configuration_run_count"
+          ]
+        },
+        "sort_order": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "GroupConfigurationRunQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_experiment_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "source_experiment_run_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "../status_schema.json#/definitions/ConfigurationRunStatus"
+          }
+        },
+        "created_at_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at_to": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at_from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at_to": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "predicates": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/definitions/ColumnPredicate"
+          }
+        },
+        "sort": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/definitions/ColumnSort"
+          }
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      }
+    },
+    "GroupPageBlock": {
+      "type": "object",
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExperimentGroupsPageEnvelope": {
+      "type": "object",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ExperimentGroupOverview"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/GroupPageBlock"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ExperimentGroupDetailEnvelope": {
+      "type": "object",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "group",
+            "column_manifest"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "group": {
+              "$ref": "#/definitions/ExperimentGroupOverview"
+            },
+            "column_manifest": {
+              "$ref": "#/definitions/GroupColumnManifest"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "GroupConfigurationRunsPageEnvelope": {
+      "type": "object",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "items",
+            "column_manifest",
+            "pagination"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/GroupedConfigurationRunBrowseRow"
+              }
+            },
+            "column_manifest": {
+              "$ref": "#/definitions/GroupColumnManifest"
+            },
+            "pagination": {
+              "$ref": "#/definitions/GroupPageBlock"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "GroupExperimentsPageEnvelope": {
+      "type": "object",
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/ExperimentGroupSourceExperiment"
+              }
+            },
+            "pagination": {
+              "$ref": "#/definitions/GroupPageBlock"
+            }
+          }
+        }
+      },
+      "additionalProperties": true
     }
   },
   "properties": {

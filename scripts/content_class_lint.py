@@ -89,9 +89,7 @@ OLD_DIALECT_BASE_ERROR = (
 SESSION_ID_PATTERN = "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 KEY_ID_PATTERN = "^[A-Za-z0-9_-]{22}$"
 BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
-# ``<kind>ref_<32 lowercase hex>`` (the Backend's id minting convention: a prefixed
-# ``_new_id(prefix)`` helper and an opaque-ref helper in the Backend's director package),
-# with one kind or a closed alternation of kinds.
+# ``<kind>ref_<32 lowercase hex>``, with one kind or a closed alternation of kinds.
 _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{32\}\$$")
 # ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids.
 _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")

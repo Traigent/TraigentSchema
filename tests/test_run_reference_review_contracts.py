@@ -145,21 +145,36 @@ def test_reference_review_validates_a_realistic_page_and_is_closed():
         mutate(doc["data"])
         return list(v.iter_errors(doc))
 
-    assert broken(lambda d: d.update(extra=1))
-    assert broken(lambda d: d["counts"].update(extra=1))
-    assert broken(lambda d: d["items"][0].update(label="x"))
-    assert broken(lambda d: d["items"][1].update(example_id=None))
-    assert broken(lambda d: d["items"][0].update(example_id=""))
-    assert broken(lambda d: d["items"][0].update(example_id="x" * 256))
-    assert broken(lambda d: d["items"][0].update(safe_example_ref="exref_xyz"))
-    assert broken(lambda d: d.pop("unavailable_reason"))
-    assert broken(lambda d: d.update(privacy_mode="full"))
-    assert broken(lambda d: d.update(status="partial"))
-    assert broken(lambda d: d.update(unavailable_reason="other"))
-    assert broken(lambda d: d.update(page=0))
-    assert broken(lambda d: d.update(page_size=201))
-    assert broken(lambda d: d.update(total_pages=-1))
-    assert broken(lambda d: d.update(items=[_review()["items"][1]] * 201))
+    errors_1 = broken(lambda d: d.update(extra=1))
+    assert errors_1
+    errors_2 = broken(lambda d: d["counts"].update(extra=1))
+    assert errors_2
+    errors_3 = broken(lambda d: d["items"][0].update(label="x"))
+    assert errors_3
+    errors_4 = broken(lambda d: d["items"][1].update(example_id=None))
+    assert errors_4
+    errors_5 = broken(lambda d: d["items"][0].update(example_id=""))
+    assert errors_5
+    errors_6 = broken(lambda d: d["items"][0].update(example_id="x" * 256))
+    assert errors_6
+    errors_7 = broken(lambda d: d["items"][0].update(safe_example_ref="exref_xyz"))
+    assert errors_7
+    errors_8 = broken(lambda d: d.pop("unavailable_reason"))
+    assert errors_8
+    errors_9 = broken(lambda d: d.update(privacy_mode="full"))
+    assert errors_9
+    errors_10 = broken(lambda d: d.update(status="partial"))
+    assert errors_10
+    errors_11 = broken(lambda d: d.update(unavailable_reason="other"))
+    assert errors_11
+    errors_12 = broken(lambda d: d.update(page=0))
+    assert errors_12
+    errors_13 = broken(lambda d: d.update(page_size=201))
+    assert errors_13
+    errors_14 = broken(lambda d: d.update(total_pages=-1))
+    assert errors_14
+    errors_15 = broken(lambda d: d.update(items=[_review()["items"][1]] * 201))
+    assert errors_15
 
 
 def _walk(node, where="$"):

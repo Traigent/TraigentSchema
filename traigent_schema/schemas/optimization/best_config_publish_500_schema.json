@@ -1,21 +1,56 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/best_config_publish_500_schema.json",
-  "title": "BestConfigProtectedPublish500",
-  "description": "The 500 body of a PROTECTED POST /api/v1/best-configs: the closed refusal envelope (best_config_head_refusal_schema.json) restricted to internal_error (fixed text). A malformed protected body (right code, wrong text, extra member) matches nothing. The execution endpoint combines this with the unchanged legacy 500 body in two DISJOINT branches (the legacy branch must not carry internal_error).",
-  "allOf": [
+  "title": "BestConfigPublish500",
+  "description": "Identified 500 responses for best-config publication and shared request and response handling.",
+  "x-content-class": "closed_enum",
+  "enum": [
     {
-      "$ref": "./best_config_head_refusal_schema.json"
+      "success": false,
+      "error": "Internal server error",
+      "error_code": "BEST_CONFIG_ERROR",
+      "message": "Internal server error"
     },
     {
-      "properties": {
-        "error_code": {
-          "x-content-class": "closed_enum",
-          "enum": [
-            "internal_error"
-          ]
-        }
-      }
+      "success": false,
+      "error": "AUTHENTICATION_ERROR",
+      "error_code": "AUTHENTICATION_ERROR",
+      "message": "Authentication failed"
+    },
+    {
+      "success": false,
+      "error": "Internal server error",
+      "error_code": "AUTHENTICATION_ERROR",
+      "message": "Internal server error"
+    },
+    {
+      "success": false,
+      "error": "Internal server error",
+      "error_code": "SECURITY_MIDDLEWARE_ERROR",
+      "message": "Internal server error"
+    },
+    {
+      "success": false,
+      "error": "Internal server error",
+      "code": "INTERNAL_ERROR"
+    },
+    {
+      "error": "Security middleware error",
+      "message": "Failed to apply security response headers"
+    },
+    {
+      "error": "Security middleware error",
+      "message": "Failed to apply CORS response headers"
+    },
+    {
+      "error": "Transaction commit failed",
+      "message": "A database error occurred. Please retry."
+    },
+    {
+      "error": "Transaction commit failed",
+      "message": "A database error occurred. Please retry.",
+      "_dev_error_class": "RuntimeError",
+      "_dev_error_detail": "commit failed"
     }
   ]
 }

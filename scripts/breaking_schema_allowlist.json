@@ -2,6 +2,580 @@
   "$comment": "Explicit, versioned opt-outs for scripts/breaking_schema_check.py (an ENFORCE, blocking gate). The gate's rule is not 'you may not break the contract' — it is 'you may not break it silently'. A change stays allowed; the silence does not. An entry only grants an opt-out when file, rule, reason, and version are all present, AND reason is real prose explaining WHY the tightening is intentional and reviewed — a bare issue/PR reference, 'TODO', 'see PR', or anything under ~20 chars / a single word is rejected (see reason_rejection()). pointer_prefix is optional and defaults to matching every finding for that rule in that file; add it to scope a narrower, single-field opt-out instead. Entries do not expire — a bound-hardening acknowledgement is a permanent historical fact about that contract, not a lease.",
   "entries": [
     {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 3,
+          "fingerprint": "41f9c657c60d1207c434820302482f6b6eb692db16f92db793f81835de383d41"
+        },
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/404/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 2,
+          "fingerprint": "dfd2d38b78fb483539c33af9d94cb6c11d0ed557dce53604df0d9609d73b24af"
+        },
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/409/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 3,
+          "fingerprint": "adb0de1678830ea8992e282abc5497592479491212f74054a3639c0e268d055a"
+        }
+      ],
+      "reason": "Best-config publish now refuses every requested agent-head move before publishing. The publish 400, 404 and 409 branches describe header validation, agent masking, and acceptance-required bodies alongside ordinary publish and idempotency errors. For BEST_CONFIG_VALIDATION_ERROR, the schema documents that the service sets error and message to the same text. To move the head, publish without the head headers, record a person's release acceptance and call the release operation.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "oneOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/500/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "4fb44e821e9dbc582413c7e80c276a2c614093da6b07326640f49284a90a70b0"
+        }
+      ],
+      "reason": "The publish handler uses the same server error contract regardless of head headers. Removing the previous 500 union retires the header-selected internal_error branch in favor of the enumerated response bodies.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/400/content/application/json/schema/properties/allowed_content_types",
+          "role": "response",
+          "subject": "allowed_content_types",
+          "old": false,
+          "new": true,
+          "fingerprint": "56b9a39dce17d6c1ed7ef5f2cc12e18fadae88d510f42195de1a742c0b85f54d"
+        }
+      ],
+      "reason": "The Backend security middleware sends allowed_content_types in its unsupported-content-type 400. The contract now describes that exact middleware body. A client validating against the old closed response schema rejects the extra field.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "0540d989c9f862fbdf4f33cefe3a53858fb4b84376f7bc11a1cf0b47bb677b65"
+        },
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "55fa9b37d4b7c1781b65c04a65a922f7654f04c5b4acf07b9a52f5a5a4c96ae6"
+        }
+      ],
+      "reason": "error_code and success stay mandatory for route validation and provider problem documents, but the pinned Backend idempotency 400 and the unsupported-content-type middleware 400 JSON bodies omit both, so the shared 400 schema no longer requires them. Compatibility: readers that assumed these fields are always present on a 400 must handle their absence, and clients that dereference them without a check may break.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/500/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "{\"_dev_error_class\": \"RuntimeError\", \"_dev_error_detail\": \"commit failed\", \"error\": \"Transaction commit failed\", \"message\": \"A database error occurred. Please retry.\"}",
+            "{\"code\": \"INTERNAL_ERROR\", \"error\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"AUTHENTICATION_ERROR\", \"error_code\": \"AUTHENTICATION_ERROR\", \"message\": \"Authentication failed\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"AUTHENTICATION_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"BEST_CONFIG_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"SECURITY_MIDDLEWARE_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Security middleware error\", \"message\": \"Failed to apply CORS response headers\"}",
+            "{\"error\": \"Security middleware error\", \"message\": \"Failed to apply security response headers\"}",
+            "{\"error\": \"Transaction commit failed\", \"message\": \"A database error occurred. Please retry.\"}"
+          ],
+          "fingerprint": "dc7d67634784d3ce8cacf9452cc2ec1a982bb1cd4fc8237a43fedf6dab6f9fed"
+        }
+      ],
+      "reason": "Publish no longer serves the header-selected internal_error refusal. The closed enum records the identified publish, authentication, security, transaction commit and global 500 bodies, including the two-field security and CORS response-hardening failures.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "execution/best_config_endpoints.json",
+      "rule": "oneOf_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/401/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "999d3364cd34e9fe2ed3e245e4a943f75536c82c234210ceca363c1e7e55315a"
+        },
+        {
+          "pointer": "#/paths//api/v1/best-configs/post/responses/403/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "d72f583d55e43266a12789ec34835d39a0911ca2c35eb7ab777ae01a07080545"
+        }
+      ],
+      "reason": "Removing publish-time promotion also removes the header-selected authentication and permission error branches. The ordinary 401 and 403 bodies remain documented through the shared error envelope.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_401_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/error",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"forbidden\"",
+            "\"head_precondition_refused\"",
+            "\"internal_error\"",
+            "\"invalid_request\"",
+            "\"reference_not_found\"",
+            "\"unauthenticated\""
+          ],
+          "new": null,
+          "fingerprint": "69fdfdd1b6711065c7132bb78c0c7fd14f48cf4cf6b287142d6acff58b563e33"
+        },
+        {
+          "pointer": "#/allOf/0/properties/error_code",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"forbidden\"",
+            "\"head_agent_mismatch\"",
+            "\"head_body_invalid\"",
+            "\"head_capture_invalid\"",
+            "\"head_environment_mismatch\"",
+            "\"head_generation_stale\"",
+            "\"head_publish_conflict\"",
+            "\"head_write_unauthorized\"",
+            "\"internal_error\"",
+            "\"reference_not_found\"",
+            "\"unauthenticated\""
+          ],
+          "new": null,
+          "fingerprint": "c1bab72681114f396adf108f344e3f43903fb01ef72568d2375f970a6e2cd623"
+        },
+        {
+          "pointer": "#/allOf/0/properties/message",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"Agent does not match the session.\"",
+            "\"Agent head moved since the capture.\"",
+            "\"Authentication required.\"",
+            "\"Environment does not match the session.\"",
+            "\"Forbidden.\"",
+            "\"Head capture is missing or malformed.\"",
+            "\"Internal error.\"",
+            "\"Not authorized to promote this agent.\"",
+            "\"Publish body is invalid.\"",
+            "\"Publish conflicts with the current configuration.\"",
+            "\"Reference not found.\""
+          ],
+          "new": null,
+          "fingerprint": "20692f89c18765691ac417d3cbb7f2db3b96c258b2b54d6fd3b983525bc7bc80"
+        }
+      ],
+      "reason": "The protected unauthenticated publish response is retired. This linked schema now describes the ordinary authentication response used regardless of head headers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_401_schema.json",
+      "rule": "minLength",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/error",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "d9cf2cea47af4ba66c3864c9e685bfc718bcf61ea0e329b5fdcf176670a4d492"
+        },
+        {
+          "pointer": "#/allOf/0/properties/error_code",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "508d6fcbc70f818ba0c2fbf2fb512bc335e33f0ce2a4f3c68f3c5c421126239c"
+        },
+        {
+          "pointer": "#/allOf/0/properties/message",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "a78972aedf99d843317665b0af834d93e23ffd50774d95f00788ede11deba452"
+        }
+      ],
+      "reason": "The protected unauthenticated publish response is retired. This linked schema now describes the ordinary authentication response used regardless of head headers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_401_schema.json",
+      "rule": "oneOf_removed",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 0,
+          "fingerprint": "ab7eb772fde665b0df36bccf70a44a5c99da7fc11ee1e5bea7c17c9e4a363faa"
+        }
+      ],
+      "reason": "The protected unauthenticated publish response is retired. This linked schema now describes the ordinary authentication response used regardless of head headers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_401_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/details",
+          "role": "conservative",
+          "subject": "details",
+          "old": false,
+          "new": true,
+          "fingerprint": "7a68180decf227f9df8222482eb6b2a7979831166b9949c738398e51e4c140c1"
+        }
+      ],
+      "reason": "The protected unauthenticated publish response is retired. This linked schema now describes the ordinary authentication response used regardless of head headers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_401_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "09439d3c5a3ef027d620359079127f6edee169a91669c7595165039ddb8b23fb"
+        },
+        {
+          "pointer": "#/allOf/1",
+          "role": "conservative",
+          "subject": "error_code",
+          "old": false,
+          "new": true,
+          "fingerprint": "610a3560972296e3d0a1099dda51ca06d11b73aa042dc948839cffe02d503ec2"
+        }
+      ],
+      "reason": "The protected unauthenticated publish response is retired. This linked schema now describes the ordinary authentication response used regardless of head headers.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_403_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/error",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"forbidden\"",
+            "\"head_precondition_refused\"",
+            "\"internal_error\"",
+            "\"invalid_request\"",
+            "\"reference_not_found\"",
+            "\"unauthenticated\""
+          ],
+          "new": null,
+          "fingerprint": "97e2f340b723b65fef0ab9f1d2baf2d0273a145b3af72b7896c31fa923a32389"
+        },
+        {
+          "pointer": "#/allOf/0/properties/error_code",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"forbidden\"",
+            "\"head_agent_mismatch\"",
+            "\"head_body_invalid\"",
+            "\"head_capture_invalid\"",
+            "\"head_environment_mismatch\"",
+            "\"head_generation_stale\"",
+            "\"head_publish_conflict\"",
+            "\"head_write_unauthorized\"",
+            "\"internal_error\"",
+            "\"reference_not_found\"",
+            "\"unauthenticated\""
+          ],
+          "new": null,
+          "fingerprint": "fb309cf5cc8a4f2bf4d217c852ff53c15058847dc2568eef89fcf9ce85161a9e"
+        },
+        {
+          "pointer": "#/allOf/0/properties/message",
+          "role": "conservative",
+          "subject": {
+            "direction": "removed",
+            "values": [
+              "<enum constraint removed entirely>"
+            ]
+          },
+          "old": [
+            "\"Agent does not match the session.\"",
+            "\"Agent head moved since the capture.\"",
+            "\"Authentication required.\"",
+            "\"Environment does not match the session.\"",
+            "\"Forbidden.\"",
+            "\"Head capture is missing or malformed.\"",
+            "\"Internal error.\"",
+            "\"Not authorized to promote this agent.\"",
+            "\"Publish body is invalid.\"",
+            "\"Publish conflicts with the current configuration.\"",
+            "\"Reference not found.\""
+          ],
+          "new": null,
+          "fingerprint": "29a789f9cd87ba5adfb7ce92e45660e57de58b8bbe69f261150a62c516710367"
+        }
+      ],
+      "reason": "The protected forbidden and head_write_unauthorized publish responses are retired. This linked schema now describes ordinary permission refusals. Inaccessible agents use the masked 404.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_403_schema.json",
+      "rule": "minLength",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/error",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "9ad815201dfc661daa8c3a90f91ea8dae6abc70a901c0f2681d9d8c8f85535ab"
+        },
+        {
+          "pointer": "#/allOf/0/properties/error_code",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "6f935c88aa53db13adb23c169ac5d46df590dbbdfae7190944507db5a422d4a9"
+        },
+        {
+          "pointer": "#/allOf/0/properties/message",
+          "role": "conservative",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "20410eddb61b4e2847ead893735de43032ffcebaafde8b4936c8e8e4ac8210e1"
+        }
+      ],
+      "reason": "The protected forbidden and head_write_unauthorized publish responses are retired. This linked schema now describes ordinary permission refusals. Inaccessible agents use the masked 404.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_403_schema.json",
+      "rule": "oneOf_removed",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 0,
+          "fingerprint": "5f3d8eda3bed00f3f1307019b00ea220a947f0eb5133ba66f131815c9cdb6d58"
+        }
+      ],
+      "reason": "The protected forbidden and head_write_unauthorized publish responses are retired. This linked schema now describes ordinary permission refusals. Inaccessible agents use the masked 404.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_403_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/allOf/0/properties/details",
+          "role": "conservative",
+          "subject": "details",
+          "old": false,
+          "new": true,
+          "fingerprint": "dd623486c766ab98b3d81ed59388e02de4b045866672543ace8e78c6c3280623"
+        }
+      ],
+      "reason": "The protected forbidden and head_write_unauthorized publish responses are retired. This linked schema now describes ordinary permission refusals. Inaccessible agents use the masked 404.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_403_schema.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/allOf/0",
+          "role": "conservative",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "a05f0075a54dbc2df3fdd3d87e3968dec2cca5d75fb43f1caff31b909106af9c"
+        },
+        {
+          "pointer": "#/allOf/1",
+          "role": "conservative",
+          "subject": "error_code",
+          "old": false,
+          "new": true,
+          "fingerprint": "4ae3e645993b4fb640f0fb0c393d7fd0fbecb9407895e05e74770c1ed209b099"
+        }
+      ],
+      "reason": "The protected forbidden and head_write_unauthorized publish responses are retired. This linked schema now describes ordinary permission refusals. Inaccessible agents use the masked 404.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_409_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "ef791d454765ab1e263f3bbe63d6b021aad07d329b80cb8e630f871e0f6f3ded"
+        }
+      ],
+      "reason": "Best-config publish refuses a requested head move before publication. This linked schema describes the acceptance-required response, ordinary publish conflicts and keyed idempotency conflicts.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_409_schema.json",
+      "rule": "oneOf_added",
+      "findings": [
+        {
+          "pointer": "#/oneOf",
+          "role": "conservative",
+          "subject": "oneOf",
+          "old": 0,
+          "new": 3,
+          "fingerprint": "ee55b54de3591ca29e28b1f8dc38cc34bdb60c905fcd6866b5c0e96a637a374a"
+        }
+      ],
+      "reason": "Best-config publish refuses a requested head move before publication. This linked schema describes the acceptance-required response, ordinary publish conflicts and keyed idempotency conflicts.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_500_schema.json",
+      "rule": "allOf_removed",
+      "findings": [
+        {
+          "pointer": "#/allOf",
+          "role": "conservative",
+          "subject": "allOf",
+          "old": 2,
+          "new": 0,
+          "fingerprint": "6384de8c6869ce5c393f6977e2db2e964b005bd91aa36c649924dfe7e3051341"
+        }
+      ],
+      "reason": "The protected internal_error response is retired. This linked schema lists the source-confirmed publish, authentication, security, transaction commit and global 500 bodies.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
+      "file": "optimization/best_config_publish_500_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<enum constraint added>"
+            ]
+          },
+          "old": null,
+          "new": [
+            "{\"_dev_error_class\": \"RuntimeError\", \"_dev_error_detail\": \"commit failed\", \"error\": \"Transaction commit failed\", \"message\": \"A database error occurred. Please retry.\"}",
+            "{\"code\": \"INTERNAL_ERROR\", \"error\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"AUTHENTICATION_ERROR\", \"error_code\": \"AUTHENTICATION_ERROR\", \"message\": \"Authentication failed\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"AUTHENTICATION_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"BEST_CONFIG_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Internal server error\", \"error_code\": \"SECURITY_MIDDLEWARE_ERROR\", \"message\": \"Internal server error\", \"success\": false}",
+            "{\"error\": \"Security middleware error\", \"message\": \"Failed to apply CORS response headers\"}",
+            "{\"error\": \"Security middleware error\", \"message\": \"Failed to apply security response headers\"}",
+            "{\"error\": \"Transaction commit failed\", \"message\": \"A database error occurred. Please retry.\"}"
+          ],
+          "fingerprint": "0c3934bd4a669ad122614c33f2c60c107be3d63ad56a2e7cb656912c7580dae7"
+        }
+      ],
+      "reason": "The protected internal_error response is retired. This linked schema lists the source-confirmed publish, authentication, security, transaction commit and global 500 bodies.",
+      "version": "Unreleased",
+      "pr": "pending"
+    },
+    {
       "file": "agent_readiness/agent_readiness_target_schema.json",
       "rule": "oneOf_branch_count_changed",
       "findings": [

@@ -552,6 +552,62 @@
    "to": "closed_enum",
    "reason": "now an inline closed_enum equal to optimization/session_lifecycle_status_schema.json (the lowercase lifecycle values the session routes serve; TraigentSchema#621); the field is no longer an unclassified free string.",
    "reference": "tests/test_session_lifecycle_status_contract.py:1"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/401/content/application~1json/schema/oneOf/1",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The ordinary 401 now uses the shared error envelope.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_401_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/401/content/application~1json/schema/oneOf/1 [keys]",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The shared error envelope declares the ordinary 401 keys.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_401_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/403/content/application~1json/schema/oneOf/1",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The ordinary 403 now uses the shared error envelope.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_403_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/403/content/application~1json/schema/oneOf/1 [keys]",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The shared error envelope declares the ordinary 403 keys.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_403_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/409/content/application~1json/schema/oneOf/1",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The ordinary publish conflicts use a closed enum in the linked publish 409 schema. The acceptance-required refusal and idempotency conflicts have separate branches.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_409_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/409/content/application~1json/schema/oneOf/1 [keys]",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The linked publish 409 schema lists the complete ordinary publish conflict bodies, including their keys.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_409_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/500/content/application~1json/schema/oneOf/1",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The response lists fixed handler, guard and hardening error bodies.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_500_schema.json:5"
+  },
+  {
+   "location": "execution/best_config_endpoints.json#/paths/~1api~1v1~1best-configs/post/responses/500/content/application~1json/schema/oneOf/1 [keys]",
+   "from": "legacy_content",
+   "to": "removed",
+   "reason": "The old response branch was removed with the publish-time promotion path. The replacement lists complete fixed error bodies.",
+   "reference": "traigent_schema/schemas/optimization/best_config_publish_500_schema.json:5"
   }
  ]
 }

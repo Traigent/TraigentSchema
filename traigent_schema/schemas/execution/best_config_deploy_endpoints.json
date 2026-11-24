@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent Deploy Publish-result and Pinned Config Routes",
     "version": "1.0.0",
-    "description": "Agent-configuration-head deploy target of TVL Reactive Contracts (TRAIG-101 plan 8): publish-result lookup and finalize. The deploy publication itself is POST .../deploy-publications (best_config_agent_head_config_endpoints.json), a branch separate from POST /api/v1/best-configs because its precondition is the APPROVAL-TIME generation, whereas best_config_endpoints.json requires the generation captured at optimization start and forbids refreshing it."
+    "description": "These routes look up and finalize the publish result for the TVL Reactive Contracts agent-head deploy target. The deploy publication operation at POST /api/v1/best-configs/agent-heads/{agent_ref}/deploy-publications requires the head generation bound in the grant at approval time. POST /api/v1/best-configs never moves the head. To move the head for a published best configuration, record a person's release acceptance and then call the release operation."
   },
   "paths": {
     "/api/v1/best-configs/agent-heads/{agent_ref}/publish-results/{key}": {

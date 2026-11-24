@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/agent_head_response_schema.json",
   "title": "AgentHeadResponse",
-  "description": "200 body of GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head?environment=<SessionEnvironment>: the promotion head of the agent in the environment. generation 0 with null best_config_id, best_config_version, promoted_by_run_id and updated_at means the agent was never promoted there. A run captures `generation` when it STARTS and sends it back as X-Traigent-Expected-Head-Generation when it publishes its own result; it is not a token to refresh and reuse for a result computed against an older head (see best_config_head_refusal_schema.json, head_generation_stale). The project is the path project, never X-Project-Id. Shape mirrors TraigentBackend serialize_head wrapped in the standard success envelope.",
+  "description": "200 success envelope for the agent head read in the requested environment. Generation 0 with null best_config_id, best_config_version, promoted_by_run_id and updated_at means no configuration has been promoted there. The expected generation is bound to a release acceptance and checked during release. The project comes from the path.",
   "type": "object",
   "additionalProperties": false,
   "required": [

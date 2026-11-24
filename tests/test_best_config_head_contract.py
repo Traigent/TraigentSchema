@@ -1,6 +1,7 @@
-"""Plan v2.1 phase 0b: ref-addressed agent head read and the protected-publish contract."""
+"""Contracts for the agent head read and best-config publish."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,12 @@ def _registry():
         "optimization/session_capabilities_schema.json",
         "labels/label_common_schema.json",
         "optimization/best_config_head_refusal_schema.json",
+        "optimization/best_config_publish_401_schema.json",
+        "optimization/best_config_publish_403_schema.json",
+        "optimization/best_config_publish_409_schema.json",
+        "optimization/best_config_publish_500_schema.json",
+        "optimization/release_acceptance_schema.json",
+        "error_envelope_schema.json",
     ):
         doc = json.loads((SCHEMAS / rel).read_text(encoding="utf-8"))
         registry = registry.with_resource(BASE + rel, Resource.from_contents(doc))
@@ -45,8 +52,6 @@ def _registry():
 
 def _validator(name):
     return Draft7Validator(_load(name), registry=_registry())
-
-
 
 
 def test_refusal_envelope_is_closed_with_one_fixed_branch_per_code():
@@ -115,516 +120,6 @@ def _publish():
     return doc["paths"]["/api/v1/best-configs"]["post"]
 
 
-def test_publish_headers_and_applicability_decision_table():
-    post = _publish()
-    headers = {p["name"]: p for p in post["parameters"] if p["in"] == "header"}
-    assert {"X-Traigent-Agent-Ref", "X-Traigent-Expected-Head-Generation"} <= set(headers)
-    assert headers["X-Traigent-Agent-Ref"]["schema"]["$ref"].endswith("#/definitions/AgentRef")
-    assert headers["X-Traigent-Expected-Head-Generation"]["schema"]["minimum"] == 0
-    rule = post["description"]
-    assert "if and only if" in rule
-    assert "content_less_v1" in rule
-    assert "content_less_v2" in rule
-    rows = [f"[{n}]" for n in range(1, 9)]
-    assert all(row in rule for row in rows)
-    for needle in (
-        "Agent-Ref and Agent-Id both present -> 400 head_capture_invalid",
-        "Agent-Ref present, Expected-Head-Generation missing",
-        "LEGACY, unchanged",
-        "authoritative session binding",
-        "ONE transaction",
-        "exactly one wins",
-    ):
-        assert needle in rule, needle
-
-
-STAGES = [
-    "(1) not authenticated 401 unauthenticated",
-    "(2) permission or project role denied 403 forbidden",
-    "(3) malformed or incomplete capture 400 head_capture_invalid",
-    "(4) SESSION BINDING RESOLUTION",
-    "403 head_write_unauthorized",
-    "404 reference_not_found",
-    "500 internal_error",
-    "(5) the resolved binding against the request",
-    "(6) well-formed but unknown or foreign ref 404 reference_not_found",
-    "(7) agent WRITE denied 403 head_write_unauthorized",
-    "(8) ref's agent is not the session's 409 head_agent_mismatch",
-    "(9) publish environment differs from the session's 409 head_environment_mismatch",
-    "(10) body fails validation 400 head_body_invalid",
-    "(11) head moved 409 head_generation_stale",
-    "(12) ordinary publish conflict",
-]
-
-
-def test_refusal_precedence_is_written_down():
-    rule = _publish()["description"]
-    start = rule.index("ORDER OF REFUSALS")
-    positions = [rule.index(item, start) for item in STAGES]
-    assert positions == sorted(positions)
-
-
-PROTECTED_409 = [
-    "head_environment_mismatch",
-    "head_agent_mismatch",
-    "head_generation_stale",
-    "head_publish_conflict",
-]
-
-
-def _envelope_body(code):
-    schema = _load("best_config_head_refusal_schema.json")
-    branch = next(b for b in schema["oneOf"] if b["properties"]["error_code"]["const"] == code)
-    props = branch["properties"]
-    return {
-        "success": False,
-        "error": props["error"]["const"],
-        "error_code": code,
-        "message": props["message"]["const"],
-    }
-
-
-def _publish_409_validator():
-    """The 409 schema of the execution endpoint, resolved as it is served (relative refs)."""
-    registry = _registry().with_resource(
-        BASE + "optimization/best_config_publish_409_schema.json",
-        Resource.from_contents(_load("best_config_publish_409_schema.json")),
-    )
-    schema = _publish()["responses"]["409"]["content"]["application/json"]["schema"]
-    base = BASE + "execution/best_config_endpoints.json"
-    return Draft7Validator({"$id": base, **schema}, registry=registry)
-
-
-def test_publish_409_has_two_disjoint_branches_and_other_statuses_are_closed():
-    post = _publish()
-    schema = post["responses"]["409"]["content"]["application/json"]["schema"]
-    protected, legacy = schema["oneOf"]
-    assert protected["$ref"].endswith("optimization/best_config_publish_409_schema.json")
-    assert legacy["not"]["properties"]["error_code"]["enum"] == PROTECTED_409
-    assert legacy["x-content-class"] == "legacy_content"
-    for status in ("400", "404"):
-        got = post["responses"][status]["content"]["application/json"]["schema"]
-        assert got["$ref"].endswith("best_config_head_refusal_schema.json"), status
-
-
-@pytest.mark.parametrize("code", PROTECTED_409)
-def test_every_complete_protected_409_body_matches_exactly_one_branch(code):
-    validator = _publish_409_validator()
-    body = _envelope_body(code)
-    assert not list(validator.iter_errors(body)), code  # oneOf: exactly one branch
-    assert _validator("best_config_publish_409_schema.json").is_valid(body)  # the closed branch
-    legacy = _publish()["responses"]["409"]["content"]["application/json"]["schema"]["oneOf"][1]
-    assert not Draft7Validator(legacy).is_valid(body)  # and not the legacy branch
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {
-            "success": False,
-            "error": "If-Match is required to update an existing best config",
-            "error_code": "BEST_CONFIG_CONFLICT",
-            "message": "If-Match is required to update an existing best config",
-        },
-        {
-            "success": False,
-            "code": "STALE_HEAD_GENERATION",
-            "error_code": "STALE_HEAD_GENERATION",
-            "current_generation": 3,
-            "expected_generation": 1,
-            "error": "x",
-            "message": "x",
-        },
-    ],
-)
-def test_legacy_409_bodies_are_still_valid(body):
-    assert _publish_409_validator().is_valid(body)
-
-
-@pytest.mark.parametrize("code", PROTECTED_409)
-def test_a_malformed_protected_body_is_rejected(code):
-    validator = _publish_409_validator()
-    good = _envelope_body(code)
-    for bad in (
-        {**good, "message": "CANARY free text"},
-        {**good, "extra": "member"},
-        {**good, "error": "upgrade_required"},
-        {k: v for k, v in good.items() if k != "message"},
-    ):
-        assert not validator.is_valid(bad), bad
-
-
-def _publish_500_validator():
-    registry = _registry().with_resource(
-        BASE + "optimization/best_config_publish_500_schema.json",
-        Resource.from_contents(_load("best_config_publish_500_schema.json")),
-    )
-    schema = _publish()["responses"]["500"]["content"]["application/json"]["schema"]
-    base = BASE + "execution/best_config_endpoints.json"
-    return Draft7Validator({"$id": base, **schema}, registry=registry)
-
-
-# The body the Backend emits for an unchanged legacy publish that fails unexpectedly
-# (src/routes/best_config_routes.py error_response(..., status=500, error_code="BEST_CONFIG_ERROR")
-# through the 5xx branch of src/utils/response_handler.py).
-LEGACY_500 = {
-    "success": False,
-    "message": "Internal server error",
-    "error": "Internal server error",
-    "error_code": "BEST_CONFIG_ERROR",
-}
-
-
-def test_publish_500_has_two_disjoint_branches():
-    schema = _publish()["responses"]["500"]["content"]["application/json"]["schema"]
-    protected, legacy = schema["oneOf"]
-    assert protected["$ref"].endswith("optimization/best_config_publish_500_schema.json")
-    assert legacy["not"]["properties"]["error_code"]["enum"] == ["internal_error"]
-    assert legacy["x-content-class"] == "legacy_content"
-
-
-def test_protected_500_internal_error_matches_exactly_one_branch():
-    body = _envelope_body("internal_error")
-    assert _publish_500_validator().is_valid(body)  # oneOf: exactly one branch
-    assert _validator("best_config_publish_500_schema.json").is_valid(body)  # the closed branch
-    legacy = _publish()["responses"]["500"]["content"]["application/json"]["schema"]["oneOf"][1]
-    assert not Draft7Validator(legacy).is_valid(body)  # and not the legacy branch
-
-
-def test_legacy_500_body_validates_and_matches_exactly_one_branch():
-    assert _publish_500_validator().is_valid(LEGACY_500)
-    assert not _validator("best_config_publish_500_schema.json").is_valid(LEGACY_500)
-    legacy = _publish()["responses"]["500"]["content"]["application/json"]["schema"]["oneOf"][1]
-    assert Draft7Validator(legacy).is_valid(LEGACY_500)
-
-
-def test_a_malformed_protected_500_is_rejected():
-    validator = _publish_500_validator()
-    good = _envelope_body("internal_error")
-    for bad in (
-        {**good, "message": "CANARY free text"},
-        {**good, "extra": "member"},
-        {**good, "error": "upgrade_required"},
-        {k: v for k, v in good.items() if k != "message"},
-    ):
-        assert not validator.is_valid(bad), bad
-
-
-# --- 401 / 403 of the protected publish: closed `unauthenticated` / `forbidden`, disjoint from legacy ---
-
-LEGACY_401 = {
-    "success": False,
-    "message": "Authentication required",
-    "error": "AUTHENTICATION_REQUIRED",
-    "error_code": "AUTHENTICATION_REQUIRED",
-}
-LEGACY_403 = {
-    "success": False,
-    "message": "Permission denied",
-    "error": "PERMISSION_DENIED",
-    "error_code": "PERMISSION_DENIED",
-}
-
-
-def _auth_status_validator(status):
-    registry = _registry().with_resource(
-        BASE + f"optimization/best_config_publish_{status}_schema.json",
-        Resource.from_contents(_load(f"best_config_publish_{status}_schema.json")),
-    )
-    schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
-    return Draft7Validator(
-        {"$id": BASE + "execution/best_config_endpoints.json", **schema}, registry=registry
-    )
-
-
-@pytest.mark.parametrize(
-    ("status", "closed", "legacy_body"),
-    [
-        ("401", ["unauthenticated"], LEGACY_401),
-        ("403", ["forbidden", "head_write_unauthorized"], LEGACY_403),
-    ],
-)
-def test_publish_auth_statuses_have_two_disjoint_branches(status, closed, legacy_body):
-    schema = _publish()["responses"][status]["content"]["application/json"]["schema"]
-    protected, legacy = schema["oneOf"]
-    assert protected["$ref"].endswith(f"optimization/best_config_publish_{status}_schema.json")
-    assert legacy["not"]["properties"]["error_code"]["enum"] == CODES  # every closed code
-    assert legacy["x-content-class"] == "legacy_content"
-    validator = _auth_status_validator(status)
-    for code in closed:
-        body = _envelope_body(code)
-        assert validator.is_valid(body)  # oneOf: exactly one branch
-        assert not Draft7Validator(legacy).is_valid(body)
-    assert validator.is_valid(legacy_body)
-    assert not _validator(f"best_config_publish_{status}_schema.json").is_valid(legacy_body)
-
-
-@pytest.mark.parametrize(
-    ("status", "code", "other"),
-    [
-        ("401", "unauthenticated", "forbidden"),
-        ("403", "forbidden", "unauthenticated"),
-        ("403", "head_write_unauthorized", "head_body_invalid"),
-    ],
-)
-def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, other):
-    validator = _auth_status_validator(status)
-    good = _envelope_body(code)
-    assert validator.is_valid(good)
-    for bad in (
-        {**good, "message": "CANARY free text"},
-        {**good, "extra": "member"},
-        {k: v for k, v in good.items() if k != "message"},
-        _envelope_body(other),
-    ):
-        assert not validator.is_valid(bad), bad
-
-
-# --- the authentication stage, the decision table and the refusal order agree (sol r5 P2) ---
-
-
-def _post_description():
-    return _publish()["description"]
-
-
-def test_auth_envelope_predicate_is_the_agent_ref_header_alone():
-    text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
-    assert "iff" not in stage
-    assert (
-        "if and only if the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
-        in stage
-    )
-    assert "before any session is resolved" in stage
-    assert "Expected-Head-Generation and Agent-Id play no part" in stage
-    # the response descriptions and the vendored envelopes state the same predicate, no other
-    for status in ("401", "403"):
-        desc = _publish()["responses"][status]["description"]
-        assert "carries X-Traigent-Agent-Ref" in desc
-        assert "Expected-Head-Generation" not in desc
-        assert (
-            "Expected-Head-Generation"
-            not in _load(f"best_config_publish_{status}_schema.json")["description"]
-        )
-
-
-def test_row_7_is_legacy_for_the_auth_stage_too():
-    text = _post_description()
-    assert (
-        "[7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged"
-        in text
-    )
-    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
-    assert "decision-table row [7]" in stage
-    assert "legacy generic 401/403" in stage
-    assert "everything AFTER authentication" in stage
-
-
-def test_known_content_less_session_without_header_gap_is_documented():
-    text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
-    assert "KNOWN, ACCEPTED GAP" in stage
-    assert "row [6]" in stage
-    assert "refused 400 head_capture_invalid" in stage
-    assert "[6] No Agent-Ref, content-less session" in text
-    assert "-> 400 head_capture_invalid" in text
-
-
-def test_refusal_order_has_one_binding_resolution_stage_between_capture_and_unknown_ref():
-    text = _post_description()
-    order = text[text.index("ORDER OF REFUSALS") :]
-    positions = [order.index(item) for item in STAGES]
-    assert positions == sorted(positions), positions
-    assert "one order; the first stage that applies answers" in order
-    docs = _docs()
-    section = docs[docs.index("**Refusal precedence.**") : docs.index("## Scope and commands")]
-    flat = " ".join(section.split()).replace("`", "").replace("**", "")
-    codes = [
-        "(1) not authenticated, 401 unauthenticated",
-        "(2) permissions or project role denied, 403 forbidden",
-        "(3) malformed or incomplete capture, 400 head_capture_invalid",
-        "(4) session binding resolution",
-        "403 head_write_unauthorized",
-        "404 reference_not_found",
-        "500 internal_error",
-        "(5) the resolved binding against the request",
-        "(6) a well-formed but unknown or foreign ref, 404 reference_not_found",
-        "(7) agent WRITE denied, 403 head_write_unauthorized",
-        "(8) session agreement, 409 head_agent_mismatch",
-        "(9) 409 head_environment_mismatch",
-        "(10) the body, 400 head_body_invalid",
-        "(11) the head compare, 409 head_generation_stale",
-        "(12) the ordinary conflict, 409 head_publish_conflict",
-    ]
-    pos = [flat.index(c) for c in codes]
-    assert pos == sorted(pos), pos
-
-
-def test_description_and_docs_state_the_binding_resolution_stage_identically():
-    text = _post_description()
-    stage = text[
-        text.index("(4) SESSION BINDING RESOLUTION") : text.index("(5) the resolved binding")
-    ]
-    docs = " ".join(_docs().split()).replace("`", "").replace("**", "")
-    for clause in (
-        "the caller may not use the session 403 head_write_unauthorized",
-        "the session is deleted, not registered or outside the caller's scope 404 reference_not_found",
-        "the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed content_less block) 500 internal_error",
-    ):
-        assert clause in stage, clause
-        assert clause in docs, clause
-
-
-def test_row_4_is_stage_5_and_never_answers_an_unreadable_session():
-    text = _post_description()
-    row4 = text[text.index("[4] Agent-Ref present") : text.index("[5] ")]
-    assert "stage (5) of the ORDER OF REFUSALS" in row4
-    assert "-> 400 head_capture_invalid" in row4
-    assert "stage (4) answers it first" in row4
-    assert "no resolvable content-less session binding" not in text
-    docs = " ".join(_docs().split())
-    assert "never by row 4" in docs
-
-
-def test_legacy_allow_list_is_stated_in_both_places():
-    text = _post_description()
-    assert "ONLY through this ALLOW-LIST" in text
-    for clause in (
-        "spec.provenance names no session id",
-        "positively read",
-        "positively absent",
-        "every other outcome is refused at stage (4)",
-    ):
-        assert clause in text, clause
-    docs = " ".join(_docs().split()).replace("**", "")
-    assert (
-        "Legacy allow-list: the legacy path is taken only when (a) the publish names no session id"
-        in docs
-    )
-    assert "every other outcome is refused at stage 4 and writes nothing" in docs
-
-
-# Each case lists the stages of the ORDER OF REFUSALS whose condition fails at once and the single
-# answer. The Backend asserts the same pairs against the real route in
-# tests/unit/routes/test_best_config_publish_allow_list.py (the combined-failure tests).
-COMBINED_FAILURES = [
-    ("malformed Agent-Ref + a session the caller may not use", {3, 4}, "400 head_capture_invalid"),
-    ("Agent-Ref without a generation + an unreadable session", {3, 4}, "400 head_capture_invalid"),
-    ("Agent-Id header with Agent-Ref + an unreadable session", {3, 4}, "400 head_capture_invalid"),
-    ("unknown Agent-Ref + a session the caller may not use", {4, 6}, "403 head_write_unauthorized"),
-    ("unknown Agent-Ref + a damaged stored binding", {4, 6}, "500 internal_error"),
-    ("unknown Agent-Ref + a deleted session", {4, 6}, "404 reference_not_found"),
-    ("unknown Agent-Ref + a readable content-less session", {6}, "404 reference_not_found"),
-    ("Agent-Ref + a readable legacy-shape session (row 4)", {5}, "400 head_capture_invalid"),
-    ("Agent-Ref + no session id (row 4)", {5}, "400 head_capture_invalid"),
-    (
-        "no Agent-Ref + a readable content-less session (row 6) + wrong environment",
-        {5, 9},
-        "400 head_capture_invalid",
-    ),
-]
-
-
-def _stage_texts():
-    import re
-
-    text = _post_description()
-    order = text[text.index("ORDER OF REFUSALS") :]
-    parts = re.split(r"\((\d+)\) ", order)
-    return {int(parts[i]): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
-
-
-@pytest.mark.parametrize(("case", "failing", "answer"), COMBINED_FAILURES)
-def test_combined_failures_have_exactly_one_answer(case, failing, answer):
-    stages = _stage_texts()
-    assert sorted(stages) == list(range(1, 13))
-    first = min(failing)  # the first stage that applies answers
-    assert answer in stages[first], (case, first, stages[first])
-
-
-# --- the layer-disabled contract is stated once and every predicate statement is qualified (sol r6 P2) ---
-
-
-def _docs():
-    from pathlib import Path
-
-    return (Path(__file__).resolve().parents[1] / "docs" / "content-classes.md").read_text(
-        encoding="utf-8"
-    )
-
-
-def test_layer_disabled_means_every_response_is_legacy_and_is_stated_once():
-    text = _post_description()
-    assert text.count("LAYER CONDITION") == 1
-    assert "EVERY response on this route is the legacy one, whatever the headers" in text
-    assert "defaults OFF" in text
-    docs = _docs()
-    assert (
-        "With the layer disabled every response on this route is the legacy\none, whatever the headers"
-        in docs
-    )
-
-
-def test_every_predicate_statement_names_the_layer_condition():
-    for status in ("401", "403"):
-        desc = _publish()["responses"][status]["description"]
-        assert (
-            "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
-            in desc
-        )
-        assert "this header alone" not in desc
-        assert "every request while the layer is disabled" in desc
-    assert "this header alone" not in _load("best_config_publish_401_schema.json")["description"]
-    assert (
-        "the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref"
-        in _load("best_config_publish_401_schema.json")["description"]
-    )
-    docs = _docs()
-    assert "iff it carries `X-Traigent-Agent-Ref`" not in docs
-    assert "iff the layer is enabled and it carries `X-Traigent-Agent-Ref`" in docs
-
-
-def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
-    text = _post_description()
-    stage = text[text.index("AUTHENTICATION STAGE") : text.index("DECISION TABLE")]
-    assert "is never legacy: it writes nothing and moves no head" in stage
-    assert "stage (4) of the ORDER OF REFUSALS" in stage
-    assert "reports as not a typed session is legacy" not in text
-    docs = _docs()
-    assert "every other outcome is refused at stage 4 and writes nothing" in " ".join(docs.split())
-
-
-# --- sol r9: one canonical provenance session-id parse, and the userless-key ownership rule ---
-
-
-def _flat_docs():
-    return " ".join(_docs().split()).replace("`", "").replace("**", "")
-
-
-def test_the_canonical_session_id_parse_is_stated_once_in_each_place_and_identically():
-    text = _post_description()
-    assert text.count("CANONICAL SESSION ID") == 2  # the definition + the stage 3 pointer
-    docs = _flat_docs()
-    assert docs.count("Canonical session id") == 2
-    clauses = (
-        "session id is spec.provenance.source_session_id",
-        "Surrounding whitespace is trimmed once",
-        "empty-after-trim value means the publish names no session id (a manual publication)",
-        "is longer than 128 characters after the trim, or holds a whitespace or control character inside, or changes under Unicode NFC is MALFORMED",
-        "it is refused and never treated as a manual publication",
-        "400 head_capture_invalid on the protected path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed error_code)",
-        "Only the trimmed value is stored, so a padded genuine session id is that session",
-    )
-    flat_text = " ".join(text.split())
-    for clause in clauses:
-        assert clause in flat_text, clause
-        assert clause.replace("MALFORMED", "malformed") in docs, clause
-    # r10: the prose may not promise representations the closed, string-only body schema rejects.
-    for stale in ("else session_id", "missing, null or", "null or empty"):
-        assert stale not in flat_text, stale
-        assert stale not in docs, stale
-
-
 def _publish_request_validator():
     name = "execution/best_config_publish_request_schema.json"
     registry = Registry()
@@ -653,8 +148,7 @@ def _publish_body(provenance=None):
         {"source_session_id": "s" * 512},
     ],
 )
-def test_the_request_schema_accepts_every_session_id_representation_the_prose_names(provenance):
-    """Manual publication = the field omitted (or empty); a padded id is a string the Backend trims."""
+def test_publish_request_schema_accepts_valid_source_session_ids(provenance):
     assert _publish_request_validator().is_valid(_publish_body(provenance))
 
 
@@ -668,84 +162,654 @@ def test_the_request_schema_accepts_every_session_id_representation_the_prose_na
         {"source_session_id": "s" * 513},
     ],
 )
-def test_the_request_schema_rejects_the_representations_the_prose_no_longer_promises(provenance):
+def test_publish_request_schema_rejects_invalid_source_session_ids(provenance):
     """null, non-strings, a `session_id` fallback and >512 characters are not valid bodies."""
     assert not _publish_request_validator().is_valid(_publish_body(provenance))
 
 
-def test_the_prose_names_the_schema_bound_and_the_backend_only_rules():
-    flat_text = " ".join(_post_description().split())
-    assert (
-        "the request schema bounds source_session_id to a string of at most 512 characters"
-        in flat_text
+PUBLISH_SCHEMA_ID = BASE + "execution/best_config_endpoints.json"
+RELEASE_REFUSAL_REF = "../optimization/release_acceptance_schema.json#/definitions/ReleaseRefusal"
+ACCEPTANCE_REQUIRED = {
+    "success": False,
+    "error": "release_precondition_refused",
+    "error_code": "acceptance_required",
+    "message": "A release acceptance is required.",
+}
+REFERENCE_NOT_FOUND = {
+    "success": False,
+    "error": "reference_not_found",
+    "error_code": "reference_not_found",
+    "message": "Reference not found.",
+}
+
+
+def _publish_prose():
+    docs_path = Path(__file__).resolve().parents[1] / "docs" / "content-classes.md"
+    docs = docs_path.read_text(encoding="utf-8")
+    section = docs.split("## Ref-addressed agent head and best-config publish", 1)[1]
+    section = section.split("\n## ", 1)[0]
+    return tuple(
+        " ".join(text.replace("`", "").split()) for text in (_publish()["description"], section)
     )
-    assert (
-        "the trim, the 128-character limit, the whitespace/control check and NFC stability are applied by the Backend to the raw value"
-        in flat_text
+
+
+def _response_schema(status, media="application/json"):
+    return _publish()["responses"][status]["content"][media]["schema"]
+
+
+def _response_definition(status):
+    schema = _response_schema(status)
+    if "$ref" in schema:
+        return _load(Path(schema["$ref"]).name)
+    return schema
+
+
+def _response_validator(status, media="application/json", *, branch=None):
+    base_id = PUBLISH_SCHEMA_ID
+    if branch is None:
+        schema = _response_schema(status, media)
+    else:
+        assert media == "application/json"
+        definition = _response_definition(status)
+        base_id = definition.get("$id", PUBLISH_SCHEMA_ID)
+        schema = definition["oneOf"][branch]
+    return Draft7Validator({"$id": base_id, "allOf": [schema]}, registry=_registry())
+
+
+def _assert_single_response_branch(status, body, expected_branch):
+    assert _response_validator(status).is_valid(body)
+    matches = [
+        index
+        for index, _ in enumerate(_response_definition(status)["oneOf"])
+        if _response_validator(status, branch=index).is_valid(body)
+    ]
+    assert matches == [expected_branch]
+
+
+def test_publish_head_headers_document_format_and_are_optional():
+    parameters = {param["name"]: param for param in _publish()["parameters"]}
+    assert set(parameters) == {
+        "If-Match",
+        "X-Traigent-Agent-Ref",
+        "X-Traigent-Expected-Head-Generation",
+    }
+    assert all(
+        param["in"] == "header" and param["required"] is False for param in parameters.values()
+    )
+    assert parameters["X-Traigent-Agent-Ref"]["schema"]["$ref"] == (
+        "../labels/label_common_schema.json#/definitions/AgentRef"
+    )
+    assert parameters["X-Traigent-Expected-Head-Generation"]["schema"] == {
+        "x-content-class": "number",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+    }
+
+
+@pytest.mark.parametrize(
+    "clause",
+    [
+        "Publish never moves the head.",
+        "When X-Traigent-Agent-Id, X-Traigent-Agent-Ref and "
+        "X-Traigent-Expected-Head-Generation are all absent, this is an ordinary publish.",
+        "For a new configuration, omit If-Match.",
+        "For a changed existing configuration, send the current ETag as If-Match.",
+        "An identical spec returns the current version even with a stale If-Match.",
+        "The presence of any of the three head headers, including an empty value, "
+        "requests a head move.",
+        "Send exactly one of X-Traigent-Agent-Id or X-Traigent-Agent-Ref together with "
+        "X-Traigent-Expected-Head-Generation for a syntactically valid head-move request.",
+        "The agent ID must be non-empty and at most 512 characters after trimming.",
+        "The agent ref must be agentref_ followed by 32 lowercase hex digits.",
+        "The expected generation must be 1 to 16 decimal digits "
+        "with a value from 0 through 9007199254740991.",
+        "Neither refusal publishes a configuration or version or changes the head or head history.",
+        "Both refusals set Cache-Control: private, no-store and Vary: Authorization, and omit "
+        "ETag and X-Traigent-Head-Generation.",
+        "A retry of a refused request with the same Idempotency-Key may return an idempotency 409 "
+        "instead of the refusal. It never returns a success.",
+    ],
+)
+def test_publish_rules_are_stated_in_the_contract_and_docs(clause):
+    for prose in _publish_prose():
+        assert prose.count(clause) == 1
+
+
+def test_publish_precedence_in_the_contract_and_docs():
+    stages = (
+        "malformed JSON and some unsafe strings can be refused with 400.",
+        "The idempotency check runs before the separate unsafe-JSON-string guard that can return "
+        "422, and before the route checks head headers.",
+        "it can return 409 before those later checks.",
+        "Authentication, experiment.write permission, editor role "
+        "and an explicit tenant and project write scope",
+        "incomplete, conflicting or malformed head headers return 400 AGENT_HEAD_VALIDATION_ERROR "
+        "before agent authorization.",
+        "after header validation and before the agent decision.",
+        "same 404 reference_not_found. Where per-owner access applies, an agent whose creator is "
+        "missing or differs from the caller also receives that 404.",
+        "Per-owner access applies to non-platform-admin callers in the shared default tenant "
+        "on an unpinned deployment.",
+        "In an explicitly scoped collaboration project, an editor with agent write access can "
+        "receive 409 acceptance_required for an agent created by another member.",
+        "An agent the caller is authorized to write returns 409 acceptance_required",
+        "The agent decision precedes configuration validation.",
+    )
+    for prose in _publish_prose():
+        positions = [prose.index(stage) for stage in stages]
+        assert positions == sorted(positions)
+
+
+def test_release_migration_names_the_registered_operations_in_order():
+    release_paths = _load("release_endpoints.json")["paths"]
+    base = "/api/v1/projects/{project_id}/agents/{agent_ref}"
+    acceptance = release_paths[f"{base}/release-acceptances"]["post"]["operationId"]
+    release = release_paths[f"{base}/best-config-head/release"]["post"]["operationId"]
+    assert acceptance == "best_configs.create_release_acceptance"
+    assert release == "best_configs.release_agent_head"
+    for prose in _publish_prose():
+        assert (
+            "publish without the head headers, record a person's release acceptance "
+            f"with {acceptance}, then call {release}."
+        ) in prose
+
+
+@pytest.mark.parametrize(
+    "obsolete",
+    [
+        "ORDER OF REFUSALS",
+        "decision table",
+        "content_less_v1",
+        "content_less_v2",
+        "content-less identity layer",
+        "LEGACY promotion",
+        "g -> g+1",
+        "STALE_HEAD_GENERATION",
+        "canonical session id",
+        "session binding resolution",
+    ],
+)
+def test_publish_never_documents_removed_behavior(obsolete):
+    post = json.dumps(_publish())
+    _, docs = _publish_prose()
+    assert obsolete.lower() not in post.lower()
+    assert obsolete.lower() not in docs.lower()
+
+
+_CAPTURED_GENERATION = (
+    r"\b(?:captured (?:head )?generation|(?:head )?generation captured "
+    r"(?:at|when) optimization start(?:ed)?)\b"
+)
+_BEST_CONFIG_PUBLISH = (
+    r"(?:\bpublish(?:es|ing)?\b|\bPOST /api/v1/best-configs(?![\w/-])|\bbest_config_endpoints\.json\b)"
+)
+_OBSOLETE_PUBLISH_GUIDANCE = re.compile(
+    r"\b(?:protected[- ]publish precondition|closed head_body_invalid 400)\b"
+    r"|\bpublish(?:es|ing)? [^.]{0,80}(?:returns?|emits?) (?:400 |403 )?"
+    r"(?:head_capture_invalid|head_write_unauthorized)\b"
+    r"|\b(?:sent|sends?)\b[^.]{0,120}\b(?:when|to) (?:it )?publish(?:es|ing)?\b"
+    r"|\bpublish(?:ing|es)? (?:the winner |(?:an?|the) (?:best[- ]config(?:uration)?|candidate|result) )?"
+    r"(?:promotes?|moves?|advances?|updates?) (?:an? |the )?(?:agent(?:'s|[- ]) )?head\b"
+    rf"|{_CAPTURED_GENERATION}[^.?!]{{0,120}}{_BEST_CONFIG_PUBLISH}"
+    rf"|{_BEST_CONFIG_PUBLISH}[^.?!]{{0,120}}{_CAPTURED_GENERATION}",
+    flags=re.IGNORECASE,
+)
+
+
+@pytest.mark.parametrize(
+    "stale_text",
+    [
+        "A run captures generation and sends it back as X-Traigent-Expected-Head-Generation "
+        "when it publishes its own result.",
+        "Captured by an SDK and sent back as X-Traigent-Expected-Head-Generation when it publishes.",
+        "Protected path: every refusal is the closed head_body_invalid 400.",
+        "Publishing a best config advances the head.",
+        "Publish promotes the head.",
+        "Use the captured head generation on publish.",
+        "POST /api/v1/best-configs uses the generation captured at optimization start.",
+        "best_config_endpoints.json requires the generation captured at optimization start.",
+    ],
+)
+def test_schema_wide_guard_recognizes_obsolete_publish_guidance(stale_text):
+    assert _OBSOLETE_PUBLISH_GUIDANCE.search(stale_text)
+
+
+def test_no_schema_describes_publish_time_promotion():
+    violations = [
+        (path.relative_to(SCHEMAS), line, match.group())
+        for path in sorted(SCHEMAS.rglob("*.json"))
+        for line, prose in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if (match := _OBSOLETE_PUBLISH_GUIDANCE.search(prose))
+    ]
+    assert not violations
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [("404", REFERENCE_NOT_FOUND), ("409", ACCEPTANCE_REQUIRED)],
+)
+def test_head_move_refusal_matches_exactly_one_release_branch(status, body):
+    branch = _response_definition(status)["oneOf"][0]
+    expected_ref = (
+        RELEASE_REFUSAL_REF
+        if status == "404"
+        else "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+    )
+    assert branch["allOf"][0] == {"$ref": expected_ref}
+    assert branch["allOf"][1]["properties"]["error_code"]["const"] == body["error_code"]
+    _assert_single_response_branch(status, body, 0)
+    _, docs = _publish_prose()
+    assert json.dumps(body, separators=(",", ":")) in docs
+
+
+@pytest.mark.parametrize("status", ["404", "409"])
+def test_head_move_refusal_declares_private_cache_headers(status):
+    headers = _publish()["responses"][status]["headers"]
+    expected = (
+        {"Cache-Control", "Vary", "Retry-After"} if status == "409" else {"Cache-Control", "Vary"}
+    )
+    assert set(headers) == expected
+    assert headers["Cache-Control"]["schema"]["const"] == "private, no-store"
+    vary = Draft7Validator(headers["Vary"]["schema"])
+    assert vary.is_valid("Authorization")
+    assert vary.is_valid("Authorization, Origin")
+    assert vary.is_valid("Origin")
+    assert not vary.is_valid("*")
+    assert "Head-move refusals vary by Authorization" in headers["Vary"]["description"]
+
+
+def test_in_progress_idempotency_409_can_include_retry_after():
+    header = _publish()["responses"]["409"]["headers"]["Retry-After"]
+    assert "in-progress request" in header["description"]
+    validator = Draft7Validator(header["schema"])
+    assert validator.is_valid(1)
+    assert not validator.is_valid(0)
+    assert not validator.is_valid(1.5)
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "other"),
+    [
+        ("404", REFERENCE_NOT_FOUND, ACCEPTANCE_REQUIRED),
+        ("409", ACCEPTANCE_REQUIRED, REFERENCE_NOT_FOUND),
+    ],
+)
+def test_head_move_refusal_rejects_wrong_values_and_wrong_shape(status, body, other):
+    validator = _response_validator(status)
+    for key, value in body.items():
+        assert not validator.is_valid({k: v for k, v in body.items() if k != key}), key
+        wrong = True if value is False else "request value"
+        assert not validator.is_valid({**body, key: wrong}), key
+    for bad in (
+        {**body, "generation": 0},
+        {**body, "agent_id": "agent"},
+        other,
+        {
+            **body,
+            "error_code": "head_generation_stale",
+            "message": "Agent head moved since the acceptance.",
+        },
+    ):
+        assert not validator.is_valid(bad), bad
+
+
+def test_masked_404_does_not_replace_ordinary_publish_not_found():
+    _assert_single_response_branch(
+        "404",
+        {
+            "success": False,
+            "error": "best config not found",
+            "error_code": "BEST_CONFIG_NOT_FOUND",
+            "message": "best config not found",
+        },
+        1,
     )
 
 
-def test_the_403_description_separates_authentication_refusals_from_ownership_refusals():
-    text = " ".join(_publish()["responses"]["403"]["description"].split())
-    assert "and every request without X-Traigent-Agent-Ref)" not in text  # the old blanket promise
-    assert "AUTHENTICATION AND ROLE REFUSALS" in text
-    assert "SESSION-OWNERSHIP REFUSALS" in text
-    ownership = text[text.index("SESSION-OWNERSHIP REFUSALS") :]
-    assert "closed head_write_unauthorized" in ownership
-    assert "with or without X-Traigent-Agent-Ref" in ownership
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        ("RESOURCE_NOT_FOUND", "Resource not found"),
+        ("TENANT_NOT_FOUND", "Tenant context is invalid for this request"),
+        ("PROJECT_NOT_FOUND", "project not found"),
+    ],
+)
+def test_scope_404s_are_disjoint_from_the_agent_mask(code, message):
+    body = {"success": False, "error": code, "error_code": code, "message": message}
+    _assert_single_response_branch("404", body, 1)
+    assert not _response_validator("404").is_valid({**body, "error_code": "reference_not_found"})
 
 
-def test_each_403_example_lands_on_exactly_the_intended_oneof_branch():
-    schema = _publish()["responses"]["403"]["content"]["application/json"]["schema"]
-    protected, legacy = schema["oneOf"]
-    validator = _auth_status_validator("403")
-    ownership_refusal = _envelope_body(
-        "head_write_unauthorized"
-    )  # authenticated editor, another user's session
-    auth_refusal_without_ref = LEGACY_403  # unauthenticated-layer/role refusal, no Agent-Ref
-    registry = _registry().with_resource(
-        BASE + "optimization/best_config_publish_403_schema.json",
-        Resource.from_contents(_load("best_config_publish_403_schema.json")),
+@pytest.mark.parametrize(
+    "message",
+    [
+        "X-Traigent-Agent-Id and X-Traigent-Agent-Ref must not be sent together",
+        "X-Traigent-Expected-Head-Generation and one of X-Traigent-Agent-Id or "
+        "X-Traigent-Agent-Ref must be sent together",
+        "X-Traigent-Expected-Head-Generation must be a non-negative integer",
+        "X-Traigent-Expected-Head-Generation must be at most 9007199254740991",
+        "agent id must be a non-empty string",
+        "agent id is too long",
+        "X-Traigent-Agent-Ref is malformed",
+    ],
+)
+def test_head_header_validation_400_is_closed_and_matches_exactly_one_branch(message):
+    body = {
+        "success": False,
+        "error": message,
+        "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+        "message": message,
+    }
+    _assert_single_response_branch("400", body, 0)
+    validator = _response_validator("400")
+    for removed in body:
+        assert not validator.is_valid({key: value for key, value in body.items() if key != removed})
+    for bad in (
+        {**body, "success": True},
+        {**body, "details": {}},
+        {**body, "message": "agent not found"},
+        {**body, "error": "head_capture_invalid"},
+        {**body, "error_code": "head_capture_invalid"},
+    ):
+        assert not validator.is_valid(bad), bad
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "request body must contain JSON",
+        "request body must be a JSON object",
+        "config_id must be a non-empty string",
+    ],
+)
+def test_normal_best_config_validation_400_is_retained(message):
+    body = {
+        "success": False,
+        "error": message,
+        "error_code": "BEST_CONFIG_VALIDATION_ERROR",
+        "message": message,
+    }
+    _assert_single_response_branch("400", body, 1)
+    validator = _response_validator("400")
+    for removed in body:
+        assert not validator.is_valid({key: value for key, value in body.items() if key != removed})
+
+
+def test_documented_best_config_validation_error_repeats_the_same_text():
+    media = _publish()["responses"]["400"]["content"]["application/json"]
+    body = media["examples"]["emptyHeadMoveBody"]["value"]
+    _assert_single_response_branch("400", body, 1)
+    # Draft 7 cannot compare two arbitrary sibling strings.
+    assert body["error"] == body["message"] == "request body must contain JSON"
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        ("Invalid Idempotency-Key", "Key too long"),
+        ("Invalid idempotent request", "Unable to fingerprint request body"),
+    ],
+)
+def test_keyed_publish_keeps_pre_route_400_errors(error, message):
+    body = {"error": error, "message": message}
+    _assert_single_response_branch("400", body, 2)
+    validator = _response_validator("400")
+    assert not validator.is_valid({"error": error})
+    assert not validator.is_valid({"message": message})
+    assert not validator.is_valid({**body, "success": False})
+    assert not validator.is_valid({**body, "error_code": "BEST_CONFIG_VALIDATION_ERROR"})
+
+
+def test_unsupported_content_type_400_is_a_separate_request_guard_body():
+    body = {
+        "error": "Bad Request",
+        "message": "Invalid request format or content type",
+        "allowed_content_types": [
+            "application/json",
+            "application/x-protobuf",
+            "application/x-www-form-urlencoded",
+            "multipart/form-data",
+            "text/plain",
+        ],
+    }
+    _assert_single_response_branch("400", body, 2)
+    validator = _response_validator("400")
+    for removed in body:
+        assert not validator.is_valid({key: value for key, value in body.items() if key != removed})
+    assert not validator.is_valid({**body, "allowed_content_types": []})
+    assert not validator.is_valid({**body, "success": False})
+    assert not validator.is_valid({**body, "error_code": "BEST_CONFIG_VALIDATION_ERROR"})
+
+
+def test_provider_guard_400_is_a_closed_problem_document():
+    code = "provider_credential_not_accepted"
+    message = (
+        "Provider credentials are not accepted by the API. Configure them in the deployment "
+        "environment or secret storage."
     )
-    assert protected["$ref"].endswith("optimization/best_config_publish_403_schema.json")
-    protected_validator = Draft7Validator(
-        {"$ref": BASE + "optimization/best_config_publish_403_schema.json"}, registry=registry
-    )
-    legacy_validator = Draft7Validator(legacy)
-    assert validator.is_valid(ownership_refusal)
-    assert protected_validator.is_valid(ownership_refusal)
-    assert not legacy_validator.is_valid(ownership_refusal)
-    assert validator.is_valid(auth_refusal_without_ref)
-    assert legacy_validator.is_valid(auth_refusal_without_ref)
-    assert not protected_validator.is_valid(auth_refusal_without_ref)
+    body = {
+        "type": f"urn:traigent:problem:{code}",
+        "title": "Provider credentials are not accepted",
+        "status": 400,
+        "code": code,
+        "detail": message,
+        "success": False,
+        "error": code,
+        "error_code": code,
+        "message": message,
+    }
+    validator = _response_validator("400", "application/problem+json")
+    assert validator.is_valid(body)
+    for removed in body:
+        assert not validator.is_valid({key: value for key, value in body.items() if key != removed})
+    assert not validator.is_valid({**body, "detail": "request value"})
+    assert not validator.is_valid({**body, "extra": "request value"})
+    assert not _response_validator("400").is_valid(body)
 
 
-def test_a_malformed_session_id_is_stage_3_and_never_a_manual_publication():
-    stages = _stage_texts()
-    assert "a malformed provenance session id" in stages[3]
-    assert "head_capture_invalid" in stages[3]
-    for number, body in stages.items():
-        if number != 3:
-            assert "malformed provenance session id" not in body, number
+@pytest.mark.parametrize(
+    "message",
+    [
+        "If-Match cannot be used for a new best config",
+        "If-Match is required to update an existing best config",
+        "If-Match does not match the current ETag",
+        "config_id/environment already belongs to a different function_ref",
+        "best config publish conflicted",
+    ],
+)
+def test_ordinary_publish_409_conflicts_are_retained(message):
+    body = {
+        "success": False,
+        "error": message,
+        "error_code": "BEST_CONFIG_CONFLICT",
+        "message": message,
+    }
+    _assert_single_response_branch("409", body, 1)
+    assert not _response_validator("409").is_valid({**body, "error_code": "STALE_HEAD_GENERATION"})
 
 
-def test_the_userless_key_ownership_rule_is_a_stage_4_statement_in_both_places():
-    stage = _stage_texts()[4]
-    docs = _flat_docs()
-    clauses = (
-        "including a classic session positively read but owned by another caller, never 500",
-        "an API key that carries no user id in the default tenant the owner is the server-stamped key that created the session",
-        "the same key reads it and publishes on the legacy path and a different key is refused",
-    )
-    flat_stage = " ".join(stage.split())
-    for clause in clauses:
-        assert clause in flat_stage, clause
-        assert clause in docs, clause
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        ("Idempotency conflict", "Idempotency-Key already used with different payload"),
+        ("Idempotency conflict", "Idempotency record is in an unknown state"),
+        ("Idempotency conflict", "Idempotency key already used"),
+        ("Request in progress", "A request with this Idempotency-Key is currently processing"),
+    ],
+)
+def test_keyed_409_errors_are_disjoint_from_release_refusal(error, message):
+    body = {"error": error, "message": message}
+    _assert_single_response_branch("409", body, 2)
+    assert not _response_validator("409").is_valid({**body, "success": True})
 
 
-def test_the_twelve_stage_order_is_unchanged_by_the_session_id_and_ownership_statements():
-    assert sorted(_stage_texts()) == list(range(1, 13))
-    docs = _flat_docs()
-    order = docs[docs.index("Refusal precedence.") : docs.index("Scope and commands")]
-    positions = [order.index(f"({n}) ") for n in range(1, 13)]
-    assert positions == sorted(positions)
+def test_publish_500_keeps_the_handler_error_and_rejects_removed_protected_refusal():
+    validator = _response_validator("500")
+    body = {
+        "success": False,
+        "error": "Internal server error",
+        "error_code": "BEST_CONFIG_ERROR",
+        "message": "Internal server error",
+    }
+    assert validator.is_valid(body)
+    for bad in (
+        {**body, "error_code": "internal_error"},
+        {**body, "message": "Internal error."},
+        {**body, "extra": "member"},
+        {key: value for key, value in body.items() if key != "message"},
+    ):
+        assert not validator.is_valid(bad), bad
+
+
+@pytest.mark.parametrize(
+    ("status", "error", "code", "message"),
+    [
+        ("401", "AUTHENTICATION_REQUIRED", "AUTHENTICATION_REQUIRED", "Authentication required"),
+        (
+            "401",
+            "Authentication required",
+            "AUTHENTICATION_REQUIRED",
+            "Valid authentication is required to access this endpoint",
+        ),
+        ("401", "INVALID_TOKEN", "INVALID_TOKEN", "Authentication failed"),
+        ("403", "PERMISSION_DENIED", "PERMISSION_DENIED", "Permission denied"),
+    ],
+)
+def test_ordinary_publish_auth_statuses_keep_their_error_bodies(status, error, code, message):
+    validator = _response_validator(status)
+    body = {"success": False, "error": error, "error_code": code, "message": message}
+    assert validator.is_valid(body)
+    for field in body:
+        assert not validator.is_valid({k: v for k, v in body.items() if k != field})
+    assert not validator.is_valid({**body, "success": True})
+    assert not validator.is_valid({**body, "extra": "member"})
+
+
+@pytest.mark.parametrize(
+    ("status", "retired_codes"),
+    [
+        ("401", {"unauthenticated"}),
+        ("403", {"forbidden", "head_write_unauthorized"}),
+        (
+            "409",
+            {
+                "head_environment_mismatch",
+                "head_agent_mismatch",
+                "head_generation_stale",
+                "head_publish_conflict",
+            },
+        ),
+        ("500", {"internal_error"}),
+    ],
+)
+def test_publish_rejects_retired_protected_refusals(status, retired_codes):
+    schema_name = f"best_config_publish_{status}_schema.json"
+    assert _response_schema(status) == {"$ref": f"../optimization/{schema_name}"}
+    assert (OPT / schema_name).exists()
+    legacy = _validator("best_config_head_refusal_schema.json")
+    current = _response_validator(status)
+    checked = set()
+    for branch in legacy.schema["oneOf"]:
+        props = branch["properties"]
+        code = props["error_code"]["const"]
+        if code not in retired_codes:
+            continue
+        body = {
+            "success": False,
+            "error": props["error"]["const"],
+            "error_code": code,
+            "message": props["message"]["const"],
+        }
+        assert legacy.is_valid(body)
+        assert not current.is_valid(body), body
+        checked.add(code)
+    assert checked == retired_codes
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["Failed to apply security response headers", "Failed to apply CORS response headers"],
+)
+def test_publish_500_accepts_two_field_response_hardening_failure(message):
+    validator = _response_validator("500")
+    body = {"error": "Security middleware error", "message": message}
+    assert validator.is_valid(body)
+    assert not validator.is_valid({"error": body["error"]})
+    assert not validator.is_valid({**body, "message": "arbitrary text"})
+    assert not validator.is_valid({**body, "success": False})
+
+
+def test_publish_500_accepts_fixed_transaction_commit_failure():
+    validator = _response_validator("500")
+    body = {
+        "error": "Transaction commit failed",
+        "message": "A database error occurred. Please retry.",
+    }
+    assert validator.is_valid(body)
+    development_body = {
+        **body,
+        "_dev_error_class": "RuntimeError",
+        "_dev_error_detail": "commit failed",
+    }
+    assert validator.is_valid(development_body)
+    assert not validator.is_valid({**development_body, "_dev_error_detail": "database detail"})
+    assert not validator.is_valid({**body, "message": "database detail"})
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"error": "Request body too large", "code": "REQUEST_BODY_TOO_LARGE"},
+        {
+            "error": "Request Too Large",
+            "message": "Request size exceeds maximum allowed size of 1024 bytes",
+            "max_size": 1024,
+        },
+        {"success": False, "error": "Request Entity Too Large", "code": "REQUEST_ENTITY_TOO_LARGE"},
+        {"success": False, "error": "Content Too Large", "code": "REQUEST_ENTITY_TOO_LARGE"},
+    ],
+)
+def test_publish_413_accepts_body_limit_errors(body):
+    validator = _response_validator("413")
+    assert validator.is_valid(body)
+    for field in body:
+        assert not validator.is_valid({k: v for k, v in body.items() if k != field})
+    assert not validator.is_valid({**body, "extra": "member"})
+    if "max_size" in body:
+        assert not validator.is_valid({**body, "message": "arbitrary text"})
+        assert not validator.is_valid({**body, "message": body["message"] + "\n"})
+        assert not validator.is_valid({**body, "max_size": 0})
+
+
+def test_publish_501_accepts_the_feature_disabled_response():
+    validator = _response_validator("501")
+    body = {
+        "success": False,
+        "error": "Traigent Integration feature not implemented",
+        "error_code": "FEATURE_DISABLED",
+        "message": "The 'traigent_integration' feature is disabled in local mode",
+        "feature": "traigent_integration",
+        "local_mode": True,
+        "upgrade_message": "This feature is available in our cloud platform. Contact us to upgrade.",
+    }
+    assert validator.is_valid(body)
+    assert validator.is_valid({**body, "local_mode": False})
+    assert not validator.is_valid({**body, "feature": "another_feature"})
+    for field in body:
+        assert not validator.is_valid({k: v for k, v in body.items() if k != field})
+
+
+@pytest.mark.parametrize("code", ["BEST_CONFIG_AUDIT_ERROR", "AUTH_BACKEND_UNAVAILABLE"])
+def test_publish_503_accepts_redacted_audit_and_auth_errors(code):
+    validator = _response_validator("503")
+    body = {
+        "success": False,
+        "error": "Internal server error",
+        "error_code": code,
+        "message": "Internal server error",
+    }
+    assert validator.is_valid(body)
+    assert not validator.is_valid({**body, "message": "best config audit logging failed"})
+    for field in body:
+        assert not validator.is_valid({k: v for k, v in body.items() if k != field})

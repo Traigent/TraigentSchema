@@ -1376,3 +1376,461 @@ def test_the_real_cursor_definition_is_the_only_cursor_location() -> None:
         "fleet_observe/fleet_observe_responses_schema.json#/definitions/Cursor"
     }
     assert lint.run_lint().invalid == []
+
+
+def _agent_id_node(**over) -> dict:
+    node = {
+        "x-content-class": "opaque_ref",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "Agent ref.",
+    }
+    node.update(over)
+    return node
+
+
+def test_agent_id_shape_is_accepted_only_at_an_approved_location(
+    tmp_path: Path, monkeypatch
+) -> None:
+    doc = _agent_openapi()
+    # not approved: the same path parameter has no approved ref pattern and is refused
+    result = _mini_at(tmp_path / "unapproved", doc, "optimization/t_endpoints.json")
+    assert any(
+        line.startswith(_EXEMPT_PARAM_LOC + ":") and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    ), result.invalid
+    monkeypatch.setattr(lint, "AGENT_ID_LOCATIONS", frozenset({_EXEMPT_PARAM_LOC}))
+    # approved location, exact agents-family shape, in: path, name agent_ref: accepted
+    assert not _mini_at(tmp_path / "ok", doc, "optimization/t_endpoints.json").invalid
+
+
+def test_agent_id_approval_refuses_any_other_shape_at_the_approved_location(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # the approved location is a real in: path parameter named agent_ref; only its shape varies
+    shapes = {
+        "no maxLength": {k: v for k, v in _agent_id_node().items() if k != "maxLength"},
+        "maxLength 256": _agent_id_node(maxLength=256),
+        "extra pattern": _agent_id_node(pattern="^.*$"),
+        "extra format": _agent_id_node(format="uuid"),
+        "extra enum": _agent_id_node(enum=["a"]),
+        "free text type": _agent_id_node(type="string", minLength=0),
+    }
+    for name, node in shapes.items():
+        result = _reference_tree_with_param_schema(tmp_path / name.replace(" ", "_"), node, monkeypatch)
+        assert _param_refused(result), name
+
+
+def test_the_real_agent_id_locations_are_the_production_reactive_agent_ref_params() -> None:
+    doc = json.loads(
+        (ROOT / "traigent_schema" / "schemas" / "optimization" / "tvl_reactive_endpoints.json")
+        .read_text(encoding="utf-8")
+    )
+    expected = set()
+    for path, item in doc["paths"].items():
+        for method, op in item.items():
+            if not isinstance(op, dict):
+                continue
+            for i, p in enumerate(op.get("parameters", [])):
+                if p.get("name") == "agent_ref":
+                    esc = path.replace("~", "~0").replace("/", "~1")
+                    expected.add(
+                        f"optimization/tvl_reactive_endpoints.json#/paths/{esc}/{method}/parameters/{i}/schema"
+                    )
+    assert len(expected) == 14
+    assert lint.AGENT_ID_LOCATIONS == expected
+    assert lint.run_lint().invalid == []
+
+
+def test_a_response_property_that_refs_an_approved_agent_id_node_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    param_loc = "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+    monkeypatch.setattr(lint, "AGENT_ID_LOCATIONS", frozenset({param_loc}))
+    doc = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x/{agent_ref}": {
+                "get": {
+                    "parameters": [
+                        {"name": "agent_ref", "in": "path", "required": True, "schema": _agent_id_node()}
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "agent": {
+                                                "$ref": "#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+    result = _mini_at(tmp_path, doc, "optimization/t_endpoints.json")
+    # the approved parameter itself stays accepted; the referring response property does not
+    assert not any("parameters/0/schema" in line for line in result.invalid), result.invalid
+    assert any(
+        "/properties/agent" in line and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    ), result.invalid
+
+
+def test_agent_id_bounds_must_be_real_integers(tmp_path: Path, monkeypatch) -> None:
+    shapes = {
+        "minLength true": _agent_id_node(minLength=True),
+        "maxLength 128.0": _agent_id_node(maxLength=128.0),
+    }
+    for name, node in shapes.items():
+        result = _reference_tree_with_param_schema(tmp_path / name.replace(" ", "_"), node, monkeypatch)
+        assert _param_refused(result), name
+
+
+_AGENT_REF_PARAM = "#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+
+
+@pytest.mark.parametrize(
+    "body_schema",
+    [
+        {"$ref": _AGENT_REF_PARAM},
+        {"anyOf": [{"$ref": _AGENT_REF_PARAM}]},
+        {"oneOf": [{"$ref": _AGENT_REF_PARAM}]},
+        {"allOf": [{"$ref": _AGENT_REF_PARAM}]},
+    ],
+    ids=["direct_ref", "anyOf", "oneOf", "allOf"],
+)
+def test_an_unannotated_response_body_cannot_reuse_the_agent_id_exemption(
+    tmp_path: Path, monkeypatch, body_schema: dict
+) -> None:
+    param_loc = "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+    monkeypatch.setattr(lint, "AGENT_ID_LOCATIONS", frozenset({param_loc}))
+    doc = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x/{agent_ref}": {
+                "get": {
+                    "parameters": [
+                        {"name": "agent_ref", "in": "path", "required": True, "schema": _agent_id_node()}
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": body_schema}},
+                        }
+                    },
+                }
+            }
+        },
+    }
+    result = _mini_at(tmp_path, doc, "optimization/t_endpoints.json")
+    # the approved parameter itself stays accepted; the body root that reuses it does not
+    assert not any("parameters/0/schema" in line for line in result.invalid), result.invalid
+    assert any(
+        "/content/application~1json/schema" in line
+        and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    ), result.invalid
+
+
+_EXEMPT_PARAM_LOC = "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+_EXEMPT_PARAM_REF = "#/paths/~1x~1{agent_ref}/get/parameters/0/schema"
+
+
+def _reference_tree(tmp_path: Path, files: dict, monkeypatch) -> "lint.LintResult":
+    monkeypatch.setattr(lint, "AGENT_ID_LOCATIONS", frozenset({_EXEMPT_PARAM_LOC}))
+    root = tmp_path / "schemas"
+    for rel, doc in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(doc), encoding="utf-8")
+    return lint.run_lint(root)
+
+
+def _agent_openapi(*, responses=None, request_body=None, components=None) -> dict:
+    get = {
+        "parameters": [
+            {"name": "agent_ref", "in": "path", "required": True, "schema": _agent_id_node()}
+        ],
+        "responses": responses or {"200": {"description": "ok"}},
+    }
+    if request_body is not None:
+        get["requestBody"] = request_body
+    doc = {"openapi": "3.0.0", "paths": {"/x/{agent_ref}": {"get": get}}}
+    if components is not None:
+        doc["components"] = components
+    return doc
+
+
+def _refused_at(result, loc: str) -> bool:
+    return any(line.startswith(loc + ":") and "must not be referenced" in line for line in result.invalid)
+
+
+def _approved_param_still_passes(result) -> bool:
+    return not any(line.startswith(_EXEMPT_PARAM_LOC + ":") for line in result.invalid)
+
+
+def test_a_response_ref_to_a_component_body_that_refs_the_exempt_pointer_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    components = {
+        "responses": {
+            "Body": {
+                "description": "ok",
+                "content": {"application/json": {"schema": {"$ref": _EXEMPT_PARAM_REF}}},
+            }
+        }
+    }
+    doc = _agent_openapi(
+        responses={"200": {"$ref": "#/components/responses/Body"}}, components=components
+    )
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(
+        result,
+        "optimization/t_endpoints.json#/components/responses/Body/content/application~1json/schema",
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_a_request_body_ref_to_a_component_body_that_refs_the_exempt_pointer_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    components = {
+        "requestBodies": {
+            "Body": {"content": {"application/json": {"schema": {"$ref": _EXEMPT_PARAM_REF}}}}
+        }
+    }
+    doc = _agent_openapi(
+        request_body={"$ref": "#/components/requestBodies/Body"}, components=components
+    )
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(
+        result,
+        "optimization/t_endpoints.json#/components/requestBodies/Body/content/application~1json/schema",
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_a_then_properties_overlay_that_refs_the_exempt_pointer_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    overlay = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"kind": {"type": "string", "x-content-class": "closed_enum", "enum": ["a"]}},
+        "if": {"properties": {"kind": {"const": "a"}}},
+        "then": {"properties": {"agent": {"$ref": _EXEMPT_PARAM_REF}}},
+    }
+    doc = _agent_openapi(components={"schemas": {"Overlay": overlay}})
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(
+        result, "optimization/t_endpoints.json#/components/schemas/Overlay/then/properties/agent"
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_an_intermediate_null_annotation_that_refs_the_exempt_pointer_fails_from_a_body(
+    tmp_path: Path, monkeypatch
+) -> None:
+    components = {
+        "schemas": {"Mid": {"x-content-class": None, "$ref": _EXEMPT_PARAM_REF}}
+    }
+    doc = _agent_openapi(
+        responses={
+            "200": {
+                "description": "ok",
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Mid"}}},
+            }
+        },
+        components=components,
+    )
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(result, "optimization/t_endpoints.json#/components/schemas/Mid"), result.invalid
+    assert _refused_at(
+        result,
+        "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/responses/200/content/application~1json/schema",
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_a_direct_ref_from_another_file_to_the_exempt_pointer_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    other = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"agent": {"$ref": "t_endpoints.json" + _EXEMPT_PARAM_REF}},
+    }
+    result = _reference_tree(
+        tmp_path,
+        {"optimization/t_endpoints.json": _agent_openapi(), "optimization/t_other.json": other},
+        monkeypatch,
+    )
+    assert _refused_at(result, "optimization/t_other.json#/properties/agent"), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def _param_at(doc: dict) -> dict:
+    return doc["paths"]["/x/{agent_ref}"]["get"]["parameters"][0]
+
+
+def test_another_operation_that_refs_the_whole_parameter_object_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    doc = _agent_openapi()
+    doc["paths"]["/y/{agent_ref}"] = {
+        "get": {
+            "parameters": [{"$ref": "#/paths/~1x~1{agent_ref}/get/parameters/0"}],
+            "responses": {"200": {"description": "ok"}},
+        }
+    }
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(result, "optimization/t_endpoints.json#/paths/~1y~1{agent_ref}/get/parameters/0"), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_a_percent_encoded_ref_to_the_exempt_schema_fails(tmp_path: Path, monkeypatch) -> None:
+    doc = _agent_openapi(
+        responses={
+            "200": {
+                "description": "ok",
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/paths/~1x~1%7Bagent_ref%7D/get/parameters/0/schema"}
+                    }
+                },
+            }
+        }
+    )
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(
+        result,
+        "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/responses/200/content/application~1json/schema",
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_a_dynamic_ref_to_the_exempt_schema_fails(tmp_path: Path, monkeypatch) -> None:
+    doc = _agent_openapi(
+        responses={
+            "200": {
+                "description": "ok",
+                "content": {
+                    "application/json": {
+                        "schema": {"$dynamicRef": _EXEMPT_PARAM_REF}
+                    }
+                },
+            }
+        }
+    )
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(
+        result,
+        "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/responses/200/content/application~1json/schema",
+    ), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+def test_the_exempt_shape_on_a_query_parameter_named_agent_ref_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    doc = _agent_openapi()
+    _param_at(doc)["in"] = "query"
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert any(
+        line.startswith(_EXEMPT_PARAM_LOC + ":") and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    ), result.invalid
+
+
+def test_the_exempt_shape_under_a_path_parameter_with_another_name_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    doc = _agent_openapi()
+    _param_at(doc)["name"] = "other"
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert any(
+        line.startswith(_EXEMPT_PARAM_LOC + ":") and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    ), result.invalid
+
+
+def _reference_tree_with_param_schema(tmp_path: Path, node: dict, monkeypatch):
+    doc = _agent_openapi()
+    _param_at(doc)["schema"] = node
+    return _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+
+
+def _param_refused(result) -> bool:
+    return any(
+        line.startswith(_EXEMPT_PARAM_LOC + ":") and "opaque_ref needs an approved ref pattern" in line
+        for line in result.invalid
+    )
+
+
+_BODY_LOC = (
+    "optimization/t_endpoints.json#/paths/~1x~1{agent_ref}/get/responses/200/content/application~1json/schema"
+)
+
+
+def _body_ref_doc(ref: str) -> dict:
+    return _agent_openapi(
+        responses={
+            "200": {
+                "description": "ok",
+                "content": {"application/json": {"schema": {"$ref": ref}}},
+            }
+        }
+    )
+
+
+def test_a_ref_beneath_the_exempt_parameter_schema_fails(tmp_path: Path, monkeypatch) -> None:
+    doc = _body_ref_doc(_EXEMPT_PARAM_REF + "/type")
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": doc}, monkeypatch)
+    assert _refused_at(result, _BODY_LOC), result.invalid
+
+
+def test_a_leading_zero_array_index_does_not_reach_the_exempt_schema(tmp_path: Path, monkeypatch) -> None:
+    ref = "#/paths/~1x~1{agent_ref}/get/parameters/00/schema"
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": _body_ref_doc(ref)}, monkeypatch)
+    assert any(line.startswith(_BODY_LOC + ":") for line in result.unresolved), result.unresolved
+
+
+def test_a_negative_array_index_does_not_reach_the_exempt_schema(tmp_path: Path, monkeypatch) -> None:
+    ref = "#/paths/~1x~1{agent_ref}/get/parameters/-1/schema"
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": _body_ref_doc(ref)}, monkeypatch)
+    assert any(line.startswith(_BODY_LOC + ":") for line in result.unresolved), result.unresolved
+
+
+def test_an_id_base_reference_with_a_dot_segment_is_refused(tmp_path: Path, monkeypatch) -> None:
+    ref = "https://schemas.traigent.ai/./optimization/t_endpoints.json" + _EXEMPT_PARAM_REF
+    result = _reference_tree(tmp_path, {"optimization/t_endpoints.json": _body_ref_doc(ref)}, monkeypatch)
+    assert _refused_at(result, _BODY_LOC), result.invalid
+    assert _approved_param_still_passes(result), result.invalid
+
+
+@pytest.mark.parametrize("referring_dir", ["legend", "other"])
+@pytest.mark.parametrize("index", ["00", "+0", "-1", "0"])
+def test_a_reference_into_the_exempt_file_from_an_unwalked_document_is_refused(
+    tmp_path: Path, monkeypatch, referring_dir: str, index: str
+) -> None:
+    # legend/ is excluded from the walk and other/ is outside ROOT_DIRS: the walker never visits
+    # these documents, so the whole-tree rule must refuse them, unresolvable aliases included
+    ref = f"../optimization/t_endpoints.json#/paths/~1x~1{{agent_ref}}/get/parameters/{index}/schema"
+    referrer = {"type": "object", "properties": {"a": {"$ref": ref}}}
+    result = _reference_tree(
+        tmp_path,
+        {"optimization/t_endpoints.json": _agent_openapi(), f"{referring_dir}/x.json": referrer},
+        monkeypatch,
+    )
+    assert _refused_at(result, f"{referring_dir}/x.json#/properties/a"), result.invalid

@@ -124,9 +124,9 @@ LIST_AND_RESULTS_GETS = {
 
 EXPERIMENT_GROUP_GETS = {
     "execution/execution_endpoints.json": [
-        "/api/v1/experiment-groups",
-        "/api/v1/experiment-groups/{group_id}",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs",
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments",
     ],
 }
 
@@ -245,34 +245,41 @@ def test_experiment_group_read_surfaces_have_2xx_response_schemas():
 def test_experiment_group_query_surface_has_a_2xx_response_schema():
     """The read-only configuration-run query POST joins the response-schema coverage set."""
     spec = _load("execution/execution_endpoints.json")
-    op = spec["paths"]["/api/v1/experiment-groups/{group_id}/configuration-runs/query"]["post"]
+    op = spec["paths"][
+        "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query"
+    ]["post"]
     schema = op["responses"]["200"].get("content", {}).get("application/json", {}).get("schema", {})
     assert schema.get("$ref"), "experiment-group query POST 200 has no response schema"
-    assert schema["$ref"].endswith("#/definitions/GroupedConfigurationRunQueryResponse")
+    assert schema["$ref"].endswith("#/definitions/GroupConfigurationRunsPageEnvelope")
 
 
 def test_experiment_group_response_schemas_wrap_payloads_in_data():
-    """Response definitions are success envelopes; the former bare bodies live under data."""
+    """The ACTIVE W9 operations' 200 bodies are success envelopes with the payload under data."""
+    spec = _load("execution/execution_endpoints.json")
     schema = _load("execution/experiment_group_schema.json")
-    expected_payload_refs = {
-        "ExperimentGroupListResponse": "ExperimentGroupListPayload",
-        "ExperimentGroupDetailResponse": "ExperimentGroupDetailPayload",
-        "GroupedConfigurationRunListResponse": "GroupedConfigurationRunListPayload",
-        "GroupedConfigurationRunQueryResponse": "GroupedConfigurationRunQueryPayload",
-    }
-
-    for response_name, payload_name in expected_payload_refs.items():
-        definition = schema["definitions"][response_name]
-        payload_definition = schema["definitions"][payload_name]
+    base = "/api/v1/projects/{project_id}/experiment-groups"
+    operations = [
+        ("post", f"{base}/search"),
+        ("get", f"{base}/{{group_ref}}"),
+        ("get", f"{base}/{{group_ref}}/configuration-runs"),
+        ("post", f"{base}/{{group_ref}}/configuration-runs/query"),
+        ("get", f"{base}/{{group_ref}}/experiments"),
+    ]
+    for method, path in operations:
+        ref = spec["paths"][path][method]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]["$ref"]
+        prefix = "./experiment_group_schema.json#/definitions/"
+        assert ref.startswith(prefix), (path, ref)
+        definition = schema["definitions"][ref[len(prefix) :]]
         properties = definition["properties"]
 
-        assert {"$ref": "../success_envelope_schema.json"} in definition.get("allOf", [])
-        assert {"success", "message", "data"} <= set(definition["required"])
-        assert properties["success"].get("const") is True
-        assert properties["data"]["$ref"] == f"#/definitions/{payload_name}"
-        assert payload_definition["additionalProperties"] is False
+        assert {"success", "message", "data"} <= set(definition["required"]), path
+        assert properties["success"].get("const") is True, path
+        assert properties["message"]["minLength"] == 1, path
+        assert properties["data"]["additionalProperties"] is False, path
         for bare_top_level_key in ("items", "group", "source_experiments", "pagination"):
-            assert bare_top_level_key not in properties
+            assert bare_top_level_key not in properties, (path, bare_top_level_key)
 
 
 # ---- #136 follow-up — a route file can be MIXED, and pagination is nested ---- #

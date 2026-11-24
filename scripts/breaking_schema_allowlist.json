@@ -10784,6 +10784,47 @@
       "reason": "The agent readiness detail response gains the optional, nullable top-level scorecard (scores and per-area stats against the latest active config, or the current run when none is promoted). The response is additionalProperties:false, so a strict reader built from the previous schema rejects a body carrying it. Rollout rule: strict readers of the detail response must upgrade to this schema before the Backend starts emitting scorecard; the Backend change ships with this contract. Payloads without the field still validate.",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, feature/readiness-scorecard)"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "01ac918cb90bfa91d09519ec05a05c124062c545358c9c4b184eed18be44475a"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f2d61967791c0928dbd7f6a66e6aef04ed6792c87a523a5f05ea18c6077a16ac"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/configuration-runs/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0981eeda37bc61cbba5bd7f4f069f7dfe7b9bf0fb5bb8173afe8d132e1b903a2"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-groups/{group_id}/configuration-runs/query/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "106c5f903d4cad463804458418231d3efe3b37a506a49b084df93bbeaaa6ed23"
+        }
+      ],
+      "reason": "BREAKING PUBLIC CHANGE. Backend API revision W9 moves the experiment-group reads to project-scoped paths and removes the old ones: GET /api/v1/experiment-groups becomes POST /api/v1/projects/{project_id}/experiment-groups/search (experiment_group.list_groups; cursor-only, filters and search text in the body); GET /api/v1/experiment-groups/{group_id} becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref} (experiment_group.get_group); GET /api/v1/experiment-groups/{group_id}/configuration-runs becomes GET /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs (experiment_group.list_group_runs); POST /api/v1/experiment-groups/{group_id}/configuration-runs/query becomes POST /api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query (experiment_group.query_group_runs). The group detail no longer embeds source_experiments: they are paged by the new GET .../{group_ref}/experiments (experiment_group.list_group_experiments). page, per_page and offset are gone (cursor and limit only) and errors are closed application/problem+json bodies. Consumers: the Traigent portal (updated in the same release) and the Python SDK (traigent 0.34). The shapes match the backend implementation of API revision W9.",
+      "version": "Unreleased (API revision W9, experiment-group endpoints)",
+      "pr": "pending (TraigentSchema, feature/api-w9-experiment-groups, not yet opened)"
     }
   ]
 }

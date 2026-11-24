@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/middleware_message_error_schema.json",
+  "title": "MiddlewareMessageError",
+  "description": "Bare error body without a success flag, emitted by the security middleware when response hardening fails, by the transaction layer (a failed commit, an aborted database transaction or a failed database operation) and by the unhandled-error path: error and message, and for an aborted transaction recovery. Each message is a fixed server phrase tied to its error phrase; no exception text or internal detail is included in production. No request identifier is part of this contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "enum": [
+        "Security middleware error",
+        "Transaction commit failed",
+        "Database transaction error",
+        "Database operation failed",
+        "Internal server error"
+      ],
+      "description": "Fixed server phrase naming the failure.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "enum": [
+        "Failed to apply security response headers",
+        "Failed to apply CORS response headers",
+        "A database error occurred. Please retry.",
+        "The previous operation failed. Please retry.",
+        "An unexpected error occurred. The system state has been reset."
+      ],
+      "description": "Fixed server phrase describing the failure; it is determined by the error phrase.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "recovery": {
+      "type": "string",
+      "enum": [
+        "automatic"
+      ],
+      "description": "Present as automatic when the server rolled the transaction back and recovered.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Security middleware error"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "Failed to apply security response headers",
+              "Failed to apply CORS response headers"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Transaction commit failed"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "A database error occurred. Please retry."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Database transaction error"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "The previous operation failed. Please retry."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Database operation failed"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "A database error occurred. Please retry."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Internal server error"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "properties": {
+          "message": {
+            "enum": [
+              "An unexpected error occurred. The system state has been reset."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "recovery"
+        ]
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "const": "Database transaction error"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "error": {
+            "const": "Database transaction error"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "then": {
+        "required": [
+          "recovery"
+        ]
+      }
+    }
+  ]
+}

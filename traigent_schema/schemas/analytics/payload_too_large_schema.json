@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/payload_too_large_schema.json",
+  "title": "RequestTooLargeBody",
+  "description": "413 body returned when the request exceeds the maximum allowed size. It is not the standard error envelope: there is no success flag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message",
+    "max_size"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "const": "Request Too Large",
+      "description": "Always Request Too Large.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "pattern": "^Request size exceeds maximum allowed size of [0-9]{1,10} bytes(?![\\s\\S])",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Fixed phrase stating the maximum allowed size in bytes; the number is the server's configured limit and equals max_size.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "max_size": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967296,
+      "description": "Maximum allowed request size in bytes.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    }
+  }
+}

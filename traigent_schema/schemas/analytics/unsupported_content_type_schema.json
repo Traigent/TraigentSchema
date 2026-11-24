@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/unsupported_content_type_schema.json",
+  "title": "UnsupportedContentTypeBody",
+  "description": "400 body returned by the request gate when a POST, PUT or PATCH carries a content type the server does not accept. It is not the standard error envelope: there is no success flag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message",
+    "allowed_content_types"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "const": "Bad Request",
+      "description": "Always Bad Request.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "message": {
+      "type": "string",
+      "const": "Invalid request format or content type",
+      "description": "Always Invalid request format or content type.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "allowed_content_types": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "description": "Content types the server accepts.",
+      "x-privacy-classification": "aggregate_safe"
+    }
+  }
+}

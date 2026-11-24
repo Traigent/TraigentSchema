@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/db_integrity_error_schema.json",
+  "title": "DatabaseIntegrityError",
+  "description": "400 body for a database integrity refusal other than a uniqueness violation, in its production shape: either a missing referenced record or any other constraint violation. Bare error body: no success flag, and no field or value is ever included. Each alternative fixes its exact error and message pair.",
+  "x-privacy-classification": "aggregate_safe",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "error": {
+          "type": "string",
+          "const": "Reference not found",
+          "description": "Fixed phrase.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "const": "A referenced record does not exist. Please create it first.",
+          "description": "Fixed phrase.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "closed_enum"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error",
+        "message"
+      ],
+      "properties": {
+        "error": {
+          "type": "string",
+          "const": "Data integrity error",
+          "description": "Fixed phrase.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "const": "The operation violates data constraints.",
+          "description": "Fixed phrase.",
+          "x-privacy-classification": "aggregate_safe",
+          "x-content-class": "closed_enum"
+        }
+      }
+    }
+  ]
+}

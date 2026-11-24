@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/body_too_large_schema.json",
+  "title": "BodyTooLargeBody",
+  "description": "413 body returned by the early body-size check, before any reader sees the body. Fixed code and text; nothing from the request is echoed. The connection is closed after the response.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "code"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "error": {
+      "type": "string",
+      "const": "Request body too large",
+      "description": "Always Request body too large.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "code": {
+      "type": "string",
+      "const": "REQUEST_BODY_TOO_LARGE",
+      "description": "Always REQUEST_BODY_TOO_LARGE.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  }
+}

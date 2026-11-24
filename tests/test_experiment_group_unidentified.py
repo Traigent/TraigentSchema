@@ -156,16 +156,11 @@ def test_group_list_tie_break_includes_run_id_so_singletons_stay_orderable() -> 
         assert "agent_id nulls-last term" in lowered
         assert "run_id nulls-first does not establish" in lowered
 
-    # The OpenAPI inline mirror must not drift from the authoritative field.
-    spec_path = get_schemas_dir() / "execution" / "execution_endpoints.json"
-    spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    inline_sort_by = next(
-        parameter
-        for parameter in spec["paths"]["/api/v1/experiment-groups"]["get"]["parameters"]
-        if parameter["name"] == "sort_by"
+    # The search request's sort_by must not drift from the authoritative field.
+    search_request = document["definitions"]["ExperimentGroupSearchRequest"]
+    assert search_request["properties"]["sort_by"]["enum"] == (
+        document["definitions"]["ExperimentGroupSortField"]["enum"]
     )
-
-    assert inline_sort_by["description"] == sort_field_description
 
 
 def test_a_singleton_run_id_is_never_empty() -> None:

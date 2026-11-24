@@ -6,7 +6,7 @@
     "description": "Canonical backend routes for example-scoring analytics, the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights) and the eleven unchanged project analytics reads and exports, declared once per mount: /api/v1/analytics, /api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics. Operation ids equal the backend register ids (analytics.*, legacy_analytics.*, project_analytics.*)."
   },
   "paths": {
-    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute":{
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
       "post": {
         "operationId": "experiment_run.compute_evaluator_quality",
         "summary": "Compute (or return the stored) evaluator-quality audit for one experiment run",
@@ -2817,6 +2817,7 @@
     "/api/v1/analytics/runs/{run_id}/decision-payload": {
       "get": {
         "summary": "Get the decision payload for a run",
+        "operationId": "analytics.get_run_decision_payload",
         "responses": {
           "200": {
             "description": "Decision payload returned",
@@ -2894,6 +2895,7 @@
     "/api/v1/analytics/runs/{run_id}/report": {
       "get": {
         "summary": "Get the analytics report payload for a run",
+        "operationId": "analytics.get_run_report",
         "responses": {
           "200": {
             "description": "Run report payload returned",
@@ -2971,6 +2973,7 @@
     "/api/v1/analytics/runs/{run_id}/pareto": {
       "get": {
         "summary": "Get the Pareto-frontier analysis for a run",
+        "operationId": "analytics_runs.get_run_pareto",
         "responses": {
           "200": {
             "description": "Run Pareto analysis returned",
@@ -3048,6 +3051,7 @@
     "/api/v1/analytics/runs/{run_id}/correlations": {
       "get": {
         "summary": "Get the correlation analysis for a run",
+        "operationId": "analytics_runs.get_run_correlations",
         "responses": {
           "200": {
             "description": "Run correlation analysis returned",
@@ -3125,6 +3129,7 @@
     "/api/v1/analytics/runs/{run_id}/leaderboard": {
       "get": {
         "summary": "Get the ranked configuration leaderboard for a run",
+        "operationId": "analytics_runs.get_run_leaderboard",
         "responses": {
           "200": {
             "description": "Run leaderboard returned",
@@ -3202,6 +3207,7 @@
     "/api/v1/analytics/runs/{run_id}/parameter-insights": {
       "get": {
         "summary": "Get parameter-importance insights for a run",
+        "operationId": "analytics_runs.get_run_parameter_insights",
         "responses": {
           "200": {
             "description": "Run parameter insights returned",
@@ -3279,6 +3285,7 @@
     "/api/v1/analytics/runs/{run_id}/example-insights": {
       "get": {
         "summary": "Get privacy-bounded example-level insights for a run",
+        "operationId": "analytics_runs.get_run_example_insights",
         "responses": {
           "200": {
             "description": "Run example insights returned",
@@ -3349,6 +3356,65 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-quality": {
+      "get": {
+        "summary": "Get the evaluator-quality verdict of one run",
+        "operationId": "analytics_runs.get_run_evaluator_quality",
+        "x-privacy-classification": "aggregate_safe",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run whose evaluator-quality verdict is read.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run evaluator quality retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_evaluator_quality_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
           }
         }
       }
@@ -3441,6 +3507,342 @@
           }
         }
       }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-promotion/evaluate": {
+      "post": {
+        "operationId": "evaluator_promotion.evaluate_evaluator_promotion",
+        "summary": "Compute and persist an advisory evaluator promotion decision for one run",
+        "description": "Compares a challenger evaluator against an incumbent on evaluator-independent anchor evidence and persists one append-only decision row. Advisory only: it never changes experiments, sessions, evaluator configs or optimization state. Requires the experiment WRITE grant, the experiment.write permission and the editor project role. Rate limited per principal as an expensive operation.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run to evaluate.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluator_promotion_evaluate_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Decision computed and persisted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_promotion_evaluate_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestPostPersisting"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "409": {
+            "description": "Conflict: an idempotency conflict on a request with an Idempotency-Key (different payload, in progress, or key already used; Retry-After may be set), or a uniqueness violation (Duplicate entry).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "./idempotency_middleware_error_schema.json"
+                    },
+                    {
+                      "$ref": "./db_duplicate_entry_error_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "description": "Too many requests: the shared rate limiter or this operation's dedicated limiter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "./evaluator_promotion_rate_limit_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailablePost"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/evaluator-promotion": {
+      "get": {
+        "operationId": "evaluator_promotion.list_evaluator_promotion_decisions",
+        "summary": "List the advisory evaluator promotion decisions recorded for one run",
+        "description": "Read-only history of the run's evaluator promotion decisions, newest first. Requires experiment read access and the viewer project role. Unknown query parameters are rejected.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run whose decisions are listed.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of decisions to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decisions retrieved (possibly an empty list).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluator_promotion_decisions_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "description": "Validation failed: unknown query parameter or limit out of range, or an invalid tenant or project context. The error_code is context-specific (VALIDATION_ERROR for query validation).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../validation_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/experiments/{experiment_run_id}/fit-irt": {
+      "post": {
+        "operationId": "next_steps.fit_irt_model",
+        "summary": "Submit an internal IRT fit job for an experiment run",
+        "description": "Submits an IRT fit job for the run and returns immediately; the job runs asynchronously. A 202 with submitted false returns the ID of the active scoring job already running for the run. Takes no request body. Requires the experiment.write permission, the editor project role and the empirical intelligence feature; a disabled feature answers 501.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "experiment_run_id",
+            "in": "path",
+            "required": true,
+            "description": "Experiment run to fit.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Job accepted. submitted is true for a new job; false when the id points at an already-active scoring job for the run, which is not necessarily a fit job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./irt_fit_accepted_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestPost"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/AnalyticsMwIdempotencyConflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "501": {
+            "description": "The empirical intelligence feature is disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./feature_disabled_response_schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailablePost"
+          }
+        }
+      }
+    },
+    "/api/v1/analytics/runs/{run_id}/reference-review": {
+      "get": {
+        "operationId": "analytics_runs.get_run_reference_review",
+        "summary": "Get the paged queue of examples whose reference answer needs a check",
+        "description": "Read-only, paged queue of the run's examples whose stored class says the reference answer needs a check, with an opaque reference per example and the customer's own example identifier when usable. Requires experiment read access and the viewer project role. Unknown query parameters and out-of-range page values are rejected with 422; the body never echoes the submitted value. Answers 404 when the run does not exist or is not visible in the caller's project, and 500 when the composed queue fails its own contract.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "description": "Run to read.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "One-based page number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Examples per page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reference review queue retrieved (possibly empty or unavailable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_reference_review_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AnalyticsMwBadRequestGet"
+          },
+          "401": {
+            "$ref": "#/components/responses/AnalyticsMwUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AnalyticsMwForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/AnalyticsMwNotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/AnalyticsMwPayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/AnalyticsMwUnprocessable"
+          },
+          "429": {
+            "$ref": "#/components/responses/AnalyticsMwRateLimited"
+          },
+          "500": {
+            "$ref": "#/components/responses/AnalyticsMwInternal"
+          },
+          "503": {
+            "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3521,6 +3923,220 @@
           "application/json": {
             "schema": {
               "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestGet": {
+        "description": "Bad request: a provider credential in a request header or query parameter is never accepted (application/problem+json, code provider_credential_not_accepted).",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestPost": {
+        "description": "Bad request. application/json: unsupported content type (this check also applies to POSTs with an empty body), an Idempotency-Key longer than 200 characters, a body that cannot be fingerprinted for idempotency, or the API's catch-all error body. application/problem+json: a provider credential in a request header or query parameter, which is never accepted (code provider_credential_not_accepted).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./unsupported_content_type_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          },
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwBadRequestPostPersisting": {
+        "description": "Bad request. application/json: unsupported content type (also applies to empty POSTs), an Idempotency-Key longer than 200 characters, a body that cannot be fingerprinted for idempotency, a database integrity refusal (Reference not found, Data integrity error), or the API's catch-all error body. application/problem+json: a provider credential in a request header or query parameter, which is never accepted (code provider_credential_not_accepted).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./unsupported_content_type_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                },
+                {
+                  "$ref": "./db_integrity_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          },
+          "application/problem+json": {
+            "schema": {
+              "$ref": "../agents/agent_import_credential_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnauthorized": {
+        "description": "Unauthenticated: missing, invalid or expired credentials. The standard error envelope, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwForbidden": {
+        "description": "Forbidden: an authorization, project role or tenant policy refusal, including an account without an active access period (entitlement_required). The standard error envelope, the entitlement body, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../entitlement_required_error_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwNotFound": {
+        "description": "Not found: the resource is missing, not in the caller's project, or not owned by the caller. The body is a not-found error envelope whose code is NOT_FOUND or RESOURCE_NOT_FOUND; the message varies by source.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwPayloadTooLarge": {
+        "description": "Request exceeds the maximum allowed size: the early body-size check body, the request gate body, or the API's catch-all error body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "./body_too_large_schema.json"
+                },
+                {
+                  "$ref": "./payload_too_large_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwIdempotencyConflict": {
+        "description": "Idempotency conflict on a POST with an explicit Idempotency-Key: the key was used with a different payload, a request with the key is still in progress (Retry-After may be set), or the key was already used.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "./idempotency_middleware_error_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnprocessable": {
+        "description": "Validation failed (error_code VALIDATION_ERROR), or a string the server cannot store was refused, or the tenant or project context is invalid. The body never echoes submitted values.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../validation_error_schema.json"
+                },
+                {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwRateLimited": {
+        "description": "Too many requests: the shared rate limiter's body.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../rate_limit_info_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwInternal": {
+        "description": "Internal server error: the standard error envelope, the API's catch-all error body for an unhandled failure, or a bare error and message body (optionally with request_id, or recovery for an aborted database transaction).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "../global_error_schema.json"
+                },
+                {
+                  "$ref": "./middleware_message_error_schema.json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnavailableGet": {
+        "description": "Service unavailable: rate limiting is temporarily unavailable (error_code RATE_LIMIT_UNAVAILABLE) and the request is refused rather than admitted, the authentication backend is unavailable (error_code AUTH_BACKEND_UNAVAILABLE), the access decision is unavailable (error_code ACCESS_DECISION_UNAVAILABLE), or the session or tenant context is unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "../error_envelope_schema.json"
+            }
+          }
+        }
+      },
+      "AnalyticsMwUnavailablePost": {
+        "description": "Service unavailable: rate limiting is temporarily unavailable (error_code RATE_LIMIT_UNAVAILABLE), the authentication backend is unavailable (error_code AUTH_BACKEND_UNAVAILABLE), the access decision is unavailable (error_code ACCESS_DECISION_UNAVAILABLE), the session or tenant context is unavailable, or the idempotency store is unavailable on a request with an Idempotency-Key.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "../error_envelope_schema.json"
+                },
+                {
+                  "$ref": "./idempotency_middleware_error_schema.json"
+                }
+              ]
             }
           }
         }

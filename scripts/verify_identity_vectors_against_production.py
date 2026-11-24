@@ -35,6 +35,12 @@ def check_sdk() -> list[str]:
     import traigent  # noqa: PLC0415
 
     problems, checked = [], 0
+    if not hasattr(traigent, "optimize"):
+        # Without the entry point, the AttributeError an "unsupported" vector
+        # expects would fire for the wrong reason and pass vacuously.
+        problems.append("sdk: traigent has no attribute 'optimize'; wrong or stub SDK checkout")
+        print("sdk: checked 0 python vectors, 1 problems")
+        return problems
     for v in _py_vectors():
         inp, exp = v["input"], v["expected"]
         if exp.get("outcome") == "unsupported":
@@ -76,6 +82,9 @@ def check_sdk() -> list[str]:
             problems.append(
                 f"{v['id']}: experiment_name {got!r} != {exp['registration_identity']!r}"
             )
+    if checked == 0:
+        # A vacuous run (no python entries, or none executed) must not pass.
+        problems.append("sdk: checked 0 python vectors; the check verified nothing")
     print(f"sdk: checked {checked} python vectors, {len(problems)} problems")
     return problems
 

@@ -68,16 +68,19 @@ Result: `schemaFileCount=394`,
 Consumer references were refreshed from clean archives of each sibling's
 current `origin/develop` ref, then the reachability report was regenerated:
 
+Set `SIBLINGS_ROOT` to the directory that holds your local checkouts of the sibling repositories first:
+
 ```bash
+export SIBLINGS_ROOT=<path-to-sibling-checkouts>
 for repo in Traigent TraigentBackend TraigentFrontend traigent-js traigent-smartopt; do
-  git -C /home/nimrod/TraigentProjects/$repo fetch origin develop
+  git -C "$SIBLINGS_ROOT/$repo" fetch origin develop
 done
 python3 scripts/refresh_consumer_schema_references.py \
-  --repo Traigent=/home/nimrod/TraigentProjects/Traigent \
-  --repo TraigentBackend=/home/nimrod/TraigentProjects/TraigentBackend \
-  --repo TraigentFrontend=/home/nimrod/TraigentProjects/TraigentFrontend \
-  --repo traigent-js=/home/nimrod/TraigentProjects/traigent-js \
-  --repo traigent-smartopt=/home/nimrod/TraigentProjects/traigent-smartopt
+  --repo Traigent="$SIBLINGS_ROOT/Traigent" \
+  --repo TraigentBackend="$SIBLINGS_ROOT/TraigentBackend" \
+  --repo TraigentFrontend="$SIBLINGS_ROOT/TraigentFrontend" \
+  --repo traigent-js="$SIBLINGS_ROOT/traigent-js" \
+  --repo traigent-smartopt="$SIBLINGS_ROOT/traigent-smartopt"
 python3 scripts/schema_reachability.py --update
 python3 scripts/schema_reachability.py --check
 ```
@@ -192,8 +195,8 @@ Results:
 
   ```bash
   TRAIGENT_SCHEMA_REPO="$PWD" \
-    /home/nimrod/TraigentProjects/Traigent/.venv/bin/python \
-    /home/nimrod/TraigentProjects/core_project/develop/Traigent/scripts/generate_schema_types.py \
+    "$SIBLINGS_ROOT/Traigent/.venv/bin/python" \
+    "$SIBLINGS_ROOT/Traigent/scripts/generate_schema_types.py" \
     --check
   ```
 

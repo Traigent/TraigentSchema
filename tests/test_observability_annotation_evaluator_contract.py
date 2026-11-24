@@ -85,6 +85,40 @@ def test_annotation_queue_update_request_is_all_optional_but_typed(v):
     assert v.validate_request(route, "PATCH", {"status": "bogus-status"})
 
 
+# Backend: AnnotationQueueCreateRequest / AnnotationQueueUpdateRequest, description
+# max_length=2000 (annotation_queue.py).
+@pytest.mark.parametrize(
+    ("file_name", "route", "method"),
+    [
+        ("annotation_queue_create_request_schema.json", "/api/v1beta/annotation-queues", "POST"),
+        (
+            "annotation_queue_update_request_schema.json",
+            "/api/v1beta/annotation-queues/{queue_id}",
+            "PATCH",
+        ),
+    ],
+)
+def test_annotation_queue_description_cap_matches_backend(v, file_name, route, method):
+    assert _load(file_name)["properties"]["description"]["maxLength"] == 2000
+    base = {"name": "Q1", "target_type": "observability_trace", "measure_ids": ["m1"]}
+    body = base if method == "POST" else {}
+    assert v.validate_request(route, method, {**body, "description": "d" * 2000}) == []
+    assert v.validate_request(route, method, {**body, "description": "d" * 2001})
+
+
+# Backend: AnnotationQueueUpdateRequest has extra="forbid" (annotation_queue.py) and
+# ensure_update_has_fields rejects an update with no fields (annotation_queue.py).
+def test_annotation_queue_update_rejects_empty_body_and_unknown_keys(v):
+    schema = _load("annotation_queue_update_request_schema.json")
+    assert schema["additionalProperties"] is False
+    assert schema["minProperties"] == 1
+
+    route = "/api/v1beta/annotation-queues/{queue_id}"
+    assert v.validate_request(route, "PATCH", {})
+    assert v.validate_request(route, "PATCH", {"stauts": "paused"})
+    assert v.validate_request(route, "PATCH", {"status": "paused", "bogus": 1})
+
+
 def test_annotation_queue_item_create_result_wraps_created_items():
     schema = _load("annotation_queue_item_create_result_schema.json")
     assert set(schema["required"]) == {"queue_id", "created_count", "items"}
@@ -156,6 +190,61 @@ def test_evaluator_execute_request_requires_target_and_accepts_judge_override(v)
     )
 
 
+# #584: the fields the backend request models accept (extra="forbid") in
+# the backend's evaluation request models:
+# EvaluatorDefinitionUpdateRequest, EvaluatorExecuteRequest (via
+# EvaluationTargetRef), EvaluatorBackfillRequest.
+BACKEND_UPDATE_FIELDS = {
+    "name", "description", "measure_id", "target_type", "judge_config",
+    "sampling_rate", "target_filters", "is_active",
+}
+BACKEND_EXECUTE_FIELDS = {"target_type", "target_id", "override_judge_config"}
+BACKFILL_ROUTE = "/api/v1beta/evaluators/{evaluator_id}/backfill"
+
+
+def test_evaluator_update_request_declares_no_field_the_backend_forbids(v):
+    schema = _load("evaluator_update_request_schema.json")
+    assert set(schema["properties"]) <= BACKEND_UPDATE_FIELDS
+    assert "primary_measure_id" not in schema["properties"]
+    assert set(schema["properties"]["target_type"]["enum"]) == TARGET_TYPES | {None}
+    route = "/api/v1beta/evaluators/{evaluator_id}"
+    assert v.validate_request(route, "PATCH", {"target_type": "observability_trace"}) == []
+    assert v.validate_request(route, "PATCH", {"measure_id": "accuracy"}) == []
+
+
+def test_evaluator_execute_request_declares_no_field_the_backend_forbids(v):
+    schema = _load("evaluator_execute_request_schema.json")
+    assert set(schema["properties"]) <= BACKEND_EXECUTE_FIELDS
+    assert "source" not in schema["properties"]
+    route = "/api/v1beta/evaluators/{evaluator_id}/execute"
+    assert v.validate_request(
+        route, "POST", {"target_type": "observability_trace", "target_id": "tr_1"}
+    ) == []
+
+
+def test_evaluator_backfill_request_is_a_closed_ref_matching_the_backend_model(v):
+    endpoints = _load("observability_endpoints.json")
+    body = endpoints["paths"][BACKFILL_ROUTE]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]
+    assert body == {"$ref": "./evaluator_backfill_request_schema.json"}
+    schema = _load("evaluator_backfill_request_schema.json")
+    assert schema["additionalProperties"] is False
+    assert set(schema["properties"]) == {
+        "target_type", "filters", "limit", "skip_existing_scores",
+    }
+    assert set(schema["properties"]["target_type"]["enum"]) == TARGET_TYPES | {None}
+    assert schema["properties"]["limit"]["minimum"] == 1
+    assert schema["properties"]["limit"]["maximum"] == 500
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {}) == []
+    assert v.validate_request(
+        BACKFILL_ROUTE, "POST", {"target_type": "observability_trace", "limit": 10}
+    ) == []
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"target_ids": ["tr_1"]})
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"force": True})
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"limit": 501})
+
+
 def test_evaluator_definition_create_request_extra_forbid_and_required(v):
     schema = _load("evaluator_definition_create_request_schema.json")
     assert schema["additionalProperties"] is False
@@ -187,6 +276,26 @@ def test_evaluator_backfill_result_required_fields():
         "skipped_target_ids", "items",
     }
     assert schema["properties"]["items"]["items"]["$ref"] == "./evaluator_run_schema.json"
+
+
+def test_evaluator_backfill_result_declares_skip_reason_breakdown(v):
+    # #648: the backend's evaluation service returns skipped_reasons
+    # (target_id -> reason) and skipped_reason_counts (reason -> count).
+    schema = _load("evaluator_backfill_result_schema.json")
+    reasons = schema["properties"]["skipped_reasons"]
+    assert reasons["type"] == "object"
+    assert reasons["additionalProperties"] == {"type": "string"}
+    counts = schema["properties"]["skipped_reason_counts"]
+    assert counts["type"] == "object"
+    assert counts["additionalProperties"] == {"type": "integer", "minimum": 1}
+    body = {
+        "evaluator_id": "ev_1", "target_type": "observability_trace",
+        "submitted_count": 1, "skipped_count": 2,
+        "skipped_target_ids": ["tr_2", "tr_3"], "items": [],
+        "skipped_reasons": {"tr_2": "already_scored", "tr_3": "already_scored"},
+        "skipped_reason_counts": {"already_scored": 2},
+    }
+    assert v.validate_json(body, "evaluator_backfill_result_schema") == []
 
 
 def test_evaluator_list_response_wraps_definitions():
@@ -378,3 +487,121 @@ def test_evaluator_definition_response_carries_target_filters(v):
     assert v.validate_json(resp, "evaluator_definition_schema") == []
     assert v.validate_json({**resp, "target_filters": {"status": ["x"]}}, "evaluator_definition_schema")
     assert v.validate_json({**resp, "target_filters": {"tags": []}}, "evaluator_definition_schema")
+
+
+# #584: the reproduction bodies from the issue, validated through the backend contract.
+# Backend EvaluatorDefinitionUpdateRequest and EvaluatorExecuteRequest (via EvaluationTargetRef)
+# are extra="forbid" (the backend's evaluation request models), and
+# EvaluatorDefinitionUpdateRequest.ensure_update_has_fields rejects an empty body. The request schemas must reject the same bodies.
+@pytest.mark.parametrize(
+    ("route", "method", "body"),
+    [
+        ("/api/v1beta/evaluators/{evaluator_id}", "PATCH", {"primary_measure_id": "accuracy"}),
+        (
+            "/api/v1beta/evaluators/{evaluator_id}/execute",
+            "POST",
+            {"target_type": "observability_trace", "target_id": "tr_1", "source": "manual"},
+        ),
+        ("/api/v1beta/evaluators/{evaluator_id}", "PATCH", {}),
+    ],
+)
+def test_evaluator_bodies_the_backend_rejects_fail_schema(v, route, method, body):
+    assert v.validate_request(route, method, body)
+
+
+def test_evaluator_update_and_execute_schemas_are_closed():
+    update = _load("evaluator_update_request_schema.json")
+    assert update["additionalProperties"] is False
+    assert update["minProperties"] == 1
+    assert _load("evaluator_execute_request_schema.json")["additionalProperties"] is False
+
+
+def test_evaluator_update_and_execute_valid_bodies_still_pass(v):
+    update = "/api/v1beta/evaluators/{evaluator_id}"
+    execute = "/api/v1beta/evaluators/{evaluator_id}/execute"
+    assert v.validate_request(update, "PATCH", {"measure_id": "accuracy"}) == []
+    assert v.validate_request(update, "PATCH", {"target_type": "observability_trace"}) == []
+    assert v.validate_request(update, "PATCH", {"is_active": False}) == []
+    assert v.validate_request(
+        execute, "POST", {"target_type": "observability_trace", "target_id": "tr_1"}
+    ) == []
+    assert v.validate_request(
+        execute,
+        "POST",
+        {"target_type": "observability_trace", "target_id": "tr_1", "override_judge_config": None},
+    ) == []
+
+
+# #640: AnnotationQueueCreateRequest is extra="forbid" (the backend's
+# annotation queue request model) and the route validates the raw body
+# with model_validate (annotation_queue_routes.py), so unknown keys get a 422.
+def test_annotation_queue_create_rejects_unknown_keys(v):
+    schema = _load("annotation_queue_create_request_schema.json")
+    assert schema["additionalProperties"] is False
+
+    route = "/api/v1beta/annotation-queues"
+    body = {"name": "Q1", "target_type": "observability_trace", "measure_ids": ["m1"]}
+    assert v.validate_request(route, "POST", body) == []
+    assert v.validate_request(route, "POST", {**body, "bogus": 1})
+    assert v.validate_request(route, "POST", {**body, "measure_id": "m1"})
+
+
+# Backend EvaluatorBackfillRequest.target_type is EvaluationTargetType | None
+# (evaluation_ops.py)
+# and the service falls back to the evaluator's own target_type when it is None
+# (evaluation_ops_service.py). The route accepts an explicit null.
+def test_evaluator_backfill_accepts_null_target_type(v):
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"target_type": None}) == []
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"target_type": "bogus"})
+
+
+# #723: the update bodies must refuse what the service refuses. A body whose only field is a
+# null description is a 422 on both routes (annotation queue: annotation_queue.py strips
+# blank strings to None and ensure_update_has_fields rejects an empty result; evaluator:
+# evaluation_ops.py dumps with exclude_none). Each update schema carries a root anyOf
+# that requires one usable field.
+def test_annotation_queue_update_rejects_null_or_blank_only_bodies(v):
+    schema = _load("annotation_queue_update_request_schema.json")
+    assert schema["minProperties"] == 1
+    assert "anyOf" in schema
+
+    route = "/api/v1beta/annotation-queues/{queue_id}"
+    assert v.validate_request(route, "PATCH", {"description": None})
+    assert v.validate_request(route, "PATCH", {"name": "   "})
+    assert v.validate_request(route, "PATCH", {"description": "  "})
+    assert v.validate_request(route, "PATCH", {})
+
+    assert v.validate_request(route, "PATCH", {"description": None, "name": "q"}) == []
+    assert v.validate_request(route, "PATCH", {"name": "   ", "status": "paused"}) == []
+    assert v.validate_request(route, "PATCH", {"measure_ids": [" "]}) == []
+
+
+def test_evaluator_update_rejects_null_description_only_body(v):
+    schema = _load("evaluator_update_request_schema.json")
+    assert schema["minProperties"] == 1
+    assert "anyOf" in schema
+
+    route = "/api/v1beta/evaluators/{evaluator_id}"
+    assert v.validate_request(route, "PATCH", {"description": None})
+    assert v.validate_request(route, "PATCH", {})
+
+    assert v.validate_request(route, "PATCH", {"description": None, "name": "q"}) == []
+    assert v.validate_request(route, "PATCH", {"description": "  "}) == []
+
+
+# Parity with EvaluatorDefinitionUpdateRequest (backend evaluation_ops.py):
+# target_type is `EvaluationTargetType | None` and a null target_type means "unchanged"
+# (dumped with exclude_none). So a null target_type alongside another field is accepted,
+# and a body whose only field is a null target_type is refused (422 "at least one field").
+def test_evaluator_update_null_target_type_means_unchanged(v):
+    route = "/api/v1beta/evaluators/{evaluator_id}"
+    assert v.validate_request(route, "PATCH", {"target_type": None, "is_active": True}) == []
+    assert v.validate_request(route, "PATCH", {"target_type": None})
+    assert v.validate_request(route, "PATCH", {"target_type": "observability_trace"}) == []
+    assert v.validate_request(route, "PATCH", {"target_type": "not-a-target"})
+
+def test_evaluator_update_anyof_target_type_enum_matches_the_property_enum() -> None:
+    """The anyOf branch repeats the enum (the maxLength lint needs it): it must not drift."""
+    schema = _load("evaluator_update_request_schema.json")
+    branch = next(b for b in schema["anyOf"] if b.get("required") == ["target_type"])
+    assert set(branch["properties"]["target_type"]["enum"]) == TARGET_TYPES

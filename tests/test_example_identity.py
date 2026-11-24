@@ -824,6 +824,30 @@ def test_dirty_build_with_source_digest_is_accepted_by_code_and_schema() -> None
     assert not list(_validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(manifest))
 
 
+@pytest.mark.parametrize("bad_source_digest", [None, "", 12, "not-a-digest", "sha256:ABC"])
+def test_dirty_build_rejects_a_source_digest_that_is_not_a_digest(
+    bad_source_digest: Any,
+) -> None:
+    # Presence is not identity: a dirty tree with a non-digest source_digest
+    # must not mint a certifiable build digest (issue #697).
+    manifest = {**VECTORS["agent_builds"][0]["manifest"]}
+    manifest["code_revision"] = {**manifest["code_revision"], "dirty": True}
+    manifest["source_digest"] = bad_source_digest
+    with pytest.raises(ei.ContentIdentityError, match="source_digest"):
+        ei.compute_agent_build_digest(manifest, certifiable=True)
+    assert list(_validator(AGENT_SCHEMA_PATH, "AgentBuildManifestV1").iter_errors(manifest))
+
+
+@pytest.mark.parametrize("bad_source_digest", [None, "", "not-a-digest"])
+def test_clean_build_rejects_a_present_source_digest_that_is_not_a_digest(
+    bad_source_digest: Any,
+) -> None:
+    manifest = {**VECTORS["agent_builds"][0]["manifest"]}
+    manifest["source_digest"] = bad_source_digest
+    with pytest.raises(ei.ContentIdentityError, match="source_digest"):
+        ei.compute_agent_build_digest(manifest)
+
+
 def test_evaluated_set_rejects_both_members_and_a_reference() -> None:
     root = ei.compute_multiset_root(_pairs(1))
     member = root.members[0]

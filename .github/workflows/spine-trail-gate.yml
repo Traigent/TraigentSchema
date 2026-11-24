@@ -31,6 +31,7 @@ jobs:
   spine-trail:
     name: spine-trail present
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # No token at all: this job only echoes and reads the PR body out of the
     # event payload. It never checks out code and never calls the GitHub API, so
     # granting it `contents: read` was privilege it could not use.
@@ -102,6 +103,7 @@ jobs:
     # Promotion of this job to a required check is a separate, later owner
     # decision. This job leaves the existing "spine-trail present" job untouched.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
     permissions:
       contents: read

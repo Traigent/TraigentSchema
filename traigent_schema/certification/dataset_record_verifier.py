@@ -71,7 +71,7 @@ import re
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from importlib import resources
 from importlib.resources.abc import Traversable
@@ -1957,7 +1957,7 @@ def _utc_microseconds(value: str) -> int:
     frac = value[dot_index + 1 : -1] if dot_index != -1 else ""
     frac_us = int((frac + "000000")[:6]) if frac else 0
     try:
-        datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
+        datetime(year, month, day, hour, minute, second, tzinfo=UTC)
     except ValueError:
         _fail("PREREGISTRATION_ORDER")
     days = date(year, month, day).toordinal() - _EPOCH_ORDINAL

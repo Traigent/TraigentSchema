@@ -17,9 +17,18 @@
     },
     "selection_method": {
       "type": "string",
-      "minLength": 1,
       "description": "Example-set selection method.",
-      "maxLength": 255
+      "enum": [
+        "all",
+        "random",
+        "semantic_similarity",
+        "similarity",
+        "sequential",
+        "manual",
+        "diversity-based",
+        "difficulty-based",
+        "difficulty_weighted"
+      ]
     },
     "description": {
       "type": "string",
@@ -28,7 +37,17 @@
     "type": {
       "type": "string",
       "description": "Example-set type (default input-output).",
-      "maxLength": 255
+      "enum": [
+        "input-only",
+        "input-output",
+        "multi-turn conversation",
+        "conversation",
+        "classification",
+        "structured",
+        "generation",
+        "evaluation",
+        "other"
+      ]
     },
     "num_examples": {
       "type": "integer",
@@ -41,6 +60,7 @@
     },
     "tags": {
       "type": "array",
+      "maxItems": 100,
       "items": {
         "type": "string",
         "maxLength": 1000

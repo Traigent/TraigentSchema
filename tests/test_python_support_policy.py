@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -20,7 +19,7 @@ def test_package_metadata_supports_python_311_and_newer() -> None:
     assert '"Programming Language :: Python :: 3.11"' in pyproject
     assert '"pytest>=9.0.3"' in pyproject
     assert "python_version < '3.10'" not in pyproject
-    assert 'target-version = "py310"' in pyproject  # held: py311 adds UP017
+    assert 'target-version = "py311"' in pyproject  # ruff target = requires-python floor (#711)
     assert 'python_version = "3.11"' in pyproject
 
 

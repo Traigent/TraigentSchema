@@ -1067,7 +1067,7 @@ def test_group_search_route_is_a_cursor_only_post_with_the_filters_in_the_body()
     assert [p["name"] for p in operation["parameters"]] == ["project_id"]
     request = _request_schema(spec, "post", path)
     assert request["additionalProperties"] is False
-    assert {
+    assert set(request["properties"]) == {
         "search",
         "agent_id",
         "dataset_id",
@@ -1076,7 +1076,7 @@ def test_group_search_route_is_a_cursor_only_post_with_the_filters_in_the_body()
         "sort_order",
         "limit",
         "cursor",
-    } == set(request["properties"])
+    }
     assert request["properties"]["search"]["maxLength"] == 200
     assert request["properties"]["dataset_scope"]["enum"] == [
         "all",

@@ -212,7 +212,8 @@ def test_caller_controlled_ids_are_content_classified_not_system():
         assert prop["x-content"] is True, name
         assert prop["x-content-class"] == "legacy_content", name
         assert "x-content-note" in prop, name
-        assert prop["minLength"] == 1 and "pattern" not in prop, name
+        assert prop["minLength"] == 1, name
+        assert "pattern" not in prop, name
 
     def system_ids(node, where):
         for name, prop in node.get("properties", {}).items():
@@ -279,7 +280,8 @@ def test_409_accepts_only_the_in_progress_type():
     ref = OP["responses"]["409"]["content"]["application/problem+json"]["schema"]["$ref"]
     one = Draft7Validator(_load(PROBLEM_FILE)["definitions"][ref.rsplit("/", 1)[1]])
     ok = _problem("409")
-    assert ok["type"] == IN_PROGRESS and one.is_valid(ok)
+    assert ok["type"] == IN_PROGRESS
+    assert one.is_valid(ok)
     for bad_type in (
         "urn:traigent:problem:idempotency_in_progress",
         "urn:traigent:problem:idempotency_conflict",

@@ -89,7 +89,8 @@ def test_guard_denials_are_problem_documents(op_id: str) -> None:
 @pytest.mark.parametrize("op_id", PER_AGENT_OPS)
 def test_a_missing_agent_is_also_the_legacy_json_404(op_id: str) -> None:
     media = _media(op_id, "404")
-    assert PROBLEM in media and LEGACY in media, op_id
+    assert PROBLEM in media, op_id
+    assert LEGACY in media, op_id
 
 
 @pytest.mark.parametrize("op_id", [o for o in PROJECT_OPS if o.startswith("agent.")])
@@ -125,13 +126,15 @@ def test_bare_agent_body_requires_an_id(op_id: str, status: str) -> None:
 )
 def test_validation_failures_are_legacy_422_and_keep_the_problem_form(op_id: str) -> None:
     media = _media(op_id, "422")
-    assert LEGACY in media and PROBLEM in media, op_id
+    assert LEGACY in media, op_id
+    assert PROBLEM in media, op_id
 
 
 def test_create_and_update_400_cover_both_forms() -> None:
     for op_id in ("agent.create_agent", "agent.update_agent"):
         media = _media(op_id, "400")
-        assert LEGACY in media and PROBLEM in media, op_id
+        assert LEGACY in media, op_id
+        assert PROBLEM in media, op_id
 
 
 def test_create_conflict_is_the_legacy_json_agent_already_exists() -> None:
@@ -142,7 +145,8 @@ def test_create_conflict_is_the_legacy_json_agent_already_exists() -> None:
 
 def test_unarchive_conflict_exists_in_both_forms() -> None:
     media = _media("agent.unarchive_agent", "409")
-    assert LEGACY in media and PROBLEM in media
+    assert LEGACY in media
+    assert PROBLEM in media
 
 
 def test_delete_has_200_with_tracking_204_without_and_409_legacy() -> None:
@@ -152,7 +156,8 @@ def test_delete_has_200_with_tracking_204_without_and_409_legacy() -> None:
 
 def test_list_declares_the_sort_by_422() -> None:
     media = _media("agent.get_agents", "422")
-    assert LEGACY in media and PROBLEM in media
+    assert LEGACY in media
+    assert PROBLEM in media
 
 
 def test_import_400_distinguishes_validation_list_and_credential_problem() -> None:

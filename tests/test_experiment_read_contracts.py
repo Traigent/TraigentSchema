@@ -95,7 +95,8 @@ def test_operation_ids_are_unique_across_the_catalogs() -> None:
 def test_private_admin_stats_stays_out_of_the_public_fragments() -> None:
     text = json.dumps([EXEC, PLANNED])
     private_op = "get_experiment" + "_admin" + "_stats"
-    assert "admin/stats" not in text and private_op not in text
+    assert "admin/stats" not in text
+    assert private_op not in text
 
 
 def test_reference_has_exact_length_43_and_experiment_prefix() -> None:
@@ -142,7 +143,8 @@ def test_search_request_is_closed_and_bounded() -> None:
                 {"total": 1}, {"experiment_id": "exp_1"}, {"unknown": 1}):
         assert _errors("ExperimentSearchRequest", bad), bad
     req = load_json(READS)["definitions"]["ExperimentSearchRequest"]
-    assert req["properties"]["limit"]["default"] == 20 and req["x-max-request-bytes"] == 8192
+    assert req["properties"]["limit"]["default"] == 20
+    assert req["x-max-request-bytes"] == 8192
 
 
 def _page(items: list[Any], **p: Any) -> dict[str, Any]:
@@ -183,7 +185,8 @@ def test_agent_experiments_page_is_closed_with_references() -> None:
     assert op["operationId"] == "agent.get_agent_experiments"
     resp = AGENTS["components"]["schemas"]["AgentExperimentsResponse"]
     items = resp["properties"]["data"]["properties"]["items"]
-    assert items["maxItems"] == 100 and items["items"]["$ref"].endswith("#/definitions/AgentExperimentItem")
+    assert items["maxItems"] == 100
+    assert items["items"]["$ref"].endswith("#/definitions/AgentExperimentItem")
     assert resp["properties"]["data"]["properties"]["pagination"]["properties"]["next_cursor"]["type"] == ["string", "null"]
 
 
@@ -223,7 +226,8 @@ def test_canonical_experiment_reads_require_the_reference() -> None:
 def test_bulk_mutations_declare_no_id_count_limit() -> None:
     for path in ("/api/v1/experiments/bulk-update-status", "/api/v1beta/projects/{project_id}/experiments/bulk-update-status"):
         ids = EXEC[path]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["ids"]
-        assert "maxItems" not in ids and "uniqueItems" not in ids
+        assert "maxItems" not in ids
+        assert "uniqueItems" not in ids
 
 
 def test_export_budgets_are_numeric_and_413_is_closed() -> None:
@@ -239,7 +243,8 @@ def test_export_budgets_are_numeric_and_413_is_closed() -> None:
 
 def test_trend_is_bounded_and_returns_the_reference() -> None:
     trend = load_json(SCHEMAS / "projects" / "project_scoped_experiment_trend_schema.json")
-    assert "experiment_id" not in trend["properties"] and "experiment_ref" in trend["required"]
+    assert "experiment_id" not in trend["properties"]
+    assert "experiment_ref" in trend["required"]
     assert trend["properties"]["daily_runs"]["maxItems"] == 366
     assert trend["properties"]["measure_summary"]["maxProperties"] == 200
     assert trend["x-max-response-bytes"] == 1048576
@@ -249,7 +254,8 @@ def test_trend_is_bounded_and_returns_the_reference() -> None:
                                         "ExperimentReadForbiddenError", "ExperimentReadNotFoundError"])
 def test_errors_are_closed_and_never_echo_inputs(definition: str) -> None:
     spec = load_json(READS)["definitions"][definition]
-    assert spec["additionalProperties"] is False and "details" not in spec["properties"]
+    assert spec["additionalProperties"] is False
+    assert "details" not in spec["properties"]
     assert all("enum" in spec["properties"][k] or "const" in spec["properties"][k] for k in ("message", "error", "error_code"))
     msg = spec["properties"]["message"]["enum"][0]
     code = spec["properties"]["error_code"]["enum"][0]
@@ -295,7 +301,8 @@ def test_canonical_reads_expose_no_raw_run_or_agent_ids() -> None:
     for name in ("ExperimentRead", "ExperimentGraphSummary", "AgentExperimentItem"):
         props = defs[name].get("properties", {})
         assert not (_RAW_ID_KEYS & set(props)), name
-        assert "agent" not in props and "experiment_run" not in props, name
+        assert "agent" not in props, name
+        assert "experiment_run" not in props, name
     trend = load_json(SCHEMAS / "projects" / "project_scoped_experiment_trend_schema.json")
     assert not (_RAW_ID_KEYS & _keys(trend["properties"]))
     assert "agent_id" not in defs["ExperimentRead"]["required"]

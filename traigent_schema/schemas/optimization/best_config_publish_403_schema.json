@@ -1,20 +1,34 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/best_config_publish_403_schema.json",
-  "title": "BestConfigProtectedPublish403",
-  "description": "The 403 body of a PROTECTED POST /api/v1/best-configs: the closed refusal envelope (best_config_head_refusal_schema.json) restricted to `forbidden` (the permission or project-role decorators denied the caller, fixed text) or `head_write_unauthorized` (the caller lacks agent WRITE authorization). A malformed protected body matches nothing. The execution endpoint combines this with the unchanged legacy 403 body in two DISJOINT branches (the legacy branch must not carry either closed code).",
+  "title": "BestConfigPublish403",
+  "description": "The 403 response for best-config publication uses the shared permission error envelope.",
   "allOf": [
     {
-      "$ref": "./best_config_head_refusal_schema.json"
+      "$ref": "../error_envelope_schema.json"
     },
     {
-      "properties": {
-        "error_code": {
-          "x-content-class": "closed_enum",
-          "enum": [
-            "forbidden",
-            "head_write_unauthorized"
-          ]
+      "required": [
+        "error_code"
+      ],
+      "not": {
+        "properties": {
+          "error_code": {
+            "x-content-class": "closed_enum",
+            "enum": [
+              "reference_not_found",
+              "head_capture_invalid",
+              "head_environment_mismatch",
+              "head_agent_mismatch",
+              "head_generation_stale",
+              "head_write_unauthorized",
+              "head_body_invalid",
+              "head_publish_conflict",
+              "unauthenticated",
+              "forbidden",
+              "internal_error"
+            ]
+          }
         }
       }
     }

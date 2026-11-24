@@ -1,24 +1,82 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/optimization/best_config_publish_409_schema.json",
-  "title": "BestConfigProtectedPublish409",
-  "description": "The 409 body of a PROTECTED POST /api/v1/best-configs: the closed refusal envelope (best_config_head_refusal_schema.json) restricted to head_environment_mismatch, head_agent_mismatch, head_generation_stale and head_publish_conflict. A malformed protected body (right code, wrong text, extra member) matches nothing. The execution endpoint combines this with the unchanged legacy 409 bodies in two DISJOINT branches (the legacy branch must not carry one of these codes).",
-  "allOf": [
+  "title": "BestConfigPublish409",
+  "description": "The 409 response for best-config publication is a release refusal, a write conflict, or an idempotency conflict.",
+  "oneOf": [
     {
-      "$ref": "./best_config_head_refusal_schema.json"
-    },
-    {
-      "properties": {
-        "error_code": {
-          "x-content-class": "closed_enum",
-          "enum": [
-            "head_environment_mismatch",
-            "head_agent_mismatch",
-            "head_generation_stale",
-            "head_publish_conflict"
+      "allOf": [
+        {
+          "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+        },
+        {
+          "properties": {
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "acceptance_required"
+            }
+          },
+          "required": [
+            "error_code"
           ]
         }
-      }
+      ]
+    },
+    {
+      "x-content-class": "closed_enum",
+      "enum": [
+        {
+          "success": false,
+          "error": "If-Match cannot be used for a new best config",
+          "error_code": "BEST_CONFIG_CONFLICT",
+          "message": "If-Match cannot be used for a new best config"
+        },
+        {
+          "success": false,
+          "error": "If-Match is required to update an existing best config",
+          "error_code": "BEST_CONFIG_CONFLICT",
+          "message": "If-Match is required to update an existing best config"
+        },
+        {
+          "success": false,
+          "error": "If-Match does not match the current ETag",
+          "error_code": "BEST_CONFIG_CONFLICT",
+          "message": "If-Match does not match the current ETag"
+        },
+        {
+          "success": false,
+          "error": "config_id/environment already belongs to a different function_ref",
+          "error_code": "BEST_CONFIG_CONFLICT",
+          "message": "config_id/environment already belongs to a different function_ref"
+        },
+        {
+          "success": false,
+          "error": "best config publish conflicted",
+          "error_code": "BEST_CONFIG_CONFLICT",
+          "message": "best config publish conflicted"
+        }
+      ]
+    },
+    {
+      "x-content-class": "closed_enum",
+      "enum": [
+        {
+          "error": "Idempotency conflict",
+          "message": "Idempotency-Key already used with different payload"
+        },
+        {
+          "error": "Idempotency conflict",
+          "message": "Idempotency record is in an unknown state"
+        },
+        {
+          "error": "Idempotency conflict",
+          "message": "Idempotency key already used"
+        },
+        {
+          "error": "Request in progress",
+          "message": "A request with this Idempotency-Key is currently processing"
+        }
+      ]
     }
   ]
 }

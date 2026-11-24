@@ -155,75 +155,73 @@ never echoes the request): `client_upgrade_required` (legacy client after tenant
 The error envelope's own `error_code` is still a free string (`legacy_content`); these three are the first
 members of its closed vocabulary.
 
-## Ref-addressed agent head and protected publish (plan v2.1, phase 0b, additive)
+## Ref-addressed agent head and best-config publish
 
 | Item | Contract |
 |---|---|
 | `GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body is declared inline there = `{success, data: {agent_id, environment, generation (integer >= 0), best_config_id, best_config_version, promoted_by_run_id, updated_at}}`; `generation` 0 means never promoted (the by-ref form and its closed `exists` response schema were removed: the backend never served them) |
-| `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
+| `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 lowercase hex>` |
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
-| Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), `head_body_invalid` (400), `head_publish_conflict` (409), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
 
-**Applicability (decision table in the `POST /api/v1/best-configs` description).** Everything on this route applies only while the content-less identity layer is enabled (a server
-deployment condition; the flag defaults OFF). With the layer disabled every response on this route is the legacy
-one, whatever the headers. With the layer enabled, a publish is protected if and
-only if it carries `X-Traigent-Agent-Ref` or belongs to a session negotiated with `content_less_v1`
-(`content_less_v2` once it exists). Agent-Ref without a valid generation, or together with
-`X-Traigent-Agent-Id`, is `head_capture_invalid`; the legacy `X-Traigent-Agent-Id` promotion outside a content-less
-session, and a publish with no capture headers outside one, are the legacy path and unchanged.
+The head read returns 400 for a malformed path ref or `environment` and 404 for an
+unknown or foreign ref.
 
-**Protected rule.** The Backend resolves agent, run and environment from the stored session binding (never the
-body), keeps agent WRITE authorization, and on any refusal writes no publication row and moves no head. Publish
-and promote are one transaction; the head moves g -> g+1 (first promotion 0 -> 1) atomically with the
-publication; of several promotions naming the same expected generation exactly one wins.
+**Publish never moves the head.** When `X-Traigent-Agent-Id`, `X-Traigent-Agent-Ref`
+and `X-Traigent-Expected-Head-Generation` are all absent, this is an ordinary publish.
+For a new configuration, omit `If-Match`. For a changed existing configuration, send the
+current ETag as `If-Match`. An identical spec returns the current version even with a stale
+`If-Match`.
 
-**Stale means the result is stale.** A `head_generation_stale` refusal is never cured by refreshing the
-generation and resubmitting the same result. The SDK never auto-retries it: it starts a new run (or re-evaluates
-against the new head) and publishes with that run's own captured generation.
+The presence of any of the three head headers, including an empty value, requests a head
+move. Send exactly one of `X-Traigent-Agent-Id` or `X-Traigent-Agent-Ref` together with
+`X-Traigent-Expected-Head-Generation` for a syntactically valid head-move request.
+The agent ID must be non-empty and at most 512 characters after trimming. The agent ref must
+be `agentref_` followed by 32 lowercase hex digits. The expected generation must be 1 to 16
+decimal digits with a value from 0 through 9007199254740991.
 
-**Canonical session id.** One parse, used identically to classify the publish and to store it. The session id is
-`spec.provenance.source_session_id` (a string; the provenance object is closed, so there is no other session field, and
-JSON null is not a valid value). Surrounding whitespace is trimmed once; an omitted or empty-after-trim value means the
-publish names no session id (a manual publication). An id that is not a string, is longer than 128 characters after the
-trim, or holds a whitespace or control character inside, or changes under Unicode NFC is malformed (an identifier is never
-silently rewritten): it is refused and never treated as a manual publication, 400 `head_capture_invalid` on the protected
-path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed `error_code`); nothing is written
-and no head moves. Only the trimmed value is stored, so a padded genuine session id is that session. Division of labour: the
-request schema bounds source_session_id to a string of at most 512 characters; the trim, the 128-character limit, the
-whitespace/control check and NFC stability are applied by the Backend to the raw value, identically for classification and
-storage.
+Before the route, malformed JSON and some unsafe strings can be refused with 400. The
+idempotency check runs before the separate unsafe-JSON-string guard that can return 422, and
+before the route checks head headers. If a reused Idempotency-Key has a different request
+fingerprint, including added, changed or removed head headers, it can return 409 before
+those later checks.
 
-**Protected publish never returns free text.** Body validation failures are `head_body_invalid` (no key or value of the request
-appears), the ordinary publish conflicts (If-Match on a new configuration, a changed configuration without a matching
-If-Match, function_ref conflict) are `head_publish_conflict`, other server failures `internal_error`. The 409 response
-(`optimization/best_config_publish_409_schema.json`) has two disjoint branches: the closed protected refusals and the
-unchanged legacy bodies (which must not carry a protected closed code). The 500 response
-(`optimization/best_config_publish_500_schema.json`) is built the same way: the closed `internal_error` refusal, or the
-unchanged legacy generic body (`BEST_CONFIG_ERROR`), which must not carry `internal_error`. The 401 and 403 responses (`optimization/best_config_publish_401_schema.json`, `..._403_schema.json`) are built the same way for a request that carries `X-Traigent-Agent-Ref` while the layer is enabled: the authentication, permission and project-role layers answer with the closed `unauthenticated` / `forbidden` envelope (and the handler's `head_write_unauthorized`), never the generic body; the legacy branch must not carry any closed refusal code.
+Authentication, `experiment.write` permission, editor role and an explicit tenant and
+project write scope gate the route. In the route, incomplete, conflicting or malformed head
+headers return 400 `AGENT_HEAD_VALIDATION_ERROR` before agent authorization. The body has
+`success: false` and the same fixed validation text in `error` and `message`. An empty JSON
+body that reaches the head-move handler returns 400 `BEST_CONFIG_VALIDATION_ERROR` after
+header validation and before the agent decision.
 
-**Refusal precedence.** One order; the first stage that applies answers: (1) not authenticated, 401
-`unauthenticated`; (2) permissions or project role denied, 403 `forbidden`; (3) malformed or incomplete capture, 400
-`head_capture_invalid` (decision-table rows 1-3, judged from the request headers alone, before any session is read; a malformed provenance session id, see **Canonical session id**, is refused here the same way once the headers pass); (4)
-**session binding resolution**, only when `spec.provenance` names a session id: the caller may not use the session 403
-`head_write_unauthorized`, including a classic session positively read but owned by another caller, never 500 (a classic session is used by its owner only: for a user the central owner policy decides; for an API key that carries no user id in the default tenant the owner is the server-stamped key that created the session, so the same key reads it and publishes on the legacy path and a different key is refused), the session is deleted, not registered or outside the caller's scope 404 `reference_not_found`,
-the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed
-`content_less` block) 500 `internal_error`; (5) the resolved binding against the request (decision-table rows 4 and 6), 400
-`head_capture_invalid`; (6) a well-formed but unknown or foreign ref, 404 `reference_not_found` (nothing echoed); (7) agent
-WRITE denied, 403 `head_write_unauthorized`; (8) session agreement, 409 `head_agent_mismatch`; (9) 409
-`head_environment_mismatch`; (10) the body, 400 `head_body_invalid`; (11) the head compare, 409 `head_generation_stale`; (12)
-the ordinary conflict, 409 `head_publish_conflict`. Stages 1 and 2 are the closed envelopes of the publish's authentication
-layers and are selected by a header predicate alone, evaluated before any session is resolved: the request is protected for
-that stage iff the layer is enabled and it carries `X-Traigent-Agent-Ref` (layer disabled: every response is legacy).
-Everything after authentication follows the session-based decision table of the publish operation. Decision-table row 4
-(Agent-Ref without a resolvable content-less binding) is stage 5: it applies only when stage 4 resolved a binding that is not
-content-less, or the publish names no session; a session that cannot be positively read is answered by stage 4, never by
-row 4. **Legacy allow-list:** the legacy path is taken only when (a) the publish names no session id, or (b) the named
-session was positively read (a lookup that succeeded and returned a well-formed record) and is not content-less (a classic
-session, or a typed session whose stored shape is legacy), or the named id is outside the typed namespace and positively
-absent (every lookup succeeded and found nothing); every other outcome is refused at stage 4 and writes nothing. A
-content_less_v1-session publish without the header therefore gets the generic 401/403 on an authentication or permission
-failure (accepted: it is refused 400 `head_capture_invalid` once authenticated, so it never succeeds without the capture).
-On the read route a malformed path ref or `environment` is 400, an unknown or foreign ref 404.
+An unknown agent, an agent outside the request's tenant and project, an opaque reference
+that cannot be resolved in that scope, or a caller without agent write access receives the
+same 404 `reference_not_found`. Where per-owner access applies, an agent whose creator is
+missing or differs from the caller also receives that 404. Per-owner access applies to
+non-platform-admin callers in the shared default tenant on an unpinned deployment. In an
+explicitly scoped collaboration project, an editor with agent write access can receive 409
+`acceptance_required` for an agent created by another member.
+
+The masked 404 has the following body.
+
+```json
+{"success":false,"error":"reference_not_found","error_code":"reference_not_found","message":"Reference not found."}
+```
+
+An agent the caller is authorized to write returns 409 `acceptance_required` with the
+following body.
+
+```json
+{"success":false,"error":"release_precondition_refused","error_code":"acceptance_required","message":"A release acceptance is required."}
+```
+
+The agent decision precedes configuration validation. Neither refusal publishes a configuration
+or version or changes the head or head history. Both refusals set `Cache-Control: private, no-store`
+and `Vary: Authorization`, and omit `ETag` and `X-Traigent-Head-Generation`.
+The cross-origin response can also vary by `Origin`.
+A retry of a refused request with the same `Idempotency-Key` may return an idempotency 409
+instead of the refusal. It never returns a success.
+
+To move an agent's head, publish without the head headers, record a person's release
+acceptance with `best_configs.create_release_acceptance`, then call `best_configs.release_agent_head`.
 
 ## Token issuance (plan v2.1, phase 1b-2a, additive, flag-gated)
 

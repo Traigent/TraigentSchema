@@ -42,7 +42,7 @@
             "name": "If-Match",
             "in": "header",
             "required": false,
-            "description": "Required when replacing an existing best config. Use the current ETag returned by GET or publish.",
+            "description": "For ordinary publish, use the current ETag when changing an existing configuration. Omit for a new configuration. The same spec returns the current version even with a stale If-Match.",
             "schema": {
               "x-content-class": "auth_header",
               "type": "string"
@@ -52,7 +52,7 @@
             "name": "X-Traigent-Agent-Ref",
             "in": "header",
             "required": false,
-            "description": "Opaque ref of the agent being promoted (the `agent_ref` of the session-create 201). Its presence selects the PROTECTED publish path; sent together with X-Traigent-Expected-Head-Generation. Never a raw agent id.",
+            "description": "Opaque agent reference for a head-move request. Pair with X-Traigent-Expected-Head-Generation and omit X-Traigent-Agent-Id. To publish a configuration, omit all three head headers.",
             "schema": {
               "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
@@ -61,7 +61,7 @@
             "name": "X-Traigent-Expected-Head-Generation",
             "in": "header",
             "required": false,
-            "description": "The head generation the run captured when it STARTED (the `generation` of GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head). Compare-and-set precondition of the promotion of that run's own result; sent with X-Traigent-Agent-Ref (protected path) or with X-Traigent-Agent-Id (legacy promotion). Never refreshed to cure a stale refusal.",
+            "description": "Expected generation in a head-move request, sent with exactly one of X-Traigent-Agent-Id or X-Traigent-Agent-Ref. Publish refuses these requests before comparing a head generation.",
             "schema": {
               "x-content-class": "number",
               "type": "integer",
@@ -88,152 +88,422 @@
             "description": "Best config published successfully"
           },
           "400": {
-            "description": "Protected path: head_capture_invalid or head_body_invalid (closed refusal envelope). Legacy path: its own validation errors, unchanged.",
+            "description": "Invalid head headers return AGENT_HEAD_VALIDATION_ERROR with success false and the same fixed validation text in error and message. Ordinary publish validation failures and empty JSON on a head-move request return BEST_CONFIG_VALIDATION_ERROR with the same validation text in error and message. Request guards can return a provider credential problem document, an unsupported content type error, or an idempotency request error before the route.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "x-content-class": "closed_enum",
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "$ref": "../error_envelope_schema.json#/properties/error"
+                    },
+                    "error_code": {
+                      "$ref": "../error_envelope_schema.json#/properties/error_code"
+                    },
+                    "message": {
+                      "$ref": "../error_envelope_schema.json#/properties/message"
+                    },
+                    "allowed_content_types": {
+                      "x-content-class": "closed_enum",
+                      "const": [
+                        "application/json",
+                        "application/x-protobuf",
+                        "application/x-www-form-urlencoded",
+                        "multipart/form-data",
+                        "text/plain"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "oneOf": [
+                    {
+                      "x-content-class": "closed_enum",
+                      "enum": [
+                        {
+                          "success": false,
+                          "error": "X-Traigent-Agent-Id and X-Traigent-Agent-Ref must not be sent together",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "X-Traigent-Agent-Id and X-Traigent-Agent-Ref must not be sent together"
+                        },
+                        {
+                          "success": false,
+                          "error": "X-Traigent-Expected-Head-Generation and one of X-Traigent-Agent-Id or X-Traigent-Agent-Ref must be sent together",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "X-Traigent-Expected-Head-Generation and one of X-Traigent-Agent-Id or X-Traigent-Agent-Ref must be sent together"
+                        },
+                        {
+                          "success": false,
+                          "error": "X-Traigent-Expected-Head-Generation must be a non-negative integer",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "X-Traigent-Expected-Head-Generation must be a non-negative integer"
+                        },
+                        {
+                          "success": false,
+                          "error": "X-Traigent-Expected-Head-Generation must be at most 9007199254740991",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "X-Traigent-Expected-Head-Generation must be at most 9007199254740991"
+                        },
+                        {
+                          "success": false,
+                          "error": "agent id must be a non-empty string",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "agent id must be a non-empty string"
+                        },
+                        {
+                          "success": false,
+                          "error": "agent id is too long",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "agent id is too long"
+                        },
+                        {
+                          "success": false,
+                          "error": "X-Traigent-Agent-Ref is malformed",
+                          "error_code": "AGENT_HEAD_VALIDATION_ERROR",
+                          "message": "X-Traigent-Agent-Ref is malformed"
+                        }
+                      ]
+                    },
+                    {
+                      "description": "For BEST_CONFIG_VALIDATION_ERROR, the service sets error and message to the same text.",
+                      "allOf": [
+                        {
+                          "$ref": "../error_envelope_schema.json"
+                        },
+                        {
+                          "properties": {
+                            "error_code": {
+                              "x-content-class": "closed_enum",
+                              "const": "BEST_CONFIG_VALIDATION_ERROR"
+                            }
+                          },
+                          "required": [
+                            "error_code"
+                          ],
+                          "not": {
+                            "required": [
+                              "details"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "x-content-class": "closed_enum",
+                      "enum": [
+                        {
+                          "error": "Invalid Idempotency-Key",
+                          "message": "Key too long"
+                        },
+                        {
+                          "error": "Invalid idempotent request",
+                          "message": "Unable to fingerprint request body"
+                        },
+                        {
+                          "error": "Bad Request",
+                          "message": "Invalid request format or content type",
+                          "allowed_content_types": [
+                            "application/json",
+                            "application/x-protobuf",
+                            "application/x-www-form-urlencoded",
+                            "multipart/form-data",
+                            "text/plain"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "emptyHeadMoveBody": {
+                    "value": {
+                      "success": false,
+                      "error": "request body must contain JSON",
+                      "error_code": "BEST_CONFIG_VALIDATION_ERROR",
+                      "message": "request body must contain JSON"
+                    }
+                  }
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "const": {
+                    "type": "urn:traigent:problem:provider_credential_not_accepted",
+                    "title": "Provider credentials are not accepted",
+                    "status": 400,
+                    "code": "provider_credential_not_accepted",
+                    "detail": "Provider credentials are not accepted by the API. Configure them in the deployment environment or secret storage.",
+                    "success": false,
+                    "error": "provider_credential_not_accepted",
+                    "error_code": "provider_credential_not_accepted",
+                    "message": "Provider credentials are not accepted by the API. Configure them in the deployment environment or secret storage."
+                  }
                 }
               }
             }
           },
           "401": {
-            "description": "Protected path (the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref; these two conditions alone select the envelope, before any session is resolved): unauthenticated (closed refusal envelope, fixed text, whatever the authentication or permission layer would otherwise say). Legacy path (every request while the layer is disabled, whatever the headers, and every request without X-Traigent-Agent-Ref): its own generic error body, unchanged. The branches are disjoint, discriminate on the closed `error_code`.",
+            "description": "Authentication required or authentication failed. The shared authentication guards return their usual error responses regardless of the publish headers.",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "../optimization/best_config_publish_401_schema.json"
-                    },
-                    {
-                      "type": "object",
-                      "x-content-class": "legacy_content",
-                      "x-content-key-class": "legacy_content",
-                      "x-content-note": "INV B1 (LEAK): LEGACY-path 401 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
-                      "not": {
-                        "required": [
-                          "error_code"
-                        ],
-                        "properties": {
-                          "error_code": {
-                            "x-content-class": "closed_enum",
-                            "enum": [
-                              "reference_not_found",
-                              "head_capture_invalid",
-                              "head_environment_mismatch",
-                              "head_agent_mismatch",
-                              "head_generation_stale",
-                              "head_write_unauthorized",
-                              "head_body_invalid",
-                              "head_publish_conflict",
-                              "unauthenticated",
-                              "forbidden",
-                              "internal_error"
-                            ]
-                          }
-                        }
-                      },
-                      "description": "Legacy-path 401 body, unchanged. The `not` keeps this branch disjoint from the protected closed refusal."
-                    }
-                  ]
+                  "$ref": "../optimization/best_config_publish_401_schema.json"
                 }
               }
             }
           },
           "403": {
-            "description": "Protected path (the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref; these two conditions alone select the envelope, before any session is resolved): forbidden (permissions or project role) or head_write_unauthorized (no agent WRITE) (closed refusal envelope, fixed text, whatever the authentication or permission layer would otherwise say). AUTHENTICATION AND ROLE REFUSALS (stage 2, selected by the header predicate alone): with X-Traigent-Agent-Ref while the layer is enabled the closed `forbidden` envelope; on the legacy path (every request while the layer is disabled, whatever the headers, and a role or permission refusal of a request without X-Traigent-Agent-Ref) the generic permission body, unchanged. SESSION-OWNERSHIP REFUSALS (stage 4 or 7, after authentication): the closed head_write_unauthorized envelope, with or without X-Traigent-Agent-Ref (for example an authenticated editor publishing another user's classic session in the default tenant), never the legacy generic body. The branches are disjoint, discriminate on the closed `error_code`.",
+            "description": "Permission, project role or scope denied by the shared guards. Agent-specific denials on a syntactically valid head-move request use the masked 404.",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "../optimization/best_config_publish_403_schema.json"
-                    },
-                    {
-                      "type": "object",
-                      "x-content-class": "legacy_content",
-                      "x-content-key-class": "legacy_content",
-                      "x-content-note": "INV B1 (LEAK): LEGACY-path 403 body, unchanged (generic error body, e.g. AUTHENTICATION_REQUIRED); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
-                      "not": {
-                        "required": [
-                          "error_code"
-                        ],
-                        "properties": {
-                          "error_code": {
-                            "x-content-class": "closed_enum",
-                            "enum": [
-                              "reference_not_found",
-                              "head_capture_invalid",
-                              "head_environment_mismatch",
-                              "head_agent_mismatch",
-                              "head_generation_stale",
-                              "head_write_unauthorized",
-                              "head_body_invalid",
-                              "head_publish_conflict",
-                              "unauthenticated",
-                              "forbidden",
-                              "internal_error"
-                            ]
-                          }
-                        }
-                      },
-                      "description": "Legacy-path 403 body, unchanged. The `not` keeps this branch disjoint from the protected closed refusal."
-                    }
-                  ]
+                  "$ref": "../optimization/best_config_publish_403_schema.json"
                 }
               }
             }
           },
           "404": {
-            "description": "Protected path: reference_not_found (closed refusal envelope).",
+            "description": "An inaccessible or out-of-scope agent on a head-move request returns the masked ReleaseRefusal with reference_not_found and omits ETag and X-Traigent-Head-Generation. The ordinary publish can also return BEST_CONFIG_NOT_FOUND, and scope checks can independently return 404.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../optimization/best_config_head_refusal_schema.json"
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "x-content-class": "closed_enum",
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "error": {
+                      "$ref": "../error_envelope_schema.json#/properties/error"
+                    },
+                    "error_code": {
+                      "$ref": "../error_envelope_schema.json#/properties/error_code"
+                    },
+                    "message": {
+                      "$ref": "../error_envelope_schema.json#/properties/message"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "error",
+                    "error_code",
+                    "message"
+                  ],
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "../optimization/release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                        },
+                        {
+                          "properties": {
+                            "error_code": {
+                              "x-content-class": "closed_enum",
+                              "const": "reference_not_found"
+                            }
+                          },
+                          "required": [
+                            "error_code"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "x-content-class": "closed_enum",
+                      "enum": [
+                        {
+                          "success": false,
+                          "error": "best config not found",
+                          "error_code": "BEST_CONFIG_NOT_FOUND",
+                          "message": "best config not found"
+                        },
+                        {
+                          "success": false,
+                          "error": "PROJECT_NOT_FOUND",
+                          "error_code": "PROJECT_NOT_FOUND",
+                          "message": "project not found"
+                        },
+                        {
+                          "success": false,
+                          "error": "TENANT_NOT_FOUND",
+                          "error_code": "TENANT_NOT_FOUND",
+                          "message": "requested tenant does not exist"
+                        },
+                        {
+                          "success": false,
+                          "error": "TENANT_NOT_FOUND",
+                          "error_code": "TENANT_NOT_FOUND",
+                          "message": "configured deployment tenant does not exist"
+                        },
+                        {
+                          "success": false,
+                          "error": "write scope project not found for tenant",
+                          "error_code": "PROJECT_CONTEXT_REQUIRED",
+                          "message": "write scope project not found for tenant"
+                        },
+                        {
+                          "success": false,
+                          "error": "RESOURCE_NOT_FOUND",
+                          "error_code": "RESOURCE_NOT_FOUND",
+                          "message": "Resource not found"
+                        },
+                        {
+                          "success": false,
+                          "error": "TENANT_NOT_FOUND",
+                          "error_code": "TENANT_NOT_FOUND",
+                          "message": "Tenant context is invalid for this request"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Sent on the head-move refusal.",
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "const": "private, no-store",
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Head-move refusals vary by Authorization. CORS can append Origin or set Vary to Origin on other responses.",
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "type": "string",
+                  "enum": [
+                    "Authorization",
+                    "Authorization, Origin",
+                    "Origin"
+                  ]
                 }
               }
             }
           },
           "409": {
-            "description": "Publish precondition failed or function_ref conflict (LEGACY path, unchanged), or a PROTECTED-path refusal: head_environment_mismatch, head_agent_mismatch, head_generation_stale or head_publish_conflict (closed envelope; the branches are disjoint, discriminate on the closed `error_code`).",
+            "description": "Head-move request for an authorized agent returns ReleaseRefusal with acceptance_required and omits ETag and X-Traigent-Head-Generation. Ordinary publish can return BEST_CONFIG_CONFLICT for an If-Match or function_ref conflict or a concurrent write conflict. A keyed request can also get an idempotency conflict or an in-progress response. A fingerprint conflict can occur before route-level head-header validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../optimization/best_config_publish_409_schema.json"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Sent on the head-move refusal.",
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "const": "private, no-store",
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Head-move refusals vary by Authorization. CORS can append Origin or set Vary to Origin on other responses.",
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "type": "string",
+                  "enum": [
+                    "Authorization",
+                    "Authorization, Origin",
+                    "Origin"
+                  ]
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds before retrying an in-progress request with the same Idempotency-Key, when a lease duration is configured.",
+                "schema": {
+                  "x-content-class": "number",
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request exceeds the configured body limit or has an invalid declared length.",
             "content": {
               "application/json": {
                 "schema": {
                   "oneOf": [
                     {
-                      "$ref": "../optimization/best_config_publish_409_schema.json"
+                      "x-content-class": "closed_enum",
+                      "const": {
+                        "error": "Request body too large",
+                        "code": "REQUEST_BODY_TOO_LARGE"
+                      }
                     },
                     {
                       "type": "object",
-                      "x-content-class": "legacy_content",
-                      "x-content-key-class": "legacy_content",
-                      "x-content-note": "INV B1 (LEAK): LEGACY-path 409 bodies, unchanged (BEST_CONFIG_CONFLICT, STALE_HEAD_GENERATION and other legacy codes); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry a protected closed code.",
-                      "not": {
-                        "required": [
-                          "error_code"
-                        ],
-                        "properties": {
-                          "error_code": {
-                            "x-content-class": "closed_enum",
-                            "enum": [
-                              "head_environment_mismatch",
-                              "head_agent_mismatch",
-                              "head_generation_stale",
-                              "head_publish_conflict"
-                            ]
-                          }
+                      "additionalProperties": false,
+                      "required": [
+                        "error",
+                        "message",
+                        "max_size"
+                      ],
+                      "properties": {
+                        "error": {
+                          "x-content-class": "closed_enum",
+                          "const": "Request Too Large"
+                        },
+                        "message": {
+                          "description": "Fixed phrase with the configured maximum request size in bytes.",
+                          "allOf": [
+                            {
+                              "$ref": "../error_envelope_schema.json#/properties/message"
+                            },
+                            {
+                              "not": {
+                                "pattern": "^(?!Request size exceeds maximum allowed size of [0-9]+ bytes(?![\\s\\S]))"
+                              }
+                            }
+                          ]
+                        },
+                        "max_size": {
+                          "x-content-class": "number",
+                          "type": "integer",
+                          "minimum": 1
                         }
-                      },
-                      "description": "Legacy-path 409 bodies, unchanged: publish precondition failures, function_ref conflicts and the STALE_HEAD_GENERATION body of the X-Traigent-Agent-Id promotion. The `not` keeps this branch disjoint from the protected closed refusals."
+                      }
+                    },
+                    {
+                      "x-content-class": "closed_enum",
+                      "enum": [
+                        {
+                          "success": false,
+                          "error": "Request Entity Too Large",
+                          "code": "REQUEST_ENTITY_TOO_LARGE"
+                        },
+                        {
+                          "success": false,
+                          "error": "Content Too Large",
+                          "code": "REQUEST_ENTITY_TOO_LARGE"
+                        }
+                      ]
                     }
                   ]
                 }
               }
             }
           },
+          "422": {
+            "description": "A request guard rejected an unsafe JSON string, or the request scope could not be resolved."
+          },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -243,41 +513,106 @@
             }
           },
           "500": {
-"description": "Protected path: internal_error (closed refusal envelope, fixed text). Legacy path: its own generic error body (BEST_CONFIG_ERROR, \"Internal server error\"), unchanged. The branches are disjoint, discriminate on the closed `error_code`.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "../optimization/best_config_publish_500_schema.json"
-                  },
-                  {
-                    "type": "object",
-                    "x-content-class": "legacy_content",
-                    "x-content-key-class": "legacy_content",
-                    "x-content-note": "INV B1 (LEAK): LEGACY-path 500 body, unchanged (generic server-error body, e.g. BEST_CONFIG_ERROR); free text by design until the legacy facade is retired. Disjoint from the protected branch: it must not carry the protected closed code.",
-                    "not": {
-                      "required": [
-                        "error_code"
-                      ],
-                      "properties": {
-                        "error_code": {
-                          "x-content-class": "closed_enum",
-                          "enum": [
-                            "internal_error"
-                          ]
-                        }
-                      }
+            "description": "An unexpected publish failure returns BEST_CONFIG_ERROR. Shared request guards, response hardening, transaction commit and the global error handler can also return 500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../optimization/best_config_publish_500_schema.json"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Best-config publishing is unavailable when the integration feature is disabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "enum": [
+                    {
+                      "success": false,
+                      "error": "Traigent Integration feature not implemented",
+                      "message": "The 'traigent_integration' feature is disabled in local mode",
+                      "error_code": "FEATURE_DISABLED",
+                      "feature": "traigent_integration",
+                      "upgrade_message": "This feature is available in our cloud platform. Contact us to upgrade.",
+                      "local_mode": true
                     },
-                    "description": "Legacy-path 500 body, unchanged. The `not` keeps this branch disjoint from the protected closed internal_error refusal."
-                  }
-                ]
+                    {
+                      "success": false,
+                      "error": "Traigent Integration feature not implemented",
+                      "message": "The 'traigent_integration' feature is disabled in local mode",
+                      "error_code": "FEATURE_DISABLED",
+                      "feature": "traigent_integration",
+                      "upgrade_message": "This feature is available in our cloud platform. Contact us to upgrade.",
+                      "local_mode": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The publish audit write failed, or a shared request service is temporarily unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "x-content-class": "closed_enum",
+                  "enum": [
+                    {
+                      "success": false,
+                      "error": "Internal server error",
+                      "error_code": "BEST_CONFIG_AUDIT_ERROR",
+                      "message": "Internal server error"
+                    },
+                    {
+                      "success": false,
+                      "error": "Internal server error",
+                      "error_code": "AUTH_BACKEND_UNAVAILABLE",
+                      "message": "Internal server error"
+                    },
+                    {
+                      "success": false,
+                      "error": "Internal server error",
+                      "error_code": "RATE_LIMIT_UNAVAILABLE",
+                      "message": "Internal server error"
+                    },
+                    {
+                      "success": false,
+                      "error": "Authentication temporarily unavailable",
+                      "error_code": "AUTH_BACKEND_UNAVAILABLE",
+                      "message": "Authentication is temporarily unavailable"
+                    },
+                    {
+                      "success": false,
+                      "error": "AUTH_BACKEND_UNAVAILABLE",
+                      "error_code": "AUTH_BACKEND_UNAVAILABLE",
+                      "message": "Authentication temporarily unavailable"
+                    },
+                    {
+                      "error": "Idempotency unavailable",
+                      "message": "Stored idempotent response is unreadable"
+                    },
+                    {
+                      "error": "Idempotency unavailable",
+                      "message": "Unable to reserve idempotency lease for billable request"
+                    },
+                    {
+                      "error": "Idempotency unavailable",
+                      "message": "Unable to finalize idempotency record"
+                    },
+                    {
+                      "success": false,
+                      "error": "Internal server error",
+                      "code": "INTERNAL_ERROR"
+                    }
+                  ]
+                }
               }
             }
           }
-          }
         },
-        "description": "PROTECTED PATH (content-less plan v2.1, phase 0b). LAYER CONDITION: everything on this route described below applies only while the content-less identity layer is enabled (a server deployment condition; the flag defaults OFF, and a client cannot observe it before authentication). With the layer disabled EVERY response on this route is the legacy one, whatever the headers: no closed refusal envelope, no head_capture_invalid, and X-Traigent-Agent-Ref is ignored. APPLICABILITY (layer enabled): a publish is PROTECTED if and only if the request carries X-Traigent-Agent-Ref, or the publish belongs to a session negotiated with content_less_v1 (or content_less_v2 once negotiated); every other publish is the LEGACY path and behaves exactly as before, but ONLY through this ALLOW-LIST: the legacy path is taken only when (a) spec.provenance names no session id, or (b) the named session was positively read (a lookup that succeeded and returned a well-formed record) and is not content-less (a classic session, or a typed session whose stored shape is legacy), or the named id is outside the typed namespace and positively absent (every lookup succeeded and found nothing); every other outcome is refused at stage (4) of the ORDER OF REFUSALS below. AUTHENTICATION STAGE (before the decision table): the closed 401 `unauthenticated` / 403 `forbidden` envelopes of the authentication, permission and project-role layers are selected by a HEADER PREDICATE ALONE, evaluated before any session is resolved: the request is protected for this stage if and only if the content-less identity layer is enabled and the request carries X-Traigent-Agent-Ref (any value). Expected-Head-Generation and Agent-Id play no part in it, so decision-table row [7] (no Agent-Ref, no content-less session: LEGACY, unchanged) holds for this stage too and a request has exactly one answer: a request without X-Traigent-Agent-Ref gets the legacy generic 401/403 bodies; the session-based decision table below governs everything AFTER authentication. KNOWN, ACCEPTED GAP: a publish in a content_less_v1 session that carries no X-Traigent-Agent-Ref (decision-table row [6]) receives the generic 401/403 when it fails authentication or permission, because the session cannot be read before authentication; once authenticated it is refused 400 head_capture_invalid, so it never succeeds without the capture; a publish whose provenance names a session the Backend cannot positively read is never legacy: it writes nothing and moves no head, and stage (4) of the ORDER OF REFUSALS below answers it; an unauthenticated caller learns nothing about the session either way. DECISION TABLE (first matching row; 'session' = the session named in spec.provenance, content-less when its stored shape is content-less): [1] Agent-Ref and Agent-Id both present -> 400 head_capture_invalid. [2] Agent-Ref present, Expected-Head-Generation missing or not an integer 0..2^53-1 -> 400 head_capture_invalid. [3] Agent-Ref malformed (not agentref_<32 hex>) -> 400 head_capture_invalid. [4] Agent-Ref present and stage (5) of the ORDER OF REFUSALS finds no content-less session, because the publish names no session or a non-content-less one -> 400 head_capture_invalid (a session that cannot be positively read never reaches this row: stage (4) answers it first). [5] Agent-Ref and a valid Expected-Head-Generation, content-less session -> PROTECTED (below). [6] No Agent-Ref, content-less session (with or without Agent-Id / Expected-Head-Generation) -> 400 head_capture_invalid (the capture is required). [7] No Agent-Ref, non-content-less or no session, Agent-Id and/or Expected-Head-Generation -> LEGACY, unchanged (including the legacy Agent-Id promotion and its STALE_HEAD_GENERATION 409 and its own validation errors). [8] No Agent-Ref, no capture headers, non-content-less or no session -> LEGACY, unchanged. CANONICAL SESSION ID (one parse, used identically to classify the publish and to store it): the session id is spec.provenance.source_session_id (a string; the provenance object is closed, so there is no other session field, and JSON null is not a valid value). Surrounding whitespace is trimmed once; an omitted or empty-after-trim value means the publish names no session id (a manual publication). An id that is not a string, is longer than 128 characters after the trim, or holds a whitespace or control character inside, or changes under Unicode NFC is MALFORMED (an identifier is never silently rewritten): it is refused and never treated as a manual publication, 400 head_capture_invalid on the protected path (Agent-Ref present) and the existing legacy 400 validation body otherwise (no closed error_code); nothing is written and no head moves. Only the trimmed value is stored, so a padded genuine session id is that session. Division of labour: the request schema bounds source_session_id to a string of at most 512 characters; the trim, the 128-character limit, the whitespace/control check and NFC stability are applied by the Backend to the raw value, identically for classification and storage. PROTECTED RULE: the Backend resolves agent, run and environment from the authoritative session binding, never from the body; keeps agent WRITE authorization; and refuses with a closed code (best_config_head_refusal_schema.json), with no publication row and no head change. ORDER OF REFUSALS (one order; the first stage that applies answers): (1) not authenticated 401 unauthenticated; (2) permission or project role denied 403 forbidden (both closed, selected by the header predicate above); (3) malformed or incomplete capture 400 head_capture_invalid (decision-table rows [1]-[3], judged from the request headers alone, before any session is read; a malformed provenance session id, see CANONICAL SESSION ID, is refused here the same way once the headers pass); (4) SESSION BINDING RESOLUTION, only when spec.provenance names a session id: the caller may not use the session 403 head_write_unauthorized, including a classic session positively read but owned by another caller, never 500 (a classic session is used by its owner only: for a user the central owner policy decides; for an API key that carries no user id in the default tenant the owner is the server-stamped key that created the session, so the same key reads it and publishes on the legacy path and a different key is refused); the session is deleted, not registered or outside the caller's scope 404 reference_not_found; the lookup is ambiguous, fails or times out, or the stored binding is damaged (a typed id without a well-formed content_less block) 500 internal_error; (5) the resolved binding against the request (decision-table rows [4] and [6]) 400 head_capture_invalid; (6) well-formed but unknown or foreign ref 404 reference_not_found (nothing echoed); (7) agent WRITE denied 403 head_write_unauthorized; (8) ref's agent is not the session's 409 head_agent_mismatch; (9) publish environment differs from the session's 409 head_environment_mismatch; (10) body fails validation 400 head_body_invalid (fixed text, no key or value of the request echoed); (11) head moved 409 head_generation_stale; (12) ordinary publish conflict (If-Match on a new configuration, a changed existing configuration without a matching If-Match, function_ref conflict) 409 head_publish_conflict; any other server-side failure 500 internal_error. A protected request never receives the generic BEST_CONFIG_CONFLICT or a free-text validation body. STALE: the run's result is stale; the client MUST NOT refresh the generation and resubmit the same result, and the SDK MUST NEVER auto-retry a stale refusal (it starts a new run, or re-evaluates against the new head, and publishes with that run's own captured generation). Publish and promote are ONE transaction: a refused or failed promotion leaves no visible configuration version; the head moves g -> g+1 (first promotion 0 -> 1) atomically with the publication, and of several concurrent promotions naming the same expected generation exactly one wins."
+        "description": "Publish never moves the head. When X-Traigent-Agent-Id, X-Traigent-Agent-Ref and X-Traigent-Expected-Head-Generation are all absent, this is an ordinary publish. For a new configuration, omit If-Match. For a changed existing configuration, send the current ETag as If-Match. An identical spec returns the current version even with a stale If-Match.\n\nThe presence of any of the three head headers, including an empty value, requests a head move. Send exactly one of X-Traigent-Agent-Id or X-Traigent-Agent-Ref together with X-Traigent-Expected-Head-Generation for a syntactically valid head-move request. The agent ID must be non-empty and at most 512 characters after trimming. The agent ref must be agentref_ followed by 32 lowercase hex digits. The expected generation must be 1 to 16 decimal digits with a value from 0 through 9007199254740991.\n\nBefore the route, malformed JSON and some unsafe strings can be refused with 400. The idempotency check runs before the separate unsafe-JSON-string guard that can return 422, and before the route checks head headers. If a reused Idempotency-Key has a different request fingerprint, including added, changed or removed head headers, it can return 409 before those later checks.\n\nAuthentication, experiment.write permission, editor role and an explicit tenant and project write scope gate the route. In the route, incomplete, conflicting or malformed head headers return 400 AGENT_HEAD_VALIDATION_ERROR before agent authorization. An empty JSON body that reaches the head-move handler returns 400 BEST_CONFIG_VALIDATION_ERROR after header validation and before the agent decision.\n\nAn unknown agent, an agent outside the request's tenant and project, an opaque reference that cannot be resolved in that scope, or a caller without agent write access receives the same 404 reference_not_found. Where per-owner access applies, an agent whose creator is missing or differs from the caller also receives that 404. Per-owner access applies to non-platform-admin callers in the shared default tenant on an unpinned deployment. In an explicitly scoped collaboration project, an editor with agent write access can receive 409 acceptance_required for an agent created by another member. An agent the caller is authorized to write returns 409 acceptance_required. The agent decision precedes configuration validation. Neither refusal publishes a configuration or version or changes the head or head history. Both refusals set Cache-Control: private, no-store and Vary: Authorization, and omit ETag and X-Traigent-Head-Generation. The cross-origin response can also vary by Origin.\n\nA retry of a refused request with the same Idempotency-Key may return an idempotency 409 instead of the refusal. It never returns a success.\n\nTo move an agent's head, publish without the head headers, record a person's release acceptance with best_configs.create_release_acceptance, then call best_configs.release_agent_head."
       }
     },
     "/api/v1/best-configs/{config_id}": {

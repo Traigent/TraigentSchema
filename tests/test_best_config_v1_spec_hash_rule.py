@@ -312,9 +312,9 @@ def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
 def test_publish_request_refusal_wording_does_not_promise_more_than_the_backend_does() -> None:
     """The ingress "no echo" promise covers exactly what is implemented (sol F1c P3).
 
-    The collision detector's own message is fixed; the protected path maps every refusal
-    to the closed ``head_body_invalid`` response; the legacy path keeps its legacy
-    validation envelope, whose text may carry field paths (e.g. a NaN under
+    The collision detector's own message names no key. Publish no longer has a separate
+    protected (head-moving) path, so every validation refusal is the one
+    BEST_CONFIG_VALIDATION_ERROR 400, whose text may carry field paths (e.g. a NaN under
     ``spec.config.<key>``), because schema validation runs before collision detection.
     A blanket "the refusal never echoes keys or values" is therefore not promised.
     """
@@ -323,8 +323,8 @@ def test_publish_request_refusal_wording_does_not_promise_more_than_the_backend_
     )
     description = " ".join(schema["description"].split())
     assert "never echoes keys or values" not in description
-    assert "collision check's own message is fixed" in description
-    assert "protected path: every refusal is the closed head_body_invalid 400" in description
-    assert (
-        "legacy path: the legacy validation 400, whose text may include field paths" in description
-    )
+    assert "The NFC collision message names no key" in description
+    assert "Validation returns 400 BEST_CONFIG_VALIDATION_ERROR" in description
+    assert "other validation messages can include field paths" in description
+    assert "head_body_invalid" not in description
+    assert "without moving the agent head" in description

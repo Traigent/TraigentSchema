@@ -2778,3 +2778,36 @@ def test_gate_compares_against_the_merge_base_not_the_target_tip(tmp_path: Path)
 
     assert result.returncode == 0, result.stdout
     assert "Landed" not in result.stdout
+
+
+def test_content_unbound_entry_matches_a_content_bearing_finding_but_new_entries_do_not() -> None:
+    finding = gate.Finding(
+        file="widgets/widget_schema.json",
+        pointer="#/properties/a/anyOf",
+        rule="anyOf_branch_count_changed",
+        severity="BREAKING",
+        role="conservative",
+        message="anyOf branch count changed (3 -> 4)",
+        subject="anyOf",
+        old=3,
+        new=4,
+        content={"old": "a" * 64, "new": "b" * 64},
+    )
+    legacy_identity = {k: v for k, v in finding.identity().items() if k != "content"}
+    legacy = {
+        **legacy_identity,
+        "fingerprint": gate._fingerprint_for_identity(finding.file, finding.rule, legacy_identity),
+    }
+    base_entry = {
+        "file": finding.file,
+        "rule": finding.rule,
+        "findings": [legacy],
+        "reason": "Reviewed and released with the permission vocabulary change.",
+        "version": "Unreleased",
+    }
+    assert gate.find_allow_entry(finding, [base_entry]).entry is None
+    assert gate.find_allow_entry(finding, [{**base_entry, "content_unbound": True}]).entry
+    exact = {**base_entry, "findings": [_stored_identity(finding)]}
+    assert gate.find_allow_entry(finding, [exact]).entry
+    other = gate.Finding(**{**finding.__dict__, "content": {"old": "a" * 64, "new": "c" * 64}})
+    assert gate.find_allow_entry(other, [exact]).entry is None

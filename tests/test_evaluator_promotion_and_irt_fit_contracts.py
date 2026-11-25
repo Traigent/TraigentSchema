@@ -110,7 +110,8 @@ def test_statuses_match_the_handlers():
 
 def test_list_limit_query_matches_backend_model():
     params = {p["name"]: p for p in CATALOG["paths"][LIST]["get"]["parameters"]}
-    assert params["run_id"]["in"] == "path" and params["run_id"]["required"] is True
+    assert params["run_id"]["in"] == "path"
+    assert params["run_id"]["required"] is True
     assert params["limit"]["schema"] == {
         "type": "integer",
         "minimum": 1,
@@ -342,7 +343,8 @@ def test_dedicated_429_retry_after_is_not_capped_at_a_day():
 def test_503_descriptions_name_the_auth_backend_case():
     for method, path in (("post", EVALUATE), ("get", LIST), ("post", FIT)):
         desc = _responses(method, path)["503"]["description"]
-        assert "AUTH_BACKEND_UNAVAILABLE" in desc and "RATE_LIMIT_UNAVAILABLE" in desc
+        assert "AUTH_BACKEND_UNAVAILABLE" in desc
+        assert "RATE_LIMIT_UNAVAILABLE" in desc
 
 def test_point_difference_is_unbounded_and_db_bodies_are_declared():
     v = _validator("evaluator_promotion_evaluate_response_schema")
@@ -405,6 +407,8 @@ def test_point_difference_is_unbounded_and_db_bodies_are_declared():
 
 def test_wording_of_reuse_and_not_found():
     desc = CATALOG["paths"][FIT]["post"]["description"]
-    assert "fit-only" not in desc and "active scoring job already running" in desc
+    assert "fit-only" not in desc
+    assert "active scoring job already running" in desc
     nf = _responses("post", EVALUATE)["404"]["description"]
-    assert "NOT_FOUND or RESOURCE_NOT_FOUND" in nf and "same body" not in nf
+    assert "NOT_FOUND or RESOURCE_NOT_FOUND" in nf
+    assert "same body" not in nf

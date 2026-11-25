@@ -3296,16 +3296,14 @@
    "findings": [
     {
      "file": "main/main_schema.json",
-     "message": "subschema changed from {'type': 'string'} to True",
-     "new": true,
-     "old": {
-      "type": "string"
-     },
+     "message": "non-object schema fragment changed: {'type': 'string'} -> True (manual review)",
+     "new": null,
+     "old": null,
      "pointer": "#",
      "role": "conservative",
-     "rule": "boolean_subschema_changed",
-     "severity": "BREAKING",
-     "subject": "boolean_subschema_changed"
+     "rule": "leaf_changed",
+     "severity": "INFO",
+     "subject": null
     }
    ]
   },
@@ -3313,16 +3311,14 @@
    "findings": [
     {
      "file": "main/main_schema.json",
-     "message": "subschema changed from {'type': 'string'} to True",
-     "new": true,
-     "old": {
-      "type": "string"
-     },
+     "message": "non-object schema fragment changed: {'type': 'string'} -> True (manual review)",
+     "new": null,
+     "old": null,
      "pointer": "#",
      "role": "request",
-     "rule": "boolean_subschema_changed",
+     "rule": "leaf_changed",
      "severity": "INFO",
-     "subject": "boolean_subschema_changed"
+     "subject": null
     }
    ]
   },
@@ -3330,16 +3326,14 @@
    "findings": [
     {
      "file": "main/main_schema.json",
-     "message": "subschema changed from {'type': 'string'} to True",
-     "new": true,
-     "old": {
-      "type": "string"
-     },
+     "message": "non-object schema fragment changed: {'type': 'string'} -> True (manual review)",
+     "new": null,
+     "old": null,
      "pointer": "#",
      "role": "response",
-     "rule": "boolean_subschema_changed",
-     "severity": "BREAKING",
-     "subject": "boolean_subschema_changed"
+     "rule": "leaf_changed",
+     "severity": "INFO",
+     "subject": null
     }
    ]
   },

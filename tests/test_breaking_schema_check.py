@@ -3391,6 +3391,69 @@ def test_boolean_subschema_change_follows_the_role_direction(
     assert _run_gate(repo, "master", "change").returncode == expected
 
 
+def test_responses_default_is_a_response_reference_not_metadata(tmp_path: Path) -> None:
+    request_schema = _doc(
+        "widget_request_schema.json",
+        properties={"a": {"type": "string", "enum": ["a"]}},
+    )
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "get": {
+                    "responses": {
+                        "default": {
+                            "description": "fallback",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "widget_request_schema.json"}
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+    repo = _init_repo(
+        tmp_path, {"widget_request_schema.json": request_schema, "w_endpoints.json": endpoints}
+    )
+    changed = json.loads(json.dumps(request_schema))
+    changed["properties"]["a"]["enum"] = ["a", "b"]
+    _commit_files(repo, "widen", {"widget_request_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+
+
+@pytest.mark.parametrize("filename", ["widget_request_schema.json", "widget_schema.json"])
+@pytest.mark.parametrize(
+    ("old", "new", "expected"),
+    [
+        (True, {"description": "anything"}, 0),
+        (False, {"not": {}}, 0),
+        (False, {"not": True}, 0),
+        ({"description": "x"}, True, 0),
+        (True, {"not": {}}, 1),
+        ({"x-note": 1}, False, 1),
+        (True, False, 1),
+    ],
+)
+def test_boolean_subschema_rank_only_decides_certain_meanings(
+    tmp_path: Path, filename: str, old: object, new: object, expected: int
+) -> None:
+    baseline = _doc(
+        filename, definitions={"X": old}, properties={"a": {"$ref": "#/definitions/X"}}
+    )
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["definitions"]["X"] = new
+    _commit_schema_change(repo, "change", changed, "change", filename)
+
+    assert _run_gate(repo, "master", "change").returncode == expected
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

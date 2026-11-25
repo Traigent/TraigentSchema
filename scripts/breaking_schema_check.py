@@ -664,7 +664,7 @@ def _compare_nested_declarations(
                     if new_entry is not None:
                         walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
                 continue
-            walk(value, new_child, f"{at}/{key}", names=not names and key in _NAME_MAP_KEYWORDS)
+            walk(value, new_child, f"{at}/{key}", names=not names and key in _NAMED_CHILD_KEYS)
 
     walk(old_raw, new_raw, pointer, names=False, root=True)
 
@@ -693,6 +693,9 @@ _LITERAL_KEYWORDS = frozenset(
     | {"title", "description", "$comment", "$schema", "$id"}
 )
 _NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
+# Maps whose keys are names, not keywords, in the three metadata-skipping walks: an OpenAPI
+# ``responses`` object is keyed by status code or ``default``, which is a real response.
+_NAMED_CHILD_KEYS = _NAME_MAP_KEYWORDS | {"responses"}
 _VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})
 
 
@@ -898,20 +901,39 @@ def _is_response_narrowing_wrap(
     return False
 
 
+_VALIDATION_NEUTRAL_KEYS = frozenset(
+    {"description", "title", "$comment", "example", "examples", "default", "deprecated"}
+    | {"readOnly", "writeOnly"}
+)
+
+
+def _is_validation_neutral(key: str) -> bool:
+    return key in _VALIDATION_NEUTRAL_KEYS or key.startswith("x-")
+
+
 def _subschema_rank(value: Any) -> int | None:
-    """How much a Draft-7 subschema accepts: 2 accepts everything (``true`` or ``{}``), 1 is a
-    constraining object schema, 0 accepts nothing (``false``); None for anything else."""
-    if value is True or value == {}:
+    """2 when the subschema certainly accepts everything (``true``, ``{}``, or an object of
+    annotation keywords only), 0 when it certainly accepts nothing (``false``, or ``not`` of an
+    accept-all schema, annotations aside); None for every other schema, whose meaning is not
+    decided here."""
+    if value is True:
         return 2
     if value is False:
         return 0
-    return 1 if isinstance(value, dict) else None
+    if not isinstance(value, dict):
+        return None
+    rest = {k: v for k, v in value.items() if not _is_validation_neutral(k)}
+    if not rest:
+        return 2
+    if set(rest) == {"not"} and _subschema_rank(rest["not"]) == 2:
+        return 0
+    return None
 
 
 def _compare_boolean_subschema(scope: _NodeScope, pointer: str, old: Any, new: Any) -> bool:
-    """A boolean subschema on either side: accept-all -> constrained/accept-nothing (or
-    constrained -> accept-nothing) is NARROWING, the reverse is widening, routed through the
-    role's mirror-image rule like any keyword. True when handled."""
+    """accept-all -> accept-nothing is NARROWING and the reverse is widening, routed through
+    the role's mirror-image rule like any keyword. Only transitions between those two certain
+    classes are handled (True when handled); every other change keeps the leaf_changed path."""
     old_rank, new_rank = _subschema_rank(old), _subschema_rank(new)
     if old_rank is None or new_rank is None or old_rank == new_rank:
         return False
@@ -2088,7 +2110,7 @@ def crawl_endpoint_roles(
                     next_context = "request"
                 elif not names and key == "responses":
                     next_context = "response"
-                walk(value, current_file, next_context, not names and key in _NAME_MAP_KEYWORDS)
+                walk(value, current_file, next_context, not names and key in _NAMED_CHILD_KEYS)
         elif isinstance(node, list):
             for item in node:
                 walk(item, current_file, context)
@@ -2143,7 +2165,7 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
         for key, value in node.items():
             if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
                 continue
-            yield from _iter_refs(value, names=not names and key in _NAME_MAP_KEYWORDS)
+            yield from _iter_refs(value, names=not names and key in _NAMED_CHILD_KEYS)
     elif isinstance(node, list):
         for value in node:
             yield from _iter_refs(value)

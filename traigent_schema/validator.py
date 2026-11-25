@@ -352,11 +352,7 @@ class SchemaValidator:
     ) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
         catalog_dir = self._catalog_dir(catalog_path)
-        inline_base_id = (
-            f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
-            if catalog_dir
-            else _INLINE_SCHEMA_BASE_ID
-        )
+        inline_base_id = self._inline_base_id(catalog_dir)
         paths = openapi.get("paths", {})
         for path, methods in paths.items():
             if not isinstance(methods, dict):
@@ -369,15 +365,18 @@ class SchemaValidator:
                     continue
                 methods, target_path = resolved
                 target_dir = self._catalog_dir(target_path)
-                item_base_id = (
-                    f"{SCHEMA_ID_BASE}{target_dir}/__inline_request_schema__"
-                    if target_dir
-                    else _INLINE_SCHEMA_BASE_ID
-                )
+                item_base_id = self._inline_base_id(target_dir)
             for method, spec in methods.items():
                 if not isinstance(spec, dict):
                     continue
                 self._register_operation(f"{method.upper()}:{path}", spec, item_base_id)
+
+    @staticmethod
+    def _inline_base_id(catalog_dir: str) -> str:
+        """Base schema id for inline request schemas of a catalog directory."""
+        if catalog_dir:
+            return f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
+        return _INLINE_SCHEMA_BASE_ID
 
     def _resolve_path_item_ref(
         self,

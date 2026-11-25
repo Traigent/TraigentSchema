@@ -2151,34 +2151,44 @@ def crawl_endpoint_roles(
     """Direct request/response role, straight from *_endpoints.json requestBody/responses/params."""
     direct: dict[str, set[str]] = defaultdict(set)
 
-    def walk(node: Any, current_file: str, context: str | None, names: bool = False) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if not names and key == "$ref" and isinstance(value, str) and context is not None:
-                    target = _ref_target_file(
-                        current_file, value, by_uri, (base_uris or {}).get(current_file)
+    def walk(start: Any, current_file: str, start_context: str | None) -> None:
+        # Iterative: a deeply nested schema must not exhaust the interpreter stack.
+        stack: list[tuple[Any, str | None, bool]] = [(start, start_context, False)]
+        while stack:
+            node, context, names = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if (
+                        not names
+                        and key == "$ref"
+                        and isinstance(value, str)
+                        and context is not None
+                    ):
+                        target = _ref_target_file(
+                            current_file, value, by_uri, (base_uris or {}).get(current_file)
+                        )
+                        if target:
+                            direct[target].add(context)
+                        continue
+                    # Literal values and x-* extensions are metadata, never references (the
+                    # same keys the declaration walk and the reference scan skip).
+                    if not names and _is_metadata_entry(key, value):
+                        continue
+                    next_context = context
+                    if not names and (key == "requestBody" or key == "parameters"):
+                        next_context = "request"
+                    elif not names and key == "responses":
+                        next_context = "response"
+                    stack.append(
+                        (
+                            value if names else _named_children(key, value),
+                            next_context,
+                            not names and _is_named_map(key, value),
+                        )
                     )
-                    if target:
-                        direct[target].add(context)
-                    continue
-                # Literal values and x-* extensions are metadata, never references (the same
-                # keys the declaration walk and the reference scan skip).
-                if not names and _is_metadata_entry(key, value):
-                    continue
-                next_context = context
-                if not names and (key == "requestBody" or key == "parameters"):
-                    next_context = "request"
-                elif not names and key == "responses":
-                    next_context = "response"
-                walk(
-                    value if names else _named_children(key, value),
-                    current_file,
-                    next_context,
-                    not names and _is_named_map(key, value),
-                )
-        elif isinstance(node, list):
-            for item in node:
-                walk(item, current_file, context)
+            elif isinstance(node, list):
+                for item in node:
+                    stack.append((item, context, False))
 
     for relpath, doc in files.items():
         if "_endpoints" not in Path(relpath).name:
@@ -2197,20 +2207,22 @@ def build_ref_graph(
     """file -> set of schema files it $refs anywhere (for transitive role propagation)."""
     graph: dict[str, set[str]] = defaultdict(set)
 
-    def walk(node: Any, current_file: str) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if key == "$ref" and isinstance(value, str):
-                    target = _ref_target_file(
-                        current_file, value, by_uri, (base_uris or {}).get(current_file)
-                    )
-                    if target and target != current_file:
-                        graph[current_file].add(target)
-                    continue
-                walk(value, current_file)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item, current_file)
+    def walk(start: Any, current_file: str) -> None:
+        stack: list[Any] = [start]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "$ref" and isinstance(value, str):
+                        target = _ref_target_file(
+                            current_file, value, by_uri, (base_uris or {}).get(current_file)
+                        )
+                        if target and target != current_file:
+                            graph[current_file].add(target)
+                        continue
+                    stack.append(value)
+            elif isinstance(node, list):
+                stack.extend(node)
 
     for relpath, doc in files.items():
         if "_endpoints" in Path(relpath).name:
@@ -2222,54 +2234,102 @@ def build_ref_graph(
 def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
     """Every $ref in schema positions. Literal values (enum, const, default, examples) and
     x-* extension values are metadata, never references, so a $ref inside them is skipped
-    (the same keys the declaration walk skips). Keys of a properties-style map are names."""
-    if isinstance(node, dict):
-        ref = node.get("$ref")
-        if isinstance(ref, str) and not names:
-            yield ref
-        for key, value in node.items():
-            if not names and _is_metadata_entry(key, value):
-                continue
-            yield from _iter_refs(
-                value if names else _named_children(key, value),
-                names=not names and _is_named_map(key, value),
-            )
-    elif isinstance(node, list):
-        for value in node:
-            yield from _iter_refs(value)
+    (the same keys the declaration walk skips). Keys of a properties-style map are names.
+    Iterative, so a deeply nested schema cannot exhaust the interpreter stack."""
+    stack: list[tuple[Any, bool]] = [(node, names)]
+    while stack:
+        current, current_names = stack.pop()
+        if isinstance(current, dict):
+            ref = current.get("$ref")
+            if isinstance(ref, str) and not current_names:
+                yield ref
+            children: list[tuple[Any, bool]] = []
+            for key, value in current.items():
+                if not current_names and _is_metadata_entry(key, value):
+                    continue
+                children.append(
+                    (
+                        value if current_names else _named_children(key, value),
+                        not current_names and _is_named_map(key, value),
+                    )
+                )
+            stack.extend(reversed(children))
+        elif isinstance(current, list):
+            stack.extend((value, False) for value in reversed(current))
 
 
-def nested_id_pointers(doc: Any) -> list[tuple[str, str]]:
-    """(pointer, keyword) for every ``$id`` (or Draft-4 ``id``) string BELOW the root of a
-    document, in schema or operation positions. A nested resource id re-bases the references
-    inside it, which this checker does not model. Names (property names, definition names,
-    status codes) and literal positions (enum, const, default, examples, x-*, example values)
-    are skipped with the same helpers as the other walks."""
-    found: list[tuple[str, str]] = []
-
-    def walk(node: Any, at: str, *, names: bool, root: bool) -> None:
+def _nested_id_entries(doc: Any) -> list[tuple[str, str, str, Any]]:
+    """(pointer, keyword, id value, subschema) for every ``$id`` (or Draft-4 ``id``) string
+    BELOW the root of a document, in schema or operation positions. A nested resource id
+    re-bases the references inside it, which this checker does not model. Names (property
+    names, definition names, status codes) and literal positions (enum, const, default,
+    examples, x-*, example values) are skipped with the same helpers as the other walks.
+    Iterative (explicit stack, document order) so depth cannot exhaust the interpreter."""
+    found: list[tuple[str, str, str, Any]] = []
+    stack: list[tuple[Any, str, bool, bool]] = [(doc, "#", False, True)]
+    while stack:
+        node, at, names, root = stack.pop()
         if isinstance(node, list):
-            for index, item in enumerate(node):
-                walk(item, f"{at}/{index}", names=False, root=False)
-            return
+            stack.extend(
+                (item, f"{at}/{index}", False, False)
+                for index, item in reversed(list(enumerate(node)))
+            )
+            continue
         if not isinstance(node, dict):
-            return
+            continue
         if not names and not root:
             for keyword in ("$id", "id"):
                 if isinstance(node.get(keyword), str):
-                    found.append((at, keyword))
+                    found.append((at, keyword, node[keyword], node))
+        children: list[tuple[Any, str, bool, bool]] = []
         for key, value in node.items():
             if not names and _is_metadata_entry(key, value):
                 continue
-            walk(
-                value if names else _named_children(key, value),
-                f"{at}/{key}",
-                names=not names and _is_named_map(key, value),
-                root=False,
+            children.append(
+                (
+                    value if names else _named_children(key, value),
+                    f"{at}/{key}",
+                    not names and _is_named_map(key, value),
+                    False,
+                )
             )
-
-    walk(doc, "#", names=False, root=True)
+        stack.extend(reversed(children))
     return found
+
+
+def nested_id_pointers(doc: Any) -> list[tuple[str, str]]:
+    """(pointer, keyword) for every nested ``$id``/``id``; see `_nested_id_entries`."""
+    return [(pointer, keyword) for pointer, keyword, _value, _node in _nested_id_entries(doc)]
+
+
+def _iterative_content_digest(value: Any) -> str:
+    """SHA-256 of a canonical, key-sorted serialization of ``value`` that never recurses,
+    so an arbitrarily deep subschema can be bound into a finding identity."""
+    digest = hashlib.sha256()
+    stack: list[Any] = [("v", value)]
+    while stack:
+        kind, item = stack.pop()
+        if kind == "t":
+            digest.update(item.encode("utf-8"))
+        elif isinstance(item, dict):
+            stack.append(("t", "}"))
+            for key in sorted(item, key=str, reverse=True):
+                stack.append(("v", item[key]))
+                stack.append(("t", json.dumps(str(key), ensure_ascii=False) + ":"))
+            stack.append(("t", "{"))
+        elif isinstance(item, (list, tuple)):
+            stack.append(("t", "]"))
+            for member in reversed(item):
+                stack.append(("v", member))
+            stack.append(("t", "["))
+        else:
+            digest.update(
+                json.dumps(item, ensure_ascii=False, allow_nan=False).encode("utf-8")
+            )
+        if kind == "v" and isinstance(item, (dict, list, tuple)):
+            continue
+        digest.update(b",")
+    return digest.hexdigest()
 
 
 def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
@@ -2727,25 +2787,35 @@ def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[
     graph and of what changed, so an unchanged bridge file cannot hide one; each (file,
     pointer) is reported once, so a hit present in both revisions blocks every comparison
     until it is acknowledged by an exact allowlist entry."""
-    seen: set[tuple[str, str]] = set()
-    for tree in (base, head):
+    # Per (file, pointer): the id value and the subschema digest of each revision, so an
+    # acknowledgement is bound to the content it reviewed. A changed id (which redirects the
+    # relative $refs below it) or a changed subschema needs a new acknowledgement.
+    per_side: dict[tuple[str, str], dict[str, Any]] = {}
+    for side, tree in (("old", base), ("new", head)):
         for relpath in sorted(tree.files):
-            for pointer, keyword in nested_id_pointers(tree.files[relpath]):
-                if (relpath, pointer) in seen:
-                    continue
-                seen.add((relpath, pointer))
-                emit(
-                    findings,
-                    relpath,
-                    pointer,
-                    "nested_id_unsupported",
-                    "BREAKING",
-                    "conservative",
-                    f"nested {keyword} re-bases the references below it; this checker does "
-                    "not model nested $id base URIs, so the change must be reviewed and "
-                    "acknowledged",
-                    subject=keyword,
-                )
+            for pointer, keyword, value, node in _nested_id_entries(tree.files[relpath]):
+                slot = per_side.setdefault((relpath, pointer), {"keyword": keyword})
+                slot.setdefault(side, (keyword, value, _iterative_content_digest(node)))
+    for (relpath, pointer), slot in sorted(per_side.items()):
+        old, new = slot.get("old"), slot.get("new")
+        emit(
+            findings,
+            relpath,
+            pointer,
+            "nested_id_unsupported",
+            "BREAKING",
+            "conservative",
+            f"nested {slot['keyword']} re-bases the references below it; this checker does "
+            "not model nested $id base URIs, so the change must be reviewed and "
+            "acknowledged",
+            subject=slot["keyword"],
+            old=None if old is None else old[1],
+            new=None if new is None else new[1],
+            content={
+                "old": None if old is None else old[2],
+                "new": None if new is None else new[2],
+            },
+        )
 
 
 def _compare_changed_files(

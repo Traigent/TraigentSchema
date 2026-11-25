@@ -3930,3 +3930,85 @@ def test_pull_request_gate_uses_the_event_base_sha_like_the_classifier() -> None
     assert 'git fetch origin "$PR_BASE_SHA"' in step
     assert 'base_ref=${PR_BASE_SHA}' in step
     assert "PR_BASE_REF" not in step
+
+
+def _write_tree(root: Path, files: dict[str, str]) -> Path:
+    root.mkdir(parents=True)
+    for name, text in files.items():
+        (root / name).write_text(text, encoding="utf-8")
+    return root
+
+
+def _nested_id_doc(nested_id: str, nested_type: str = "string") -> str:
+    return json.dumps(
+        {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$id": "https://schemas.traigent.ai/widgets/n_schema.json",
+            "definitions": {"inner": {"$id": nested_id, "type": nested_type}},
+        }
+    )
+
+
+def test_nested_id_acknowledgement_is_bound_to_the_id_value_and_subschema(
+    tmp_path: Path,
+) -> None:
+    reason = "Reviewed by hand: this nested id is intentional and the references were checked."
+    v1 = gate.load_tree_from_dir(_write_tree(tmp_path / "a", {"n_schema.json": _nested_id_doc("v1/")}), "a")
+    changed = [("M", "n_schema.json")]
+    first = gate.compare_trees(v1, v1, changed, [])
+    (finding,) = [f for f in first.breaking_unacked if f.rule == "nested_id_unsupported"]
+    allow = [
+        {
+            "file": finding.file,
+            "rule": finding.rule,
+            "findings": [_stored_identity(finding)],
+            "reason": reason,
+            "version": "5.6.0",
+        }
+    ]
+    acked = gate.compare_trees(v1, v1, changed, allow)
+    assert not [f for f in acked.breaking_unacked if f.rule == "nested_id_unsupported"]
+
+    for label, doc in (
+        ("v2", _nested_id_doc("v2/")),
+        ("retyped", _nested_id_doc("v1/", "integer")),
+    ):
+        other = gate.load_tree_from_dir(
+            _write_tree(tmp_path / label, {"n_schema.json": doc}), label
+        )
+        for base, head in ((v1, other), (other, v1)):
+            report = gate.compare_trees(base, head, changed, allow)
+            assert [
+                f for f in report.breaking_unacked if f.rule == "nested_id_unsupported"
+            ], label
+
+
+def test_deeply_nested_component_does_not_crash_the_scans(tmp_path: Path) -> None:
+    depth = 2000
+    deep = '{"not":' * depth + "{}" + "}" * depth
+    head_text = (
+        '{"$schema":"http://json-schema.org/draft-07/schema#",'
+        '"$id":"https://schemas.traigent.ai/widgets/deep_schema.json",'
+        '"definitions":{"d":' + deep + "}}"
+    )
+
+    def req(limit: int) -> str:
+        return json.dumps(
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "$id": "https://schemas.traigent.ai/widgets/r_request_schema.json",
+                "type": "object",
+                "properties": {"s": {"type": "string", "maxLength": limit}},
+            }
+        )
+
+    base = gate.load_tree_from_dir(
+        _write_tree(tmp_path / "b", {"deep_schema.json": head_text, "r_request_schema.json": req(100)}), "b"
+    )
+    head = gate.load_tree_from_dir(
+        _write_tree(tmp_path / "h", {"deep_schema.json": head_text, "r_request_schema.json": req(10)}), "h"
+    )
+    report = gate.compare_trees(base, head, [("M", "r_request_schema.json")], [])
+    assert any(f.rule == "maxLength_changed" or "maxLength" in f.rule for f in report.breaking_unacked), [
+        f.rule for f in report.findings
+    ]

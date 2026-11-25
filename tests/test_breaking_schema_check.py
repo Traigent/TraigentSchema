@@ -3005,6 +3005,68 @@ def test_request_reaching_the_definition_through_a_custom_id_intermediate_is_a_r
     assert result.returncode == 1, result.stdout
 
 
+_MID_Y_REF = (
+    "mid_endpoints.json#/paths/~1m/get/responses/200/content/application~1json"
+    "/schema/definitions/Y"
+)
+
+
+def _mid_endpoints_doc() -> dict:
+    return {
+        "openapi": "3.0.0",
+        "paths": {
+            "/m": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "definitions": {"Y": {"$ref": _RESPONSE_X_REF}},
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+
+
+def _chain_repo(tmp_path: Path, endpoints: dict, section: str) -> Path:
+    return _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "mid_endpoints.json": _mid_endpoints_doc(),
+            "other_endpoints.json": _consumer_endpoints_doc(section, _MID_Y_REF),
+        },
+    )
+
+
+def test_request_reaching_the_definition_through_another_endpoints_response_is_breaking(
+    tmp_path: Path,
+) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    repo = _chain_repo(tmp_path, endpoints, "request")
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_response_only_endpoint_chain_stays_a_response(tmp_path: Path) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    repo = _chain_repo(tmp_path, endpoints, "response")
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 0, result.stdout
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

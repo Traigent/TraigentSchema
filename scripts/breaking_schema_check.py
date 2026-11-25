@@ -2114,22 +2114,29 @@ def _iter_refs(node: Any):
             yield from _iter_refs(value)
 
 
-def _iter_refs_with_usage(doc: Any, role_of_file: Role) -> Iterator[tuple[str, str]]:
-    """(ref, role) for every $ref of a document. An operations file's refs take the role of
-    the part of the operation that uses them (requestBody/parameters -> request, responses ->
-    response; the first marker wins, so a schema property that happens to carry one of those
-    names cannot flip it), and ``conservative`` where the use is unknown; any other file's
-    refs take ``role_of_file``."""
+def _iter_refs_with_usage(
+    doc: Any, role_of_file: Role
+) -> Iterator[tuple[str, str, str]]:
+    """(ref, role, location) for every $ref of a document, ``location`` being the unescaped
+    pointer of the node holding it. An operations file's refs take the role of the part of
+    the operation that uses them (requestBody/parameters -> request, responses -> response;
+    the first marker wins, so a schema property that happens to carry one of those names
+    cannot flip it), and ``conservative`` where the use is unknown; any other file's refs
+    take ``role_of_file``. That role is only the ref's own: a ref inside a definition that
+    another consumer reaches also carries that consumer's roles (see
+    ``exported_inline_pointers``)."""
     if not isinstance(doc, dict) or "paths" not in doc:
         for ref in _iter_refs(doc):
-            yield ref, role_of_file
+            yield ref, role_of_file, ""
         return
 
-    def walk(node: Any, context: str, flip: bool) -> Iterator[tuple[str, str]]:
+    def walk(
+        node: Any, context: str, flip: bool, at: str
+    ) -> Iterator[tuple[str, str, str]]:
         if isinstance(node, dict):
             ref = node.get("$ref")
             if isinstance(ref, str):
-                yield ref, context
+                yield ref, context, at
             for key, value in node.items():
                 nxt = context
                 if flip and context == "conservative":
@@ -2137,13 +2144,13 @@ def _iter_refs_with_usage(doc: Any, role_of_file: Role) -> Iterator[tuple[str, s
                         nxt = "request"
                     elif key == "responses":
                         nxt = "response"
-                yield from walk(value, nxt, flip)
+                yield from walk(value, nxt, flip, f"{at}/{key}")
         elif isinstance(node, list):
-            for item in node:
-                yield from walk(item, context, flip)
+            for index, item in enumerate(node):
+                yield from walk(item, context, flip, f"{at}/{index}")
 
     for key, value in doc.items():
-        yield from walk(value, "conservative", key == "paths")
+        yield from walk(value, "conservative", key == "paths", f"/{key}")
 
 
 def exported_inline_pointers(
@@ -2154,13 +2161,19 @@ def exported_inline_pointers(
     referencing files (``role_of(relpath)``). A ref is resolved against the referencing file's
     own base URI, so one that names the document by a registered ``$id`` differing from its
     path is found too. Those inline definitions are public: changing them changes what the
-    other file resolves to."""
+    other file resolves to.
+
+    A pointer's roles are the UNION over every path that reaches it: a ref sitting inside
+    another endpoint file's exported fragment also carries the roles of whoever reaches that
+    fragment, so a request that goes through a response-shaped definition is still a request
+    (and request plus response is conservative downstream)."""
     by_uri = uri_index(*trees)
     exported: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    chained: list[tuple[str, str, str, str]] = []  # (file, location, target, pointer)
     for tree in trees:
         for relpath, doc in tree.files.items():
             base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
-            for ref, ref_role in _iter_refs_with_usage(doc, role_of(relpath)):
+            for ref, ref_role, location in _iter_refs_with_usage(doc, role_of(relpath)):
                 if "#" not in ref:
                     continue
                 document_uri, fragment = urldefrag(urljoin(base, ref))
@@ -2170,6 +2183,20 @@ def exported_inline_pointers(
                 pointer = unquote(fragment).replace("~1", "/").replace("~0", "~")
                 if pointer.startswith("/paths/"):
                     exported[target][pointer].add(ref_role)
+                    if location.startswith("/paths/"):
+                        chained.append((relpath, location, target, pointer))
+    changed = True
+    while changed:
+        changed = False
+        for relpath, location, target, pointer in chained:
+            arriving: set[str] = set()
+            for exported_pointer, roles in exported.get(relpath, {}).items():
+                if location == exported_pointer or location.startswith(exported_pointer + "/"):
+                    arriving |= roles
+            known = exported[target][pointer]
+            if not arriving <= known:
+                known |= arriving
+                changed = True
     return {
         file: {pointer: frozenset(roles) for pointer, roles in pointers.items()}
         for file, pointers in exported.items()

@@ -51,10 +51,25 @@ CONTENT_CLASSES = frozenset(
         "auth_header",
         "version",
         "server_text",
+        "customer_content",
+        "customer_identifier",
         "legacy_content",
     }
 )
 LEGACY = "legacy_content"
+# Customer-authored values. They are content, not content-free: they are never
+# proven by keywords, so the only rule is that the node itself is bounded (see semantic_problem).
+CUSTOMER_CONTENT = "customer_content"
+CUSTOMER_IDENTIFIER = "customer_identifier"
+# The optimization channel is a closed, content-free vocabulary: customer content and
+# customer-chosen identifiers are never valid on a walked optimization-channel
+# document, however the value is reached (own class, inherited through $ref, property or map key).
+# Only a document the lint does not walk may carry them; semantic_problem's size rule is what a
+# future walk of such a document would enforce.
+CHANNEL_FORBIDDEN_CLASSES = frozenset({CUSTOMER_CONTENT, CUSTOMER_IDENTIFIER})
+CHANNEL_FORBIDDEN_MESSAGE = (
+    "customer content/identifier is not allowed on an optimization-channel document"
+)
 SERVER_TEXT = "server_text"
 # ``server_text`` is an assertion by the contract owner, not something keywords can prove, so it is
 # accepted ONLY at these exact (schema file, JSON pointer) locations, never in a request, a
@@ -201,6 +216,24 @@ def semantic_problem(cls: str, node: dict, doc: str = "") -> str | None:
         if _is_number(lo) and _is_number(hi) and lo > hi:
             return "number minimum exceeds maximum"
         return None
+    if cls == CUSTOMER_CONTENT:
+        # Arbitrary customer data (strings, filter lists, structured values): the node must carry
+        # its own size bound for its JSON type, so it cannot hold an unbounded payload.
+        if types == {"string"} and isinstance(node.get("maxLength"), int):
+            return None
+        if types == {"array"} and isinstance(node.get("maxItems"), int):
+            return None
+        if types == {"object"} and isinstance(node.get("maxProperties"), int):
+            return None
+        return (
+            "customer_content needs a bounded type: maxLength (string), maxItems (array) "
+            "or maxProperties (object)"
+        )
+    if cls == CUSTOMER_IDENTIFIER:
+        # A customer-chosen id is text; its only proof is a string type with a size bound.
+        if types == {"string"} and isinstance(node.get("maxLength"), int):
+            return None
+        return "customer_identifier needs a string type with maxLength"
     if types and types != {"string"}:
         return f"{cls} needs a string type"
     if cls == "digest":
@@ -672,6 +705,11 @@ class Linter:
         elif not isinstance(max_length, int) or max_length > CURSOR_MAX_LENGTH:
             self.result.invalid.append(f"{loc}: a cursor needs maxLength <= {CURSOR_MAX_LENGTH}")
 
+    def _check_channel_class(self, loc: str, cls: str | None) -> None:
+        """Reject a customer class on a walked optimization-channel document (every walked site)."""
+        if cls in CHANNEL_FORBIDDEN_CLASSES:
+            self.result.invalid.append(f"{loc}: {CHANNEL_FORBIDDEN_MESSAGE}")
+
     def _record_value(self, loc: str, node: dict, doc, scope, kind: str = "value") -> None:
         self._check_cursor_site(loc, node)
         own = node.get(CLASS_KEY)
@@ -679,6 +717,7 @@ class Linter:
             if own not in CONTENT_CLASSES:
                 self.result.invalid.append(f"{loc}: unknown class {own!r}")
                 return
+            self._check_channel_class(loc, own)
             self.result.findings.append(Finding(loc, kind, own, node.get(NOTE_KEY)))
             self._check_server_text_site(loc, own, kind)
             if own == LEGACY and not node.get(NOTE_KEY):
@@ -688,6 +727,7 @@ class Linter:
             return
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
+            self._check_channel_class(loc, eff)
             self._check_server_text_site(loc, eff)
             if eff == "opaque_ref":
                 # The referring site is checked as well: the agent-id exemption is decided on this
@@ -821,12 +861,14 @@ class Linter:
             # through a composition) is checked at its own location. The agent-id exemption is
             # never inherited, so such a site must carry an approved ref pattern itself.
             eff = self.effective_class(doc, scope, node)
+            self._check_channel_class(loc, eff)
             if eff == "opaque_ref":
                 self._check_semantics(loc, eff, node, doc, scope)
             return
         if own not in CONTENT_CLASSES:
             self.result.invalid.append(f"{loc}: unknown class {own!r}")
             return
+        self._check_channel_class(loc, own)
         self.result.findings.append(Finding(loc, "value", own, node.get(NOTE_KEY)))
         self._check_server_text_site(loc, own)
         if own == LEGACY:
@@ -855,6 +897,7 @@ class Linter:
         if key_cls not in CONTENT_CLASSES:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
+        self._check_channel_class(loc + " [keys]", key_cls)
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
         self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls == LEGACY and not node.get(NOTE_KEY):
@@ -880,7 +923,9 @@ class Linter:
 
     def _record_keys(self, loc: str, node: dict, doc, scope) -> None:
         pn = node.get("propertyNames")
-        if isinstance(pn, dict) and self.effective_class(doc, scope, pn):
+        pn_cls = self.effective_class(doc, scope, pn) if isinstance(pn, dict) else None
+        if pn_cls:
+            self._check_channel_class(loc + " [keys]", pn_cls)
             return
         key_cls = node.get(KEY_CLASS_KEY)
         if key_cls is None:
@@ -891,6 +936,7 @@ class Linter:
         if key_cls not in CONTENT_CLASSES:
             self.result.invalid.append(f"{loc}: unknown key class {key_cls!r}")
             return
+        self._check_channel_class(loc + " [keys]", key_cls)
         self.result.findings.append(Finding(loc + " [keys]", "key", key_cls, node.get(NOTE_KEY)))
         self._check_server_text_site(loc + " [keys]", key_cls, "key")
         if key_cls != LEGACY:
@@ -1218,6 +1264,50 @@ class Linter:
                     )
         del self.result.documents[walked:]
 
+    # -- channel closure guard ------------------------------------------
+    def _channel_closure(self) -> list[str]:
+        """Every walked root plus every file reachable from one through a ``$ref`` (the whole
+        referenced file counts, whatever its fragment). Read raw: the walker is not consulted."""
+        queue = [r for r in self.roots() if not any(r.startswith(p) for p in EXCLUDED_PREFIXES)]
+        closure: set[str] = set()
+        raw: dict[str, Any] = {}
+        while queue:
+            rel = queue.pop()
+            if rel in closure:
+                continue
+            closure.add(rel)
+            if rel not in raw:
+                raw[rel] = json.loads((self.dir / rel).read_text(encoding="utf-8"))
+            for _, ref in self._iter_refs(raw[rel], ""):
+                path = _normalise_ref(ref).partition("#")[0]
+                if not path:
+                    continue  # a same-document reference adds no file
+                target = _ref_target_file(rel, path)
+                if (self.dir / target).is_file():
+                    queue.append(target)
+        return sorted(closure)
+
+    @staticmethod
+    def _channel_hits(node: Any, doc: str, ptr: str, out: list[str]) -> None:
+        """Every dict and list of a raw document, whatever its keyword: a forbidden class hits."""
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in (CLASS_KEY, KEY_CLASS_KEY) and isinstance(value, str):
+                    if value in CHANNEL_FORBIDDEN_CLASSES:
+                        out.append(f"{doc}#{ptr}: {CHANNEL_FORBIDDEN_MESSAGE}")
+                Linter._channel_hits(value, doc, f"{ptr}/{_esc(str(key))}", out)
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                Linter._channel_hits(value, doc, f"{ptr}/{i}", out)
+
+    def _channel_closure_problems(self) -> list[str]:
+        """Walker-independent: no customer class anywhere in a file that is walked or reachable."""
+        out: list[str] = []
+        for rel in self._channel_closure():
+            data = json.loads((self.dir / rel).read_text(encoding="utf-8"))
+            self._channel_hits(data, rel, "", out)
+        return out
+
     # -- driver ---------------------------------------------------------
     def run(self) -> LintResult:
         for rel in self.roots():
@@ -1232,6 +1322,8 @@ class Linter:
                 self.walk_schema(rel, [], data, "", value=False)
         self._ctx = CTX_OTHER
         self._check_agent_id_references()
+        # Always runs, whatever the walker visited: main() reaches it through run_lint().
+        self.result.invalid += self._channel_closure_problems()
         # the same node can be recorded once per usage context: report it once
         seen_findings: set[tuple] = set()
         unique = []

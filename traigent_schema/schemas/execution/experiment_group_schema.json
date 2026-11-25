@@ -1405,14 +1405,17 @@
       "properties": {
         "search": {
           "type": "string",
-          "maxLength": 200
+          "maxLength": 200,
+          "x-content-class": "customer_content"
         },
         "agent_id": {
-          "type": "string"
+          "type": "string",
+          "x-content-class": "customer_identifier"
         },
         "dataset_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "x-content-class": "customer_identifier"
         },
         "dataset_scope": {
           "type": "string",
@@ -1510,7 +1513,8 @@
           "maxItems": 20,
           "items": {
             "$ref": "#/definitions/ColumnPredicate"
-          }
+          },
+          "x-content-class": "customer_content"
         },
         "sort": {
           "type": "array",

@@ -11067,6 +11067,97 @@
       "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fix/reactive-agent-ref-is-agent-id)"
+    },
+    {
+      "file": "x_extensions_meta_schema.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/properties/x-content-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"customer_content\"",
+              "\"customer_identifier\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"customer_content\"",
+            "\"customer_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"server_text\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "36280268bad0127d82c8d78786b3ddb94996450e55327b5efda1584c63e877ff"
+        },
+        {
+          "pointer": "#/properties/x-content-key-class",
+          "role": "conservative",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"customer_content\"",
+              "\"customer_identifier\""
+            ]
+          },
+          "old": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "new": [
+            "\"auth_header\"",
+            "\"closed_enum\"",
+            "\"code_identifier\"",
+            "\"customer_content\"",
+            "\"customer_identifier\"",
+            "\"digest\"",
+            "\"encrypted_blob\"",
+            "\"key_material\"",
+            "\"legacy_content\"",
+            "\"number\"",
+            "\"opaque_ref\"",
+            "\"timestamp\"",
+            "\"version\""
+          ],
+          "fingerprint": "da50e3e1a2ee7922d64aa079ad35bc79d7d65bb50f48308fbc0a9cd1bbe17774"
+        }
+      ],
+      "reason": "additive vocabulary: customer_content and customer_identifier content classes (privacy classification for customer-authored request fields)",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, fix/experiment-group-field-content-classes)"
     }
   ]
 }

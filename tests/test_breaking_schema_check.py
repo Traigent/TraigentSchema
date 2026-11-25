@@ -4012,3 +4012,40 @@ def test_deeply_nested_component_does_not_crash_the_scans(tmp_path: Path) -> Non
     assert any(f.rule == "maxLength_changed" or "maxLength" in f.rule for f in report.breaking_unacked), [
         f.rule for f in report.findings
     ]
+
+
+
+def test_nested_id_pointers_use_rfc6901_escaping() -> None:
+    doc = {"definitions": {"a/b": {"$id": "u1"}, "c~d": {"$id": "u2"}}}
+    assert gate.nested_id_pointers(doc) == [
+        ("#/definitions/a~1b", "$id"),
+        ("#/definitions/c~0d", "$id"),
+    ]
+
+
+def test_nested_id_finding_binds_every_id_keyword_at_one_pointer(tmp_path: Path) -> None:
+    def doc(second: str) -> str:
+        return json.dumps(
+            {
+                "$id": "https://schemas.traigent.ai/widgets/m_schema.json",
+                "definitions": {"inner": {"$id": "v1/", "id": second, "type": "string"}},
+            }
+        )
+
+    one = gate.load_tree_from_dir(_write_tree(tmp_path / "one", {"m_schema.json": doc("a/")}), "1")
+    two = gate.load_tree_from_dir(_write_tree(tmp_path / "two", {"m_schema.json": doc("b/")}), "2")
+    changed = [("M", "m_schema.json")]
+
+    def fingerprints(base, head):
+        report = gate.compare_trees(base, head, changed, [])
+        return {f.fingerprint() for f in report.findings if f.rule == "nested_id_unsupported"}
+
+    assert fingerprints(one, one) != fingerprints(one, two)
+    assert len(fingerprints(one, one)) == 1
+
+
+def test_content_digest_is_total_and_distinguishes_non_finite_values() -> None:
+    digest = gate._iterative_content_digest
+    nan, inf, ninf = (digest({"a": v}) for v in (float("nan"), float("inf"), float("-inf")))
+    assert len({nan, inf, ninf, digest({"a": 1})}) == 4
+    assert isinstance(digest({"a": object()}), str)

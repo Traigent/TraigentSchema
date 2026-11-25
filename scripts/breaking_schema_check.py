@@ -57,6 +57,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import math
 import re
 import subprocess
 import sys
@@ -2258,6 +2259,11 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
             stack.extend((value, False) for value in reversed(current))
 
 
+def _escape_pointer_token(token: Any) -> str:
+    """RFC 6901 escaping, so a key containing ``/`` cannot collide with a nested path."""
+    return str(token).replace("~", "~0").replace("/", "~1")
+
+
 def _nested_id_entries(doc: Any) -> list[tuple[str, str, str, Any]]:
     """(pointer, keyword, id value, subschema) for every ``$id`` (or Draft-4 ``id``) string
     BELOW the root of a document, in schema or operation positions. A nested resource id
@@ -2288,7 +2294,7 @@ def _nested_id_entries(doc: Any) -> list[tuple[str, str, str, Any]]:
             children.append(
                 (
                     value if names else _named_children(key, value),
-                    f"{at}/{key}",
+                    f"{at}/{_escape_pointer_token(key)}",
                     not names and _is_named_map(key, value),
                     False,
                 )
@@ -2322,10 +2328,15 @@ def _iterative_content_digest(value: Any) -> str:
             for member in reversed(item):
                 stack.append(("v", member))
             stack.append(("t", "["))
+        elif isinstance(item, float) and not math.isfinite(item):
+            token = "NaN" if math.isnan(item) else ("Infinity" if item > 0 else "-Infinity")
+            digest.update(b"float:" + token.encode("ascii"))
         else:
-            digest.update(
-                json.dumps(item, ensure_ascii=False, allow_nan=False).encode("utf-8")
-            )
+            try:
+                encoded = json.dumps(item, ensure_ascii=False, allow_nan=False)
+            except (TypeError, ValueError):
+                encoded = "unserializable:" + type(item).__name__
+            digest.update(encoded.encode("utf-8"))
         if kind == "v" and isinstance(item, (dict, list, tuple)):
             continue
         digest.update(b",")
@@ -2795,9 +2806,23 @@ def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[
         for relpath in sorted(tree.files):
             for pointer, keyword, value, node in _nested_id_entries(tree.files[relpath]):
                 slot = per_side.setdefault((relpath, pointer), {"keyword": keyword})
-                slot.setdefault(side, (keyword, value, _iterative_content_digest(node)))
+                try:
+                    node_digest = _iterative_content_digest(node)
+                except Exception:  # fail closed: never lose the report to a hashing fault
+                    node_digest = "unhashable"
+                slot.setdefault(side, []).append((keyword, value, node_digest))
     for (relpath, pointer), slot in sorted(per_side.items()):
         old, new = slot.get("old"), slot.get("new")
+
+        def _bind(entries: list[tuple[str, str, str]] | None) -> tuple[Any, Any]:
+            if not entries:
+                return None, None
+            if len(entries) == 1:
+                return entries[0][1], entries[0][2]
+            return sorted(e[1] for e in entries), sorted(e[2] for e in entries)
+
+        old_value, old_digest = _bind(old)
+        new_value, new_digest = _bind(new)
         emit(
             findings,
             relpath,
@@ -2809,12 +2834,9 @@ def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[
             "not model nested $id base URIs, so the change must be reviewed and "
             "acknowledged",
             subject=slot["keyword"],
-            old=None if old is None else old[1],
-            new=None if new is None else new[1],
-            content={
-                "old": None if old is None else old[2],
-                "new": None if new is None else new[2],
-            },
+            old=old_value,
+            new=new_value,
+            content={"old": old_digest, "new": new_digest},
         )
 
 

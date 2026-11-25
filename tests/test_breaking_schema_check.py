@@ -2928,6 +2928,83 @@ def test_response_allof_shortcut_does_not_hide_a_removed_declaration(tmp_path: P
     assert "definition_removed" in result.stdout
 
 
+def _narrow_inline_enum(repo: Path, endpoints: dict, branch: str) -> subprocess.CompletedProcess:
+    changed = json.loads(json.dumps(endpoints))
+    schema = changed["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["definitions"]["X"]["enum"] = ["a"]
+    _commit_files(repo, branch, {"widget_endpoints.json": changed})
+    return _run_gate(repo, "master", branch)
+
+
+def _consumer_endpoints_doc(section: str, ref: str) -> dict:
+    schema = {"content": {"application/json": {"schema": {"$ref": ref}}}}
+    operation = (
+        {"requestBody": schema, "responses": {"200": {"description": "ok"}}}
+        if section == "request"
+        else {"responses": {"200": {"description": "ok", **schema}}}
+    )
+    return {"openapi": "3.0.0", "paths": {"/y": {"post": operation}}}
+
+
+def test_endpoint_consumer_using_the_definition_only_in_a_response_is_a_response(
+    tmp_path: Path,
+) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    consumer = _consumer_endpoints_doc("response", _RESPONSE_X_REF)
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "other_endpoints.json": consumer}
+    )
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 0, result.stdout
+    assert "BREAKING (unacked):   0" in result.stdout, result.stdout
+
+
+def test_endpoint_consumer_using_the_definition_only_in_a_request_is_a_request(
+    tmp_path: Path,
+) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    consumer = _consumer_endpoints_doc("request", _RESPONSE_X_REF)
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "other_endpoints.json": consumer}
+    )
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+    assert "role=request" in result.stdout
+
+
+def test_request_reaching_the_definition_through_a_custom_id_intermediate_is_a_request(
+    tmp_path: Path,
+) -> None:
+    mid_id = "https://schemas.traigent.ai/custom/mid_v2.json"
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    absolute_ref = "https://schemas.traigent.ai/" + _RESPONSE_X_REF
+    mid = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": mid_id,
+        "type": "object",
+        "properties": {"x": {"$ref": absolute_ref}},
+    }
+    request = _consumer_endpoints_doc("request", mid_id)
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "mid_response_schema.json": mid,
+            "req_endpoints.json": request,
+        },
+    )
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
 def test_response_allof_shortcut_does_not_hide_a_removal_one_property_deeper(
     tmp_path: Path,
 ) -> None:

@@ -63,7 +63,7 @@ import sys
 import tarfile
 import tempfile
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
@@ -2011,7 +2011,35 @@ def _relpath_from_ref_string(current_file: str, ref: str) -> str | None:
     return "/".join(parts)
 
 
-def crawl_endpoint_roles(files: dict[str, Any]) -> dict[str, set[str]]:
+def _ref_target_file(
+    current_file: str, ref: str, by_uri: dict[str, str] | None, base: str | None
+) -> str | None:
+    """The schema file a $ref names: a document URI registered by a file's own ``$id`` wins
+    (so an intermediate schema reached through a custom ``$id`` stays in the role graph), else
+    the path-style resolution."""
+    if by_uri and not ref.startswith("#"):
+        document_uri = urldefrag(urljoin(base or SCHEMA_ID_BASE + current_file, ref))[0]
+        if document_uri in by_uri:
+            return by_uri[document_uri]
+    return _relpath_from_ref_string(current_file, ref)
+
+
+def uri_index(*trees: SchemaTree) -> dict[str, str]:
+    """document URI (a file's declared ``$id`` or its path-style URI) -> relpath."""
+    by_uri: dict[str, str] = {}
+    for tree in trees:
+        for relpath in tree.files:
+            declared = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
+            by_uri[urldefrag(declared)[0]] = relpath
+            by_uri[SCHEMA_ID_BASE + relpath] = relpath
+    return by_uri
+
+
+def crawl_endpoint_roles(
+    files: dict[str, Any],
+    by_uri: dict[str, str] | None = None,
+    base_uris: dict[str, str] | None = None,
+) -> dict[str, set[str]]:
     """Direct request/response role, straight from *_endpoints.json requestBody/responses/params."""
     direct: dict[str, set[str]] = defaultdict(set)
 
@@ -2019,7 +2047,9 @@ def crawl_endpoint_roles(files: dict[str, Any]) -> dict[str, set[str]]:
         if isinstance(node, dict):
             for key, value in node.items():
                 if key == "$ref" and isinstance(value, str) and context is not None:
-                    target = _relpath_from_ref_string(current_file, value)
+                    target = _ref_target_file(
+                        current_file, value, by_uri, (base_uris or {}).get(current_file)
+                    )
                     if target:
                         direct[target].add(context)
                     continue
@@ -2042,7 +2072,11 @@ def crawl_endpoint_roles(files: dict[str, Any]) -> dict[str, set[str]]:
     return dict(direct)
 
 
-def build_ref_graph(files: dict[str, Any]) -> dict[str, set[str]]:
+def build_ref_graph(
+    files: dict[str, Any],
+    by_uri: dict[str, str] | None = None,
+    base_uris: dict[str, str] | None = None,
+) -> dict[str, set[str]]:
     """file -> set of schema files it $refs anywhere (for transitive role propagation)."""
     graph: dict[str, set[str]] = defaultdict(set)
 
@@ -2050,7 +2084,9 @@ def build_ref_graph(files: dict[str, Any]) -> dict[str, set[str]]:
         if isinstance(node, dict):
             for key, value in node.items():
                 if key == "$ref" and isinstance(value, str):
-                    target = _relpath_from_ref_string(current_file, value)
+                    target = _ref_target_file(
+                        current_file, value, by_uri, (base_uris or {}).get(current_file)
+                    )
                     if target and target != current_file:
                         graph[current_file].add(target)
                     continue
@@ -2078,6 +2114,38 @@ def _iter_refs(node: Any):
             yield from _iter_refs(value)
 
 
+def _iter_refs_with_usage(doc: Any, role_of_file: Role) -> Iterator[tuple[str, str]]:
+    """(ref, role) for every $ref of a document. An operations file's refs take the role of
+    the part of the operation that uses them (requestBody/parameters -> request, responses ->
+    response; the first marker wins, so a schema property that happens to carry one of those
+    names cannot flip it), and ``conservative`` where the use is unknown; any other file's
+    refs take ``role_of_file``."""
+    if not isinstance(doc, dict) or "paths" not in doc:
+        for ref in _iter_refs(doc):
+            yield ref, role_of_file
+        return
+
+    def walk(node: Any, context: str, flip: bool) -> Iterator[tuple[str, str]]:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                yield ref, context
+            for key, value in node.items():
+                nxt = context
+                if flip and context == "conservative":
+                    if key in ("requestBody", "parameters"):
+                        nxt = "request"
+                    elif key == "responses":
+                        nxt = "response"
+                yield from walk(value, nxt, flip)
+        elif isinstance(node, list):
+            for item in node:
+                yield from walk(item, context, flip)
+
+    for key, value in doc.items():
+        yield from walk(value, "conservative", key == "paths")
+
+
 def exported_inline_pointers(
     *trees: SchemaTree, role_of: Callable[[str], Role]
 ) -> dict[str, dict[str, frozenset[str]]]:
@@ -2087,17 +2155,12 @@ def exported_inline_pointers(
     own base URI, so one that names the document by a registered ``$id`` differing from its
     path is found too. Those inline definitions are public: changing them changes what the
     other file resolves to."""
-    by_uri: dict[str, str] = {}
-    for tree in trees:
-        for relpath in tree.files:
-            declared = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
-            by_uri[urldefrag(declared)[0]] = relpath
-            by_uri[SCHEMA_ID_BASE + relpath] = relpath
+    by_uri = uri_index(*trees)
     exported: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for tree in trees:
         for relpath, doc in tree.files.items():
             base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
-            for ref in _iter_refs(doc):
+            for ref, ref_role in _iter_refs_with_usage(doc, role_of(relpath)):
                 if "#" not in ref:
                     continue
                 document_uri, fragment = urldefrag(urljoin(base, ref))
@@ -2106,7 +2169,7 @@ def exported_inline_pointers(
                     continue
                 pointer = unquote(fragment).replace("~1", "/").replace("~0", "~")
                 if pointer.startswith("/paths/"):
-                    exported[target][pointer].add(role_of(relpath))
+                    exported[target][pointer].add(ref_role)
     return {
         file: {pointer: frozenset(roles) for pointer, roles in pointers.items()}
         for file, pointers in exported.items()
@@ -2488,11 +2551,14 @@ def compare_trees(
     changed: list[tuple[str, str]],
     allow_entries: list[dict[str, Any]],
 ) -> Report:
+    by_uri = uri_index(base, head)
     base_graph_roles = propagate_roles(
-        crawl_endpoint_roles(base.files), build_ref_graph(base.files)
+        crawl_endpoint_roles(base.files, by_uri, base.file_base_uri),
+        build_ref_graph(base.files, by_uri, base.file_base_uri),
     )
     head_graph_roles = propagate_roles(
-        crawl_endpoint_roles(head.files), build_ref_graph(head.files)
+        crawl_endpoint_roles(head.files, by_uri, head.file_base_uri),
+        build_ref_graph(head.files, by_uri, head.file_base_uri),
     )
     merged_graph_roles: dict[str, set[str]] = defaultdict(set)
     for src in (base_graph_roles, head_graph_roles):

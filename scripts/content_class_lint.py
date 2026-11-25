@@ -28,6 +28,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS_DIR = REPO_ROOT / "traigent_schema" / "schemas"
@@ -108,6 +109,31 @@ CURSOR_PATTERN = "^[A-Za-z0-9_-]+\\.[0-9a-f]{32}(?![\\s\\S])"
 CURSOR_MAX_LENGTH = 512
 CURSOR_LOCATIONS = frozenset(
     {"fleet_observe/fleet_observe_responses_schema.json#/definitions/Cursor"}
+)
+# An agent id is server-generated. The public contract declares the same agent_ref as a plain
+# string with minLength 1 and maxLength 128 (traigent_schema/schemas/agents/agents_endpoints.json,
+# ~lines 504-511). The production-reactive agent_ref path parameter therefore carries opaque_ref
+# with that shape and no pattern, but ONLY at these exact (schema file, JSON pointer) locations
+# and only with that shape (AGENT_ID_SHAPE, checked in _is_agent_id_site). Every other opaque_ref
+# still needs an approved ref pattern.
+AGENT_ID_SHAPE = {"type": "string", "minLength": 1, "maxLength": 128}
+AGENT_ID_LOCATIONS = frozenset(
+    {
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1evaluations~1{instant}~1stage/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1evaluations~1{instant}~1complete/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1grants/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1grants~1{grant_ref}/get/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts/get/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}/get/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1reservations/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1start/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1results/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1heartbeat/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1approval-context/get/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1attempts~1{attempt_ref}~1cancel/post/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1notifications/get/parameters/1/schema",
+        "optimization/tvl_reactive_endpoints.json#/paths/~1api~1v1~1projects~1{project_id}~1agents~1{agent_ref}~1production-reactive~1notifications~1{notification_ref}/get/parameters/1/schema",
+    }
 )
 _FIXED_REF_PATTERNS = frozenset(
     {
@@ -347,6 +373,46 @@ class LintResult:
 _MISSING = object()
 
 
+# Every keyword that takes a reference value; all of them are scanned by the whole-tree rule.
+REF_KEYS = ("$ref", "$dynamicRef", "$recursiveRef")
+
+
+def _normalise_ref(ref: str) -> str:
+    """Percent-decode a reference before it is matched (URI escapes are not JSON Pointer syntax)."""
+    path, sep, frag = ref.partition("#")
+    return unquote(path) + (sep + unquote(frag) if sep else "")
+
+
+# A JSON Pointer array token is a canonical non-negative index: no sign, no leading zero.
+_ARRAY_INDEX = re.compile(r"0|[1-9][0-9]*")
+
+
+def _normalise_segments(segments: list[str]) -> str:
+    """Join path segments, dropping ``.`` and resolving ``..`` (the same rule for every path)."""
+    parts: list[str] = []
+    for seg in segments:
+        if seg == "..":
+            if parts:
+                parts.pop()
+        elif seg not in ("", "."):
+            parts.append(seg)
+    return "/".join(parts)
+
+
+def _ref_target_file(doc: str, path: str) -> str:
+    """The schema document a reference path names, relative to the referring document."""
+    if path.startswith(ID_BASE):
+        return _normalise_segments(path[len(ID_BASE) :].split("/"))
+    return _normalise_segments((Path(doc).parent / path).as_posix().split("/"))
+
+
+def _canon_ptr(ptr: str) -> str:
+    """Canonical JSON Pointer: split on raw ``/`` first, then unescape ~1/~0 and re-escape."""
+    if not ptr:
+        return ""
+    return "/" + "/".join(_esc(_unesc(tok)) for tok in ptr[1:].split("/"))
+
+
 def _esc(token: str) -> str:
     return token.replace("~", "~0").replace("/", "~1")
 
@@ -381,22 +447,20 @@ class Linter:
         out += [f for f in EXTRA_ROOT_FILES if (self.dir / f).exists()]
         return out
 
+    def _targets_exempt_file(self, doc: str, ref: str) -> bool:
+        """True when the reference points into a document that holds an agent-id exemption
+        location. Used for references the lint cannot resolve: those are refused, fail-closed."""
+        path = ref.partition("#")[0]
+        target = _ref_target_file(doc, path) if path else doc
+        return target in {loc.partition("#")[0] for loc in AGENT_ID_LOCATIONS}
+
     def _resolve(self, doc: str, scope: list[tuple[str, Any, str]], ref: str):
         """Return (doc, absolute pointer, node, new_scope) or None."""
         path, _, frag = ref.partition("#")
         if frag and not frag.startswith("/"):
             return None
-        if path.startswith(ID_BASE):
-            target = path[len(ID_BASE) :]
-        elif path:
-            parts: list[str] = []
-            for seg in (Path(doc).parent / path).as_posix().split("/"):
-                if seg == "..":
-                    if parts:
-                        parts.pop()
-                elif seg not in ("", "."):
-                    parts.append(seg)
-            target = "/".join(parts)
+        if path:
+            target = _ref_target_file(doc, path)
         else:
             target = ""
         if target:
@@ -420,7 +484,12 @@ class Linter:
         if frag:
             try:
                 for tok in frag[1:].split("/"):
-                    node = node[_unesc(tok)] if isinstance(node, dict) else node[int(tok)]
+                    if isinstance(node, dict):
+                        node = node[_unesc(tok)]
+                    elif isinstance(node, list) and _ARRAY_INDEX.fullmatch(tok):
+                        node = node[int(tok)]
+                    else:  # "00", "+0", "-1" and other non-canonical indexes do not resolve
+                        return _MISSING
             except (KeyError, IndexError, ValueError, TypeError):
                 return _MISSING
         return node
@@ -620,10 +689,45 @@ class Linter:
         eff = self.effective_class(doc, scope, node)
         if eff is not None:
             self._check_server_text_site(loc, eff)
+            if eff == "opaque_ref":
+                # The referring site is checked as well: the agent-id exemption is decided on this
+                # node at this location and is never inherited through $ref or composition.
+                self._check_semantics(loc, eff, node, doc, scope)
             return  # inherited from a classed definition
         if self._is_container(doc, scope, node) and not self._open_extras(node, doc):
             return
         self.result.missing.append(loc)
+
+    def _is_agent_ref_path_parameter(self, loc: str) -> bool:
+        """True when the approved schema pointer is the schema of the enclosing OpenAPI Parameter
+        Object, and that object is the path parameter named ``agent_ref`` (``in: path``)."""
+        doc, _, ptr = loc.partition("#")
+        if not ptr.endswith("/schema") or not (self.dir / doc).exists():
+            return False
+        param = self._pointer(self.load(doc), ptr[: -len("/schema")])
+        return isinstance(param, dict) and param.get("name") == "agent_ref" and param.get("in") == "path"
+
+    def _is_agent_id_site(self, loc: str, cls: str, node: dict) -> bool:
+        """True only for this node, at an approved location, with exactly the agent-id shape.
+
+        The check reads the node itself, never a ``$ref`` target or composition branch: a node
+        that reaches an approved node through a reference gets no exemption. Bounds must be real
+        integers (``True == 1`` and ``128.0 == 128`` in Python are not accepted).
+        """
+        if cls != "opaque_ref" or loc not in AGENT_ID_LOCATIONS:
+            return False
+        if not self._is_agent_ref_path_parameter(loc):
+            return False
+        # Documentation keys do not change what the value can carry.
+        shape = {k: v for k, v in node.items() if k not in (CLASS_KEY, NOTE_KEY, "description")}
+        if set(shape) != set(AGENT_ID_SHAPE):
+            return False
+        if type(shape["type"]) is not str or shape["type"] != AGENT_ID_SHAPE["type"]:
+            return False
+        return all(
+            type(shape[k]) is int and shape[k] == AGENT_ID_SHAPE[k]
+            for k in ("minLength", "maxLength")
+        )
 
     def _check_semantics(self, loc: str, cls: str, node: dict, doc, scope) -> None:
         """Validate that ``cls`` holds for every value the node can accept.
@@ -633,6 +737,8 @@ class Linter:
         ``anyOf``/``oneOf`` alternative must satisfy it, including unconstrained ``{}`` / ``true``
         alternatives and ``$ref`` targets.
         """
+        if self._is_agent_id_site(loc, cls, node):
+            return
         for why in self._class_problems(cls, node, doc, scope, root=True):
             self.result.invalid.append(f"{loc}: {why}")
 
@@ -711,6 +817,12 @@ class Linter:
         """Record a class declared on a composition branch / overlay (not a parent slot)."""
         own = node.get(CLASS_KEY)
         if own is None:
+            # A body root, branch or overlay that inherits opaque_ref (directly through $ref or
+            # through a composition) is checked at its own location. The agent-id exemption is
+            # never inherited, so such a site must carry an approved ref pattern itself.
+            eff = self.effective_class(doc, scope, node)
+            if eff == "opaque_ref":
+                self._check_semantics(loc, eff, node, doc, scope)
             return
         if own not in CONTENT_CLASSES:
             self.result.invalid.append(f"{loc}: unknown class {own!r}")
@@ -1019,6 +1131,93 @@ class Linter:
                     root=True,
                 )
 
+    # -- whole-tree reference rule ---------------------------------------
+    def _exempt_hit(self, doc: str, ptr: str) -> bool:
+        """True when ``doc#ptr`` is a forbidden target: an agent-id exemption schema location, the
+        enclosing Parameter Object, or anything beneath either. Compared on canonical pointers."""
+        target = _canon_ptr(ptr)
+        for loc in AGENT_ID_LOCATIONS:
+            exempt_doc, _, exempt_ptr = loc.partition("#")
+            if doc != exempt_doc:
+                continue
+            forbidden = {_canon_ptr(exempt_ptr), _canon_ptr(exempt_ptr[: -len("/schema")])}
+            for base in forbidden:
+                if target == base or target.startswith(base + "/"):
+                    return True
+        return False
+
+    def _ref_targets(self, doc: str, node: Any, depth: int = 0) -> list[tuple[str, str, Any]]:
+        """Resolved ``$ref`` targets of ``node`` itself and of its composition branches."""
+        out: list[tuple[str, str, Any]] = []
+        if not isinstance(node, dict) or depth > 12:
+            return out
+        for key in REF_KEYS:
+            ref = node.get(key)
+            if isinstance(ref, str):
+                res = self._resolve(doc, [], _normalise_ref(ref))
+                if res is not None:
+                    out.append((res[0], res[1], res[2]))
+        for slot in _SCHEMA_LIST_SLOTS:
+            for branch in node.get(slot) or []:
+                out += self._ref_targets(doc, branch, depth + 1)
+        return out
+
+    def _reaches_exempt(self, doc: str, ptr: str, node: Any) -> bool:
+        """True when following ``$ref`` and composition edges from this node arrives at an
+        agent-id exemption location (cycle-safe)."""
+        seen: set[tuple[str, str]] = set()
+        stack = [(doc, ptr, node)]
+        while stack:
+            cur_doc, cur_ptr, cur_node = stack.pop()
+            if (cur_doc, cur_ptr) in seen:
+                continue
+            seen.add((cur_doc, cur_ptr))
+            if self._exempt_hit(cur_doc, cur_ptr):
+                return True
+            stack += self._ref_targets(cur_doc, cur_node)
+        return False
+
+    @staticmethod
+    def _iter_refs(node: Any, ptr: str):
+        """Every (pointer, value) of a reference keyword anywhere in a document."""
+        if isinstance(node, dict):
+            for key in REF_KEYS:
+                ref = node.get(key)
+                if isinstance(ref, str):
+                    yield ptr, ref
+            for key, value in node.items():
+                yield from Linter._iter_refs(value, f"{ptr}/{_esc(key)}")
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                yield from Linter._iter_refs(value, f"{ptr}/{i}")
+
+    def _check_agent_id_references(self) -> None:
+        """Whole-tree rule, independent of the walker and run over every JSON document under the
+        schemas directory: no ``$ref`` may reach an agent-id exemption location, directly or
+        through a chain of references and composition branches. The exemption is decided only at
+        the location itself, by _is_agent_id_site, whose exact key set excludes ``$ref``."""
+        walked = len(self.result.documents)  # scanning must not change the walked-document list
+        for rel in sorted(p.relative_to(self.dir).as_posix() for p in self.dir.rglob("*.json")):
+            doc = self.load(rel)  # excluded prefixes are covered too: this rule ignores the walk
+            for ptr, ref in self._iter_refs(doc, ""):
+                loc = f"{rel}#{ptr}" if ptr else rel
+                res = self._resolve(rel, [], _normalise_ref(ref))
+                if res is None:
+                    # Reported by the walker only when the walker reaches this document. A reference
+                    # into the exempt file that cannot be resolved is refused here instead.
+                    if self._targets_exempt_file(rel, _normalise_ref(ref)):
+                        self.result.invalid.append(
+                            f"{loc}: the agent-id exemption location must not be referenced "
+                            "(directly or through a reference chain)"
+                        )
+                    continue
+                if self._exempt_hit(res[0], res[1]) or self._reaches_exempt(res[0], res[1], res[2]):
+                    self.result.invalid.append(
+                        f"{loc}: the agent-id exemption location must not be referenced "
+                        "(directly or through a reference chain)"
+                    )
+        del self.result.documents[walked:]
+
     # -- driver ---------------------------------------------------------
     def run(self) -> LintResult:
         for rel in self.roots():
@@ -1032,6 +1231,7 @@ class Linter:
                 self._ctx = CTX_RESPONSE if rel in allowed_docs else CTX_OTHER
                 self.walk_schema(rel, [], data, "", value=False)
         self._ctx = CTX_OTHER
+        self._check_agent_id_references()
         # the same node can be recorded once per usage context: report it once
         seen_findings: set[tuple] = set()
         unique = []

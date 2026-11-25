@@ -3177,6 +3177,220 @@ def test_a_ref_inside_extension_metadata_is_not_a_reference(tmp_path: Path) -> N
     assert result.returncode == 0, result.stdout
 
 
+# ---------------------------------------------------------------------------
+# sol round 6: cases a request can still slip through (see CHANGELOG, follow-up)
+# ---------------------------------------------------------------------------
+
+
+_X_PARENT_REF = (
+    "widget_endpoints.json#/paths/~1x/get/responses/200/content/application~1json/schema"
+)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="known gap shared with origin/develop (parent-schema reference leaves local definitions unprotected); filed follow-up: breaking-check "
+    "role graph misses. Flips to XPASS when fixed.",
+)
+def test_case1_ref_to_the_parent_schema_of_a_local_definition(tmp_path: Path) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    consumer = _consumer_endpoints_doc("request", _X_PARENT_REF)
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "other_endpoints.json": consumer}
+    )
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="known gap shared with origin/develop (a moved $id is resolved through one shared URI index); filed follow-up: breaking-check "
+    "role graph misses. Flips to XPASS when fixed.",
+)
+def test_case2_moving_a_registered_id_between_endpoint_files(tmp_path: Path) -> None:
+    moved_id = "https://schemas.traigent.ai/custom/moved_v1.json"
+    narrow = {"type": "string", "enum": ["a"]}
+    wide = {"type": "string", "enum": ["a", "b"]}
+    ref = moved_id + _RESPONSE_X_REF.removeprefix("widget_endpoints.json")
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": _inline_endpoints_doc(wide, schema_id=moved_id),
+            "b_endpoints.json": _inline_endpoints_doc(narrow),
+            "other_endpoints.json": _consumer_endpoints_doc("request", ref),
+        },
+    )
+    _commit_files(
+        repo,
+        "move-id",
+        {
+            "widget_endpoints.json": _inline_endpoints_doc(narrow),
+            "b_endpoints.json": _inline_endpoints_doc(narrow, schema_id=moved_id),
+        },
+    )
+
+    result = _run_gate(repo, "master", "move-id")
+
+    assert result.returncode == 1, result.stdout
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="known gap shared with origin/develop (a reference chain leaving an endpoint file loses the request role); filed follow-up: breaking-check "
+    "role graph misses. Flips to XPASS when fixed.",
+)
+def test_case3_chain_leaving_an_endpoint_file_into_a_standalone_schema(
+    tmp_path: Path,
+) -> None:
+    mid = _inline_endpoints_doc({"type": "string"})
+    mid_schema = mid["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    mid_schema.clear()
+    mid_schema["$ref"] = "widget_response_schema.json#/definitions/X"
+    standalone = _doc(
+        "widget_response_schema.json",
+        definitions={"X": {"type": "string", "enum": ["a", "b"]}},
+        properties={"a": {"$ref": "#/definitions/X"}},
+    )
+    request = _consumer_endpoints_doc(
+        "request",
+        "mid_endpoints.json#/paths/~1x/get/responses/200/content/application~1json/schema",
+    )
+    repo = _init_repo(
+        tmp_path,
+        {
+            "mid_endpoints.json": mid,
+            "widget_response_schema.json": standalone,
+            "other_endpoints.json": request,
+        },
+    )
+    changed = json.loads(json.dumps(standalone))
+    changed["definitions"]["X"]["enum"] = ["a"]
+    _commit_files(repo, "narrow", {"widget_response_schema.json": changed})
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_case4_directly_exported_declaration_beside_a_ref(tmp_path: Path) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string"})
+    schema = endpoints["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["definitions"]["Base"] = schema["definitions"].pop("X")
+    schema["properties"] = {
+        "p": {
+            "$ref": "#/definitions/Base",
+            "definitions": {"X": {"type": "string", "enum": ["a", "b"]}},
+        }
+    }
+    ref = _RESPONSE_X_REF.replace("/schema/definitions/X", "/schema/properties/p/definitions/X")
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "other_endpoints.json": _consumer_endpoints_doc("request", ref),
+        },
+    )
+    changed = json.loads(json.dumps(endpoints))
+    changed["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"]["schema"][
+        "properties"
+    ]["p"]["definitions"]["X"]["enum"] = ["a"]
+    _commit_files(repo, "narrow", {"widget_endpoints.json": changed})
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_case5_boolean_subschema_true_to_false_in_a_request(tmp_path: Path) -> None:
+    baseline = _doc(
+        "widget_request_schema.json",
+        definitions={"X": True},
+        properties={"a": {"$ref": "#/definitions/X"}},
+    )
+    repo = _response_schema_repo(tmp_path, "widget_request_schema.json", baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["definitions"]["X"] = False
+    _commit_schema_change(repo, "narrow", changed, "narrow", "widget_request_schema.json")
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_endpoint_role_crawler_ignores_a_ref_inside_extension_metadata(tmp_path: Path) -> None:
+    custom_id = "https://schemas.traigent.ai/custom/widget_v1.json"
+    standalone = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": custom_id,
+        "type": "object",
+        "properties": {"a": {"type": "string", "enum": ["a", "b"]}},
+    }
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "x-data": {"$ref": custom_id}}
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": {"$ref": custom_id}}},
+                        }
+                    },
+                }
+            }
+        },
+    }
+    repo = _init_repo(
+        tmp_path, {"widget_response_schema.json": standalone, "w_endpoints.json": endpoints}
+    )
+    changed = json.loads(json.dumps(standalone))
+    changed["properties"]["a"]["enum"] = ["a"]
+    _commit_files(repo, "narrow", {"widget_response_schema.json": changed})
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    ("filename", "old", "new", "expected"),
+    [
+        ("widget_request_schema.json", True, False, 1),
+        ("widget_request_schema.json", {}, False, 1),
+        ("widget_request_schema.json", False, True, 0),
+        ("widget_response_schema.json", True, False, 0),
+        ("widget_response_schema.json", False, True, 1),
+        ("widget_schema.json", True, False, 1),
+        ("widget_schema.json", False, True, 1),
+    ],
+)
+def test_boolean_subschema_change_follows_the_role_direction(
+    tmp_path: Path, filename: str, old: object, new: object, expected: int
+) -> None:
+    baseline = _doc(
+        filename, definitions={"X": old}, properties={"a": {"$ref": "#/definitions/X"}}
+    )
+    repo = _response_schema_repo(tmp_path, filename, baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["definitions"]["X"] = new
+    _commit_schema_change(repo, "change", changed, "change", filename)
+
+    assert _run_gate(repo, "master", "change").returncode == expected
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

@@ -898,6 +898,34 @@ def _is_response_narrowing_wrap(
     return False
 
 
+def _subschema_rank(value: Any) -> int | None:
+    """How much a Draft-7 subschema accepts: 2 accepts everything (``true`` or ``{}``), 1 is a
+    constraining object schema, 0 accepts nothing (``false``); None for anything else."""
+    if value is True or value == {}:
+        return 2
+    if value is False:
+        return 0
+    return 1 if isinstance(value, dict) else None
+
+
+def _compare_boolean_subschema(scope: _NodeScope, pointer: str, old: Any, new: Any) -> bool:
+    """A boolean subschema on either side: accept-all -> constrained/accept-nothing (or
+    constrained -> accept-nothing) is NARROWING, the reverse is widening, routed through the
+    role's mirror-image rule like any keyword. True when handled."""
+    old_rank, new_rank = _subschema_rank(old), _subschema_rank(new)
+    if old_rank is None or new_rank is None or old_rank == new_rank:
+        return False
+    scope.keyword(
+        pointer,
+        "boolean_subschema_changed",
+        narrowed=new_rank < old_rank,
+        detail=f"subschema changed from {old!r} to {new!r}",
+        old=old,
+        new=new,
+    )
+    return True
+
+
 def _resolve_node_pair(
     scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
 ) -> tuple[dict, dict, _NodeScope] | None:
@@ -940,6 +968,8 @@ def _resolve_node_pair(
         return None
 
     if not isinstance(old, dict) or not isinstance(new, dict):
+        if old != new and _compare_boolean_subschema(scope, pointer, old, new):
+            return None
         if old != new:
             scope.emit(
                 pointer,
@@ -2039,22 +2069,26 @@ def crawl_endpoint_roles(
     """Direct request/response role, straight from *_endpoints.json requestBody/responses/params."""
     direct: dict[str, set[str]] = defaultdict(set)
 
-    def walk(node: Any, current_file: str, context: str | None) -> None:
+    def walk(node: Any, current_file: str, context: str | None, names: bool = False) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                if key == "$ref" and isinstance(value, str) and context is not None:
+                if not names and key == "$ref" and isinstance(value, str) and context is not None:
                     target = _ref_target_file(
                         current_file, value, by_uri, (base_uris or {}).get(current_file)
                     )
                     if target:
                         direct[target].add(context)
                     continue
+                # Literal values and x-* extensions are metadata, never references (the same
+                # keys the declaration walk and the reference scan skip).
+                if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
+                    continue
                 next_context = context
-                if key == "requestBody" or key == "parameters":
+                if not names and (key == "requestBody" or key == "parameters"):
                     next_context = "request"
-                elif key == "responses":
+                elif not names and key == "responses":
                     next_context = "response"
-                walk(value, current_file, next_context)
+                walk(value, current_file, next_context, not names and key in _NAME_MAP_KEYWORDS)
         elif isinstance(node, list):
             for item in node:
                 walk(item, current_file, context)

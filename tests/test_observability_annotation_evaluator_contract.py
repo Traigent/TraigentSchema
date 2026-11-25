@@ -236,7 +236,9 @@ def test_evaluator_backfill_request_is_a_closed_ref_matching_the_backend_model(v
     assert set(schema["properties"]["target_type"]["enum"]) == TARGET_TYPES | {None}
     assert schema["properties"]["limit"]["minimum"] == 1
     assert schema["properties"]["limit"]["maximum"] == 500
+    assert schema["properties"]["limit"]["default"] == 16
     assert v.validate_request(BACKFILL_ROUTE, "POST", {}) == []
+    assert v.validate_request(BACKFILL_ROUTE, "POST", {"limit": 16}) == []
     assert v.validate_request(
         BACKFILL_ROUTE, "POST", {"target_type": "observability_trace", "limit": 10}
     ) == []

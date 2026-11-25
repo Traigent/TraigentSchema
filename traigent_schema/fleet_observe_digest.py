@@ -21,7 +21,7 @@ import json
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 __all__ = [
@@ -91,7 +91,7 @@ def canonical_observed_at(stamp: str) -> str:
     if not isinstance(stamp, str) or _TIMESTAMP_RE.match(stamp) is None:
         raise _fail("observed_at")
     try:
-        parsed = datetime.fromisoformat(stamp[:-1] + "+00:00").astimezone(timezone.utc)
+        parsed = datetime.fromisoformat(stamp[:-1] + "+00:00").astimezone(UTC)
     except ValueError:
         raise _fail("observed_at") from None
     return parsed.strftime("%Y-%m-%dT%H:%M:%S.%fZ")

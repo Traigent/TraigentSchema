@@ -11689,6 +11689,114 @@
       "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fix/reactive-agent-ref-is-agent-id)"
+    },
+    {
+      "file": "observability/evaluator_backfill_result_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/skipped_reason_counts",
+          "role": "conservative",
+          "subject": "skipped_reason_counts",
+          "old": false,
+          "new": true,
+          "fingerprint": "39a928ffb6f1ced88807bf925cc6500ed72b14dd845f220f08ba08d88005f07d"
+        },
+        {
+          "pointer": "#/properties/skipped_reasons",
+          "role": "conservative",
+          "subject": "skipped_reasons",
+          "old": false,
+          "new": true,
+          "fingerprint": "e52da5151ca38c523d1b01c40d9b8e19450298f2540d812d2548b296e09ee777"
+        }
+      ],
+      "reason": "Intentional tightening of an open response object: undeclared skipped_reasons and skipped_reason_counts keys previously accepted arbitrary values, and are now constrained to target-id-to-reason strings and reason-to-positive-counts. The backend backfill response constructs those exact maps in evaluation_ops_service.py; no field became required.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#727"
+    },
+    {
+      "file": "observability/evaluator_update_request_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/target_type",
+          "role": "request",
+          "subject": "target_type",
+          "old": false,
+          "new": true,
+          "fingerprint": "6d83e69f6ad0b32eaa677244842723fceba676e5de384f749ae81b97c585f7ec"
+        }
+      ],
+      "reason": "Intentional declaration of target_type on an update body that previously accepted arbitrary additional values. EvaluatorDefinitionUpdateRequest in evaluation_ops.py defines the supported nullable EvaluationTargetType; null means unchanged, and its validator still rejects an empty/null-only update.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#727"
+    },
+    {
+      "file": "observability/observability_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/patch/requestBody/content/application/json/schema/properties/target_type",
+          "role": "request",
+          "subject": "target_type",
+          "old": false,
+          "new": true,
+          "fingerprint": "ca3037d68a0bebec2d8a35130a15767e8d3accbba1683f3c5b2c5b34a8db847e"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/filters",
+          "role": "request",
+          "subject": "filters",
+          "old": false,
+          "new": true,
+          "fingerprint": "9b2d882bd63a0b2e4871b30cfe40ff7b1cea416644748a46015e74e2a8e112eb"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/limit",
+          "role": "request",
+          "subject": "limit",
+          "old": false,
+          "new": true,
+          "fingerprint": "3cae5c44d93d10a95a25a4a71ee594313639215b1fec70457775bed447b6a873"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/skip_existing_scores",
+          "role": "request",
+          "subject": "skip_existing_scores",
+          "old": false,
+          "new": true,
+          "fingerprint": "43f59b5a2133130cd71a98fc9f3a604a77b9c5ff8c58fb17bd66ee7de936ec58"
+        },
+        {
+          "pointer": "#/paths//api/v1beta/evaluators/{evaluator_id}/backfill/post/requestBody/content/application/json/schema/properties/target_type",
+          "role": "request",
+          "subject": "target_type",
+          "old": false,
+          "new": true,
+          "fingerprint": "2046b577816d8f618057833d18efeba1c96223a629cfca0218a4c337b0062158"
+        }
+      ],
+      "reason": "Intentional declaration of the supported request DTO fields where the endpoint object previously allowed arbitrary values. EvaluatorBackfillRequest in evaluation_ops.py is extra=forbid and defines nullable target_type, object filters, limit 1..500 with default 16, and boolean skip_existing_scores. The schema now mirrors those accepted fields; unknown fields were already refused by the service.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#727"
+    },
+    {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/{session_id}/finalize/post/requestBody/content/application/json/schema/properties/optimization_outcome",
+          "role": "request",
+          "subject": "optimization_outcome",
+          "old": false,
+          "new": true,
+          "fingerprint": "3af9cefa7441f54ef3af279897c05aa32af1ac13f515e04dd1770069929d0aaf"
+        }
+      ],
+      "reason": "Intentional declaration of optimization_outcome on a request object that previously allowed arbitrary values. The route validates only completed, failed, cancelled, or null; terminal_outcome.py documents null/absence as the existing completed default. Other values are rejected by the service.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#727"
     }
   ]
 }

@@ -2049,7 +2049,8 @@ def exported_inline_pointers(
     by_uri: dict[str, str] = {}
     for tree in trees:
         for relpath in tree.files:
-            by_uri[urldefrag(tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath))[0]] = relpath
+            declared = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
+            by_uri[urldefrag(declared)[0]] = relpath
             by_uri[SCHEMA_ID_BASE + relpath] = relpath
     exported: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for tree in trees:

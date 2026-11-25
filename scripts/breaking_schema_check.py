@@ -576,6 +576,17 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     _compare_items(scope, pointer, old, new)
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
+    # A $ref'd node is compared once, at its definition site; walking its definitions again
+    # from every use site would only duplicate findings under a different pointer. Local
+    # definitions of an inline fragment inside an *_endpoints.json operation are private to
+    # that fragment (nothing outside it can address them), so only the refs that reach them
+    # matter, and those are already compared.
+    if (
+        "$ref" not in old_raw
+        and "$ref" not in new_raw
+        and not pointer.startswith("#/paths/")
+    ):
+        _compare_definitions(scope, pointer, old, new)
 
 
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
@@ -1307,6 +1318,41 @@ def _pattern_property_added(
                 "old consumers already accepted matching unknown members"
             ),
         )
+
+
+def _compare_definitions(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
+    """definitions / $defs: a definition is a contract surface in its own right (other files
+    and consumers address it by JSON pointer, and a root that does not $ref it never reaches
+    it), so every member present on both sides is compared with the same rules as any node,
+    under a pointer such as ``#/definitions/ExperimentRead/properties/agent_ref``. A removed
+    definition is BREAKING in every role, like a removed file: whatever resolved that pointer
+    breaks. An added definition is INFO."""
+    for keyword in ("definitions", "$defs"):
+        old_defs = _as_dict(old.get(keyword))
+        new_defs = _as_dict(new.get(keyword))
+        for name in sorted(set(old_defs) | set(new_defs)):
+            child_pointer = f"{pointer}/{keyword}/{name}"
+            if name in old_defs and name not in new_defs:
+                scope.emit(
+                    child_pointer,
+                    "definition_removed",
+                    "BREAKING",
+                    f"definition '{name}' removed from {keyword} — any $ref or consumer "
+                    "addressing it breaks",
+                    subject=name,
+                    old=True,
+                    new=False,
+                )
+            elif name not in old_defs:
+                scope.emit(
+                    child_pointer,
+                    "definition_added",
+                    "INFO",
+                    f"definition '{name}' added to {keyword}",
+                    subject=name,
+                )
+            else:
+                scope.recurse(old_defs[name], new_defs[name], child_pointer)
 
 
 def _compare_items(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
@@ -2291,6 +2337,21 @@ def compare_trees(
                 new_base=new_base_uri,
                 old_reg=base.registry,
                 new_reg=head.registry,
+                findings=findings,
+            )
+            # Root-level definitions of an OpenAPI document are not reached by the paths walk.
+            compare_node(
+                {k: _as_dict(old_doc).get(k) for k in ("definitions", "$defs") if k in old_doc},
+                {k: _as_dict(new_doc).get(k) for k in ("definitions", "$defs") if k in new_doc},
+                old_base=old_base_uri,
+                new_base=new_base_uri,
+                old_reg=base.registry,
+                new_reg=head.registry,
+                old_visited=frozenset(),
+                new_visited=frozenset(),
+                pointer="#",
+                role="conservative",
+                file=relpath,
                 findings=findings,
             )
         else:

@@ -2384,3 +2384,150 @@ def test_unresolvable_response_ref_is_breaking_not_silent(tmp_path: Path) -> Non
     assert result.returncode == 1, result.stdout
     assert "unresolved_ref" in result.stdout, result.stdout
     assert "HEAD side" in result.stdout, result.stdout
+
+
+# ---------------------------------------------------------------------------
+# definitions / $defs are walked, not only the file root
+# ---------------------------------------------------------------------------
+
+
+def _defs_schema(keyword: str, defs: dict) -> dict:
+    """A bare-named (conservative role) schema whose root references nothing, so a change
+    inside `definitions`/`$defs` is invisible to a root-only walk."""
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schemas.traigent.ai/widgets/widget_schema.json",
+        "type": "object",
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+        "additionalProperties": False,
+        keyword: defs,
+    }
+
+
+def _gate_defs_change(tmp_path: Path, baseline: dict, mutate) -> subprocess.CompletedProcess:
+    repo = _response_schema_repo(tmp_path, "widget_schema.json", baseline)
+    changed = json.loads(json.dumps(baseline))
+    mutate(changed)
+    _commit_schema_change(repo, "change-defs", changed, "change defs", "widget_schema.json")
+    return _run_gate(repo, "master", "change-defs")
+
+
+@pytest.mark.parametrize("keyword", ["definitions", "$defs"])
+def test_type_widened_inside_a_definition_is_breaking(tmp_path: Path, keyword: str) -> None:
+    baseline = _defs_schema(
+        keyword,
+        {
+            "ExperimentRead": {
+                "type": "object",
+                "properties": {"agent_ref": {"type": "string", "minLength": 1}},
+                "required": ["agent_ref"],
+                "additionalProperties": False,
+            }
+        },
+    )
+
+    def mutate(c: dict) -> None:
+        c[keyword]["ExperimentRead"]["properties"]["agent_ref"]["type"] = ["string", "null"]
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 1, result.stdout
+    assert f"#/{keyword}/ExperimentRead/properties/agent_ref" in result.stdout
+
+
+@pytest.mark.parametrize("keyword", ["definitions", "$defs"])
+def test_required_removed_inside_a_definition_is_breaking(
+    tmp_path: Path, keyword: str
+) -> None:
+    baseline = _defs_schema(
+        keyword,
+        {
+            "Y": {
+                "type": "object",
+                "properties": {"a": {"type": "string"}},
+                "required": ["a"],
+            }
+        },
+    )
+
+    def mutate(c: dict) -> None:
+        c[keyword]["Y"]["required"] = []
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 1, result.stdout
+    assert f"#/{keyword}/Y" in result.stdout
+    assert "'a' removed from required" in result.stdout
+
+
+def test_change_in_a_definition_reached_only_through_another_definition_is_breaking(
+    tmp_path: Path,
+) -> None:
+    baseline = _defs_schema(
+        "definitions",
+        {
+            "Outer": {
+                "type": "object",
+                "properties": {"inner": {"$ref": "#/definitions/Inner"}},
+            },
+            "Inner": {"type": "object", "properties": {"n": {"type": "integer"}}},
+        },
+    )
+
+    def mutate(c: dict) -> None:
+        c["definitions"]["Inner"]["properties"]["n"]["type"] = ["integer", "null"]
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 1, result.stdout
+    assert "#/definitions/Inner/properties/n" in result.stdout
+
+
+def test_change_in_a_nested_definitions_block_is_breaking(tmp_path: Path) -> None:
+    baseline = _defs_schema(
+        "definitions",
+        {
+            "Outer": {
+                "type": "object",
+                "definitions": {"Deep": {"type": "string", "maxLength": 10}},
+            }
+        },
+    )
+
+    def mutate(c: dict) -> None:
+        c["definitions"]["Outer"]["definitions"]["Deep"]["type"] = ["string", "null"]
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 1, result.stdout
+    assert "#/definitions/Outer/definitions/Deep" in result.stdout
+
+
+@pytest.mark.parametrize("keyword", ["definitions", "$defs"])
+def test_removed_definition_is_breaking(tmp_path: Path, keyword: str) -> None:
+    baseline = _defs_schema(
+        keyword,
+        {"Gone": {"type": "string"}, "Kept": {"type": "string"}},
+    )
+
+    def mutate(c: dict) -> None:
+        del c[keyword]["Gone"]
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 1, result.stdout
+    assert f"#/{keyword}/Gone" in result.stdout
+    assert "definition_removed" in result.stdout
+
+
+def test_unchanged_and_added_definitions_are_not_breaking(tmp_path: Path) -> None:
+    baseline = _defs_schema("definitions", {"Kept": {"type": "string"}})
+
+    def mutate(c: dict) -> None:
+        c["definitions"]["Added"] = {"type": "integer"}
+        c["description"] = "a harmless annotation change"
+
+    result = _gate_defs_change(tmp_path, baseline, mutate)
+
+    assert result.returncode == 0, result.stdout

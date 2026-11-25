@@ -2239,6 +2239,39 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
             yield from _iter_refs(value)
 
 
+def nested_id_pointers(doc: Any) -> list[tuple[str, str]]:
+    """(pointer, keyword) for every ``$id`` (or Draft-4 ``id``) string BELOW the root of a
+    document, in schema or operation positions. A nested resource id re-bases the references
+    inside it, which this checker does not model. Names (property names, definition names,
+    status codes) and literal positions (enum, const, default, examples, x-*, example values)
+    are skipped with the same helpers as the other walks."""
+    found: list[tuple[str, str]] = []
+
+    def walk(node: Any, at: str, *, names: bool, root: bool) -> None:
+        if isinstance(node, list):
+            for index, item in enumerate(node):
+                walk(item, f"{at}/{index}", names=False, root=False)
+            return
+        if not isinstance(node, dict):
+            return
+        if not names and not root:
+            for keyword in ("$id", "id"):
+                if isinstance(node.get(keyword), str):
+                    found.append((at, keyword))
+        for key, value in node.items():
+            if not names and _is_metadata_entry(key, value):
+                continue
+            walk(
+                value if names else _named_children(key, value),
+                f"{at}/{key}",
+                names=not names and _is_named_map(key, value),
+                root=False,
+            )
+
+    walk(doc, "#", names=False, root=True)
+    return found
+
+
 def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
     """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
     $ref in a DIFFERENT file addresses, in ANY of the given trees. A ref is resolved against
@@ -2670,6 +2703,8 @@ def compare_trees(
     finally:
         _EXPORTED_INLINE_POINTERS.reset(exported_token)
 
+    _emit_nested_id_findings(base, head, changed, findings)
+
     breaking = [f for f in findings if f.severity == "BREAKING"]
     unacked: list[Finding] = []
     acked: list[tuple[Finding, dict[str, Any]]] = []
@@ -2684,6 +2719,37 @@ def compare_trees(
                 near_miss[id(f)] = match.rejected
 
     return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
+
+
+def _emit_nested_id_findings(
+    base: SchemaTree, head: SchemaTree, changed: list[tuple[str, str]], findings: list[Finding]
+) -> None:
+    """Fail closed: a nested ``$id`` re-bases the references below it, which the reference
+    graph does not model, so every changed file and every file in either revision's
+    reference graph that holds one is reported BREAKING until reviewed and acknowledged."""
+    scope = {relpath for _, relpath in changed}
+    for tree in (base, head):
+        graph = build_ref_graph(tree.files, uri_index(tree), tree.file_base_uri)
+        scope |= set(graph) | {target for targets in graph.values() for target in targets}
+    seen: set[tuple[str, str]] = set()
+    for tree in (base, head):
+        for relpath in sorted(scope & set(tree.files)):
+            for pointer, keyword in nested_id_pointers(tree.files[relpath]):
+                if (relpath, pointer) in seen:
+                    continue
+                seen.add((relpath, pointer))
+                emit(
+                    findings,
+                    relpath,
+                    pointer,
+                    "nested_id_unsupported",
+                    "BREAKING",
+                    "conservative",
+                    f"nested {keyword} re-bases the references below it; this checker does "
+                    "not model nested $id base URIs, so the change must be reviewed and "
+                    "acknowledged",
+                    subject=keyword,
+                )
 
 
 def _compare_changed_files(

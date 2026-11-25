@@ -3707,6 +3707,76 @@ def test_a_moved_uri_keeps_the_base_revisions_role(tmp_path: Path) -> None:
     assert result.returncode == 1, result.stdout
 
 
+def test_nested_id_is_unsupported_and_fails_closed(tmp_path: Path) -> None:
+    foo = _doc("foo_request_schema.json", properties={"s": {"type": "string", "enum": ["ok"]}})
+    intermediate = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schemas.traigent.ai/custom/intermediate_schema.json",
+        "definitions": {
+            "exported": {
+                "$id": "https://schemas.traigent.ai/intermediate_schema.json",
+                "type": "object",
+                "properties": {"x": {"$ref": "foo_request_schema.json"}},
+            }
+        },
+    }
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/test": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "https://schemas.traigent.ai/intermediate_schema.json"
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+    repo = _init_repo(
+        tmp_path,
+        {
+            "foo_request_schema.json": foo,
+            "intermediate_schema.json": intermediate,
+            "test_endpoints.json": endpoints,
+        },
+    )
+    changed = json.loads(json.dumps(foo))
+    changed["properties"]["s"]["enum"] = ["ok", "new"]
+    _commit_files(repo, "widen", {"foo_request_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+    assert "nested_id_unsupported" in result.stdout
+    assert "#/definitions/exported" in result.stdout
+
+
+def test_nested_id_scan_ignores_literal_positions_and_real_schemas_have_none() -> None:
+    doc = {
+        "$id": "https://schemas.traigent.ai/a.json",
+        "default": {"$id": "https://example.invalid/x"},
+        "examples": [{"$id": "https://example.invalid/y"}],
+        "x-note": {"id": "z"},
+        "properties": {"id": {"type": "string"}, "$id": {"type": "string"}},
+    }
+    assert gate.nested_id_pointers(doc) == []
+    assert gate.nested_id_pointers({"definitions": {"A": {"$id": "u"}}}) == [
+        ("#/definitions/A", "$id")
+    ]
+    tree = gate.load_tree_from_dir(REPO_ROOT / "traigent_schema" / "schemas", label="repo")
+    found = {rel: gate.nested_id_pointers(doc) for rel, doc in tree.files.items()}
+    assert {rel: ids for rel, ids in found.items() if ids} == {}
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

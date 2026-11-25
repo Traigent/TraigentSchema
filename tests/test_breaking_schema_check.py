@@ -2782,17 +2782,20 @@ def test_gate_compares_against_the_merge_base_not_the_target_tip(tmp_path: Path)
     assert "Landed" not in result.stdout
 
 
-def test_content_unbound_entry_matches_a_content_bearing_finding_but_new_entries_do_not() -> None:
+def test_legacy_content_less_identity_never_matches_a_content_bearing_finding() -> None:
+    """A stored identity without content must not approve a finding that carries content,
+    marker or not: `content_unbound` is gone, so a replay of an old oneOf change with
+    unrelated branches is not suppressed by the old 'oneOf 4 -> 5' acknowledgement."""
     finding = gate.Finding(
         file="widgets/widget_schema.json",
-        pointer="#/properties/a/anyOf",
-        rule="anyOf_branch_count_changed",
+        pointer="#/properties/a/oneOf",
+        rule="oneOf_branch_count_changed",
         severity="BREAKING",
         role="conservative",
-        message="anyOf branch count changed (3 -> 4)",
-        subject="anyOf",
-        old=3,
-        new=4,
+        message="oneOf branch count changed (4 -> 5)",
+        subject="oneOf",
+        old=4,
+        new=5,
         content={"old": "a" * 64, "new": "b" * 64},
     )
     legacy_identity = {k: v for k, v in finding.identity().items() if k != "content"}
@@ -2800,16 +2803,149 @@ def test_content_unbound_entry_matches_a_content_bearing_finding_but_new_entries
         **legacy_identity,
         "fingerprint": gate._fingerprint_for_identity(finding.file, finding.rule, legacy_identity),
     }
-    base_entry = {
+    entry = {
         "file": finding.file,
         "rule": finding.rule,
         "findings": [legacy],
-        "reason": "Reviewed and released with the permission vocabulary change.",
+        "reason": "Reviewed and released with the readiness target change.",
         "version": "Unreleased",
     }
-    assert gate.find_allow_entry(finding, [base_entry]).entry is None
-    assert gate.find_allow_entry(finding, [{**base_entry, "content_unbound": True}]).entry
-    exact = {**base_entry, "findings": [_stored_identity(finding)]}
+    assert gate.find_allow_entry(finding, [entry]).entry is None
+    assert gate.find_allow_entry(finding, [{**entry, "content_unbound": True}]).entry is None
+    exact = {**entry, "findings": [_stored_identity(finding)]}
     assert gate.find_allow_entry(finding, [exact]).entry
     other = gate.Finding(**{**finding.__dict__, "content": {"old": "a" * 64, "new": "c" * 64}})
     assert gate.find_allow_entry(other, [exact]).entry is None
+
+
+def _inline_endpoints_doc(definition: dict, *, schema_id: str | None = None) -> dict:
+    doc = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "definitions": {"X": definition},
+                                        "properties": {"a": {"$ref": "#/definitions/X"}},
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+    if schema_id:
+        doc["$id"] = schema_id
+    return doc
+
+
+_RESPONSE_X_REF = (
+    "widget_endpoints.json#/paths/~1x/get/responses/200/content/application~1json"
+    "/schema/definitions/X"
+)
+
+
+def test_cross_file_target_is_judged_by_the_referencing_consumer_role(tmp_path: Path) -> None:
+    """An unchanged REQUEST schema refs an inline RESPONSE definition; removing an enum
+    value narrows what the request accepts, so it must not be judged as a response."""
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    consumer = _doc("consumer_request_schema.json", properties={"x": {"$ref": _RESPONSE_X_REF}})
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "consumer_request_schema.json": consumer}
+    )
+    changed = json.loads(json.dumps(endpoints))
+    schema = changed["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["definitions"]["X"]["enum"] = ["a"]
+    _commit_files(repo, "narrow", {"widget_endpoints.json": changed})
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+    assert "role=request" in result.stdout
+
+
+def test_cross_file_ref_through_a_registered_id_is_compared(tmp_path: Path) -> None:
+    other_id = "https://schemas.traigent.ai/custom/ep_v2.json"
+    endpoints = _inline_endpoints_doc({"type": "string"}, schema_id=other_id)
+    ref = other_id + _RESPONSE_X_REF.removeprefix("widget_endpoints.json")
+    consumer = _doc("consumer_schema.json", properties={"x": {"$ref": ref}})
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "consumer_schema.json": consumer}
+    )
+    changed = json.loads(json.dumps(endpoints))
+    schema = changed["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["definitions"]["X"]["type"] = "integer"
+    _commit_files(repo, "retype", {"widget_endpoints.json": changed})
+
+    result = _run_gate(repo, "master", "retype")
+
+    assert result.returncode == 1, result.stdout
+    assert "definitions/X" in result.stdout
+
+
+def test_response_allof_shortcut_does_not_hide_a_removed_declaration(tmp_path: Path) -> None:
+    inner = {
+        "type": "object",
+        "definitions": {"X": {"type": "string"}},
+        "properties": {"a": {"type": "string"}},
+    }
+    base = _doc("wrap_response_schema.json", properties={"p": inner})
+    repo = _init_repo(tmp_path, {"wrap_response_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["properties"]["p"] = {"allOf": [inner]}
+    _commit_files(repo, "wrap", {"wrap_response_schema.json": changed})
+
+    result = _run_gate(repo, "master", "wrap")
+
+    assert result.returncode == 1, result.stdout
+    assert "#/properties/p/definitions/X" in result.stdout
+    assert "definition_removed" in result.stdout
+
+
+def test_definition_below_a_dereferenced_node_is_reported_once(tmp_path: Path) -> None:
+    base = _doc(
+        "below_schema.json",
+        definitions={
+            "Outer": {
+                "type": "object",
+                "properties": {
+                    "child": {"type": "object", "definitions": {"Inner": {"type": "string"}}}
+                },
+            }
+        },
+        properties={"o": {"$ref": "#/definitions/Outer"}},
+    )
+    repo = _init_repo(tmp_path, {"below_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["definitions"]["Outer"]["properties"]["child"]["definitions"]["Inner"]["type"] = [
+        "string",
+        "null",
+    ]
+    _commit_files(repo, "widen", {"below_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+    assert result.stdout.count("/definitions/Inner  (type") == 1, result.stdout
+
+
+def test_pull_request_gate_uses_the_event_base_sha_like_the_classifier() -> None:
+    text = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    start = text.index("- name: Resolve base/head refs for this event")
+    step = text[start : text.index("- name: Run the breaking-change gate", start)]
+    assert "PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}" in step
+    assert 'git fetch origin "$PR_BASE_SHA"' in step
+    assert 'base_ref=${PR_BASE_SHA}' in step
+    assert "PR_BASE_REF" not in step

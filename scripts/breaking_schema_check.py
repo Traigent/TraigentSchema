@@ -63,6 +63,7 @@ import sys
 import tarfile
 import tempfile
 from collections import defaultdict
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
@@ -532,6 +533,9 @@ class _NodeScope:
     # additionalProperties); False below oneOf/anyOf/allOf branches, where narrowing a branch
     # can widen the whole.
     monotone: bool = True
+    # True once an ancestor's $ref chain was followed to reach this node: definitions declared
+    # below it are reported at their declaration, not again at every use site.
+    via_ref: bool = False
 
     def emit(self, pointer: str, rule: str, severity: Severity, message: str, **identity) -> None:
         emit(self.findings, self.file, pointer, rule, severity, self.role, message, **identity)
@@ -557,6 +561,7 @@ class _NodeScope:
             findings=self.findings,
             depth=self.depth + 1,
             monotone=self.monotone and monotone,
+            via_ref=self.via_ref,
         )
 
 
@@ -576,6 +581,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     findings: list[Finding],
     depth: int = 0,
     monotone: bool = True,
+    via_ref: bool = False,
 ) -> None:
     scope = _NodeScope(
         old_base=old_base,
@@ -589,8 +595,12 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         findings=findings,
         depth=depth,
         monotone=monotone,
+        via_ref=via_ref,
     )
     if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
+        # The shortcut judges only the node's own constraints; declarations that lived on the
+        # old node (and may have moved into an allOf member) are still contract surface.
+        _compare_definitions(scope, pointer, old_raw, new_raw)
         return
     # Definitions declared on this node are resolved against the node's own document, not
     # against whatever its $ref points at, and stay addressable even when a $ref sits beside
@@ -913,6 +923,9 @@ def _resolve_node_pair(
         new_base=new_base,
         old_visited=old_visited,
         new_visited=new_visited,
+        via_ref=scope.via_ref
+        or old_visited != scope.old_visited
+        or new_visited != scope.new_visited,
     )
     return old, new, resolved_scope
 
@@ -1356,24 +1369,28 @@ def _pattern_property_added(
         )
 
 
-# Pointers (JSON-pointer fragments, unescaped) that another file's $ref addresses inside an
-# *_endpoints.json document, per endpoints file. compare_trees sets it for the whole run.
-_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, frozenset[str]]] = ContextVar(
+# Per *_endpoints.json file: the unescaped document pointers under ``/paths/`` that another
+# file's $ref addresses, each with the role(s) of the files that reference it. compare_trees
+# sets it for the whole run.
+_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, dict[str, frozenset[str]]]] = ContextVar(
     "_EXPORTED_INLINE_POINTERS", default={}  # noqa: B039 - read-only default, never mutated
 )
 
 
-def _definition_is_public(scope: _NodeScope, definition_pointer: str) -> bool:
-    """Everything is public except a definition local to an inline schema of an operation in
-    an *_endpoints.json file (pointer under ``#/paths/``): nothing outside that fragment can
-    address it unless another file's $ref points at it by its full document pointer."""
-    if not definition_pointer.startswith("#/paths/"):
-        return True
+def _exported_inline_role(scope: _NodeScope, definition_pointer: str) -> Role | None:
+    """None when the definition is local to an inline schema of an operation in an
+    *_endpoints.json file (pointer under ``#/paths/``) that no other file's $ref addresses:
+    nothing outside that fragment can reach it. Otherwise the role it must be judged with: the
+    role of the referencing consumer(s), conservative when they differ or are unknown, never
+    the declaring operation's own role."""
     wanted = definition_pointer[1:]
-    return any(
-        ref == wanted or ref.startswith(wanted + "/")
-        for ref in _EXPORTED_INLINE_POINTERS.get().get(scope.file, frozenset())
-    )
+    roles: set[str] = set()
+    for ref, ref_roles in _EXPORTED_INLINE_POINTERS.get().get(scope.file, {}).items():
+        if ref == wanted or ref.startswith(wanted + "/"):
+            roles |= ref_roles
+    if not roles:
+        return None
+    return roles.pop() if len(roles) == 1 else "conservative"  # type: ignore[return-value]
 
 
 def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any) -> None:
@@ -1386,16 +1403,22 @@ def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw:
     definition is INFO. A change is reported at its declaration; where a response also
     reaches it through a $ref, the use-site finding carries that use's own role and pointer,
     so the two are distinct allowlist identities and are deliberately not merged."""
+    if scope.via_ref:
+        return
     old, new = _as_dict(old_raw), _as_dict(new_raw)
     for keyword in ("definitions", "$defs"):
         old_defs = _as_dict(old.get(keyword))
         new_defs = _as_dict(new.get(keyword))
         for name in sorted(set(old_defs) | set(new_defs)):
             child_pointer = f"{pointer}/{keyword}/{name}"
-            if not _definition_is_public(scope, child_pointer):
-                continue
+            child_scope = scope
+            if child_pointer.startswith("#/paths/"):
+                exported_role = _exported_inline_role(scope, child_pointer)
+                if exported_role is None:
+                    continue
+                child_scope = replace(scope, role=exported_role)
             if name in old_defs and name not in new_defs:
-                scope.emit(
+                child_scope.emit(
                     child_pointer,
                     "definition_removed",
                     "BREAKING",
@@ -1407,7 +1430,7 @@ def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw:
                     content=_content_pair(old=old_defs[name]),
                 )
             elif name not in old_defs:
-                scope.emit(
+                child_scope.emit(
                     child_pointer,
                     "definition_added",
                     "INFO",
@@ -1415,7 +1438,7 @@ def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw:
                     subject=name,
                 )
             else:
-                scope.recurse(old_defs[name], new_defs[name], child_pointer)
+                child_scope.recurse(old_defs[name], new_defs[name], child_pointer)
 
 
 def _compare_items(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
@@ -2014,23 +2037,38 @@ def _iter_refs(node: Any):
             yield from _iter_refs(value)
 
 
-def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
+def exported_inline_pointers(
+    *trees: SchemaTree, role_of: Callable[[str], Role]
+) -> dict[str, dict[str, frozenset[str]]]:
     """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
-    $ref in a DIFFERENT file addresses (in any of the given trees). Those inline definitions
-    are public: changing them changes what the other file resolves to."""
-    exported: dict[str, set[str]] = defaultdict(set)
+    $ref in a DIFFERENT file addresses (in any of the given trees), with the roles of the
+    referencing files (``role_of(relpath)``). A ref is resolved against the referencing file's
+    own base URI, so one that names the document by a registered ``$id`` differing from its
+    path is found too. Those inline definitions are public: changing them changes what the
+    other file resolves to."""
+    by_uri: dict[str, str] = {}
+    for tree in trees:
+        for relpath in tree.files:
+            by_uri[urldefrag(tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath))[0]] = relpath
+            by_uri[SCHEMA_ID_BASE + relpath] = relpath
+    exported: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for tree in trees:
         for relpath, doc in tree.files.items():
+            base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
             for ref in _iter_refs(doc):
                 if "#" not in ref:
                     continue
-                target = _relpath_from_ref_string(relpath, ref)
+                document_uri, fragment = urldefrag(urljoin(base, ref))
+                target = by_uri.get(document_uri) or _relpath_from_ref_string(relpath, ref)
                 if not target or target == relpath or "_endpoints" not in Path(target).name:
                     continue
-                fragment = unquote(ref.split("#", 1)[1]).replace("~1", "/").replace("~0", "~")
-                if fragment.startswith("/paths/"):
-                    exported[target].add(fragment)
-    return {file: frozenset(pointers) for file, pointers in exported.items()}
+                pointer = unquote(fragment).replace("~1", "/").replace("~0", "~")
+                if pointer.startswith("/paths/"):
+                    exported[target][pointer].add(role_of(relpath))
+    return {
+        file: {pointer: frozenset(roles) for pointer, roles in pointers.items()}
+        for file, pointers in exported.items()
+    }
 
 
 def propagate_roles(direct: dict[str, set[str]], graph: dict[str, set[str]]) -> dict[str, set[str]]:
@@ -2292,24 +2330,7 @@ def _stored_identity_matches(
     current_identity: dict[str, Any],
     current_fingerprint: str,
 ) -> bool:
-    """True when one stored structured identity verifies and names exactly this finding.
-
-    An entry flagged ``"content_unbound": true`` predates content-bound identities and could
-    not be migrated (its original comparison is not reproducible from first-parent
-    history); its content-less identities match a finding that now carries content on every
-    other identity field. No new entry gets the flag: the suggested entries always carry the
-    content digests."""
-    if (
-        entry.get("content_unbound") is True
-        and _CONTENT_IDENTITY_KEY in current_identity
-        and _CONTENT_IDENTITY_KEY not in stored_identity
-    ):
-        current_identity = {
-            key: value for key, value in current_identity.items() if key != _CONTENT_IDENTITY_KEY
-        }
-        current_fingerprint = _fingerprint_for_identity(
-            entry.get("file", ""), entry.get("rule", ""), current_identity
-        )
+    """True when one stored structured identity verifies and names exactly this finding."""
     # A structured acknowledgement is valid only when it contains exactly the
     # canonical identity fields plus a verified SHA-256 digest.  In particular,
     # a digest cannot be used to bless a later semantic edit to the identity.
@@ -2438,7 +2459,14 @@ def compare_trees(
 
     findings: list[Finding] = []
     role_notes: dict[str, tuple[str, str]] = {}
-    exported_token = _EXPORTED_INLINE_POINTERS.set(exported_inline_pointers(base, head))
+    def consumer_role(relpath: str) -> Role:
+        if "_endpoints" in Path(relpath).name:
+            return "conservative"  # an operation's role does not carry over to its refs
+        return classify_file_role(relpath, merged_graph_roles.get(relpath, set()))[0]
+
+    exported_token = _EXPORTED_INLINE_POINTERS.set(
+        exported_inline_pointers(base, head, role_of=consumer_role)
+    )
     try:
         _compare_changed_files(
             base, head, changed, merged_graph_roles, findings, role_notes

@@ -649,7 +649,7 @@ def _compare_nested_declarations(
         if not names and not root:
             _compare_definitions(scope, at, old, new if isinstance(new, dict) else {})
         for key, value in old.items():
-            if not names and key in _VALUE_LITERAL_SKIP:
+            if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
                 continue
             new_child = new.get(key) if isinstance(new, dict) else None
             if (

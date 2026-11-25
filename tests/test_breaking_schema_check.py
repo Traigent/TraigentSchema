@@ -3005,6 +3005,24 @@ def test_request_reaching_the_definition_through_a_custom_id_intermediate_is_a_r
     assert result.returncode == 1, result.stdout
 
 
+def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
+    inner = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}},
+        "x-example-metadata": {"definitions": {"X": {"type": "string"}}},
+    }
+    base = _doc("meta_response_schema.json", properties={"p": inner})
+    repo = _init_repo(tmp_path, {"meta_response_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["properties"]["p"] = {"allOf": [inner]}
+    _commit_files(repo, "wrap", {"meta_response_schema.json": changed})
+
+    result = _run_gate(repo, "master", "wrap")
+
+    assert result.returncode == 0, result.stdout
+    assert "definition_removed" not in result.stdout
+
+
 def test_response_allof_shortcut_does_not_hide_a_removal_one_property_deeper(
     tmp_path: Path,
 ) -> None:

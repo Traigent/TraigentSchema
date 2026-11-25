@@ -3,7 +3,7 @@
   "info": {
     "title": "Traigent TVL Reactive Policy Read Route",
     "version": "1.0.0",
-    "description": "Authorized human portal read of the declared reactive policy of one agent (TRAIG-101 follow-up to S1). A portal catalog like agent_readiness: project and agent ids in the path are the plain ids the portal already holds and are authorized server-side; it is deliberately outside the optimization-channel content-class lint roots. The response schema (optimization/tvl_reactive_policy_schema.json) stays closed and content-class checked, and the route returns the server-issued agent_ref for every reactive route. See docs/tvl-reactive-contracts.md."
+    "description": "Authorized human portal read of the declared reactive policy of one agent. A portal catalog like agent_readiness: project and agent ids in the path are the plain ids the portal already holds and are authorized server-side; it is deliberately outside the optimization-channel content-class lint roots. The response schema (optimization/tvl_reactive_policy_schema.json) stays closed and content-class checked, and the response carries a server-issued agent_ref for the policy contracts; the 14 production-reactive operations take the agent id instead. See docs/tvl-reactive-contracts.md."
   },
   "paths": {
     "/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy": {

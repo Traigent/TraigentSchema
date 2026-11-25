@@ -533,6 +533,11 @@ class _NodeScope:
     # additionalProperties); False below oneOf/anyOf/allOf branches, where narrowing a branch
     # can widen the whole.
     monotone: bool = True
+    # True while every ancestor maps monotonically to this node (root, properties, items,
+    # additionalProperties, definitions, allOf members): the only positions where a boolean
+    # subschema's accept-all/accept-nothing change decides the parent's direction. False below
+    # oneOf/anyOf (and anything else this differ does not recurse into).
+    boolean_rank: bool = True
     # True once an ancestor's $ref chain was followed to reach this node: definitions declared
     # below it are reported at their declaration, not again at every use site.
     via_ref: bool = False
@@ -544,7 +549,13 @@ class _NodeScope:
         _keyword_finding(self.findings, self.file, pointer, self.role, keyword, **kwargs)
 
     def recurse(
-        self, old_raw: Any, new_raw: Any, pointer: str, *, monotone: bool = True
+        self,
+        old_raw: Any,
+        new_raw: Any,
+        pointer: str,
+        *,
+        monotone: bool = True,
+        boolean_rank: bool = True,
     ) -> None:
         compare_node(
             old_raw,
@@ -562,6 +573,7 @@ class _NodeScope:
             depth=self.depth + 1,
             monotone=self.monotone and monotone,
             via_ref=self.via_ref,
+            boolean_rank=self.boolean_rank and boolean_rank,
         )
 
 
@@ -582,6 +594,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     depth: int = 0,
     monotone: bool = True,
     via_ref: bool = False,
+    boolean_rank: bool = True,
 ) -> None:
     scope = _NodeScope(
         old_base=old_base,
@@ -596,6 +609,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         depth=depth,
         monotone=monotone,
         via_ref=via_ref,
+        boolean_rank=boolean_rank,
     )
     if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
         # The shortcut judges only the node's own constraints; declarations that lived on the
@@ -649,7 +663,7 @@ def _compare_nested_declarations(
         if not names and not root:
             _compare_definitions(scope, at, old, new if isinstance(new, dict) else {})
         for key, value in old.items():
-            if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
+            if not names and _is_metadata_entry(key, value):
                 continue
             new_child = new.get(key) if isinstance(new, dict) else None
             if (
@@ -664,7 +678,7 @@ def _compare_nested_declarations(
                     if new_entry is not None:
                         walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
                 continue
-            walk(value, new_child, f"{at}/{key}", names=not names and key in _NAMED_CHILD_KEYS)
+            walk(value, new_child, f"{at}/{key}", names=not names and _is_named_map(key, value))
 
     walk(old_raw, new_raw, pointer, names=False, root=True)
 
@@ -693,14 +707,33 @@ _LITERAL_KEYWORDS = frozenset(
     | {"title", "description", "$comment", "$schema", "$id"}
 )
 _NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
-# Maps whose keys are names, not keywords, in the three metadata-skipping walks: an OpenAPI
-# ``responses`` object is keyed by status code or ``default``, which is a real response.
-_NAMED_CHILD_KEYS = _NAME_MAP_KEYWORDS | {"responses"}
+# Maps whose keys are NAMES, never keywords, in the three metadata-skipping walks: schema maps
+# plus the OpenAPI maps keyed by status code, header or parameter name, media type, link or
+# callback name, or component name. A response header named ``x-widget-state`` or a status
+# ``default`` is a real entry. The x-*/literal skip applies only to the keys of a schema or
+# operation object itself; ``examples`` is skipped as a literal list but is a named map when
+# it is an object (OpenAPI).
+_NAMED_CHILD_KEYS = _NAME_MAP_KEYWORDS | frozenset(
+    {"responses", "headers", "parameters", "components", "links", "callbacks", "encoding"}
+    | {"content", "examples", "schemas", "requestBodies", "securitySchemes"}
+)
 _VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})
 
 
 def _is_literal_keyword(key: str) -> bool:
     return key in _LITERAL_KEYWORDS or key.startswith("x-")
+
+
+def _is_metadata_entry(key: str, value: Any) -> bool:
+    """True for a key of a schema/operation object that holds literal metadata, never a
+    reference or declaration (an object-valued ``examples`` is an OpenAPI named map)."""
+    if key == "examples" and isinstance(value, dict):
+        return False
+    return key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)
+
+
+def _is_named_map(key: str, value: Any) -> bool:
+    return key in _NAMED_CHILD_KEYS and isinstance(value, dict)
 
 
 _ALWAYS_REFUSED_KEYWORDS = frozenset(
@@ -934,6 +967,8 @@ def _compare_boolean_subschema(scope: _NodeScope, pointer: str, old: Any, new: A
     """accept-all -> accept-nothing is NARROWING and the reverse is widening, routed through
     the role's mirror-image rule like any keyword. Only transitions between those two certain
     classes are handled (True when handled); every other change keeps the leaf_changed path."""
+    if not scope.boolean_rank:
+        return False
     old_rank, new_rank = _subschema_rank(old), _subschema_rank(new)
     if old_rank is None or new_rank is None or old_rank == new_rank:
         return False
@@ -1614,7 +1649,9 @@ def _compare_combinator_branches(
         )
         return
     for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
-        scope.recurse(ob, nb, f"{combinator_pointer}/{i}", monotone=False)
+        scope.recurse(
+            ob, nb, f"{combinator_pointer}/{i}", monotone=False, boolean_rank=combinator == "allOf"
+        )
 
 
 def _combinator_appeared(
@@ -2103,14 +2140,14 @@ def crawl_endpoint_roles(
                     continue
                 # Literal values and x-* extensions are metadata, never references (the same
                 # keys the declaration walk and the reference scan skip).
-                if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
+                if not names and _is_metadata_entry(key, value):
                     continue
                 next_context = context
                 if not names and (key == "requestBody" or key == "parameters"):
                     next_context = "request"
                 elif not names and key == "responses":
                     next_context = "response"
-                walk(value, current_file, next_context, not names and key in _NAMED_CHILD_KEYS)
+                walk(value, current_file, next_context, not names and _is_named_map(key, value))
         elif isinstance(node, list):
             for item in node:
                 walk(item, current_file, context)
@@ -2163,9 +2200,9 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
         if isinstance(ref, str) and not names:
             yield ref
         for key, value in node.items():
-            if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
+            if not names and _is_metadata_entry(key, value):
                 continue
-            yield from _iter_refs(value, names=not names and key in _NAMED_CHILD_KEYS)
+            yield from _iter_refs(value, names=not names and _is_named_map(key, value))
     elif isinstance(node, list):
         for value in node:
             yield from _iter_refs(value)

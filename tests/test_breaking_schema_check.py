@@ -3454,6 +3454,103 @@ def test_boolean_subschema_rank_only_decides_certain_meanings(
     assert _run_gate(repo, "master", "change").returncode == expected
 
 
+def test_response_header_named_like_an_extension_is_still_a_reference(tmp_path: Path) -> None:
+    state = _doc(
+        "state_request_schema.json",
+        properties={"s": {"type": "string", "enum": ["a"]}},
+    )
+    schema_ref = {"$ref": "state_request_schema.json"}
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "schema": schema_ref}],
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "headers": {"x-widget-state": {"schema": schema_ref}},
+                        }
+                    },
+                }
+            }
+        },
+    }
+    repo = _init_repo(tmp_path, {"state_request_schema.json": state, "w_endpoints.json": endpoints})
+    changed = json.loads(json.dumps(state))
+    changed["properties"]["s"]["enum"] = ["a", "b"]
+    _commit_files(repo, "widen", {"state_request_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_boolean_rank_is_not_applied_inside_oneof(tmp_path: Path) -> None:
+    baseline = _doc(
+        "widget_request_schema.json", oneOf=[True, {"type": "object"}]
+    )
+    repo = _response_schema_repo(tmp_path, "widget_request_schema.json", baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["oneOf"][0] = {"not": {}}
+    _commit_schema_change(repo, "change", changed, "change", "widget_request_schema.json")
+
+    result = _run_gate(repo, "master", "change")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_boolean_rank_applies_to_an_allof_member(tmp_path: Path) -> None:
+    baseline = _doc("widget_request_schema.json", allOf=[True])
+    repo = _response_schema_repo(tmp_path, "widget_request_schema.json", baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["allOf"][0] = False
+    _commit_schema_change(repo, "change", changed, "change", "widget_request_schema.json")
+
+    result = _run_gate(repo, "master", "change")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_response_only_defs_behind_responses_default_is_conservative(tmp_path: Path) -> None:
+    # deliberate: cross-file-referenced definitions are conservative (fail-safe); see the QL
+    # design note. A response-only consumer does not downgrade the definition to INFO.
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    schema = endpoints["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["$defs"] = schema.pop("definitions")
+    schema["properties"] = {"a": {"$ref": "#/$defs/X"}}
+    ref = _RESPONSE_X_REF.replace("/schema/definitions/X", "/schema/$defs/X")
+    consumer = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/y": {
+                "get": {
+                    "responses": {
+                        "default": {
+                            "description": "fallback",
+                            "content": {"application/json": {"schema": {"$ref": ref}}},
+                        }
+                    }
+                }
+            }
+        },
+    }
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "other_endpoints.json": consumer}
+    )
+    changed = json.loads(json.dumps(endpoints))
+    changed["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"]["schema"][
+        "$defs"
+    ]["X"]["enum"] = ["a"]
+    _commit_files(repo, "narrow", {"widget_endpoints.json": changed})
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

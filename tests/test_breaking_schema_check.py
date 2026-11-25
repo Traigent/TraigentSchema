@@ -89,7 +89,7 @@ def _stored_identity(finding, **updates):
     identity["fingerprint"] = gate._fingerprint_for_identity(
         finding.file,
         finding.rule,
-        {key: identity[key] for key in ("pointer", "role", "subject", "old", "new")},
+        {key: value for key, value in identity.items() if key != "fingerprint"},
     )
     return identity
 
@@ -2531,3 +2531,250 @@ def test_unchanged_and_added_definitions_are_not_breaking(tmp_path: Path) -> Non
     result = _gate_defs_change(tmp_path, baseline, mutate)
 
     assert result.returncode == 0, result.stdout
+
+
+# ---------------------------------------------------------------------------
+# review round 29: declarations beside a $ref, content-bound identities,
+# cross-file refs into inline endpoint definitions, merge-base comparison
+# ---------------------------------------------------------------------------
+
+
+def _write_files(repo: Path, files: dict[str, object]) -> None:
+    base = repo / "traigent_schema" / "schemas"
+    for rel, doc in files.items():
+        path = base / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+
+def _init_repo(tmp_path: Path, files: dict[str, object]) -> Path:
+    repo = tmp_path / "multi_repo"
+    repo.mkdir()
+    _run_git(repo, "init", "-q", "-b", "master")
+    _run_git(repo, "config", "user.email", "test@example.com")
+    _run_git(repo, "config", "user.name", "Breaking Schema Check Tests")
+    _write_files(repo, files)
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "baseline")
+    return repo
+
+
+def _commit_files(repo: Path, branch: str, files: dict[str, object], *, create: bool = True) -> None:
+    _run_git(repo, "checkout", "-q", *(["-b"] if create else []), branch)
+    _write_files(repo, files)
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", f"change on {branch}")
+    _run_git(repo, "checkout", "-q", "master")
+
+
+def _doc(name: str, **extra: object) -> dict:
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": f"https://schemas.traigent.ai/widgets/{name}",
+        "type": "object",
+        **extra,
+    }
+
+
+def test_definition_declared_beside_a_root_ref_is_walked(tmp_path: Path) -> None:
+    """A $ref at the root hides sibling `definitions` from a resolve-first walk, yet the
+    declarations stay addressable by other files."""
+    shared = _doc(
+        "shared_schema.json",
+        definitions={"Ref": {"type": "string"}, "Other": {"type": "integer"}},
+    )
+    shared_root_ref = {**shared, "$ref": "#/definitions/Other"}
+    repo = _init_repo(tmp_path, {"shared_schema.json": shared_root_ref})
+    changed = json.loads(json.dumps(shared_root_ref))
+    del changed["definitions"]["Ref"]
+    _commit_files(repo, "drop-ref", {"shared_schema.json": changed})
+
+    result = _run_gate(repo, "master", "drop-ref")
+
+    assert result.returncode == 1, result.stdout
+    assert "#/definitions/Ref" in result.stdout
+    assert "definition_removed" in result.stdout
+
+
+def test_definition_declared_beside_a_nested_ref_is_walked(tmp_path: Path) -> None:
+    base = _doc(
+        "nested_schema.json",
+        definitions={"Leaf": {"type": "string"}},
+        properties={
+            "p": {"$ref": "#/definitions/Leaf", "definitions": {"Hidden": {"type": "string"}}}
+        },
+    )
+    repo = _init_repo(tmp_path, {"nested_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["properties"]["p"]["definitions"]["Hidden"]["type"] = ["string", "null"]
+    _commit_files(repo, "widen", {"nested_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+    assert "/properties/p/definitions/Hidden" in result.stdout
+
+
+def test_nested_definition_change_is_reported_once(tmp_path: Path) -> None:
+    base = _doc(
+        "once_schema.json",
+        definitions={
+            "Outer": {
+                "type": "object",
+                "definitions": {"Deep": {"type": "string"}},
+            }
+        },
+        properties={"o": {"$ref": "#/definitions/Outer"}},
+    )
+    repo = _init_repo(tmp_path, {"once_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["definitions"]["Outer"]["definitions"]["Deep"]["type"] = ["string", "null"]
+    _commit_files(repo, "widen", {"once_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+    assert result.stdout.count("#/definitions/Outer/definitions/Deep  (type") == 1, result.stdout
+
+
+def _anyof_doc(branches: list[dict]) -> dict:
+    return _doc(
+        "perm_schema.json",
+        definitions={"PermissionValue": {"type": "string", "anyOf": branches}},
+    )
+
+
+def _branch_list(prefix: str, n: int) -> list[dict]:
+    return [{"type": "string", "enum": [f"{prefix}{i}"]} for i in range(n)]
+
+
+def test_combinator_acknowledgement_is_bound_to_the_changed_content(tmp_path: Path) -> None:
+    """A 3 -> 4 anyOf acknowledgement must not approve a different 3 -> 4 change."""
+    old_branches = _branch_list("a", 3)
+    approved = _branch_list("a", 3) + [{"type": "string", "enum": ["approved"]}]
+    other = _branch_list("b", 4)
+    repo = _init_repo(tmp_path, {"perm_schema.json": _anyof_doc(old_branches)})
+    _commit_files(repo, "approved", {"perm_schema.json": _anyof_doc(approved)})
+    _commit_files(repo, "other", {"perm_schema.json": _anyof_doc(other)})
+
+    def findings_for(branch: str) -> list:
+        base_tree = gate.load_tree_from_ref(repo, "master", repo / f"x_base_{branch}", repo)
+        head_tree = gate.load_tree_from_ref(repo, branch, repo / f"x_{branch}", repo)
+        changed = gate.changed_schema_files(repo, "master", branch)
+        report = gate.compare_trees(base_tree, head_tree, changed, [])
+        return [f for f in report.breaking_unacked if f.rule == "anyOf_branch_count_changed"]
+
+    (approved_finding,) = findings_for("approved")
+    (other_finding,) = findings_for("other")
+    entry = {
+        "file": approved_finding.file,
+        "rule": approved_finding.rule,
+        "findings": [_stored_identity(approved_finding)],
+        "reason": "Reviewed: the permission vocabulary gained one value in this change.",
+        "version": "Unreleased",
+    }
+    allowlist = repo / "ack.json"
+    allowlist.write_text(json.dumps({"entries": [entry]}), encoding="utf-8")
+
+    def run(branch: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "--check", "--repo-root", str(repo),
+             "--base-ref", "master", "--head-ref", branch, "--allowlist", str(allowlist)],
+            env=_sanitized_git_env(), capture_output=True, text=True,
+        )
+
+    assert run("approved").returncode == 0
+    other_run = run("other")
+    assert other_run.returncode == 1, other_run.stdout
+    assert approved_finding.fingerprint() != other_finding.fingerprint()
+
+
+def test_inline_endpoint_definition_referenced_from_another_file_is_compared(
+    tmp_path: Path,
+) -> None:
+    endpoint_ref = (
+        "widget_endpoints.json#/paths/~1x/post/requestBody/content/application~1json"
+        "/schema/definitions/X"
+    )
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "definitions": {"X": {"type": "string"}},
+                                    "properties": {"a": {"$ref": "#/definitions/X"}},
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    consumer = _doc("consumer_schema.json", properties={"x": {"$ref": endpoint_ref}})
+    repo = _init_repo(
+        tmp_path, {"widget_endpoints.json": endpoints, "consumer_schema.json": consumer}
+    )
+    changed = json.loads(json.dumps(endpoints))
+    schema = changed["paths"]["/x"]["post"]["requestBody"]["content"]["application/json"]["schema"]
+    schema["definitions"]["X"]["type"] = "integer"
+    _commit_files(repo, "retype", {"widget_endpoints.json": changed})
+
+    result = _run_gate(repo, "master", "retype")
+
+    assert result.returncode == 1, result.stdout
+    assert "definitions/X" in result.stdout
+
+
+def test_unreferenced_inline_endpoint_definition_stays_private(tmp_path: Path) -> None:
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/x": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "definitions": {"X": {"type": "string"}},
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    }
+    repo = _init_repo(tmp_path, {"widget_endpoints.json": endpoints})
+    changed = json.loads(json.dumps(endpoints))
+    schema = changed["paths"]["/x"]["post"]["requestBody"]["content"]["application/json"]["schema"]
+    schema["definitions"]["X"]["type"] = "integer"
+    _commit_files(repo, "retype", {"widget_endpoints.json": changed})
+
+    assert _run_gate(repo, "master", "retype").returncode == 0
+
+
+def test_gate_compares_against_the_merge_base_not_the_target_tip(tmp_path: Path) -> None:
+    """A stale PR branch must not be charged with removing what the target branch added
+    after the PR branched off."""
+    base = _doc("stale_schema.json", definitions={"Old": {"type": "string"}})
+    repo = _init_repo(tmp_path, {"stale_schema.json": base})
+    pr_doc = json.loads(json.dumps(base))
+    pr_doc["definitions"]["Mine"] = {"type": "string"}
+    _commit_files(repo, "pr", {"stale_schema.json": pr_doc})
+    target_doc = json.loads(json.dumps(base))
+    target_doc["definitions"]["Landed"] = {"type": "string"}
+    _write_files(repo, {"stale_schema.json": target_doc})
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "target moves on")
+
+    result = _run_gate(repo, "master", "pr")
+
+    assert result.returncode == 0, result.stdout
+    assert "Landed" not in result.stdout

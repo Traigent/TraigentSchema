@@ -63,10 +63,11 @@ import sys
 import tarfile
 import tempfile
 from collections import defaultdict
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
-from urllib.parse import quote, urldefrag, urljoin, urlparse
+from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse
 
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
@@ -137,16 +138,24 @@ class Finding:
     subject: Any = None
     old: Any = None
     new: Any = None
+    # Digests of the old/new schema content, set only where `old`/`new` record a count or a
+    # presence flag (branch counts, added/removed members) and so cannot tell two different
+    # changes of the same shape apart. Part of the identity only when set, so every other
+    # rule keeps its existing fingerprints.
+    content: Any = None
 
     def identity(self) -> dict[str, Any]:
         """Return the structured, stable identity used by allowlist matching."""
-        return {
+        identity = {
             "pointer": self.pointer,
             "role": self.role,
             "subject": _canonical_value(self.subject),
             "old": _canonical_value(self.old),
             "new": _canonical_value(self.new),
         }
+        if self.content is not None:
+            identity["content"] = _canonical_value(self.content)
+        return identity
 
     def fingerprint(self) -> str:
         """Return a deterministic digest of the complete finding identity."""
@@ -157,6 +166,14 @@ class Finding:
         return (
             f"  [{tag}] {self.pointer}  ({self.rule}, role={self.role})\n            {self.message}"
         )
+
+
+def _finding_dict(finding: Finding) -> dict[str, Any]:
+    """JSON form of a finding; ``content`` appears only where it is part of the identity."""
+    data = dict(finding.__dict__)
+    if data.get("content") is None:
+        data.pop("content", None)
+    return data
 
 
 def emit(
@@ -171,6 +188,7 @@ def emit(
     subject: Any = None,
     old: Any = None,
     new: Any = None,
+    content: Any = None,
 ) -> None:
     findings.append(
         Finding(
@@ -183,6 +201,7 @@ def emit(
             subject=subject,
             old=old,
             new=new,
+            content=content,
         )
     )
 
@@ -211,6 +230,19 @@ def _canonical_json_bytes(value: Any) -> bytes:
 
 
 _STRUCTURED_IDENTITY_KEYS = frozenset({"pointer", "role", "subject", "old", "new"})
+_CONTENT_IDENTITY_KEY = "content"
+
+
+def content_digest(value: Any) -> str:
+    """SHA-256 of the canonical JSON of a schema fragment (None for an absent side)."""
+    return hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
+
+
+def _content_pair(old: Any = None, new: Any = None) -> dict[str, str | None]:
+    return {
+        "old": None if old is None else content_digest(old),
+        "new": None if new is None else content_digest(new),
+    }
 
 
 def _fingerprint_for_identity(file: str, rule: str, identity: dict[str, Any]) -> str:
@@ -231,6 +263,7 @@ def _keyword_finding(
     subject: Any = None,
     old: Any = None,
     new: Any = None,
+    content: Any = None,
 ) -> None:
     """Route a single keyword-level diff through the role's mirror-image rule.
 
@@ -264,6 +297,7 @@ def _keyword_finding(
         subject=subject if subject is not None else keyword,
         old=old,
         new=new,
+        content=content,
     )
 
 
@@ -558,8 +592,13 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     )
     if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
         return
+    # Definitions declared on this node are resolved against the node's own document, not
+    # against whatever its $ref points at, and stay addressable even when a $ref sits beside
+    # them, so they are walked from the raw node whether or not the $ref chain resolves.
+    declaring_scope = scope
     resolved = _resolve_node_pair(scope, old_raw, new_raw, pointer)
     if resolved is None:
+        _compare_definitions(declaring_scope, pointer, old_raw, new_raw)
         return
     old, new, scope = resolved
 
@@ -576,17 +615,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     _compare_items(scope, pointer, old, new)
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
-    # A $ref'd node is compared once, at its definition site; walking its definitions again
-    # from every use site would only duplicate findings under a different pointer. Local
-    # definitions of an inline fragment inside an *_endpoints.json operation are private to
-    # that fragment (nothing outside it can address them), so only the refs that reach them
-    # matter, and those are already compared.
-    if (
-        "$ref" not in old_raw
-        and "$ref" not in new_raw
-        and not pointer.startswith("#/paths/")
-    ):
-        _compare_definitions(scope, pointer, old, new)
+    _compare_definitions(declaring_scope, pointer, old_raw, new_raw)
 
 
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
@@ -1097,14 +1126,16 @@ def _compare_properties(
     for name in sorted(set(old_props) | set(new_props)):
         child_pointer = f"{pointer}/properties/{name}"
         if name in old_props and name not in new_props:
-            _property_removed(scope, child_pointer, name, new_rank)
+            _property_removed(scope, child_pointer, name, new_rank, old_props[name])
         elif name not in old_props and name in new_props:
             _property_added(scope, child_pointer, name, old_rank, new_props[name], old)
         else:
             scope.recurse(old_props[name], new_props[name], child_pointer)
 
 
-def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank: int) -> None:
+def _property_removed(
+    scope: _NodeScope, child_pointer: str, name: str, new_rank: int, old_schema: Any = None
+) -> None:
     if new_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -1114,6 +1145,7 @@ def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank
             subject=name,
             old=True,
             new=False,
+            content=_content_pair(old=old_schema),
         )
     else:
         scope.emit(
@@ -1195,6 +1227,7 @@ def _request_narrowing_added(
         subject=subject,
         old=False,
         new=True,
+        content=_content_pair(new=new_schema),
     )
     return True
 
@@ -1237,6 +1270,7 @@ def _property_added(
             subject=name,
             old=False,
             new=True,
+            content=_content_pair(new=new_schema),
         )
     else:
         scope.emit(
@@ -1268,6 +1302,7 @@ def _compare_pattern_properties(
                 subject=pat,
                 old=True,
                 new=False,
+                content=_content_pair(old=old_pp[pat]),
             )
         elif pat not in old_pp and pat in new_pp:
             _pattern_property_added(scope, child_pointer, pat, old_rank, new_pp[pat], old)
@@ -1307,6 +1342,7 @@ def _pattern_property_added(
             subject=pat,
             old=False,
             new=True,
+            content=_content_pair(new=new_schema),
         )
     else:
         scope.emit(
@@ -1320,18 +1356,44 @@ def _pattern_property_added(
         )
 
 
-def _compare_definitions(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
-    """definitions / $defs: a definition is a contract surface in its own right (other files
-    and consumers address it by JSON pointer, and a root that does not $ref it never reaches
-    it), so every member present on both sides is compared with the same rules as any node,
-    under a pointer such as ``#/definitions/ExperimentRead/properties/agent_ref``. A removed
-    definition is BREAKING in every role, like a removed file: whatever resolved that pointer
-    breaks. An added definition is INFO."""
+# Pointers (JSON-pointer fragments, unescaped) that another file's $ref addresses inside an
+# *_endpoints.json document, per endpoints file. compare_trees sets it for the whole run.
+_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, frozenset[str]]] = ContextVar(
+    "_EXPORTED_INLINE_POINTERS", default={}  # noqa: B039 - read-only default, never mutated
+)
+
+
+def _definition_is_public(scope: _NodeScope, definition_pointer: str) -> bool:
+    """Everything is public except a definition local to an inline schema of an operation in
+    an *_endpoints.json file (pointer under ``#/paths/``): nothing outside that fragment can
+    address it unless another file's $ref points at it by its full document pointer."""
+    if not definition_pointer.startswith("#/paths/"):
+        return True
+    wanted = definition_pointer[1:]
+    return any(
+        ref == wanted or ref.startswith(wanted + "/")
+        for ref in _EXPORTED_INLINE_POINTERS.get().get(scope.file, frozenset())
+    )
+
+
+def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any) -> None:
+    """definitions / $defs, read from the RAW node: a definition is a contract surface in its
+    own right (other files and consumers address it by JSON pointer, and a root that does not
+    $ref it never reaches it), so every member present on both sides is compared with the same
+    rules as any node, under a pointer such as
+    ``#/definitions/ExperimentRead/properties/agent_ref``. A removed definition is BREAKING in
+    every role, like a removed file: whatever resolved that pointer breaks. An added
+    definition is INFO. A change is reported at its declaration; where a response also
+    reaches it through a $ref, the use-site finding carries that use's own role and pointer,
+    so the two are distinct allowlist identities and are deliberately not merged."""
+    old, new = _as_dict(old_raw), _as_dict(new_raw)
     for keyword in ("definitions", "$defs"):
         old_defs = _as_dict(old.get(keyword))
         new_defs = _as_dict(new.get(keyword))
         for name in sorted(set(old_defs) | set(new_defs)):
             child_pointer = f"{pointer}/{keyword}/{name}"
+            if not _definition_is_public(scope, child_pointer):
+                continue
             if name in old_defs and name not in new_defs:
                 scope.emit(
                     child_pointer,
@@ -1342,6 +1404,7 @@ def _compare_definitions(scope: _NodeScope, pointer: str, old: dict, new: dict) 
                     subject=name,
                     old=True,
                     new=False,
+                    content=_content_pair(old=old_defs[name]),
                 )
             elif name not in old_defs:
                 scope.emit(
@@ -1435,6 +1498,7 @@ def _compare_combinator_branches(
             subject=combinator,
             old=len(old_list),
             new=len(new_list),
+            content=_content_pair(old=old_list, new=new_list),
         )
         return
     for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
@@ -1460,6 +1524,7 @@ def _combinator_appeared(
             subject=combinator,
             old=0,
             new=len(new_list),
+            content=_content_pair(new=new_list),
         )
 
 
@@ -1483,6 +1548,7 @@ def _combinator_disappeared(
             subject=combinator,
             old=len(old_list),
             new=0,
+            content=_content_pair(old=old_list),
         )
 
 
@@ -1936,6 +2002,37 @@ def build_ref_graph(files: dict[str, Any]) -> dict[str, set[str]]:
     return dict(graph)
 
 
+def _iter_refs(node: Any):
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            yield ref
+        for value in node.values():
+            yield from _iter_refs(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _iter_refs(value)
+
+
+def exported_inline_pointers(*trees: "SchemaTree") -> dict[str, frozenset[str]]:
+    """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
+    $ref in a DIFFERENT file addresses (in any of the given trees). Those inline definitions
+    are public: changing them changes what the other file resolves to."""
+    exported: dict[str, set[str]] = defaultdict(set)
+    for tree in trees:
+        for relpath, doc in tree.files.items():
+            for ref in _iter_refs(doc):
+                if "#" not in ref:
+                    continue
+                target = _relpath_from_ref_string(relpath, ref)
+                if not target or target == relpath or "_endpoints" not in Path(target).name:
+                    continue
+                fragment = unquote(ref.split("#", 1)[1]).replace("~1", "/").replace("~0", "~")
+                if fragment.startswith("/paths/"):
+                    exported[target].add(fragment)
+    return {file: frozenset(pointers) for file, pointers in exported.items()}
+
+
 def propagate_roles(direct: dict[str, set[str]], graph: dict[str, set[str]]) -> dict[str, set[str]]:
     roles: dict[str, set[str]] = defaultdict(set)
     for f, rs in direct.items():
@@ -2040,6 +2137,42 @@ def _relative_to_schemas_dir(repo_relative_path: str) -> str | None:
     if not repo_relative_path.startswith(prefix):
         return None
     return repo_relative_path[len(prefix) :]
+
+
+def _merge_base_or_self(repo_root: Path, base_ref: str, head_ref: str) -> str:
+    """The merge base of base_ref and head_ref (a commit sha), or base_ref itself when git
+    reports none (unrelated histories, shallow clone)."""
+    safe_repo_root = _resolve_repo_root(repo_root)
+    tree_type = subprocess.run(
+        ["git", "-C", str(safe_repo_root), "cat-file", "-t", f"{base_ref}:{SCHEMAS_SUBDIR}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    if tree_type != "tree":
+        return base_ref  # let the archive loader reject a base ref without a schemas tree
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(safe_repo_root),
+            "merge-base",
+            _safe_git_ref(base_ref, "--base-ref"),
+            _safe_git_ref(head_ref, "--head-ref"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    sha = result.stdout.strip()
+    if result.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        print(
+            f"WARNING: no merge base for {base_ref} and {head_ref}; comparing against "
+            f"{base_ref} directly",
+            file=sys.stderr,
+        )
+        return base_ref
+    return sha
 
 
 def changed_schema_files(
@@ -2163,14 +2296,18 @@ def _stored_identity_matches(
     # A structured acknowledgement is valid only when it contains exactly the
     # canonical identity fields plus a verified SHA-256 digest.  In particular,
     # a digest cannot be used to bless a later semantic edit to the identity.
-    if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
+    stored_keys = set(stored_identity)
+    if stored_keys not in (
+        _STRUCTURED_IDENTITY_KEYS | {"fingerprint"},
+        _STRUCTURED_IDENTITY_KEYS | {"fingerprint", _CONTENT_IDENTITY_KEY},
+    ):
         return False
     stored_fingerprint = stored_identity.get("fingerprint")
     if not (
         isinstance(stored_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
     ):
         return False
-    identity = {key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS}
+    identity = {key: stored_identity[key] for key in stored_keys - {"fingerprint"}}
     try:
         expected_fingerprint = _fingerprint_for_identity(entry["file"], entry["rule"], identity)
     except (TypeError, ValueError):
@@ -2284,7 +2421,38 @@ def compare_trees(
 
     findings: list[Finding] = []
     role_notes: dict[str, tuple[str, str]] = {}
+    exported_token = _EXPORTED_INLINE_POINTERS.set(exported_inline_pointers(base, head))
+    try:
+        _compare_changed_files(
+            base, head, changed, merged_graph_roles, findings, role_notes
+        )
+    finally:
+        _EXPORTED_INLINE_POINTERS.reset(exported_token)
 
+    breaking = [f for f in findings if f.severity == "BREAKING"]
+    unacked: list[Finding] = []
+    acked: list[tuple[Finding, dict[str, Any]]] = []
+    near_miss: dict[int, list[tuple[dict[str, Any], str]]] = {}
+    for f in breaking:
+        match = find_allow_entry(f, allow_entries)
+        if match.entry is not None:
+            acked.append((f, match.entry))
+        else:
+            unacked.append(f)
+            if match.rejected:
+                near_miss[id(f)] = match.rejected
+
+    return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
+
+
+def _compare_changed_files(
+    base: SchemaTree,
+    head: SchemaTree,
+    changed: list[tuple[str, str]],
+    merged_graph_roles: dict[str, set[str]],
+    findings: list[Finding],
+    role_notes: dict[str, tuple[str, str]],
+) -> None:
     for status, relpath in changed:
         if status == "A":
             emit(
@@ -2371,21 +2539,6 @@ def compare_trees(
                 file=relpath,
                 findings=findings,
             )
-
-    breaking = [f for f in findings if f.severity == "BREAKING"]
-    unacked: list[Finding] = []
-    acked: list[tuple[Finding, dict[str, Any]]] = []
-    near_miss: dict[int, list[tuple[dict[str, Any], str]]] = {}
-    for f in breaking:
-        match = find_allow_entry(f, allow_entries)
-        if match.entry is not None:
-            acked.append((f, match.entry))
-        else:
-            unacked.append(f)
-            if match.rejected:
-                near_miss[id(f)] = match.rejected
-
-    return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
 
 
 def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding]) -> str:
@@ -2538,7 +2691,15 @@ def main(argv: list[str] | None = None) -> int:
 
         with tempfile.TemporaryDirectory(prefix="breaking-schema-check-") as tmp:
             tmp_path = Path(tmp).resolve()
+            if head_ref:
+                # Compare from the merge base, as the workflow's change classifier does: a
+                # PR branch is charged only with what it changed, never with what the target
+                # branch added after the PR branched off.
+                requested_base_ref = base_ref
+                base_ref = _merge_base_or_self(repo_root, base_ref, head_ref)
             base_tree = load_tree_from_ref(repo_root, base_ref, tmp_path / "base", tmp_path)
+            if head_ref and base_ref != requested_base_ref:
+                base_tree.label = f"{requested_base_ref}@{base_ref[:12]}"
             if head_ref:
                 head_tree = load_tree_from_ref(repo_root, head_ref, tmp_path / "head", tmp_path)
             else:
@@ -2560,10 +2721,10 @@ def main(argv: list[str] | None = None) -> int:
                     "base": report.base_label,
                     "head": report.head_label,
                     "changed": report.changed,
-                    "findings": [f.__dict__ for f in report.findings],
-                    "breaking_unacked": [f.__dict__ for f in report.breaking_unacked],
+                    "findings": [_finding_dict(f) for f in report.findings],
+                    "breaking_unacked": [_finding_dict(f) for f in report.breaking_unacked],
                     "breaking_acked": [
-                        {"finding": f.__dict__, "allowlist_entry": e}
+                        {"finding": _finding_dict(f), "allowlist_entry": e}
                         for f, e in report.breaking_acked
                     ],
                 },

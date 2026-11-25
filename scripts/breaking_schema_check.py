@@ -61,6 +61,7 @@ import math
 import re
 import subprocess
 import sys
+import uuid
 import tarfile
 import tempfile
 from collections import defaultdict
@@ -2316,7 +2317,7 @@ def _iterative_content_digest(value: Any) -> str:
     while stack:
         kind, item = stack.pop()
         if kind == "t":
-            digest.update(item.encode("utf-8"))
+            digest.update(item.encode("utf-8", errors="surrogatepass"))
         elif isinstance(item, dict):
             stack.append(("t", "}"))
             for key in sorted(item, key=str, reverse=True):
@@ -2332,11 +2333,8 @@ def _iterative_content_digest(value: Any) -> str:
             token = "NaN" if math.isnan(item) else ("Infinity" if item > 0 else "-Infinity")
             digest.update(b"float:" + token.encode("ascii"))
         else:
-            try:
-                encoded = json.dumps(item, ensure_ascii=False, allow_nan=False)
-            except (TypeError, ValueError):
-                encoded = "unserializable:" + type(item).__name__
-            digest.update(encoded.encode("utf-8"))
+            encoded = json.dumps(item, ensure_ascii=False, allow_nan=False)
+            digest.update(encoded.encode("utf-8", errors="surrogatepass"))
         if kind == "v" and isinstance(item, (dict, list, tuple)):
             continue
         digest.update(b",")
@@ -2808,8 +2806,8 @@ def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[
                 slot = per_side.setdefault((relpath, pointer), {"keyword": keyword})
                 try:
                     node_digest = _iterative_content_digest(node)
-                except Exception:  # fail closed: never lose the report to a hashing fault
-                    node_digest = "unhashable"
+                except Exception:  # fail closed: a unique token no acknowledgement can match
+                    node_digest = "unhashable-unacknowledgeable:" + uuid.uuid4().hex
                 slot.setdefault(side, []).append((keyword, value, node_digest))
     for (relpath, pointer), slot in sorted(per_side.items()):
         old, new = slot.get("old"), slot.get("new")
@@ -2819,7 +2817,10 @@ def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[
                 return None, None
             if len(entries) == 1:
                 return entries[0][1], entries[0][2]
-            return sorted(e[1] for e in entries), sorted(e[2] for e in entries)
+            return (
+                sorted([e[0], e[1]] for e in entries),
+                sorted([e[0], e[2]] for e in entries),
+            )
 
         old_value, old_digest = _bind(old)
         new_value, new_digest = _bind(new)

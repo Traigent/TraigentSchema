@@ -4048,4 +4048,33 @@ def test_content_digest_is_total_and_distinguishes_non_finite_values() -> None:
     digest = gate._iterative_content_digest
     nan, inf, ninf = (digest({"a": v}) for v in (float("nan"), float("inf"), float("-inf")))
     assert len({nan, inf, ninf, digest({"a": 1})}) == 4
-    assert isinstance(digest({"a": object()}), str)
+    with pytest.raises(TypeError):  # the caller turns this into an unacknowledgeable token
+        digest({"a": object()})
+
+
+def test_swapping_id_and_dollar_id_at_one_pointer_is_not_the_same_identity(tmp_path: Path) -> None:
+    def doc(a: str, b: str) -> str:
+        return json.dumps(
+            {
+                "$id": "https://schemas.traigent.ai/widgets/m_schema.json",
+                "definitions": {"inner": {"$id": a, "id": b, "type": "string"}},
+            }
+        )
+
+    one = gate.load_tree_from_dir(_write_tree(tmp_path / "one", {"m_schema.json": doc("v1/", "v2/")}), "1")
+    two = gate.load_tree_from_dir(_write_tree(tmp_path / "two", {"m_schema.json": doc("v2/", "v1/")}), "2")
+    changed = [("M", "m_schema.json")]
+
+    def fps(base, head):
+        report = gate.compare_trees(base, head, changed, [])
+        return {f.fingerprint() for f in report.findings if f.rule == "nested_id_unsupported"}
+
+    assert fps(one, two) != fps(one, one)
+
+
+def test_lone_surrogate_hashes_stably_and_distinctly() -> None:
+    digest = gate._iterative_content_digest
+    a, b = digest({"default": "\ud800"}), digest({"default": "\ud801"})
+    assert a == digest({"default": "\ud800"})
+    assert a != b
+

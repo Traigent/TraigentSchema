@@ -29,9 +29,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -195,9 +198,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -361,9 +367,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           }
         ],
@@ -515,9 +524,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -638,9 +650,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -785,9 +800,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -908,9 +926,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1071,9 +1092,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1234,9 +1258,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1397,9 +1424,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1560,9 +1590,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1683,9 +1716,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -1846,9 +1882,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {
@@ -2006,9 +2045,12 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
-            "description": "Agent ref.",
+            "description": "The agent's id, as returned by the agents API.",
             "schema": {
-              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+              "x-content-class": "opaque_ref",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
           },
           {

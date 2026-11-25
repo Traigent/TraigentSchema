@@ -2292,7 +2292,24 @@ def _stored_identity_matches(
     current_identity: dict[str, Any],
     current_fingerprint: str,
 ) -> bool:
-    """True when one stored structured identity verifies and names exactly this finding."""
+    """True when one stored structured identity verifies and names exactly this finding.
+
+    An entry flagged ``"content_unbound": true`` predates content-bound identities and could
+    not be migrated (its original comparison is not reproducible from first-parent
+    history); its content-less identities match a finding that now carries content on every
+    other identity field. No new entry gets the flag: the suggested entries always carry the
+    content digests."""
+    if (
+        entry.get("content_unbound") is True
+        and _CONTENT_IDENTITY_KEY in current_identity
+        and _CONTENT_IDENTITY_KEY not in stored_identity
+    ):
+        current_identity = {
+            key: value for key, value in current_identity.items() if key != _CONTENT_IDENTITY_KEY
+        }
+        current_fingerprint = _fingerprint_for_identity(
+            entry.get("file", ""), entry.get("rule", ""), current_identity
+        )
     # A structured acknowledgement is valid only when it contains exactly the
     # canonical identity fields plus a verified SHA-256 digest.  In particular,
     # a digest cannot be used to bless a later semantic edit to the identity.

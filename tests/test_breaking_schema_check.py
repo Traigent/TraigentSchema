@@ -3551,6 +3551,58 @@ def test_response_only_defs_behind_responses_default_is_conservative(tmp_path: P
     assert result.returncode == 1, result.stdout
 
 
+def test_a_ref_inside_an_example_value_is_a_literal_not_a_reference(tmp_path: Path) -> None:
+    state = _doc(
+        "state_request_schema.json", properties={"s": {"type": "string", "enum": ["a"]}}
+    )
+    schema_ref = {"$ref": "state_request_schema.json"}
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "schema": schema_ref}],
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "examples": {"sample": {"value": {"$ref": "state_request_schema.json"}}}
+                                }
+                            },
+                        }
+                    },
+                }
+            }
+        },
+    }
+    repo = _init_repo(tmp_path, {"state_request_schema.json": state, "w_endpoints.json": endpoints})
+    changed = json.loads(json.dumps(state))
+    changed["properties"]["s"]["enum"] = ["a", "b"]
+    _commit_files(repo, "widen", {"state_request_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_allof_member_ranked_independently_of_a_sibling_not(tmp_path: Path) -> None:
+    # deliberate: allOf members are ranked independently; a sibling `not` that already forbids
+    # the property makes this a conservative false positive (fail-safe); develop reports INFO.
+    baseline = _doc(
+        "widget_request_schema.json",
+        allOf=[{"properties": {"state": True}}, {"not": {"required": ["state"]}}],
+    )
+    repo = _response_schema_repo(tmp_path, "widget_request_schema.json", baseline)
+    changed = json.loads(json.dumps(baseline))
+    changed["allOf"][0]["properties"]["state"] = False
+    _commit_schema_change(repo, "change", changed, "change", "widget_request_schema.json")
+
+    result = _run_gate(repo, "master", "change")
+
+    assert result.returncode == 1, result.stdout
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

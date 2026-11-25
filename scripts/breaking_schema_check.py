@@ -678,7 +678,12 @@ def _compare_nested_declarations(
                     if new_entry is not None:
                         walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
                 continue
-            walk(value, new_child, f"{at}/{key}", names=not names and _is_named_map(key, value))
+            walk(
+                _named_children(key, value),
+                new_child,
+                f"{at}/{key}",
+                names=not names and _is_named_map(key, value),
+            )
 
     walk(old_raw, new_raw, pointer, names=False, root=True)
 
@@ -730,6 +735,24 @@ def _is_metadata_entry(key: str, value: Any) -> bool:
     if key == "examples" and isinstance(value, dict):
         return False
     return key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)
+
+
+_EXAMPLE_LITERAL_KEYS = frozenset({"value", "externalValue"})
+
+
+def _named_children(key: str, value: Any) -> Any:
+    """The children of a named map as the walks should see them: an OpenAPI Example Object's
+    ``value`` / ``externalValue`` is a literal, so a $ref inside it is never a reference."""
+    if key == "examples" and isinstance(value, dict):
+        return {
+            name: (
+                {k: v for k, v in entry.items() if k not in _EXAMPLE_LITERAL_KEYS}
+                if isinstance(entry, dict)
+                else entry
+            )
+            for name, entry in value.items()
+        }
+    return value
 
 
 def _is_named_map(key: str, value: Any) -> bool:
@@ -2147,7 +2170,12 @@ def crawl_endpoint_roles(
                     next_context = "request"
                 elif not names and key == "responses":
                     next_context = "response"
-                walk(value, current_file, next_context, not names and _is_named_map(key, value))
+                walk(
+                    _named_children(key, value),
+                    current_file,
+                    next_context,
+                    not names and _is_named_map(key, value),
+                )
         elif isinstance(node, list):
             for item in node:
                 walk(item, current_file, context)
@@ -2202,7 +2230,9 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
         for key, value in node.items():
             if not names and _is_metadata_entry(key, value):
                 continue
-            yield from _iter_refs(value, names=not names and _is_named_map(key, value))
+            yield from _iter_refs(
+                _named_children(key, value), names=not names and _is_named_map(key, value)
+            )
     elif isinstance(node, list):
         for value in node:
             yield from _iter_refs(value)

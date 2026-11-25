@@ -63,7 +63,7 @@ import sys
 import tarfile
 import tempfile
 from collections import defaultdict
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
@@ -1411,9 +1411,8 @@ def _pattern_property_added(
 
 
 # Per *_endpoints.json file: the unescaped document pointers under ``/paths/`` that another
-# file's $ref addresses, each with the role(s) of the files that reference it. compare_trees
-# sets it for the whole run.
-_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, dict[str, frozenset[str]]]] = ContextVar(
+# file's $ref addresses. compare_trees sets it for the whole run.
+_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, frozenset[str]]] = ContextVar(
     "_EXPORTED_INLINE_POINTERS", default={}  # noqa: B039 - read-only default, never mutated
 )
 
@@ -1421,17 +1420,14 @@ _EXPORTED_INLINE_POINTERS: ContextVar[dict[str, dict[str, frozenset[str]]]] = Co
 def _exported_inline_role(scope: _NodeScope, definition_pointer: str) -> Role | None:
     """None when the definition is local to an inline schema of an operation in an
     *_endpoints.json file (pointer under ``#/paths/``) that no other file's $ref addresses:
-    nothing outside that fragment can reach it. Otherwise the role it must be judged with: the
-    role of the referencing consumer(s), conservative when they differ or are unknown, never
-    the declaring operation's own role."""
+    nothing outside that fragment can reach it. Otherwise ``conservative``: whoever reaches it
+    (directly or through any chain), it is judged in both directions, never as the declaring
+    operation's own role."""
     wanted = definition_pointer[1:]
-    roles: set[str] = set()
-    for ref, ref_roles in _EXPORTED_INLINE_POINTERS.get().get(scope.file, {}).items():
+    for ref in _EXPORTED_INLINE_POINTERS.get().get(scope.file, frozenset()):
         if ref == wanted or ref.startswith(wanted + "/"):
-            roles |= ref_roles
-    if not roles:
-        return None
-    return roles.pop() if len(roles) == 1 else "conservative"  # type: ignore[return-value]
+            return "conservative"
+    return None
 
 
 def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any) -> None:
@@ -2102,78 +2098,41 @@ def build_ref_graph(
     return dict(graph)
 
 
-def _iter_refs(node: Any):
+def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
+    """Every $ref in schema positions. Literal values (enum, const, default, examples) and
+    x-* extension values are metadata, never references, so a $ref inside them is skipped
+    (the same keys the declaration walk skips). Keys of a properties-style map are names."""
     if isinstance(node, dict):
         ref = node.get("$ref")
-        if isinstance(ref, str):
+        if isinstance(ref, str) and not names:
             yield ref
-        for value in node.values():
-            yield from _iter_refs(value)
+        for key, value in node.items():
+            if not names and (key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)):
+                continue
+            yield from _iter_refs(value, names=not names and key in _NAME_MAP_KEYWORDS)
     elif isinstance(node, list):
         for value in node:
             yield from _iter_refs(value)
 
 
-def _iter_refs_with_usage(
-    doc: Any, role_of_file: Role
-) -> Iterator[tuple[str, str, str]]:
-    """(ref, role, location) for every $ref of a document, ``location`` being the unescaped
-    pointer of the node holding it. An operations file's refs take the role of the part of
-    the operation that uses them (requestBody/parameters -> request, responses -> response;
-    the first marker wins, so a schema property that happens to carry one of those names
-    cannot flip it), and ``conservative`` where the use is unknown; any other file's refs
-    take ``role_of_file``. That role is only the ref's own: a ref inside a definition that
-    another consumer reaches also carries that consumer's roles (see
-    ``exported_inline_pointers``)."""
-    if not isinstance(doc, dict) or "paths" not in doc:
-        for ref in _iter_refs(doc):
-            yield ref, role_of_file, ""
-        return
-
-    def walk(
-        node: Any, context: str, flip: bool, at: str
-    ) -> Iterator[tuple[str, str, str]]:
-        if isinstance(node, dict):
-            ref = node.get("$ref")
-            if isinstance(ref, str):
-                yield ref, context, at
-            for key, value in node.items():
-                nxt = context
-                if flip and context == "conservative":
-                    if key in ("requestBody", "parameters"):
-                        nxt = "request"
-                    elif key == "responses":
-                        nxt = "response"
-                yield from walk(value, nxt, flip, f"{at}/{key}")
-        elif isinstance(node, list):
-            for index, item in enumerate(node):
-                yield from walk(item, context, flip, f"{at}/{index}")
-
-    for key, value in doc.items():
-        yield from walk(value, "conservative", key == "paths", f"/{key}")
-
-
-def exported_inline_pointers(
-    *trees: SchemaTree, role_of: Callable[[str], Role]
-) -> dict[str, dict[str, frozenset[str]]]:
+def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
     """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
-    $ref in a DIFFERENT file addresses (in any of the given trees), with the roles of the
-    referencing files (``role_of(relpath)``). A ref is resolved against the referencing file's
-    own base URI, so one that names the document by a registered ``$id`` differing from its
-    path is found too. Those inline definitions are public: changing them changes what the
-    other file resolves to.
+    $ref in a DIFFERENT file addresses, in ANY of the given trees. A ref is resolved against
+    the referencing file's own base URI, so one that names the document by a registered
+    ``$id`` differing from its path is found too. Each tree is read on its own and the sets
+    are unioned; edges are never joined across revisions.
 
-    A pointer's roles are the UNION over every path that reaches it: a ref sitting inside
-    another endpoint file's exported fragment also carries the roles of whoever reaches that
-    fragment, so a request that goes through a response-shaped definition is still a request
-    (and request plus response is conservative downstream)."""
+    Fail-safe rule: such a definition is public and is judged ``conservative`` (both
+    directions breaking) by its caller, however the reference chain reaches it. No consumer
+    role graph is built, so no chain shape can hide a request-breaking change; the price is
+    that a definition used only by response consumers is also held to the request rules (a
+    deliberate false-positive tradeoff)."""
     by_uri = uri_index(*trees)
-    exported: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
-    chained: list[tuple[str, str, str, str]] = []  # (file, location, target, pointer)
+    exported: dict[str, set[str]] = defaultdict(set)
     for tree in trees:
         for relpath, doc in tree.files.items():
             base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
-            for ref, ref_role, location in _iter_refs_with_usage(doc, role_of(relpath)):
+            for ref in _iter_refs(doc):
                 if "#" not in ref:
                     continue
                 document_uri, fragment = urldefrag(urljoin(base, ref))
@@ -2182,25 +2141,8 @@ def exported_inline_pointers(
                     continue
                 pointer = unquote(fragment).replace("~1", "/").replace("~0", "~")
                 if pointer.startswith("/paths/"):
-                    exported[target][pointer].add(ref_role)
-                    if location.startswith("/paths/"):
-                        chained.append((relpath, location, target, pointer))
-    changed = True
-    while changed:
-        changed = False
-        for relpath, location, target, pointer in chained:
-            arriving: set[str] = set()
-            for exported_pointer, roles in exported.get(relpath, {}).items():
-                if location == exported_pointer or location.startswith(exported_pointer + "/"):
-                    arriving |= roles
-            known = exported[target][pointer]
-            if not arriving <= known:
-                known |= arriving
-                changed = True
-    return {
-        file: {pointer: frozenset(roles) for pointer, roles in pointers.items()}
-        for file, pointers in exported.items()
-    }
+                    exported[target].add(pointer)
+    return {file: frozenset(pointers) for file, pointers in exported.items()}
 
 
 def propagate_roles(direct: dict[str, set[str]], graph: dict[str, set[str]]) -> dict[str, set[str]]:
@@ -2594,14 +2536,7 @@ def compare_trees(
 
     findings: list[Finding] = []
     role_notes: dict[str, tuple[str, str]] = {}
-    def consumer_role(relpath: str) -> Role:
-        if "_endpoints" in Path(relpath).name:
-            return "conservative"  # an operation's role does not carry over to its refs
-        return classify_file_role(relpath, merged_graph_roles.get(relpath, set()))[0]
-
-    exported_token = _EXPORTED_INLINE_POINTERS.set(
-        exported_inline_pointers(base, head, role_of=consumer_role)
-    )
+    exported_token = _EXPORTED_INLINE_POINTERS.set(exported_inline_pointers(base, head))
     try:
         _compare_changed_files(
             base, head, changed, merged_graph_roles, findings, role_notes

@@ -2867,7 +2867,7 @@ _RESPONSE_X_REF = (
 )
 
 
-def test_cross_file_target_is_judged_by_the_referencing_consumer_role(tmp_path: Path) -> None:
+def test_cross_file_target_is_judged_conservatively(tmp_path: Path) -> None:
     """An unchanged REQUEST schema refs an inline RESPONSE definition; removing an enum
     value narrows what the request accepts, so it must not be judged as a response."""
     endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
@@ -2885,7 +2885,7 @@ def test_cross_file_target_is_judged_by_the_referencing_consumer_role(tmp_path: 
     result = _run_gate(repo, "master", "narrow")
 
     assert result.returncode == 1, result.stdout
-    assert "role=request" in result.stdout
+    assert "role=conservative" in result.stdout
 
 
 def test_cross_file_ref_through_a_registered_id_is_compared(tmp_path: Path) -> None:
@@ -2948,9 +2948,11 @@ def _consumer_endpoints_doc(section: str, ref: str) -> dict:
     return {"openapi": "3.0.0", "paths": {"/y": {"post": operation}}}
 
 
-def test_endpoint_consumer_using_the_definition_only_in_a_response_is_a_response(
+def test_endpoint_consumer_using_the_definition_only_in_a_response_is_conservative(
     tmp_path: Path,
 ) -> None:
+    # Deliberate false-positive tradeoff: any cross-file reference makes the definition
+    # conservative, so a response-only consumer no longer downgrades it to INFO.
     endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
     consumer = _consumer_endpoints_doc("response", _RESPONSE_X_REF)
     repo = _init_repo(
@@ -2959,11 +2961,11 @@ def test_endpoint_consumer_using_the_definition_only_in_a_response_is_a_response
 
     result = _narrow_inline_enum(repo, endpoints, "narrow")
 
-    assert result.returncode == 0, result.stdout
-    assert "BREAKING (unacked):   0" in result.stdout, result.stdout
+    assert result.returncode == 1, result.stdout
+    assert "role=conservative" in result.stdout
 
 
-def test_endpoint_consumer_using_the_definition_only_in_a_request_is_a_request(
+def test_endpoint_consumer_using_the_definition_only_in_a_request_is_breaking(
     tmp_path: Path,
 ) -> None:
     endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
@@ -2975,7 +2977,7 @@ def test_endpoint_consumer_using_the_definition_only_in_a_request_is_a_request(
     result = _narrow_inline_enum(repo, endpoints, "narrow")
 
     assert result.returncode == 1, result.stdout
-    assert "role=request" in result.stdout
+    assert "role=conservative" in result.stdout
 
 
 def test_request_reaching_the_definition_through_a_custom_id_intermediate_is_a_request(
@@ -3058,9 +3060,117 @@ def test_request_reaching_the_definition_through_another_endpoints_response_is_b
     assert result.returncode == 1, result.stdout
 
 
-def test_response_only_endpoint_chain_stays_a_response(tmp_path: Path) -> None:
+def test_response_only_endpoint_chain_is_conservative_by_design(tmp_path: Path) -> None:
+    # Deliberate false-positive tradeoff: no consumer role graph is built any more.
     endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
     repo = _chain_repo(tmp_path, endpoints, "response")
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def _mid_endpoints_with(definitions: dict, extra_schema: dict | None = None) -> dict:
+    doc = _mid_endpoints_doc()
+    schema = doc["paths"]["/m"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
+    schema["definitions"] = definitions
+    schema.update(extra_schema or {})
+    return doc
+
+
+_MID_PREFIX = (
+    "#/paths/~1m/get/responses/200/content/application~1json/schema/definitions/"
+)
+
+
+_MID_Y_ABS = "mid_endpoints.json" + _MID_PREFIX + "Y"
+
+
+def test_same_file_hop_chain_to_the_definition_is_breaking(tmp_path: Path) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    mid = _mid_endpoints_with(
+        {"Y": {"$ref": _MID_PREFIX + "Z"}, "Z": {"$ref": _RESPONSE_X_REF}}
+    )
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "mid_endpoints.json": mid,
+            "other_endpoints.json": _consumer_endpoints_doc("request", _MID_Y_ABS),
+        },
+    )
+
+    result = _narrow_inline_enum(repo, endpoints, "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_cross_revision_references_are_not_joined_but_stay_conservative(
+    tmp_path: Path,
+) -> None:
+    # Base: the request refs Y (enum ["a"]). Head: the request inlines that enum and Y refs
+    # X as X narrows. The request accepts exactly "a" in both revisions, so a precise check
+    # would say INFO. Each revision is read on its own and a definition referenced from
+    # another file in EITHER is conservative, so this reports BREAKING: a deliberate
+    # false-positive tradeoff of the fail-safe rule.
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    mid_base = _mid_endpoints_with({"Y": {"type": "string", "enum": ["a"]}})
+    y_ref = "mid_endpoints.json" + _MID_PREFIX + "Y"
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "mid_endpoints.json": mid_base,
+            "other_endpoints.json": _consumer_endpoints_doc("request", y_ref),
+        },
+    )
+    head_endpoints = json.loads(json.dumps(endpoints))
+    head_endpoints["paths"]["/x"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["definitions"]["X"]["enum"] = ["a"]
+    inline = {"type": "string", "enum": ["a"]}
+    _commit_files(
+        repo,
+        "narrow",
+        {
+            "widget_endpoints.json": head_endpoints,
+            "mid_endpoints.json": _mid_endpoints_with({"Y": {"$ref": _RESPONSE_X_REF}}),
+            "other_endpoints.json": _consumer_endpoints_doc("request", "unused")
+            | {
+                "paths": {
+                    "/y": {
+                        "post": {
+                            "requestBody": {
+                                "content": {"application/json": {"schema": inline}}
+                            },
+                            "responses": {"200": {"description": "ok"}},
+                        }
+                    }
+                }
+            },
+        },
+    )
+
+    result = _run_gate(repo, "master", "narrow")
+
+    assert result.returncode == 1, result.stdout
+
+
+def test_a_ref_inside_extension_metadata_is_not_a_reference(tmp_path: Path) -> None:
+    endpoints = _inline_endpoints_doc({"type": "string", "enum": ["a", "b"]})
+    mid = _mid_endpoints_with(
+        {"Y": {"type": "string", "x-example-metadata": {"$ref": _RESPONSE_X_REF}}}
+    )
+    repo = _init_repo(
+        tmp_path,
+        {
+            "widget_endpoints.json": endpoints,
+            "mid_endpoints.json": mid,
+            "other_endpoints.json": _consumer_endpoints_doc("request", _MID_Y_ABS),
+        },
+    )
 
     result = _narrow_inline_enum(repo, endpoints, "narrow")
 

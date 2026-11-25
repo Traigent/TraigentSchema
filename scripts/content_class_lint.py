@@ -155,6 +155,7 @@ _FIXED_REF_PATTERNS = frozenset(
         "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
         # server-minted project id: random, tenant-derived default or personal-workspace form
         PROJECT_ID_PATTERN,
+        "^release_candidate_[0-9a-f]{32}$",  # server-minted release-candidate ref (bounded to 50 by the schema)
         # Fleet Observe: the signed pagination cursor (see CURSOR_PATTERN: accepted only at
         # CURSOR_LOCATIONS, checked in _check_cursor_site) and the 16-hex id of the customer-held
         # digest key (derived by HMAC, so it carries no text).

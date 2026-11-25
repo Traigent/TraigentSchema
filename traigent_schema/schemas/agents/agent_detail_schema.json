@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agents/agent_detail_schema.json",
+  "type": "object",
+  "title": "Agent Detail Schema",
+  "description": "The agent object returned as data by GET /api/v1/projects/{project_id}/agents/{agent_ref}. It is agent_schema.json plus the optional server-issued agent_ref. Every agent property is referenced from agent_schema.json by JSON pointer, so the shared agent schema is not changed and other endpoints keep their shape. agent_schema.json is closed (additionalProperties false), which is why this document lists the properties itself instead of extending it with allOf.",
+  "properties": {
+    "id": { "$ref": "./agent_schema.json#/properties/id" },
+    "name": { "$ref": "./agent_schema.json#/properties/name" },
+    "description": { "$ref": "./agent_schema.json#/properties/description" },
+    "agent_type": { "$ref": "./agent_schema.json#/properties/agent_type" },
+    "agent_platform": { "$ref": "./agent_schema.json#/properties/agent_platform" },
+    "prompt_template": { "$ref": "./agent_schema.json#/properties/prompt_template" },
+    "reasoning": { "$ref": "./agent_schema.json#/properties/reasoning" },
+    "style": { "$ref": "./agent_schema.json#/properties/style" },
+    "tone": { "$ref": "./agent_schema.json#/properties/tone" },
+    "format": { "$ref": "./agent_schema.json#/properties/format" },
+    "persona": { "$ref": "./agent_schema.json#/properties/persona" },
+    "guidelines": { "$ref": "./agent_schema.json#/properties/guidelines" },
+    "response_validation": { "$ref": "./agent_schema.json#/properties/response_validation" },
+    "chat_history": { "$ref": "./agent_schema.json#/properties/chat_history" },
+    "chat_history_params": { "$ref": "./agent_schema.json#/properties/chat_history_params" },
+    "custom_validations": { "$ref": "./agent_schema.json#/properties/custom_validations" },
+    "custom_tools": { "$ref": "./agent_schema.json#/properties/custom_tools" },
+    "custom_responses": { "$ref": "./agent_schema.json#/properties/custom_responses" },
+    "source": { "$ref": "./agent_schema.json#/properties/source" },
+    "created_at": { "$ref": "./agent_schema.json#/properties/created_at" },
+    "updated_at": { "$ref": "./agent_schema.json#/properties/updated_at" },
+    "example_sets": { "$ref": "./agent_schema.json#/properties/example_sets" },
+    "retrieval_configs": { "$ref": "./agent_schema.json#/properties/retrieval_configs" },
+    "measures": { "$ref": "./agent_schema.json#/properties/measures" },
+    "model_parameters": { "$ref": "./agent_schema.json#/properties/model_parameters" },
+    "agent_ref": {
+      "allOf": [
+        { "$ref": "../labels/label_common_schema.json#/definitions/AgentRef" }
+      ],
+      "x-content-class": "opaque_ref",
+      "description": "Server-issued release reference of this agent (an `agentref_` digest), scoped to the tenant and project and derived one-way from the agent id. It is not the agent id used in this request's path: the release-acceptance and release routes take this reference in their `{agent_ref}` path segment."
+    }
+  },
+  "required": ["id", "name", "agent_type"],
+  "additionalProperties": false
+}

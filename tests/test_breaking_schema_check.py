@@ -1241,7 +1241,7 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
 
     for entry in exact_entries:
         for identity in entry["findings"]:
-            assert set(identity) == {
+            assert set(identity) - {"content"} == {
                 "fingerprint",
                 "new",
                 "old",
@@ -1259,6 +1259,7 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
                 subject=identity["subject"],
                 old=identity["old"],
                 new=identity["new"],
+                content=identity.get("content"),
             )
             assert identity["fingerprint"] == finding.fingerprint()
             assert gate.find_allow_entry(finding, entries).entry is entry
@@ -1272,6 +1273,7 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
                 subject=identity["subject"],
                 old=identity["old"],
                 new=identity["new"],
+                content=identity.get("content"),
             )
             assert gate.find_allow_entry(future, entries).entry is None
 
@@ -1341,6 +1343,7 @@ def test_certified_agent_v0_allowlist_covers_historical_findings_only() -> None:
             subject=identity["subject"],
             old=identity["old"],
             new=identity["new"],
+            content=identity.get("content"),
         )
         assert identity["fingerprint"] == finding.fingerprint()
         # PR #443 left these five unacknowledged on purpose so that the develop->main
@@ -1429,7 +1432,7 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
         "certification/agent_certificate_v0_schema.json",
         "allOf_branch_count_changed",
         "#/properties/signatures/properties/unsigned_manifest/properties/document/properties/claims/items/allOf",
-        "9ae92c598f5d080c3abd551a2b2478231b958db305f7955e6ef6562f49891617",
+        "e1f8ee75d47b0e48f7a216ae228e9fcfd379058a076751f6fd04a6ce8f6286d1",
     )
     branch_drift = {**branch_identity, "new": branch_identity["new"] + 1}
 
@@ -1448,6 +1451,7 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
             subject=original["subject"],
             old=original["old"],
             new=original["new"],
+            content=original.get("content"),
         )
         finding = gate.Finding(
             file=entry["file"],
@@ -1459,6 +1463,7 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
             subject=identity["subject"],
             old=identity["old"],
             new=identity["new"],
+            content=identity.get("content"),
         )
         assert finding.fingerprint() != original_finding.fingerprint()
         assert gate.find_allow_entry(finding, entries).entry is None
@@ -1481,7 +1486,7 @@ def test_exact_allow_entry_immune_to_unrelated_same_file_rule_appends() -> None:
     file_name = "certification/agent_certificate_v0_schema.json"
     rule = "allOf_branch_count_changed"
     pointer = "#/allOf"
-    fingerprint = "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a"
+    fingerprint = "53180aaaf25ba89ad1cdaa3638df62dbd6a9a609ec0b3cf49fcdb26f9cf4c153"
 
     expected, expected_identity = _exact_allow_entry(
         entries, file_name, rule, pointer, fingerprint
@@ -1560,7 +1565,11 @@ def test_root_branch_count_allowlist_entries_are_exact() -> None:
             "subject": "allOf",
             "old": 1,
             "new": 2,
-            "fingerprint": "a427e5b472a302377a9fe66ce74dc00ce2289d5140cd0f38b479fc08536f073a",
+            "content": {
+                "new": "f2ab25b864abb378524000217047e6be22211a2e5d3149e4363c2f42ae40a7e7",
+                "old": "8e1074bb0d896f302cf766100d779ddd39b249ae15f8e856e86be2290830cd38",
+            },
+            "fingerprint": "53180aaaf25ba89ad1cdaa3638df62dbd6a9a609ec0b3cf49fcdb26f9cf4c153",
         },
         pr447: {
             "pointer": "#/allOf",
@@ -1568,7 +1577,11 @@ def test_root_branch_count_allowlist_entries_are_exact() -> None:
             "subject": "allOf",
             "old": 3,
             "new": 2,
-            "fingerprint": "24d1b6e21e0220a9547e882770277934c3bce6eb541477dd8347db589aabb0ad",
+            "content": {
+                "new": "d752a0da589ccbbd91b8901a96ff149eb283ee08a934e1fa72419a8fbe3ba212",
+                "old": "1fe07dcc2c5fdc9dac27d672f901db7c47a9c4a21628b825a56174d0abcfddb1",
+            },
+            "fingerprint": "357487a0411b958f5781239ecdfd92fbc309618d29896ff5ee5afe3fc862cce3",
         },
     }
     root_entries = {
@@ -1595,6 +1608,7 @@ def test_root_branch_count_allowlist_entries_are_exact() -> None:
             subject=identity["subject"],
             old=identity["old"],
             new=identity["new"],
+            content=identity.get("content"),
         )
         assert identity["fingerprint"] == finding.fingerprint()
         assert gate.find_allow_entry(finding, entries).entry is entry

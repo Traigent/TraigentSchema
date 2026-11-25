@@ -2928,6 +2928,28 @@ def test_response_allof_shortcut_does_not_hide_a_removed_declaration(tmp_path: P
     assert "definition_removed" in result.stdout
 
 
+def test_response_allof_shortcut_does_not_hide_a_removal_one_property_deeper(
+    tmp_path: Path,
+) -> None:
+    child = {
+        "type": "object",
+        "definitions": {"X": {"type": "string"}},
+        "properties": {"a": {"type": "string"}},
+    }
+    inner = {"type": "object", "properties": {"c": child}}
+    base = _doc("deepwrap_response_schema.json", properties={"p": inner})
+    repo = _init_repo(tmp_path, {"deepwrap_response_schema.json": base})
+    changed = json.loads(json.dumps(base))
+    changed["properties"]["p"] = {"allOf": [inner]}
+    _commit_files(repo, "wrap", {"deepwrap_response_schema.json": changed})
+
+    result = _run_gate(repo, "master", "wrap")
+
+    assert result.returncode == 1, result.stdout
+    assert "#/properties/p/properties/c/definitions/X" in result.stdout
+    assert "definition_removed" in result.stdout
+
+
 def test_definition_below_a_dereferenced_node_is_reported_once(tmp_path: Path) -> None:
     base = _doc(
         "below_schema.json",

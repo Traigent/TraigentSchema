@@ -601,6 +601,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         # The shortcut judges only the node's own constraints; declarations that lived on the
         # old node (and may have moved into an allOf member) are still contract surface.
         _compare_definitions(scope, pointer, old_raw, new_raw)
+        _compare_nested_declarations(scope, pointer, old_raw, new_raw)
         return
     # Definitions declared on this node are resolved against the node's own document, not
     # against whatever its $ref points at, and stay addressable even when a $ref sits beside
@@ -626,6 +627,46 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
     _compare_definitions(declaring_scope, pointer, old_raw, new_raw)
+
+
+def _compare_nested_declarations(
+    scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any
+) -> None:
+    """Declarations at every depth below ``old_raw``, for the paths that return before the
+    ordinary walk reaches them (the allOf-narrowing shortcut): each old descendant's
+    definitions/$defs are compared with whatever sits at the same pointer in the new node
+    (nothing, when the object moved into an allOf member), so a removal is reported at any
+    depth. Literal values (enum, const, default, examples) are not schema positions."""
+
+    def walk(old: Any, new: Any, at: str, *, names: bool, root: bool = False) -> None:
+        if isinstance(old, list):
+            for index, item in enumerate(old):
+                new_item = new[index] if isinstance(new, list) and index < len(new) else None
+                walk(item, new_item, f"{at}/{index}", names=False)
+            return
+        if not isinstance(old, dict):
+            return
+        if not names and not root:
+            _compare_definitions(scope, at, old, new if isinstance(new, dict) else {})
+        for key, value in old.items():
+            if not names and key in _VALUE_LITERAL_SKIP:
+                continue
+            new_child = new.get(key) if isinstance(new, dict) else None
+            if (
+                not names
+                and key in ("definitions", "$defs")
+                and isinstance(value, dict)
+            ):
+                # Entries absent on the new side are already reported as removed; their own
+                # nested declarations are part of that removal.
+                for name, entry in value.items():
+                    new_entry = new_child.get(name) if isinstance(new_child, dict) else None
+                    if new_entry is not None:
+                        walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
+                continue
+            walk(value, new_child, f"{at}/{key}", names=not names and key in _NAME_MAP_KEYWORDS)
+
+    walk(old_raw, new_raw, pointer, names=False, root=True)
 
 
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})

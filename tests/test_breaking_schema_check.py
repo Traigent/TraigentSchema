@@ -3204,11 +3204,6 @@ def test_case1_ref_to_the_parent_schema_of_a_local_definition(tmp_path: Path) ->
     assert result.returncode == 1, result.stdout
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="known gap shared with origin/develop (a moved $id is resolved through one shared URI index); filed follow-up: breaking-check "
-    "role graph misses. Flips to XPASS when fixed.",
-)
 def test_case2_moving_a_registered_id_between_endpoint_files(tmp_path: Path) -> None:
     moved_id = "https://schemas.traigent.ai/custom/moved_v1.json"
     narrow = {"type": "string", "enum": ["a"]}
@@ -3599,6 +3594,115 @@ def test_allof_member_ranked_independently_of_a_sibling_not(tmp_path: Path) -> N
     _commit_schema_change(repo, "change", changed, "change", "widget_request_schema.json")
 
     result = _run_gate(repo, "master", "change")
+
+    assert result.returncode == 1, result.stdout
+
+
+def _state_and_endpoints(response_schema: dict) -> tuple[dict, dict]:
+    state = _doc(
+        "state_request_schema.json", properties={"s": {"type": "string", "enum": ["a"]}}
+    )
+    ref = {"$ref": "state_request_schema.json"}
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "schema": ref}],
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {"application/json": {"schema": response_schema}},
+                        }
+                    },
+                }
+            }
+        },
+    }
+    return state, endpoints
+
+
+def _widen_state(tmp_path: Path, state: dict, endpoints: dict) -> subprocess.CompletedProcess:
+    repo = _init_repo(tmp_path, {"state_request_schema.json": state, "w_endpoints.json": endpoints})
+    changed = json.loads(json.dumps(state))
+    changed["properties"]["s"]["enum"] = ["a", "b"]
+    _commit_files(repo, "widen", {"state_request_schema.json": changed})
+    return _run_gate(repo, "master", "widen")
+
+
+@pytest.mark.parametrize("name", ["value", "externalValue"])
+def test_a_property_named_examples_is_a_name_not_an_examples_map(
+    tmp_path: Path, name: str
+) -> None:
+    response = {
+        "type": "object",
+        "properties": {
+            "examples": {
+                "type": "object",
+                "properties": {name: {"$ref": "state_request_schema.json"}},
+            }
+        },
+    }
+    state, endpoints = _state_and_endpoints(response)
+
+    assert _widen_state(tmp_path, state, endpoints).returncode == 1
+
+
+def test_a_property_named_responses_is_a_name_not_a_context_switch(tmp_path: Path) -> None:
+    # Intentional: develop treats this as a context switch to response; it is a property NAME,
+    # so the $ref stays in the query parameter's request context.
+    ref = {"$ref": "state_request_schema.json"}
+    state = _doc(
+        "state_request_schema.json", properties={"s": {"type": "string", "enum": ["a"]}}
+    )
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/w": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "schema": {"type": "object", "properties": {"responses": ref}},
+                        }
+                    ],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+    }
+
+    assert _widen_state(tmp_path, state, endpoints).returncode == 0
+
+
+def test_a_ref_inside_a_schema_default_is_literal_data_not_a_reference(tmp_path: Path) -> None:
+    # Intentional: develop treats a $ref inside a schema `default` as a reference; it is
+    # literal data, so the widened enum stays request-only.
+    response = {"type": "object", "default": {"$ref": "state_request_schema.json"}}
+    state, endpoints = _state_and_endpoints(response)
+
+    assert _widen_state(tmp_path, state, endpoints).returncode == 0
+
+
+def test_a_moved_uri_keeps_the_base_revisions_role(tmp_path: Path) -> None:
+    state, endpoints = _state_and_endpoints({"$ref": "state_request_schema.json"})
+    repo = _init_repo(
+        tmp_path, {"state_request_schema.json": state, "w_endpoints.json": endpoints}
+    )
+    moved = _doc(
+        "state_request_schema.json", properties={"s": {"type": "string", "enum": ["a", "b"]}}
+    )
+    moved["$id"] = "https://schemas.traigent.ai/custom/state_v2.json"
+    replacement = _doc(
+        "z_replacement_schema.json", properties={"s": {"type": "string", "enum": ["a", "b"]}}
+    )
+    replacement["$id"] = "https://schemas.traigent.ai/state_request_schema.json"
+    _commit_files(
+        repo, "move", {"state_request_schema.json": moved, "z_replacement_schema.json": replacement}
+    )
+
+    result = _run_gate(repo, "master", "move")
 
     assert result.returncode == 1, result.stdout
 

@@ -679,7 +679,7 @@ def _compare_nested_declarations(
                         walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
                 continue
             walk(
-                _named_children(key, value),
+                value if names else _named_children(key, value),
                 new_child,
                 f"{at}/{key}",
                 names=not names and _is_named_map(key, value),
@@ -2171,7 +2171,7 @@ def crawl_endpoint_roles(
                 elif not names and key == "responses":
                     next_context = "response"
                 walk(
-                    _named_children(key, value),
+                    value if names else _named_children(key, value),
                     current_file,
                     next_context,
                     not names and _is_named_map(key, value),
@@ -2231,7 +2231,8 @@ def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
             if not names and _is_metadata_entry(key, value):
                 continue
             yield from _iter_refs(
-                _named_children(key, value), names=not names and _is_named_map(key, value)
+                value if names else _named_children(key, value),
+                names=not names and _is_named_map(key, value),
             )
     elif isinstance(node, list):
         for value in node:
@@ -2250,9 +2251,9 @@ def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
     role graph is built, so no chain shape can hide a request-breaking change; the price is
     that a definition used only by response consumers is also held to the request rules (a
     deliberate false-positive tradeoff)."""
-    by_uri = uri_index(*trees)
     exported: dict[str, set[str]] = defaultdict(set)
     for tree in trees:
+        by_uri = uri_index(tree)
         for relpath, doc in tree.files.items():
             base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
             for ref in _iter_refs(doc):
@@ -2643,14 +2644,16 @@ def compare_trees(
     changed: list[tuple[str, str]],
     allow_entries: list[dict[str, Any]],
 ) -> Report:
-    by_uri = uri_index(base, head)
+    # Each revision resolves its references with its OWN URI index: a $id that moved at head
+    # must not reroute the base snapshot's references.
+    base_uri_index, head_uri_index = uri_index(base), uri_index(head)
     base_graph_roles = propagate_roles(
-        crawl_endpoint_roles(base.files, by_uri, base.file_base_uri),
-        build_ref_graph(base.files, by_uri, base.file_base_uri),
+        crawl_endpoint_roles(base.files, base_uri_index, base.file_base_uri),
+        build_ref_graph(base.files, base_uri_index, base.file_base_uri),
     )
     head_graph_roles = propagate_roles(
-        crawl_endpoint_roles(head.files, by_uri, head.file_base_uri),
-        build_ref_graph(head.files, by_uri, head.file_base_uri),
+        crawl_endpoint_roles(head.files, head_uri_index, head.file_base_uri),
+        build_ref_graph(head.files, head_uri_index, head.file_base_uri),
     )
     merged_graph_roles: dict[str, set[str]] = defaultdict(set)
     for src in (base_graph_roles, head_graph_roles):

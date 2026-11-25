@@ -2703,7 +2703,7 @@ def compare_trees(
     finally:
         _EXPORTED_INLINE_POINTERS.reset(exported_token)
 
-    _emit_nested_id_findings(base, head, changed, findings)
+    _emit_nested_id_findings(base, head, findings)
 
     breaking = [f for f in findings if f.severity == "BREAKING"]
     unacked: list[Finding] = []
@@ -2721,19 +2721,15 @@ def compare_trees(
     return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
 
 
-def _emit_nested_id_findings(
-    base: SchemaTree, head: SchemaTree, changed: list[tuple[str, str]], findings: list[Finding]
-) -> None:
+def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[Finding]) -> None:
     """Fail closed: a nested ``$id`` re-bases the references below it, which the reference
-    graph does not model, so every changed file and every file in either revision's
-    reference graph that holds one is reported BREAKING until reviewed and acknowledged."""
-    scope = {relpath for _, relpath in changed}
-    for tree in (base, head):
-        graph = build_ref_graph(tree.files, uri_index(tree), tree.file_base_uri)
-        scope |= set(graph) | {target for targets in graph.values() for target in targets}
+    graph does not model. EVERY file of BOTH revisions is scanned, independently of the
+    graph and of what changed, so an unchanged bridge file cannot hide one; each (file,
+    pointer) is reported once, so a hit present in both revisions blocks every comparison
+    until it is acknowledged by an exact allowlist entry."""
     seen: set[tuple[str, str]] = set()
     for tree in (base, head):
-        for relpath in sorted(scope & set(tree.files)):
+        for relpath in sorted(tree.files):
             for pointer, keyword in nested_id_pointers(tree.files[relpath]):
                 if (relpath, pointer) in seen:
                     continue

@@ -3777,6 +3777,84 @@ def test_nested_id_scan_ignores_literal_positions_and_real_schemas_have_none() -
     assert {rel: ids for rel, ids in found.items() if ids} == {}
 
 
+def test_nested_id_in_an_unchanged_bridge_file_still_fails_closed(tmp_path: Path) -> None:
+    foo = _doc("foo_request_schema.json", properties={"s": {"type": "string", "enum": ["ok"]}})
+    bridge = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schemas.traigent.ai/custom/foo_request_schema.json",
+        "definitions": {
+            "exported": {
+                "$id": "https://schemas.traigent.ai/intermediate_schema.json",
+                "type": "object",
+                "properties": {"x": {"$ref": "foo_request_schema.json"}},
+            }
+        },
+    }
+    endpoints = {
+        "openapi": "3.0.0",
+        "paths": {
+            "/test": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "https://schemas.traigent.ai/intermediate_schema.json"
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+    repo = _init_repo(
+        tmp_path,
+        {
+            "foo_request_schema.json": foo,
+            "intermediate_schema.json": bridge,
+            "test_endpoints.json": endpoints,
+        },
+    )
+    changed = json.loads(json.dumps(foo))
+    changed["properties"]["s"]["enum"] = ["ok", "new"]
+    _commit_files(repo, "widen", {"foo_request_schema.json": changed})
+
+    result = _run_gate(repo, "master", "widen")
+
+    assert result.returncode == 1, result.stdout
+    assert "nested_id_unsupported" in result.stdout
+    assert "intermediate_schema.json" in result.stdout
+
+
+def test_an_unrelated_allowlist_entry_never_silences_nested_id_unsupported() -> None:
+    reason = "Reviewed by hand: this nested id is intentional and the references were checked."
+    findings: list = []
+    gate.emit(
+        findings, "a_schema.json", "#/definitions/X", "nested_id_unsupported", "BREAKING",
+        "conservative", "nested $id", subject="$id",
+    )
+    finding = findings[0]
+
+    def entry(**updates):
+        return {
+            "file": "a_schema.json",
+            "rule": "nested_id_unsupported",
+            "findings": [_stored_identity(finding, **updates)],
+            "reason": reason,
+            "version": "5.6.0",
+        }
+
+    other_pointer = entry(pointer="#/definitions/Y")
+    other_file = {**entry(), "file": "b_schema.json"}
+    other_rule = {**entry(), "rule": "type_changed"}
+    assert gate.find_allow_entry(finding, [other_pointer, other_file, other_rule]).entry is None
+    assert gate.find_allow_entry(finding, [entry()]).entry is not None
+
+
 def test_allof_shortcut_does_not_descend_into_extension_metadata(tmp_path: Path) -> None:
     inner = {
         "type": "object",

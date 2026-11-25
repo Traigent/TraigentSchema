@@ -2014,7 +2014,7 @@ def _iter_refs(node: Any):
             yield from _iter_refs(value)
 
 
-def exported_inline_pointers(*trees: "SchemaTree") -> dict[str, frozenset[str]]:
+def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
     """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
     $ref in a DIFFERENT file addresses (in any of the given trees). Those inline definitions
     are public: changing them changes what the other file resolves to."""

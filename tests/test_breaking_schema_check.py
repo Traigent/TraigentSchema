@@ -2559,7 +2559,9 @@ def _init_repo(tmp_path: Path, files: dict[str, object]) -> Path:
     return repo
 
 
-def _commit_files(repo: Path, branch: str, files: dict[str, object], *, create: bool = True) -> None:
+def _commit_files(
+    repo: Path, branch: str, files: dict[str, object], *, create: bool = True
+) -> None:
     _run_git(repo, "checkout", "-q", *(["-b"] if create else []), branch)
     _write_files(repo, files)
     _run_git(repo, "add", "-A")

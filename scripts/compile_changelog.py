@@ -225,15 +225,38 @@ def _read_changelog(path: Path) -> str:
         return path.read_bytes().decode("utf-8")
     except UnicodeDecodeError as exc:
         raise ChangelogError(f"{path.name} is not valid UTF-8: {exc.reason}") from None
+    except OSError as exc:
+        raise ChangelogError(f"cannot read {path.name}: {exc.strerror or exc}") from None
+
+
+def _current_body(path: Path) -> str | None:
+    """Re-read a fragment the way collection did; ``None`` if unreadable."""
+    try:
+        raw = path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    return raw.replace("\r\n", "\n").strip("\n").rstrip()
 
 
 def _remove_all(fragments: list[Fragment], version: str) -> int:
     remaining = []
-    for _t, _s, path, _b in fragments:
+    changed = []
+    for _t, _s, path, body in fragments:
+        if _current_body(path) != body:
+            changed.append(str(path))
+            continue
         try:
             _unlink(path)
         except OSError:
             remaining.append(str(path))
+    status = 0
+    if changed:
+        print(
+            "error: these fragments changed during compilation; their new text is not in "
+            "CHANGELOG.md and they were NOT deleted:\n  " + "\n  ".join(changed),
+            file=sys.stderr,
+        )
+        status = 1
     if remaining:
         print(
             f"error: CHANGELOG.md was updated; these fragments were already compiled into "
@@ -241,8 +264,8 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
             + "\n  ".join(remaining),
             file=sys.stderr,
         )
-        return 1
-    return 0
+        status = 1
+    return status
 
 
 def main(argv: list[str] | None = None) -> int:

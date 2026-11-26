@@ -518,3 +518,40 @@ def test_write_failure_lists_the_kept_fragments(
     monkeypatch.setattr(cc.os, "replace", boom)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     assert str(f) in capsys.readouterr().err
+
+
+def test_fragment_changed_during_compilation_is_kept_and_reported(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    a = frag(root, "a.added.md", "- alpha\n")
+    b = frag(root, "b.added.md", "- beta\n")
+    real_write = cc.write_atomic
+
+    def write_then_edit(path: Path, text: str) -> None:
+        real_write(path, text)
+        b.write_text("- beta, edited after compile\n")
+
+    monkeypatch.setattr(cc, "write_atomic", write_then_edit)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    assert str(b) in err and "changed during compilation" in err
+    assert "not in CHANGELOG.md" in err
+    assert not a.exists()
+    assert b.read_text() == "- beta, edited after compile\n"
+
+
+def test_missing_changelog_exits_2_without_traceback(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    f = frag(root, "a.added.md")
+    (root / "CHANGELOG.md").unlink()
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert "CHANGELOG.md" in capsys.readouterr().err
+    assert f.exists()
+
+
+def test_unreadable_changelog_exits_2(root: Path) -> None:
+    f = frag(root, "a.added.md")
+    (root / "CHANGELOG.md").unlink()
+    (root / "CHANGELOG.md").mkdir()
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02", "--dry-run") == 2
+    assert f.exists()

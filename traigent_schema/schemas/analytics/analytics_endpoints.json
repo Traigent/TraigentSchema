@@ -558,6 +558,166 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations": {
+      "get": {
+        "operationId": "experiment_run.get_run_correlations",
+        "summary": "Get the correlation analysis for one experiment run",
+        "description": "Pure read: returns the client-safe enveloped correlation analysis of one experiment run addressed by its server-issued reference and an explicit project: measure-to-measure correlations (r, p_value, coarse strength) and parameter-to-measure effects (effect, coarse confidence) over the run's own measured aggregates. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/correlations. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax and the query (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. Query (backend RunCorrelationsQuery, src/shared_infrastructure/schemas/run_analytics.py:79-84, extra=forbid): method (pearson or spearman, default pearson) and min_sample (integer 2 to 10000, default 3, the minimum paired samples for a measure pair; pairs below it are dropped with an insufficient_samples warning). A malformed reference, an out-of-range or non-enumerated value or an unknown query parameter is the closed 400, which names no parameter and echoes no value. DIMENSIONS AND INPUT ARE BOUNDED: the analysis enumerates numeric measure dimensions (measure pairs, run_analytics_service.py:839-884) and numeric parameter dimensions times measures (:898-933), so a run is analyzed only with at most 128 numeric measure dimensions (the run-wide union of numeric measure keys) and at most 128 numeric parameter dimensions (the backend accepts up to 100 search-space parameters, src/schemas/traigent.py:54-63; booleans count as numeric parameters; the existing exclusion of string-valued parameters across completed configurations applies), giving at most 8128 measure pairs (128 choose 2) and 16384 parameter-measure rows. The dimensions are counted on the exact normalized inputs, after authorization and BEFORE either analysis loop; the counts are in the required meta.measure_dimensions_total and meta.parameter_dimensions_total. Input budget (the same as the Pareto contract): a work cap of 10000 scoped configuration rows, counted during the scoped read before materialization; sample_size is the exact count of measured configurations (at most 10000). Parameter scan: non-numeric (categorical, string-valued) parameters are excluded BEFORE the importance loop, because the backend's importance loop scans every stored parameter key for each measure before it omits categorical ones (run_analytics_service.py:909-919, :3506-3529); and the number of DISTINCT stored parameter keys scanned across the run's configurations is capped at 256, with the closed 503 above it (never truncated), counted with the other caps before any analysis loop. A run over the dimension limits or the input budget is refused with the closed 503, never truncated or partially analyzed (the backend does not enforce these limits today; B1 backend work). Measure and parameter names are at most 256 characters of printable text (no control characters); Any STORED measure or parameter name that fails the name pattern (a control character such as a tab, or a length over 256) makes the response the closed 503, never truncated and never sanitized. Truncation or sanitizing could merge two names. The canonical handler parses the query strictly: unknown keys and tenant-selector keys are the closed 400, unlike the legacy adapter, which drops unknown keys and always drops tenant-selector keys (backend src/routes/query_params.py:64-97). The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits data.run_id (internal run id, emitted by the builder at run_analytics_service.py:823); the run is already identified by the experiment_run_ref in the URL. The builder never writes, creates jobs or calls providers.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "description": "Correlation method (default pearson).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pearson",
+                "spearman"
+              ],
+              "default": "pearson"
+            }
+          },
+          {
+            "name": "min_sample",
+            "in": "query",
+            "required": false,
+            "description": "Minimum paired samples for a measure pair (default 3).",
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run correlation analysis returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_correlations_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, or a query value outside its bounds, or an unknown or tenant-selector query parameter (strict parsing, checked before any lookup); the problem names no parameter and echoes no value.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The correlations cannot be produced within their budget (the serialized envelope is over 1 MiB, the run has more than 128 numeric measure dimensions or 128 numeric parameter dimensions, more than 10000 scoped configuration rows, more than 256 distinct stored parameter keys across the run's configurations, a stored measure or parameter name that fails the name pattern (a control character such as a tab, or over 256 characters), deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
       "post": {
         "operationId": "experiment_run.compute_evaluator_quality",
@@ -3681,7 +3841,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED (C3 W10-S4): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations (operationId experiment_run.get_run_correlations), addressed by an explicit project and a server-issued run reference, with bounded dimensions and a closed problem vocabulary; the same handler is also mounted on the project-scoped beta analytics mount (/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/correlations, backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/leaderboard": {

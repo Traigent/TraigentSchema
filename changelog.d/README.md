@@ -43,3 +43,7 @@ python scripts/compile_changelog.py --version X.Y.Z --date YYYY-MM-DD
 The last command inserts a `## [X.Y.Z] - YYYY-MM-DD` section directly below the
 `[Unreleased]` pointer in `CHANGELOG.md` and deletes the compiled fragments. It
 refuses when that version already has a section.
+
+Exit codes: 0 success; 1 a write or delete failure after validation (the message
+lists any fragments still present; remove them with `git rm` if they were already
+compiled); 2 a validation or usage error.

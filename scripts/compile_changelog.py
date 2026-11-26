@@ -6,7 +6,8 @@ Fragments are named ``<slug>.<type>.md`` (see ``changelog.d/README.md``).
     python scripts/compile_changelog.py --check
     python scripts/compile_changelog.py --version X.Y.Z --date YYYY-MM-DD [--dry-run]
 
-Exit codes: 0 success, 2 invalid fragments, arguments or changelog state.
+Exit codes: 0 success; 1 write, durability or delete failure after validation;
+2 validation or usage error.
 """
 
 from __future__ import annotations
@@ -106,7 +107,11 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
                 f"{path.name}: unknown type '{ftype}' (expected one of {', '.join(TYPES)})"
             )
             continue
-        raw = path.read_bytes().decode("utf-8")
+        try:
+            raw = path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            errors.append(f"{path.name}: not valid UTF-8")
+            continue
         if re.search(r"\r(?!\n)", raw):
             errors.append(f"{path.name}: bare carriage return (CR without LF) is not allowed")
             continue
@@ -132,49 +137,47 @@ def render_section(version: str, date: str, fragments: list[Fragment]) -> str:
     return "\n".join(parts)
 
 
-def _headings_outside_fences(text: str) -> list[tuple[int, str]]:
-    """Return ``(offset, line)`` for each ``## [`` heading outside fenced code blocks."""
-    found: list[tuple[int, str]] = []
-    fence: tuple[str, int] | None = None
-    offset = 0
-    for raw in text.splitlines(keepends=True):
-        line = raw.rstrip("\r\n")
-        stripped = line.lstrip(" ")
-        if len(line) - len(stripped) <= 3 and stripped[:3] in ("```", "~~~"):
-            marker = stripped[0]
-            run_len = len(stripped) - len(stripped.lstrip(marker))
-            if fence is None:
-                fence = (marker, run_len)
-            elif marker == fence[0] and run_len >= fence[1] and not stripped[run_len:].strip():
-                fence = None
-        elif fence is None and line.startswith("## ["):
-            found.append((offset, line))
-        offset += len(raw)
-    return found
+DATED_HEADING_RE = re.compile(r"## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}")
 
 
 def insert_section(changelog: str, version: str, section: str) -> str:
-    """Insert ``section`` directly below the current ``[Unreleased]`` pointer.
+    """Insert ``section`` directly below the ``[Unreleased]`` pointer section.
 
-    Line endings of ``changelog`` are preserved; ``section`` uses LF. Only
-    headings outside fenced code blocks count.
+    The file must start with the fixed structure: the first ``## `` line is
+    ``## [Unreleased]``, followed by the pointer sentence and a blank line, then
+    the next ``## `` line is a dated release heading. Line endings are preserved;
+    ``section`` uses LF.
     """
-    headings = _headings_outside_fences(changelog)
-    if any(line.startswith(f"## [{version}]") for _o, line in headings):
-        raise ChangelogError(f"CHANGELOG.md already has a section for {version}")
-    first_unreleased = next((i for i, (_o, ln) in enumerate(headings) if ln.startswith("## [Unreleased]")), None)
-    first_dated = next((i for i, (_o, ln) in enumerate(headings) if re.match(r"## \[\d+\.\d+\.\d+\]", ln)), None)
-    if first_unreleased is None or (first_dated is not None and first_dated < first_unreleased):
-        raise ChangelogError(
-            "CHANGELOG.md must have its [Unreleased] pointer (outside code fences) "
-            "before the first dated release"
-        )
+    lines = changelog.splitlines(keepends=True)
+    if any(ln.startswith(f"## [{version}]") for ln in lines):
+        raise ChangelogError(f"CHANGELOG.md already mentions a section for {version}")
+    offsets = []
+    pos = 0
+    for ln in lines:
+        offsets.append(pos)
+        pos += len(ln)
+    text_lines = [ln.rstrip("\r\n") for ln in lines]
+    structure = (
+        "CHANGELOG.md must start with '## [Unreleased]', the line '"
+        + POINTER
+        + "', a blank line, then a dated '## [X.Y.Z] - YYYY-MM-DD' release heading"
+    )
+    heads = [i for i, ln in enumerate(text_lines) if ln.startswith("## ")]
+    if len(heads) < 2 or text_lines[heads[0]] != "## [Unreleased]":
+        raise ChangelogError(structure)
+    first, nxt = heads[0], heads[1]
+    body = [ln for ln in text_lines[first + 1 : nxt]]
+    while body and not body[0].strip():
+        body.pop(0)
+    if len(body) < 2 or body[0] != POINTER or body[1].strip() or any(x.strip() for x in body[2:]):
+        raise ChangelogError(structure)
+    if not DATED_HEADING_RE.fullmatch(text_lines[nxt]):
+        raise ChangelogError(structure)
     eol = "\r\n" if "\r\n" in changelog else "\n"
-    end = headings[first_unreleased + 1][0] if first_unreleased + 1 < len(headings) else len(changelog)
+    end = offsets[nxt]
     head = changelog[:end].rstrip("\r\n")
     tail = changelog[end:]
-    body = section.replace("\n", eol)
-    return f"{head}{eol}{eol}{body}{eol}{tail}"
+    return f"{head}{eol}{eol}{section.replace(chr(10), eol)}{eol}{tail}"
 
 
 def _fsync_dir(path: Path) -> None:
@@ -211,7 +214,10 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 def _read_changelog(path: Path) -> str:
-    return path.read_bytes().decode("utf-8")
+    try:
+        return path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ChangelogError(f"{path.name} is not valid UTF-8: {exc.reason}") from None
 
 
 def _remove_all(fragments: list[Fragment], version: str) -> int:
@@ -269,8 +275,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         try:
             _fsync_dir(changelog_path.parent)
-        except OSError:
-            pass
+        except OSError as exc:
+            print(
+                f"error: CHANGELOG.md was replaced but could not be confirmed durable ({exc}); "
+                "fragments were NOT deleted and are still present:\n  "
+                + "\n  ".join(str(f[2]) for f in fragments),
+                file=sys.stderr,
+            )
+            return 1
         status = _remove_all(fragments, args.version)
         if status == 0:
             print(f"compiled {len(fragments)} fragment(s) into CHANGELOG.md [{args.version}]")

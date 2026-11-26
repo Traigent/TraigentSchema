@@ -277,23 +277,75 @@ def test_fragment_dir_realpath_must_equal_root_join(root: Path, monkeypatch: pyt
     assert run(root, "--check") == 2
 
 
-def test_pointer_inside_code_fence_is_not_accepted(root: Path) -> None:
+def test_unclosed_fence_before_pointer_does_not_matter_structure_is_fixed(root: Path) -> None:
     frag(root, "a.added.md")
-    for fence in ("```", "~~~"):
-        text = (
-            f"# Changelog\n\nExample:\n\n{fence}\n## [Unreleased]\n\n{fence}\n\n"
-            "## [1.0.0] - 2026-01-01\n\n### Added\n- First.\n"
-        )
-        (root / "CHANGELOG.md").write_text(text)
-        assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
-        assert (root / "CHANGELOG.md").read_text() == text
-
-
-def test_pointer_after_a_closed_fence_is_accepted(root: Path) -> None:
-    frag(root, "a.added.md")
-    text = "# C\n\n```\nexample\n```\n\n## [Unreleased]\n\nptr\n\n## [1.0.0] - 2026-01-01\n\n### Added\n- F.\n"
+    text = (
+        "# Changelog\n\n```\n## [Unreleased]\n\n"
+        "## [1.0.0] - 2026-01-01\n\n### Added\n- F.\n"
+    )
     (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert (root / "CHANGELOG.md").read_text() == text
+
+
+def test_fenced_version_example_cannot_hide_a_duplicate(root: Path) -> None:
+    frag(root, "a.added.md")
+    text = BASE_CHANGELOG + "\n```\n## [1.1.0] - 2026-02-02\n```\n"
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-03") == 2
+    assert (root / "CHANGELOG.md").read_text() == text
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda t: t.replace("## [Unreleased]", "## [Unreleased] "),
+        lambda t: t.replace("Unreleased changes are kept", "Pending changes are kept"),
+        lambda t: t.replace("README.md\n\n## [1.0.0]", "README.md\n## [1.0.0]"),
+        lambda t: t.replace("## [1.0.0] - 2026-01-01", "## [1.0.0]"),
+        lambda t: t.replace("README.md\n\n## [1.0.0]", "README.md\n\nextra\n\n## [1.0.0]"),
+    ],
+)
+def test_changelog_structure_deviations_are_refused(root: Path, mutate: object) -> None:
+    frag(root, "a.added.md")
+    text = mutate(BASE_CHANGELOG)  # type: ignore[operator]
+    assert text != BASE_CHANGELOG
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert (root / "CHANGELOG.md").read_text() == text
+
+
+def test_blank_lines_before_pointer_are_allowed(root: Path) -> None:
+    frag(root, "a.added.md")
+    (root / "CHANGELOG.md").write_text(BASE_CHANGELOG.replace("## [Unreleased]\n\n", "## [Unreleased]\n\n\n"))
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+
+
+def test_fsync_failure_keeps_fragments_and_exits_1(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    f = frag(root, "a.added.md")
+
+    def boom(_p: Path) -> None:
+        raise OSError("io error")
+
+    monkeypatch.setattr(cc, "_fsync_dir", boom)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    assert "durable" in err and str(f) in err
+    assert f.exists()
+
+
+def test_invalid_utf8_fragment_exits_2(root: Path) -> None:
+    (root / "changelog.d" / "a.added.md").write_bytes(b"- caf\xe9\n")
+    assert run(root, "--check") == 2
+
+
+def test_invalid_utf8_changelog_exits_2(root: Path) -> None:
+    f = frag(root, "a.added.md")
+    (root / "CHANGELOG.md").write_bytes(b"# Changelog\n\xff\xfe\n")
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert f.exists()
 
 
 @pytest.mark.parametrize("raw", [b"- Entry\r## Notes\n", b"-    Entry\n  ## Notes\n", b"- a\rb\n"])

@@ -11253,7 +11253,7 @@
         }
       ],
       "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
-      "version": "Unreleased",
+      "version": "8.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
     }
   ]

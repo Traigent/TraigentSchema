@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **BREAKING (pre-release). Configuration runs move to the canonical project paths; measures become measurement.** In `execution/execution_endpoints.json` the ten configuration-run operations leave the flat `/api/v1/configuration-runs/...` paths, which are removed: `GET`/`POST` `/api/v1/configuration-runs/runs/{experiment_run_id}/configurations` become `/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs`; `GET`/`PUT`/`DELETE` `/api/v1/configuration-runs/{config_run_id}` become `/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}`; its `/status`, `/summary-stats`, `/workflow-metadata` and `/cancel` sub-routes move under that path; `PUT .../measures` becomes `PUT .../measurement`, and `configuration_run.update_configuration_run_measures` becomes `configuration_run.update_configuration_run_measurement`. The other operation ids, methods, request bodies and responses are unchanged. `project_id`, `configuration_run_ref` and `experiment_run_ref` are path parameters (string; `configuration_run_ref` also accepts previously issued `trial_` references and configuration run ids, and `experiment_run_ref` also accepts experiment run ids). Acknowledged in `scripts/breaking_schema_allowlist.json`.
+
 ## [8.0.0] - 2026-11-24
 
 ### Breaking

@@ -43,7 +43,7 @@ CASES = [
      {"name": "e", "dataset_id": "d", "agent_id": "a"}, {"name": "e"}),
     ("/api/v1/experiment-runs/runs/{experiment_run_id}/configurations",
      {"experiment_parameters": {}}, {}),
-    ("/api/v1/configuration-runs/runs/{experiment_run_id}/configurations",
+    ("/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs",
      {"experiment_parameters": {}}, {}),
     ("/api/v1/measures",
      {"label": "L", "measure_type": "numeric"}, {"label": "L"}),

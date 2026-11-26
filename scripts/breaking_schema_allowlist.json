@@ -11255,6 +11255,95 @@
       "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
       "version": "8.0.0",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/runs/{experiment_run_id}/configurations/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "54e320ac3fa5f27123099bf676e149a6879b3cc8a7bde7edeba72c99b8b0b3c3"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/runs/{experiment_run_id}/configurations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "1f9f70db550c901da072b764251e96441a1c0c4b847738ba1f6aaaffe5df6fcf"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/delete",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "73374e86fcaa08e10b9128e5fd963671955762e800647ff211a1460dded0e7a8"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "c9ac394589f348fd75b07c354e6b54f69c00388609901f7ebe7311f5e665ab61"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "f0bdcf81f746fb2aabe36cbb64e82cc141e9cffc958b2685611db115678a4169"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/cancel/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "33bb4d4efa3a44340b369418cb80ec2998ab155f481394917f22f5e304170ada"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/measures/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "354ff2ce13b2bfba0a05573e6a1415147873d5ff8da7f87d2b4bcf9c29f15118"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/status/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "2a52727bc68cfaf7303202b97e6b6ca670ca944c0753b032f1f9aaae7a5f95ff"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/summary-stats/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "833598e30735698cdf2141b809301091be720e6c0904143ddedebbcb50fa3867"
+        },
+        {
+          "pointer": "#/paths//api/v1/configuration-runs/{config_run_id}/workflow-metadata/put",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "86b0da7f70c2aa3f93e7fcfadfefcb0a8160d2d890f68bc0fb470e543b2475e6"
+        }
+      ],
+      "reason": "BREAKING PUBLIC CHANGE (pre-release). The configuration-run operations move to the canonical project paths and the old flat paths are removed: GET/POST /api/v1/configuration-runs/runs/{experiment_run_id}/configurations become GET/POST /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs; GET/PUT/DELETE /api/v1/configuration-runs/{config_run_id} become GET/PUT/DELETE /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}; the status, summary-stats, workflow-metadata and cancel sub-routes move under that same path; PUT .../measures becomes PUT .../measurement and its operation id configuration_run.update_configuration_run_measures becomes configuration_run.update_configuration_run_measurement. Request and response bodies are unchanged; project_id and the opaque references come from the path. Consumers: the Python SDK and the Backend, updated in the same release.",
+      "version": "Unreleased",
+      "pr": "pending"
     }
   ]
 }

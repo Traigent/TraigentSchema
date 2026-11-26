@@ -16,7 +16,7 @@ def _cat(rel):
 
 def test_measures_put_accepts_measures_body():
     v = SchemaValidator(contract="backend")
-    route = "/api/v1/configuration-runs/{config_run_id}/measures"
+    route = "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/measurement"
     assert v._endpoint_schemas[f"PUT:{route}"] == "configuration_run_measures_request_schema"
     assert v.validate_request(route, "PUT", {"measures": {"f1": 0.9}}) == []
     assert v.validate_request(route, "PUT", {"measures": [{"example_id": "e", "score": 1}]}) == []

@@ -50,7 +50,7 @@ DETAIL_GETS = {
     "execution/execution_endpoints.json": [
         "/api/v1/projects/{project_id}/experiments/{experiment_ref}",
         "/api/v1/experiment-runs/runs/{run_id}",
-        "/api/v1/configuration-runs/{config_run_id}",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}",
     ],
     "measures/measures_endpoints.json": ["/api/v1/measures/{measure_id}"],
 }
@@ -81,7 +81,7 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     # ExperimentRead, the resource with experiment_ref required)
     expected = {
         ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/experiments/{experiment_ref}"): "experiment_reads_schema.json#/definitions/ExperimentRead",
-        ("execution/execution_endpoints.json", "/api/v1/measures/{measure_id}".replace("measures", "configuration-runs").replace("measure_id", "config_run_id")): "configuration_run_schema.json",
+        ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}"): "configuration_run_schema.json",
         ("measures/measures_endpoints.json", "/api/v1/measures/{measure_id}"): "measure_schema.json",
     }
     for (cat, path), stem in expected.items():

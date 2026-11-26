@@ -9,6 +9,8 @@
     "/api/v1/measures/default": {
       "post": {
         "summary": "Create a default measure",
+        "deprecated": true,
+        "x-deprecated": "Retired; there is no public replacement. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -40,6 +42,8 @@
     "/api/v1/measures": {
       "get": {
         "summary": "List measures",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/metrics or GET /api/v1/metrics. Removal is unscheduled.",
         "parameters": [
           {
             "name": "has_evaluator",
@@ -97,6 +101,8 @@
     "/api/v1/measures/{measure_id}": {
       "get": {
         "summary": "Get measure",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/metrics/{metric_ref}. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Measure retrieved successfully",
@@ -150,9 +156,519 @@
       },
       "delete": {
         "summary": "Delete measure",
+        "deprecated": true,
+        "x-deprecated": "Use DELETE /api/v1/metrics/{metric_ref}. Removal is unscheduled.",
         "responses": {
           "204": {
             "description": "Measure deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/metrics": {
+      "get": {
+        "operationId": "metric.list_project_metrics",
+        "summary": "List the project's metrics",
+        "description": "Lists the metrics visible in the project: project-owned, tenant-shared and built-in. Each item carries its scope.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Project viewer role denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "metric.create_project_metric",
+        "summary": "Create a project-owned metric",
+        "description": "Creates a metric owned by the project. Requires the project editor role.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./metric_write_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Metric created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Project editor role denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (error_code validation_failed). A write that carries evaluation_method, criteria, python_packages, measure_parameters or any other undeclared field is refused; the body names no keys or values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "operationId": "metric.list_library_metrics",
+        "summary": "List the tenant metric library",
+        "description": "Lists the tenant-shared and built-in metrics.",
+        "x-asserted-against-backend": false,
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "metric.create_library_metric",
+        "summary": "Create a tenant-shared metric",
+        "description": "Creates a metric in the tenant library. Requires tenant-library authority (tenant admin).",
+        "x-asserted-against-backend": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./metric_write_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Metric created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Tenant-library authority required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (error_code validation_failed). A write that carries evaluation_method, criteria, python_packages, measure_parameters or any other undeclared field is refused; the body names no keys or values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metrics/{metric_ref}": {
+      "get": {
+        "operationId": "metric.get_metric",
+        "summary": "Get a metric",
+        "description": "The metric_ref is resolved tenant-wide to one row, then authorized on that row. A metric the caller cannot see is answered exactly like a missing one.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "metric_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^metric_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metric retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Metric not found, or not visible to the caller (the two are indistinguishable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "metric.update_metric",
+        "summary": "Update a metric",
+        "description": "Partial update. Project-owned metrics require the project editor role; tenant-shared metrics require tenant-library authority; built-in metrics are read-only.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "metric_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^metric_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./metric_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metric updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write authority on the metric denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Metric not found, or not visible to the caller (the two are indistinguishable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (error_code validation_failed). A write that carries evaluation_method, criteria, python_packages, measure_parameters or any other undeclared field is refused; the body names no keys or values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "metric.delete_metric",
+        "summary": "Delete a metric",
+        "description": "Same authority as update. Built-in metrics cannot be deleted.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "metric_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^metric_[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Metric deleted successfully"
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Write authority on the metric denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Metric not found, or not visible to the caller (the two are indistinguishable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
           },
           "429": {
             "description": "Too many requests — rate limit exceeded.",

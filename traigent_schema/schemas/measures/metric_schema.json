@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_schema.json",
+  "title": "Metric",
+  "description": "A metric definition as returned by the metric endpoints. It reuses the measure definition vocabulary and carries no evaluator fields (evaluation_method, criteria, python_packages, measure_parameters). Two owners' metrics with the same label, and a built-in with that label, are three distinct rows with three distinct metric_ref values.",
+  "type": "object",
+  "required": [
+    "metric_ref",
+    "scope",
+    "label",
+    "measure_type"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "metric_ref": {
+      "type": "string",
+      "pattern": "^metric_[0-9a-f]{32}$",
+      "description": "Opaque reference to exactly one metric row. Never a bare name or id.",
+      "x-identifier": true
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "project",
+        "tenant",
+        "built_in"
+      ],
+      "description": "project: owned by one project. tenant: shared through the tenant library. built_in: shipped by the platform, read-only."
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Owning project for scope project; null otherwise."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "measure_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 5000
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "value_type": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "maxItems": 1000
+    },
+    "target_aspect": {
+      "$ref": "./measure_schema.json#/definitions/TargetAspect"
+    },
+    "metric_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricType"
+    },
+    "output_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricOutputType"
+    },
+    "target_types": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/TargetType"
+      }
+    },
+    "allowed_score_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/AllowedScoreSource"
+      }
+    },
+    "agent_types": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/AgentType"
+      },
+      "minItems": 1
+    },
+    "domain_min": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "domain_max": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "inverse": {
+      "type": "boolean"
+    },
+    "is_custom": {
+      "type": "boolean"
+    }
+  }
+}

@@ -95,6 +95,8 @@
     "/api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity": {
       "get": {
         "summary": "Get a hosted dataset version's server-computed content identity",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets/{dataset_id}/versions/{version_id}/content-identity. Removal is unscheduled.",
         "description": "TraigentBackend src/routes/dataset_version_routes.py get_dataset_version_content_identity. Read access to the dataset (project viewer) through the owner-scoped parent load. Returns the identity under the tenant's ACTIVE key (root, counts, members_ref and the per-example map), re-verified on every read; or status unavailable with a reason. The version object (DatasetVersionV1) is unchanged.",
         "operationId": "getDatasetVersionContentIdentity",
         "x-asserted-against-backend": false,
@@ -145,6 +147,8 @@
     "/api/v1/datasets/{dataset_id}/public-benchmark": {
       "put": {
         "summary": "Set or clear the dataset's public-benchmark opt-in (ruling D3)",
+        "deprecated": true,
+        "x-deprecated": "Use PUT /api/v1/projects/{project_id}/datasets/{dataset_id}/public-benchmark. Removal is unscheduled.",
         "description": "TraigentBackend src/routes/dataset_version_routes.py set_dataset_public_benchmark. Requires dataset write access and project editor role, THEN tenant owner/admin (or platform admin) membership; API-key principals are refused even when the key's owner is a tenant admin. A refusal is audited (ACCESS_DENIED, reason tenant_admin_required); a change is audited (DATASET_PUBLIC_BENCHMARK_CHANGED) and not applied if the audit write fails. The Backend also emits the flag as public_benchmark on the dataset read (Benchmark.to_dict); dataset_schema.json is closed and does not declare it yet -- adding it is a separately acknowledged contract change (breaking_schema_check classifies it property_added on a closed schema).",
         "operationId": "setDatasetPublicBenchmark",
         "x-asserted-against-backend": false,
@@ -166,6 +170,209 @@
           "403": {"description": "Dataset write access or project editor role denied, or the caller is not a tenant owner/admin (error_code FORBIDDEN), or the principal is an API key.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
           "404": {"description": "Dataset not found in the caller's owner scope.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}},
           "500": {"description": "The change or its audit record could not be written; nothing was applied.", "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}}
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/versions/{version_id}/content-identity": {
+      "get": {
+        "operationId": "dataset_version.get_dataset_version_content_identity",
+        "summary": "Get a hosted dataset version's server-computed content identity",
+        "description": "Project-scoped form of GET /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The version's content identity (status available) or why there is none (status unavailable). An integrity failure is status unavailable, reason stored_identity_mismatch, never a 5xx with a partial identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./dataset_version_content_identity_response_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Dataset read access or project viewer role denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found in the caller's owner scope, or the version is not a version of that dataset.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/public-benchmark": {
+      "put": {
+        "operationId": "dataset_version.set_dataset_public_benchmark",
+        "summary": "Set or clear the dataset's public-benchmark opt-in (ruling D3)",
+        "description": "Project-scoped form of PUT /api/v1/datasets/{dataset_id}/public-benchmark. Same request, response and error bodies. Requires dataset write access and the project editor role, then tenant owner or admin membership; API-key principals are refused.",
+        "x-asserted-against-backend": false,
+        "x-wrap-status": "wrapped",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_public_benchmark_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The flag after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./dataset_public_benchmark_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "public_benchmark missing or not a boolean.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Dataset write access or project editor role denied, or the caller is not a tenant owner/admin (error_code FORBIDDEN), or the principal is an API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found in the caller's owner scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The change or its audit record could not be written; nothing was applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
         }
       }
     }

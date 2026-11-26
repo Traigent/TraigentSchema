@@ -2,6 +2,8 @@
 admits the portal's client fields (#135/#123), score/confidence 0-1 unit (#139)."""
 import json
 
+import pytest
+
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -202,3 +204,83 @@ def test_standalone_model_parameters_route_binds_its_own_request_schema():
     assert v.validate_request(
         "/api/v1/model-parameters", "POST", {"agentId": "a1", "modelParameters": []}
     )
+
+
+# ---------------------------------------------------------------------------
+# Project-scoped dataset paths: additive canonical routes, old routes deprecated
+# ---------------------------------------------------------------------------
+
+_SCOPED = "/api/v1/projects/{project_id}/datasets"
+# (method, old suffix == new suffix, canonical operationId)
+_SCOPED_OPS = [
+    ("get", "", "dataset.get_datasets"),
+    ("post", "", "dataset.create_dataset"),
+    ("get", "/{dataset_id}", "dataset.get_dataset"),
+    ("put", "/{dataset_id}", "dataset.update_dataset"),
+    ("delete", "/{dataset_id}", "dataset.delete_dataset"),
+    ("get", "/{dataset_id}/examples", "dataset.get_dataset_examples"),
+    ("post", "/{dataset_id}/examples", "dataset.add_dataset_examples"),
+    ("put", "/{dataset_id}/examples/{example_id}", "dataset.update_dataset_example"),
+    ("delete", "/{dataset_id}/examples/{example_id}", "dataset.delete_dataset_example"),
+    ("post", "/{dataset_id}/generate-examples", "dataset.generate_dataset_examples"),
+    ("get", "/{dataset_id}/files", "dataset.get_dataset_files"),
+    ("post", "/{dataset_id}/files", "dataset.upload_dataset_files"),
+    ("post", "/{dataset_id}/upload", "dataset.upload_dataset_files_post"),
+    ("delete", "/{dataset_id}/files/{file_id}", "dataset.delete_dataset_file"),
+    (
+        "get",
+        "/{dataset_id}/versions/{version_id}/content-identity",
+        "dataset_version.get_dataset_version_content_identity",
+    ),
+    ("put", "/{dataset_id}/public-benchmark", "dataset_version.set_dataset_public_benchmark"),
+]
+_CONTENT_IDENTITY_SUFFIXES = {
+    "/{dataset_id}/versions/{version_id}/content-identity",
+    "/{dataset_id}/public-benchmark",
+}
+_UNSCOPED_STAYS = [
+    "/api/v1/datasets/versions/by-root/{dataset_root}",
+    "/api/v1/content-identity/purpose-keys",
+    "/api/v1/example-sets",
+    "/api/v1/example-sets/{set_id}/examples",
+]
+
+
+def _scoped_paths(suffix):
+    name = "content_identity_endpoints.json" if suffix in _CONTENT_IDENTITY_SUFFIXES else "datasets_endpoints.json"
+    return _load(name)["paths"]
+
+
+@pytest.mark.parametrize("method,suffix,op_id", _SCOPED_OPS)
+def test_scoped_dataset_operation_mirrors_the_unscoped_one(method, suffix, op_id):
+    import re
+
+    paths = _scoped_paths(suffix)
+    old = paths["/api/v1/datasets" + suffix][method]
+    new = paths[_SCOPED + suffix][method]
+    assert new["operationId"] == op_id
+    assert new["x-asserted-against-backend"] is False
+    assert "deprecated" not in new
+    assert old["deprecated"] is True
+    assert old["x-deprecated"] == f"Use {method.upper()} {_SCOPED}{suffix}. Removal is unscheduled."
+    assert old["x-deprecated"].endswith("Removal is unscheduled.")
+    assert new.get("requestBody") == old.get("requestBody")
+    assert [p["name"] for p in new["parameters"]] == re.findall(r"\{(\w+)\}", _SCOPED + suffix)
+    assert all(p["in"] == "path" and p["required"] for p in new["parameters"])
+    project = new["parameters"][0]
+    assert project["schema"] == {"type": "string", "minLength": 1, "maxLength": 128}
+    assert set(new["responses"]) >= set(old["responses"])
+    for status, resp in old["responses"].items():
+        if status != "429":
+            assert new["responses"][status] == resp
+
+
+def test_scoped_dataset_operation_ids_are_distinct_and_unscoped_routes_stay():
+    ids = [op_id for _, _, op_id in _SCOPED_OPS]
+    assert len(ids) == len(set(ids)) == 16
+    all_paths = {**_scoped_paths(""), **_scoped_paths("/{dataset_id}/public-benchmark")}
+    for path in _UNSCOPED_STAYS:
+        for op in all_paths[path].values():
+            assert not op.get("deprecated")
+    assert not any(path.startswith(_SCOPED + "/generate") or "/archive" in path for path in all_paths)
+    assert not any("/versions" in p and p.startswith(_SCOPED) and "content-identity" not in p for p in all_paths)

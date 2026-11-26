@@ -197,21 +197,36 @@ def test_catalog_is_registered_in_the_backend_contract_root() -> None:
     assert "./datasets/content_identity_endpoints.json" in files
 
 
-def test_catalog_declares_exactly_the_four_routes_ahead_of_the_backend() -> None:
+def test_catalog_declares_exactly_the_routes_ahead_of_the_backend() -> None:
     operations = {
         (path, method): op
         for path, methods in CATALOG["paths"].items()
         for method, op in methods.items()
     }
+    scoped = "/api/v1/projects/{project_id}/datasets/{dataset_id}"
+    scoped_identity = (scoped + "/versions/{version_id}/content-identity", "get")
+    scoped_benchmark = (scoped + "/public-benchmark", "put")
     assert set(operations) == {
         (PURPOSE_KEYS, "post"),
         (IDENTITY, "get"),
         (BY_ROOT, "get"),
         (PUBLIC_BENCHMARK, "put"),
+        scoped_identity,
+        scoped_benchmark,
     }
     for key, op in operations.items():
         assert op["x-asserted-against-backend"] is False, key
         assert op["operationId"], key
+    # Both forms resolve; the unscoped pair is deprecated and keeps its operationIds.
+    assert operations[scoped_identity]["operationId"] == "dataset_version.get_dataset_version_content_identity"
+    assert operations[scoped_benchmark]["operationId"] == "dataset_version.set_dataset_public_benchmark"
+    assert operations[(IDENTITY, "get")]["operationId"] == "getDatasetVersionContentIdentity"
+    assert operations[(PUBLIC_BENCHMARK, "put")]["operationId"] == "setDatasetPublicBenchmark"
+    assert operations[(IDENTITY, "get")]["deprecated"] is True
+    assert operations[(PUBLIC_BENCHMARK, "put")]["deprecated"] is True
+    # The tenant routes keep their contracts and are not deprecated.
+    assert "deprecated" not in operations[(PURPOSE_KEYS, "post")]
+    assert "deprecated" not in operations[(BY_ROOT, "get")]
 
 
 def test_every_catalog_ref_resolves() -> None:

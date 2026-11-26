@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import shutil
 import stat
 import sys
 import tempfile
@@ -57,24 +56,34 @@ def _check_body(name: str, body: str) -> str | None:
     lines = [ln for ln in body.split("\n") if ln.strip()]
     if not lines:
         return f"{name}: fragment is empty"
-    if not BULLET_RE.fullmatch(lines[0]):
-        return f"{name}: content must start with a markdown bullet ('- text')"
+    column = -1
     for ln in lines:
-        if not (BULLET_RE.fullmatch(ln) or CONTINUATION_RE.fullmatch(ln)):
+        bullet = BULLET_RE.fullmatch(ln)
+        if bullet:
+            column = len(ln) - len(ln[2:].lstrip(" "))
+            continue
+        if column < 0:
+            return f"{name}: content must start with a markdown bullet ('- text')"
+        indent = len(ln) - len(ln.lstrip(" "))
+        if not CONTINUATION_RE.fullmatch(ln) or indent < column:
             return (
                 f"{name}: line {ln!r} must be a '- text' bullet or a continuation "
-                "indented by at least two spaces"
+                f"indented to the bullet text (column {column})"
             )
     return None
 
 
 def collect_fragments(fragments_dir: Path) -> list[Fragment]:
     """Return validated ``(type, slug, path, body)`` tuples, sorted by slug."""
-    if fragments_dir.is_symlink():
-        raise ChangelogError(f"{fragments_dir} must not be a symlink")
+    if fragments_dir.is_symlink() or (
+        hasattr(fragments_dir, "is_junction") and fragments_dir.is_junction()
+    ):
+        raise ChangelogError(f"{fragments_dir} must not be a symlink or junction")
     if not fragments_dir.is_dir():
         raise ChangelogError(f"fragment directory not found: {fragments_dir}")
-    base = fragments_dir.resolve()
+    base = Path(os.path.join(os.path.realpath(fragments_dir.parent), fragments_dir.name))
+    if os.path.realpath(fragments_dir) != str(base):
+        raise ChangelogError(f"{fragments_dir} must be a real directory directly under the repository root")
     errors: list[str] = []
     found: list[Fragment] = []
     for path in sorted(fragments_dir.iterdir()):
@@ -82,7 +91,7 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
         if not stat.S_ISREG(mode):
             errors.append(f"{path.name}: must be a regular file (no symlinks or directories)")
             continue
-        if path.resolve().parent != base:
+        if Path(os.path.realpath(path)).parent != base:
             errors.append(f"{path.name}: resolves outside {fragments_dir.name}/")
             continue
         if path.name in _IGNORED:
@@ -97,7 +106,11 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
                 f"{path.name}: unknown type '{ftype}' (expected one of {', '.join(TYPES)})"
             )
             continue
-        body = path.read_bytes().decode("utf-8").replace("\r\n", "\n").strip("\n")
+        raw = path.read_bytes().decode("utf-8")
+        if re.search(r"\r(?!\n)", raw):
+            errors.append(f"{path.name}: bare carriage return (CR without LF) is not allowed")
+            continue
+        body = raw.replace("\r\n", "\n").strip("\n")
         problem = _check_body(path.name, body)
         if problem:
             errors.append(problem)
@@ -119,82 +132,104 @@ def render_section(version: str, date: str, fragments: list[Fragment]) -> str:
     return "\n".join(parts)
 
 
+def _headings_outside_fences(text: str) -> list[tuple[int, str]]:
+    """Return ``(offset, line)`` for each ``## [`` heading outside fenced code blocks."""
+    found: list[tuple[int, str]] = []
+    fence: tuple[str, int] | None = None
+    offset = 0
+    for raw in text.splitlines(keepends=True):
+        line = raw.rstrip("\r\n")
+        stripped = line.lstrip(" ")
+        if len(line) - len(stripped) <= 3 and stripped[:3] in ("```", "~~~"):
+            marker = stripped[0]
+            run_len = len(stripped) - len(stripped.lstrip(marker))
+            if fence is None:
+                fence = (marker, run_len)
+            elif marker == fence[0] and run_len >= fence[1] and not stripped[run_len:].strip():
+                fence = None
+        elif fence is None and line.startswith("## ["):
+            found.append((offset, line))
+        offset += len(raw)
+    return found
+
+
 def insert_section(changelog: str, version: str, section: str) -> str:
     """Insert ``section`` directly below the current ``[Unreleased]`` pointer.
 
-    Line endings of ``changelog`` are preserved; ``section`` uses LF.
+    Line endings of ``changelog`` are preserved; ``section`` uses LF. Only
+    headings outside fenced code blocks count.
     """
-    if re.search(rf"^## \[{re.escape(version)}\]", changelog, re.MULTILINE):
+    headings = _headings_outside_fences(changelog)
+    if any(line.startswith(f"## [{version}]") for _o, line in headings):
         raise ChangelogError(f"CHANGELOG.md already has a section for {version}")
-    unreleased = re.search(r"^## \[Unreleased\]", changelog, re.MULTILINE)
-    dated = re.search(r"^## \[\d+\.\d+\.\d+\]", changelog, re.MULTILINE)
-    if unreleased is None or (dated is not None and dated.start() < unreleased.start()):
+    first_unreleased = next((i for i, (_o, ln) in enumerate(headings) if ln.startswith("## [Unreleased]")), None)
+    first_dated = next((i for i, (_o, ln) in enumerate(headings) if re.match(r"## \[\d+\.\d+\.\d+\]", ln)), None)
+    if first_unreleased is None or (first_dated is not None and first_dated < first_unreleased):
         raise ChangelogError(
-            "CHANGELOG.md must have its [Unreleased] pointer before the first dated release"
+            "CHANGELOG.md must have its [Unreleased] pointer (outside code fences) "
+            "before the first dated release"
         )
     eol = "\r\n" if "\r\n" in changelog else "\n"
-    nxt = re.search(r"^## \[", changelog[unreleased.end():], re.MULTILINE)
-    end = unreleased.end() + nxt.start() if nxt else len(changelog)
+    end = headings[first_unreleased + 1][0] if first_unreleased + 1 < len(headings) else len(changelog)
     head = changelog[:end].rstrip("\r\n")
     tail = changelog[end:]
     body = section.replace("\n", eol)
     return f"{head}{eol}{eol}{body}{eol}{tail}"
 
 
+def _fsync_dir(path: Path) -> None:
+    """Flush a directory entry to disk (POSIX only)."""
+    if os.name == "nt":
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def write_atomic(path: Path, text: str) -> None:
     """Replace ``path`` with ``text`` (UTF-8) via a same-directory temp file."""
+    mode = path.stat().st_mode
     fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=".changelog-", suffix=".tmp")
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(text.encode("utf-8"))
             handle.flush()
             os.fsync(handle.fileno())
-        shutil.copymode(path, tmp_name)
         os.replace(tmp_name, path)
     except BaseException:
         try:
             os.unlink(tmp_name)
         except OSError:
-            pass
+            print(f"error: could not remove temporary file {tmp_name}", file=sys.stderr)
         raise
+    try:  # restore the original mode after the replace, best effort
+        os.chmod(path, stat.S_IMODE(mode))
+    except OSError:
+        pass
 
 
 def _read_changelog(path: Path) -> str:
     return path.read_bytes().decode("utf-8")
 
 
-def _remove_all(fragments: list[Fragment]) -> int:
+def _remove_all(fragments: list[Fragment], version: str) -> int:
     remaining = []
     for _t, _s, path, _b in fragments:
         try:
             _unlink(path)
         except OSError:
-            remaining.append(path.name)
+            remaining.append(str(path))
     if remaining:
         print(
-            "error: CHANGELOG.md was updated but these fragments could not be deleted: "
-            + ", ".join(remaining)
-            + "\nre-run with --cleanup-compiled --version <X.Y.Z> once the cause is fixed",
+            f"error: CHANGELOG.md was updated; these fragments were already compiled into "
+            f"{version} but could not be deleted, remove them with `git rm`:\n  "
+            + "\n  ".join(remaining),
             file=sys.stderr,
         )
         return 1
     return 0
-
-
-def cleanup_compiled(changelog: str, version: str, fragments: list[Fragment]) -> int:
-    """Delete fragments whose exact text already appears in ``version``'s section."""
-    norm = changelog.replace("\r\n", "\n")
-    start = re.search(rf"^## \[{re.escape(version)}\]", norm, re.MULTILINE)
-    if start is None:
-        raise ChangelogError(f"CHANGELOG.md has no section for {version}")
-    nxt = re.search(r"^## \[", norm[start.end():], re.MULTILINE)
-    section = norm[start.start(): start.end() + nxt.start() if nxt else len(norm)]
-    done = [f for f in fragments if f[3] in section]
-    kept = [f[2].name for f in fragments if f[3] not in section]
-    status = _remove_all(done)
-    note = f": {', '.join(kept)}" if kept else ""
-    print(f"deleted {len(done) if status == 0 else 'some of ' + str(len(done))} compiled fragment(s); kept {len(kept)}{note}")
-    return status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -203,11 +238,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--date", help="release date, YYYY-MM-DD")
     parser.add_argument("--check", action="store_true", help="only validate fragments")
     parser.add_argument("--dry-run", action="store_true", help="print the section, write nothing")
-    parser.add_argument(
-        "--cleanup-compiled",
-        action="store_true",
-        help="delete fragments already present in --version's section (retry after a failed delete)",
-    )
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent,
                         help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
@@ -218,10 +248,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             print(f"ok: {len(fragments)} changelog fragment(s) valid")
             return 0
-        if args.cleanup_compiled:
-            if not args.version or not VERSION_RE.fullmatch(args.version):
-                raise ChangelogError("--cleanup-compiled requires --version X.Y.Z")
-            return cleanup_compiled(_read_changelog(changelog_path), args.version, fragments)
         if not args.version or not args.date:
             raise ChangelogError("--version and --date are required unless --check is given")
         if not VERSION_RE.fullmatch(args.version):
@@ -241,7 +267,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: could not write CHANGELOG.md (unchanged, fragments kept): {exc}",
                   file=sys.stderr)
             return 1
-        status = _remove_all(fragments)
+        try:
+            _fsync_dir(changelog_path.parent)
+        except OSError:
+            pass
+        status = _remove_all(fragments, args.version)
         if status == 0:
             print(f"compiled {len(fragments)} fragment(s) into CHANGELOG.md [{args.version}]")
         return status

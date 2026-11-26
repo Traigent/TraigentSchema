@@ -227,7 +227,7 @@ def test_write_failure_leaves_changelog_and_fragments_intact(
     assert sorted(p.name for p in root.iterdir()) == ["CHANGELOG.md", "changelog.d"]
 
 
-def test_unlink_failure_after_replace_is_reported_and_recoverable(
+def test_unlink_failure_after_replace_lists_remaining_paths_and_exits_1(
     root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     frag(root, "a.added.md", "- alpha\n")
@@ -240,24 +240,120 @@ def test_unlink_failure_after_replace_is_reported_and_recoverable(
         real_unlink(path)
 
     monkeypatch.setattr(cc, "_unlink", flaky)
-    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") not in (0, 2)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
-    assert "b.added.md" in err and "a.added.md" not in err
+    assert str(root / "changelog.d" / "b.added.md") in err
+    assert "a.added.md" not in err
+    assert "1.1.0" in err and "git rm" in err
     assert "## [1.1.0] - 2026-02-02" in (root / "CHANGELOG.md").read_text()
     assert (root / "changelog.d" / "b.added.md").exists()
     assert not (root / "changelog.d" / "a.added.md").exists()
-    # A retry of the compile is blocked by the duplicate-version guard ...
+
+
+def test_cleanup_option_no_longer_exists(root: Path) -> None:
+    with pytest.raises(SystemExit) as info:
+        run(root, "--cleanup-compiled", "--version", "1.1.0")
+    assert info.value.code == 2
+
+
+def test_junctioned_or_redirected_fragment_dir_is_refused(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frag(root, "a.added.md")
+    monkeypatch.setattr(Path, "is_junction", lambda self: self.name == "changelog.d", raising=False)
+    assert run(root, "--check") == 2
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
-    # ... so cleanup removes only fragments already present in that section.
-    monkeypatch.setattr(cc, "_unlink", real_unlink)
-    frag(root, "c.added.md", "- not compiled\n")
-    assert run(root, "--cleanup-compiled", "--version", "1.1.0") == 0
-    assert not (root / "changelog.d" / "b.added.md").exists()
-    assert (root / "changelog.d" / "c.added.md").exists()
+    assert (root / "changelog.d" / "a.added.md").exists()
 
 
-def test_cleanup_requires_version(root: Path) -> None:
-    assert run(root, "--cleanup-compiled") == 2
+def test_fragment_dir_realpath_must_equal_root_join(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    frag(root, "a.added.md")
+    real = cc.os.path.realpath
+    elsewhere = str(root / "elsewhere")
+    monkeypatch.setattr(
+        cc.os.path, "realpath",
+        lambda p, **k: elsewhere if str(p).endswith("changelog.d") else real(p, **k),
+    )
+    assert run(root, "--check") == 2
+
+
+def test_pointer_inside_code_fence_is_not_accepted(root: Path) -> None:
+    frag(root, "a.added.md")
+    for fence in ("```", "~~~"):
+        text = (
+            f"# Changelog\n\nExample:\n\n{fence}\n## [Unreleased]\n\n{fence}\n\n"
+            "## [1.0.0] - 2026-01-01\n\n### Added\n- First.\n"
+        )
+        (root / "CHANGELOG.md").write_text(text)
+        assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+        assert (root / "CHANGELOG.md").read_text() == text
+
+
+def test_pointer_after_a_closed_fence_is_accepted(root: Path) -> None:
+    frag(root, "a.added.md")
+    text = "# C\n\n```\nexample\n```\n\n## [Unreleased]\n\nptr\n\n## [1.0.0] - 2026-01-01\n\n### Added\n- F.\n"
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+
+
+@pytest.mark.parametrize("raw", [b"- Entry\r## Notes\n", b"-    Entry\n  ## Notes\n", b"- a\rb\n"])
+def test_bare_cr_and_under_indented_continuations_are_refused(root: Path, raw: bytes) -> None:
+    (root / "changelog.d" / "a.added.md").write_bytes(raw)
+    assert run(root, "--check") == 2
+
+
+def test_continuation_at_content_column_is_accepted(root: Path) -> None:
+    frag(root, "a.added.md", "- Entry\n  cont\n-    Wide\n     cont\n")
+    assert run(root, "--check") == 0
+
+
+def test_parent_directory_is_fsynced_after_replace_before_delete(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = frag(root, "a.added.md")
+    calls: list[str] = []
+    monkeypatch.setattr(cc, "_fsync_dir", lambda path: calls.append(f"fsync-dir:{f.exists()}"))
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    assert calls == ["fsync-dir:True"]
+
+
+def test_readonly_mode_is_not_applied_before_replace(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frag(root, "a.added.md")
+    order: list[str] = []
+    real_replace = cc.os.replace
+    monkeypatch.setattr(cc.os, "replace", lambda a, b: (order.append("replace"), real_replace(a, b))[1])
+    monkeypatch.setattr(cc.os, "chmod", lambda a, b: order.append("chmod"))
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    assert order == ["replace", "chmod"]
+
+
+def test_temp_unlink_failure_on_error_path_prints_its_path(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+
+    def boom(*_a: object, **_k: object) -> None:
+        raise OSError("nope")
+
+    monkeypatch.setattr(cc.os, "replace", boom)
+    monkeypatch.setattr(cc.os, "unlink", boom)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    assert ".changelog-" in capsys.readouterr().err
+
+
+def test_dry_run_never_writes_or_deletes(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    f = frag(root, "a.added.md")
+
+    def forbidden(*_a: object, **_k: object) -> None:
+        raise AssertionError("dry-run must not write or delete")
+
+    monkeypatch.setattr(cc, "write_atomic", forbidden)
+    monkeypatch.setattr(cc, "_unlink", forbidden)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02", "--dry-run") == 0
+    assert f.exists() and (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
+    assert sorted(p.name for p in root.iterdir()) == ["CHANGELOG.md", "changelog.d"]
 
 
 def test_missing_current_pointer_never_falls_back_to_a_historical_heading(root: Path) -> None:

@@ -3103,7 +3103,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED (C3 W10-S2): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report (operationId experiment_run.get_run_report), addressed by an explicit project and a server-issued run reference; the same handler is also mounted on the two beta analytics mounts (/api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics, backend src/routes/api_v1beta.py:109-110), which are not declared in this contract and retire with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/pareto": {
@@ -3976,6 +3978,140 @@
           },
           "503": {
             "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report": {
+      "get": {
+        "operationId": "experiment_run.get_run_report",
+        "summary": "Get the report for one experiment run",
+        "description": "Pure read: returns the client-safe enveloped report of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/report. Distinct from report.get_optimization_report_payload (bare response, feature gate, export audit), which is not changed here. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 8 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. Rows beyond the collection caps are truncated server-side (meta.aggregated_results_total and meta.raw_example_results_total carry the untruncated counts), the canonical projection omits experiment_context.experiment_id, experiment_context.run_id, provenance.source_endpoints and report_id (internal ids), and uses the opaque report-scoped trial_ref instead of trial_id, and a report that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers.",
+        "x-max-response-bytes": 8388608,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run report returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_report_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref (syntax is checked before any lookup).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The report cannot be produced within its budget (the serialized envelope is over 8 MiB, over the computation limit, deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           }
         }
       }

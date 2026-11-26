@@ -140,6 +140,209 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto": {
+      "get": {
+        "operationId": "experiment_run.get_run_pareto",
+        "summary": "Get the Pareto analysis of one experiment run, paginated",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the Pareto frontier analysis of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/pareto. Query: limit (default 20, maximum 100), cursor (opaque sealed string of at most 512 base64url characters), x_measure, y_measure, request_count; any other query parameter, including the retired page and offset, is rejected with the closed 400. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The frontier, knee and shape are computed over the full population and then paginated; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); frontier ties are broken by ascending trial_ref (lexicographic) before ranks are assigned and dominated entries are ordered by ascending trial_ref (lexicographic); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any insert, update or delete of the run's configuration rows or their metrics), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and project_id (internal ids), uses the opaque run-scoped trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; default 20, maximum 100. 0, 101, booleans and non-integers are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (x_measure, y_measure, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "x_measure",
+            "in": "query",
+            "required": false,
+            "description": "Measure or axis alias (quality, cost, latency) on the x axis (backend RunParetoQuery, src/shared_infrastructure/schemas/run_analytics.py:71-76). Control characters (U+0000-U+001F, U+007F) are rejected with the closed 400.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "cost",
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+            }
+          },
+          {
+            "name": "y_measure",
+            "in": "query",
+            "required": false,
+            "description": "Measure or axis alias on the y axis. Control characters (U+0000-U+001F, U+007F) are rejected with the closed 400.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality",
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "description": "Display-only multiplier applied to the cost axis (1 to 1000000).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the run's Pareto analysis returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_pareto_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, limit or request_count, an x_measure or y_measure containing control characters, or an unknown or retired query parameter (page, offset and others); syntax is checked before any lookup and no value is echoed. Any invalid or stale cursor (malformed, over-long, not this caller's, project's, run's or query's, or whose analysis_revision no longer matches) is the closed invalid_cursor 400.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "./pareto_problem_schema.json#/definitions/BadRequestProblem"
+                    },
+                    {
+                      "$ref": "./pareto_problem_schema.json#/definitions/InvalidCursorProblem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Pareto analysis cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
       "post": {
         "operationId": "experiment_run.compute_evaluator_quality",
@@ -3183,7 +3386,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED (C3 W10-S3): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto (operationId experiment_run.get_run_pareto), addressed by an explicit project and a server-issued run reference and paginated (limit, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/pareto (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/correlations": {
@@ -3986,7 +4191,7 @@
       "get": {
         "operationId": "experiment_run.get_run_report",
         "summary": "Get the report for one experiment run",
-        "description": "Pure read: returns the client-safe enveloped report of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/report. Distinct from report.get_optimization_report_payload (bare response, feature gate, export audit), which is not changed here. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 8 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. Rows beyond the collection caps are truncated server-side (meta.aggregated_results_total and meta.raw_example_results_total carry the untruncated counts), the canonical projection omits experiment_context.experiment_id, experiment_context.run_id, provenance.source_endpoints and report_id (internal ids), and uses the opaque report-scoped trial_ref instead of trial_id, and a report that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers.",
+        "description": "Pure read: returns the client-safe enveloped report of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/report. Distinct from report.get_optimization_report_payload (bare response, feature gate, export audit), which is not changed here. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 8 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. Rows beyond the collection caps are truncated server-side (meta.aggregated_results_total and meta.raw_example_results_total carry the untruncated counts), the canonical projection omits experiment_context.experiment_id, experiment_context.run_id, provenance.source_endpoints and report_id (internal ids), and uses the opaque run-scoped trial_ref instead of trial_id, and a report that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers. A report of a run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
         "x-max-response-bytes": 8388608,
         "x-asserted-against-backend": false,
         "parameters": [
@@ -4007,7 +4212,7 @@
             "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
             "schema": {
               "type": "string",
-              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
               "minLength": 47,
               "maxLength": 47,
               "x-identifier": true
@@ -4095,7 +4300,7 @@
             }
           },
           "503": {
-            "description": "The report cannot be produced within its budget (the serialized envelope is over 8 MiB, over the computation limit, deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "description": "The report cannot be produced within its budget (the serialized envelope is over 8 MiB, over the computation limit, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success.",
             "content": {
               "application/problem+json": {
                 "schema": {

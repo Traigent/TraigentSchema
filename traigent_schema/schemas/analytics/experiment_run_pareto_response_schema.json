@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/experiment_run_pareto_response_schema.json",
+  "title": "Run Pareto Canonical Success Response",
+  "description": "Platform success envelope for GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto: one cursor page (items plus pagination) of the Pareto analysis of one experiment run. The analysis mirrors RunAnalyticsService.pareto (backend src/services/analytics/run_analytics_service.py:1004-1113, payload keys :1115-1133): measures, frontier entries (rank_on_frontier, metrics, is_knee, tradeoff_summary) and dominated entries (dominated_by, reason), shape (clear_knee, flat, linear, scattered) and warnings. The ranking, frontier, knee and shape are computed over the FULL eligible population (the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing; above it the closed 503, never truncated and presented as complete) and only then paginated, so the frontier and the knee do not depend on the page. items are ordered frontier first by ascending rank_on_frontier (the frontier is sorted by the x measure, run_analytics_service.py:1294), then the dominated entries in population order; ties on the frontier are broken by ascending trial_ref (lexicographic) BEFORE ranks are assigned, and the dominated entries are ordered by ascending trial_ref (lexicographic), so page boundaries are stable. The 500 frontier and 1000 dominated truncation of the historical contract (run_analytics_service.py:82-83, :1153-1173) does not apply to this operation, pagination replaces it, so no frontier_truncated, dominated_truncated or dominated_by_truncated warning is emitted. knee_ref names the knee whatever page it is on (null when the frontier has fewer than 3 points, :1298-1303). CANONICAL PROJECTION OMITS INTERNAL IDS: omits config_id (internal configuration-run id; replaced by the run-scoped trial_ref of experiment_run_trial_ref_schema.json, the same value as the report's trial_ref for the same configuration: the configuration run's issued public reference (configuration_runs.configuration_run_ref; backend infrastructure/migrations/versions/20261122_0001_configuration_run_ref_role_v1.py:1-24: sessions issue trial_ plus 16 hex, D5 never re-mint an issued reference, UNIQUE (tenant_id, configuration_run_ref), NULL until the 4d backfill). Two issued formats exist: trial_ plus 16 hex (issued by sessions; backend src/dal/configuration_run_dal.py:50) and configuration_run_ plus 32 hex (minted by mint_configuration_run_ref, configuration_run_dal.py:60, :345, called from src/services/configuration_run_service.py:238). Issued once, never re-minted, so it is stable across views, pages and deletion of other configurations. The internal id is never emitted. A canonical view of a run with any configuration whose reference is not yet issued is the closed 503 until the backfill completes (never a positional or synthetic stand-in).), omits dominated_by as an internal id (it is a trial_ref of a frontier item), omits project_id (the explicit project is the URL project), and data.run_id is the experiment_run_ref (^experiment_run_[0-9a-f]{32}$) populated from the resolved reference, never the historical run id. The closed schema rejects config_id, project_id and every other undeclared property. pagination carries limit, next_cursor (null on the last page), has_more and a required integer total (the number of items across all pages, at most 10000); frontier_total and dominated_total are the two untruncated counts. The cursor is a sealed opaque string bound to the caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any insert, update or delete of the run's configuration rows or their metrics), never a raw historical primary key; a cursor whose revision no longer matches is the closed 400 invalid_cursor, so a page walk never mixes two analyses. SIZE: this schema gives NO static byte bound. The 1 MiB limit (x-max-response-bytes 1048576) is enforced on the serialized envelope: the handler measures the final serialized bytes, sends those same bytes, and returns the closed 503 when over the limit. warnings are constrained to the builder's three tag forms (measure_unavailable:<axis or measure>, non_finite_filtered:<n>, single_configuration; run_analytics_service.py:1135-1151, :1051-1080), at most 50 strings of at most 500 characters. Metric values are any finite JSON number. The historical envelope run_pareto_response_schema.json is unchanged and still serves the deprecated analytics path. A canonical view of a run with any configuration whose trial_ref is not yet issued is the closed 503 until the backfill completes. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-response-bytes": 1048576,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "#/definitions/ParetoPage"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "definitions": {
+    "TrialRef": {
+      "$ref": "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
+    },
+    "MeasureName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "ParetoPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "measures",
+        "shape",
+        "knee_ref",
+        "frontier_total",
+        "dominated_total",
+        "warnings",
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+          "minLength": 47,
+          "maxLength": 47,
+          "x-identifier": true,
+          "description": "The experiment_run_ref of the analysed run, populated from the resolved reference (never the historical run id)."
+        },
+        "measures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "quality",
+            "cost",
+            "latency"
+          ],
+          "description": "Measure name used for each of the three trade-off axes; the literal unavailable when an axis did not resolve (run_analytics_service.py:79, :1017-1021).",
+          "properties": {
+            "quality": {
+              "$ref": "#/definitions/MeasureName"
+            },
+            "cost": {
+              "$ref": "#/definitions/MeasureName"
+            },
+            "latency": {
+              "$ref": "#/definitions/MeasureName"
+            }
+          }
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "clear_knee",
+            "flat",
+            "linear",
+            "scattered"
+          ],
+          "description": "Coarse frontier shape over the full population (run_analytics_service.py:1366-1395)."
+        },
+        "knee_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TrialRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "trial_ref of the knee of the full frontier, on whichever page it is; null when there is no knee."
+        },
+        "frontier_total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Untruncated number of frontier points over the full population."
+        },
+        "dominated_total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Untruncated number of dominated points over the full population."
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "anyOf": [
+              {
+                "pattern": "^measure_unavailable:[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+              },
+              {
+                "pattern": "^non_finite_filtered:[0-9]{1,5}(?![\\s\\S])"
+              },
+              {
+                "const": "single_configuration"
+              }
+            ]
+          },
+          "description": "Closed builder warning tags, identical on every page: measure_unavailable:<axis or measure name>, non_finite_filtered:<count>, single_configuration (run_analytics_service.py:1051-1080, :1135-1151)."
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/FrontierItem"
+              },
+              {
+                "$ref": "#/definitions/DominatedItem"
+              }
+            ]
+          },
+          "description": "This page of the ranked population: frontier points first (ascending rank_on_frontier), then dominated points; at most 100 per page."
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        }
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 5,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])",
+        "maxLength": 100
+      },
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "Raw measured aggregate per measure name for this configuration (no request_count scaling): the requested x and y measures plus the resolved quality, cost and latency axes, at most 5 distinct names (run_analytics_service.py:1196-1208). Any finite JSON number is accepted (non-finite values are filtered by the builder and counted in the non_finite_filtered warning); the 1 MiB serialized-envelope guard is the size bound. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized."
+    },
+    "FrontierItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "trial_ref",
+        "rank_on_frontier",
+        "metrics",
+        "is_knee",
+        "tradeoff_summary"
+      ],
+      "properties": {
+        "kind": {
+          "const": "frontier"
+        },
+        "trial_ref": {
+          "$ref": "#/definitions/TrialRef"
+        },
+        "rank_on_frontier": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "1-based position along the frontier over the full population."
+        },
+        "metrics": {
+          "$ref": "#/definitions/Metrics"
+        },
+        "is_knee": {
+          "type": "boolean"
+        },
+        "tradeoff_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Templated trade-off summary (run_analytics_service.py:1322-1327); echoes the requested x and y measure names."
+        }
+      }
+    },
+    "DominatedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "trial_ref",
+        "dominated_by",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "const": "dominated"
+        },
+        "trial_ref": {
+          "$ref": "#/definitions/TrialRef"
+        },
+        "dominated_by": {
+          "$ref": "#/definitions/TrialRef",
+          "description": "trial_ref of a frontier point that dominates this one."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "Pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more",
+        "total"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opaque sealed cursor of the next page; null on the last page."
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Number of items across all pages (frontier_total plus dominated_total), at most 10000."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": true
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": false
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "description": "has_more is true if and only if next_cursor is non-null."
+    },
+    "Cursor": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}

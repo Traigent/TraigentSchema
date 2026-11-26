@@ -196,7 +196,7 @@ def _report() -> dict:
         },
         "aggregated_results": [
             {
-                "trial_ref": "trial_0",
+                "trial_ref": "trial_00000000000000a1",
                 "config_label": "gpt",
                 "config_hash": "deadbeef",
                 "config_params": {
@@ -212,7 +212,7 @@ def _report() -> dict:
             }
         ],
         "raw_example_results": [
-            {"trial_ref": "trial_0", "example_id": "e1", "example_num": 0, "config_label": "gpt", "config_hash": "deadbeef", "cost_usd": 0.01}
+            {"trial_ref": "trial_00000000000000a1", "example_id": "e1", "example_num": 0, "config_label": "gpt", "config_hash": "deadbeef", "cost_usd": 0.01}
         ],
         "example_index_map": [{"example_num": 0, "example_id": "e1"}],
         "insights": [{"rule_id": "x", "severity": "info", "statement": "s", "evidence": "e"}],
@@ -252,7 +252,7 @@ def test_response_validates_and_is_closed_and_bounded():
         {**d, "example_index_map": d["example_index_map"] * 5001},
         {**d, "aggregated_results": [{**agg, "trial_id": "12345"}]},  # internal id, rejected
         {**d, "aggregated_results": [{**agg, "trial_ref": "12345"}]},
-        {**d, "aggregated_results": [{**agg, "trial_ref": "trial_12345"}]},
+        {**d, "aggregated_results": [{**agg, "trial_ref": "trial_" + "a" * 17}]},
         {**d, "raw_example_results": [{**d["raw_example_results"][0], "trial_id": "12345"}]},
         {**d, "aggregated_results": [{**agg, "extra": 1}]},
         {**d, "aggregated_results": [{**agg, "config_params": {"a": {"b": {"c": {"d": {"e": 1}}}}}}]},  # depth 4
@@ -352,10 +352,10 @@ def test_config_params_follow_the_sanitizer_shapes():
 def test_trial_ref_replaces_the_internal_trial_id():
     v = _validator("experiment_run_report_response_schema")
     d = _report()
-    for ok in ("trial_0", "trial_9999"):
+    for ok in ("trial_0123456789abcdef", "trial_ffffffffffffffff", "trial_0000000000000000"):
         row = {**d["aggregated_results"][0], "trial_ref": ok}
         assert not list(v.iter_errors(_envelope({**d, "aggregated_results": [row]}))), ok
-    for bad in ("0", "trial_", "trial_10000", "Trial_1", "trial_01a"):
+    for bad in ("0", "trial_", "trial_1", "trial_0", "trial_" + "a" * 15, "trial_" + "a" * 17, "trial_" + "A" * 16, "Trial_" + "a" * 16, "trial_" + "g" * 16):
         row = {**d["aggregated_results"][0], "trial_ref": bad}
         assert list(v.iter_errors(_envelope({**d, "aggregated_results": [row]}))), bad
     desc = _load("analytics/experiment_run_report_response_schema.json")["description"]
@@ -395,3 +395,40 @@ def test_problem_schema_root_oneof_enforces_the_vocabulary():
     assert list(v.iter_errors({**_problem("404"), "status": 418}))
     assert list(v.iter_errors({**_problem("404"), "extra": 1}))
     assert list(v.iter_errors({"type": "urn:traigent:problem:not_found"}))
+
+
+def test_trial_ref_is_the_shared_run_scoped_definition():
+    new = _load("analytics/experiment_run_report_response_schema.json")
+    shared = _load("analytics/experiment_run_trial_ref_schema.json")
+    ref = "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
+    for name in ("AggregatedResultRow", "RawExampleResultRow"):
+        assert new["definitions"][name]["properties"]["trial_ref"] == {"$ref": ref}, name
+    assert shared["$id"] == ref
+    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})(?![\\s\\S])"
+    assert (shared["minLength"], shared["maxLength"]) == (22, 50)
+    one = Draft7Validator(shared)
+    assert one.is_valid("trial_0123456789abcdef")
+    assert one.is_valid("configuration_run_" + "0f" * 16)
+    for bad in ("trial_1", "trial_" + "a" * 15, "trial_" + "a" * 17, "trial_10000", "configuration_run_" + "a" * 31, "configuration_run_" + "a" * 33, "configuration_run_" + "A" * 32, "configuration_run_1", "Configuration_run_" + "a" * 32, "trial_" + "a" * 16 + "\n", "configuration_run_" + "a" * 32 + "\n"):
+        assert not one.is_valid(bad), bad
+    assert "report-scoped" not in new["description"]
+    assert "1-based" not in new["description"] and "1-based" not in shared["description"]
+    desc = shared["description"]
+    assert "configuration_runs.configuration_run_ref" in desc
+    assert "20261122_0001_configuration_run_ref_role_v1.py:1-24" in desc
+    assert "Issued once, never re-minted" in desc
+    assert "never a positional or synthetic stand-in" in desc
+    assert "the closed 503" in desc
+
+
+def test_trailing_newline_is_rejected_on_report_refs_and_both_formats_are_accepted():
+    v = _validator("experiment_run_report_response_schema")
+    d = _report()
+    agg = d["aggregated_results"][0]
+    for ref in ("trial_" + "0f" * 8, "configuration_run_" + "0f" * 16):
+        row = {**agg, "trial_ref": ref}
+        assert not list(v.iter_errors(_envelope({**d, "aggregated_results": [row]}))), ref
+        assert list(v.iter_errors(_envelope({**d, "aggregated_results": [{**agg, "trial_ref": ref + "\n"}]}))), ref
+    assert list(v.iter_errors(_envelope({**d, "provenance": {**d["provenance"], "run_id": REF + "\n"}})))
+    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid(REF + "\n")
+    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid("12345\n")

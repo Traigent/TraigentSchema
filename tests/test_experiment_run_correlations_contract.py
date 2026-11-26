@@ -371,7 +371,7 @@ def test_no_name_or_warning_pattern_uses_a_lookahead():
     patterns = list(walk(_load(RESP_FILE)))
     assert len(patterns) == 7  # 4 names + 3 warning formats
     for pattern in patterns:
-        assert pattern.endswith("$"), pattern  # interim ruling: no lookahead (Pydantic v2 rust-regex)
+        assert pattern.endswith("$"), pattern  # no lookahead: Pydantic v2 rust-regex refuses it
         assert "(?!" not in pattern, pattern
 
 

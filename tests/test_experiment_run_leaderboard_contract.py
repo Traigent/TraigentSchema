@@ -582,7 +582,7 @@ def test_one_tie_rule_identical_in_all_four_places_and_no_other_tie_wording():
     from pathlib import Path
 
     changelog = (Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(encoding="utf-8")
-    entry = next(l for l in changelog.splitlines() if "C3 W10-S5" in l and l.startswith("- **Run leaderboard"))
+    entry = next(l for l in changelog.splitlines() if l.startswith("- **`experiment_run.get_run_leaderboard`"))
     composite = RESP["definitions"]["LeaderboardItem"]["properties"]["composite_score"]["description"]
     for text in (OP["description"], RESP["description"], composite, entry):
         assert text.count(TIE_RULE) == 1

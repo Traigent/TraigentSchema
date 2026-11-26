@@ -3603,7 +3603,7 @@
           }
         },
         "deprecated": true,
-        "description": "DEPRECATED (C3 W10-S1): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload (operationId experiment_run.get_run_decision_payload), addressed by an explicit project and a server-issued run reference; removal follows the backend retirement PR after the client receipt."
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload (operationId experiment_run.get_run_decision_payload), addressed by an explicit project and a server-issued run reference; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/report": {
@@ -3683,7 +3683,7 @@
           }
         },
         "deprecated": true,
-        "description": "DEPRECATED (C3 W10-S2): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report (operationId experiment_run.get_run_report), addressed by an explicit project and a server-issued run reference; the same handler is also mounted on the two beta analytics mounts (/api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics, backend src/routes/api_v1beta.py:109-110), which are not declared in this contract and retire with it; removal follows the backend retirement PR after the client receipt."
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report (operationId experiment_run.get_run_report), addressed by an explicit project and a server-issued run reference; the same handler is also mounted on the two beta analytics mounts (/api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics, backend src/routes/api_v1beta.py:109-110), which are not declared in this contract and retire with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/pareto": {
@@ -3763,7 +3763,7 @@
           }
         },
         "deprecated": true,
-        "description": "DEPRECATED (C3 W10-S3): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto (operationId experiment_run.get_run_pareto), addressed by an explicit project and a server-issued run reference and paginated (limit, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/pareto (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto (operationId experiment_run.get_run_pareto), addressed by an explicit project and a server-issued run reference and paginated (limit, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/pareto (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/correlations": {
@@ -3843,7 +3843,7 @@
           }
         },
         "deprecated": true,
-        "description": "DEPRECATED (C3 W10-S4): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations (operationId experiment_run.get_run_correlations), addressed by an explicit project and a server-issued run reference, with bounded dimensions and a closed problem vocabulary; the same handler is also mounted on the project-scoped beta analytics mount (/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/correlations, backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations (operationId experiment_run.get_run_correlations), addressed by an explicit project and a server-issued run reference, with bounded dimensions and a closed problem vocabulary; the same handler is also mounted on the project-scoped beta analytics mount (/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/correlations, backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/leaderboard": {
@@ -3923,7 +3923,7 @@
           }
         },
         "deprecated": true,
-        "description": "DEPRECATED (C3 W10-S5): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard (operationId experiment_run.get_run_leaderboard), addressed by an explicit project and a server-issued run reference and paginated (limit default 20, maximum 100, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/leaderboard (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard (operationId experiment_run.get_run_leaderboard), addressed by an explicit project and a server-issued run reference and paginated (limit default 20, maximum 100, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/leaderboard (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/parameter-insights": {

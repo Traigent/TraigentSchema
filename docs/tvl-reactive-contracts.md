@@ -6,7 +6,7 @@ agent-head deploy target. This PR is contract-only: no Backend or SDK behaviour 
 
 ## Reviewed closed-contract expansion (GNFR-PRIV-002(f))
 
-Adding a route group to the closed menu is a contract change that needs review by Opus and sol
+Adding a route group to the closed menu is a contract change that needs review by two independent reviewers
 (owner rule, plan 4.6). This document is the registration record; the review is recorded in the PR
 thread. Each field of the reactive routes is one of: a hosted token, a server-issued ref, a closed
 enum, a bounded integer, a boolean, a digest, an idempotency nonce, or a server timestamp. No free

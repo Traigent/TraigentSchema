@@ -229,7 +229,7 @@ def test_evidence_grade_enum_matches_pillars_one_and_three() -> None:
 
 
 def test_every_verifier_digest_domain_is_registered() -> None:
-    """Test 99 (sol round 1 P2). Set equality BOTH ways between the domain
+    """Test 99. Set equality BOTH ways between the domain
     constants the verifier actually hashes under and
     DatasetRecordDigestDomainRegistryV1. The first draft used
     claim_support_rows without registering it and argued the omission was
@@ -261,7 +261,7 @@ def test_every_verifier_digest_domain_is_registered() -> None:
 
 
 def test_the_item_set_leaf_list_is_a_first_class_definition() -> None:
-    """Test 100 (sol round 1 P1). The composition-cell tags the verifier
+    """Test 100. The composition-cell tags the verifier
     groups by are a named, closed artifact of this contract -- not untyped
     caller input on an overloaded corpus map. Both tag fields resolve to the
     pinned taxonomy enums, so a free-text category is unrepresentable."""
@@ -293,7 +293,7 @@ def test_the_item_set_leaf_list_is_a_first_class_definition() -> None:
 
 
 def test_the_applied_policy_projection_covers_every_planned_policy_field() -> None:
-    """Test 101 (sol round 1 P1). The report-side echo is not a subset: the
+    """Test 101. The report-side echo is not a subset: the
     nine policy fields the plan fixes and the projection's own const coverage
     tuple are the same set, so no policy field can be pre-registered with
     nothing able to contradict it."""
@@ -515,24 +515,24 @@ def test_a_support_row_may_carry_exactly_one_evidence_ref() -> None:
 
 
 def test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on() -> None:
-    """Re-arm tripwire (sol round-3 P2-2).
+    """Re-arm tripwire.
 
     Two verifier guards are reachable through the wire bundle ONLY because
     the schema forecloses the shapes that would otherwise reach them, and
     each guard is exercised directly as a unit, not through a wire negative:
 
     - ``dataset_record_verifier._check_support_rows``'s ``len(refs) != 1``
-      branch (astra F9) is schema-blocked by ``evidence_refs.maxItems: 1``
+      branch is schema-blocked by ``evidence_refs.maxItems: 1``
       on ``DatasetRecordClaimSupportRowV1`` -- see
       ``test_a_support_row_may_carry_exactly_one_evidence_ref`` above, which
       already re-derives this from ``SCHEMA``.
     - ``dataset_record_verifier._check_taxonomy_and_registry_pins`` and
-      ``_check_report_registry_identities`` (astra F6a) are schema-blocked
+      ``_check_report_registry_identities`` are schema-blocked
       by ``const``-pinning ``taxonomy_id``/``taxonomy_version`` on
       ``DatasetTaxonomyIdentityV1`` and ``registry_id``/``registry_version``
       on ``DatasetMethodRegistryIdentityV1``.
     - ``dataset_record_verifier._check_declared_partition``'s
-      ``len(cells) > _MAX_CELLS`` guard (astra F3, round 5) is schema-blocked
+      ``len(cells) > _MAX_CELLS`` guard is schema-blocked
       by ``composition.cells.maxItems: 40`` on ``DatasetCompositionV1``. The
       guard is exercised only as a direct unit call, never through a wire
       negative, so this pin is what keeps it foreclosed.
@@ -581,7 +581,7 @@ def test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on() -> No
 
 def test_schema_cells_max_items_still_pins_the_declared_partition_guard() -> None:
     """Sibling to ``test_schema_still_pins_the_wire_shape_two_unit_called_guards_rely_on``
-    (astra round 5 F3, minor). ``_check_declared_partition`` retains a
+   . ``_check_declared_partition`` retains a
     schema-blocked ``len(cells) > _MAX_CELLS`` guard, called only as a direct
     unit call and never exercised through a wire negative. It stays
     foreclosed only because ``DatasetCompositionV1.cells.maxItems`` matches
@@ -610,7 +610,7 @@ def test_schema_claim_support_rows_still_forecloses_a_duplicate_claim_id() -> No
     guards it only with ``set(by_id) != set(_CLAIM_IDS)`` -- a dict
     comprehension is last-entry-wins, so a SIXTH row repeating an existing
     ``claim_id`` would be silently dropped from ``by_id`` and the set check
-    would still pass, exactly the same last-entry-wins shape astra's F1
+    would still pass, exactly the same last-entry-wins shape a reviewer's F1
     exploited against ``leaf_list_digests`` (see
     ``test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count``
     in ``test_dataset_record_verifier.py``). Nothing in the verifier itself

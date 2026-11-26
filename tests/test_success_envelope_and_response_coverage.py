@@ -457,7 +457,7 @@ def test_both_overview_mounts_declare_the_envelope_response():
     """One analytics handler serves both mounts, so both must declare the same body."""
     v1 = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1]["get"]
     # The planned catalog's path key is a path-item $ref to this same declaration
-    # (C3-PR1c); read the canonical item.
+    #; read the canonical item.
     v1beta = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
 
     def ref(op):

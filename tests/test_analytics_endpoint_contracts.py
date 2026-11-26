@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
-"""C3-PR1c: the 33 unchanged analytics operations are declared once, with backend ids.
+"""The 33 unchanged analytics operations are declared once, with backend ids.
 
 The backend serves one blueprint (`src/routes/analytics_routes.py`) under three mounts
 (`analytics`, `legacy_analytics`, `project_analytics`). Eleven of its operations keep their

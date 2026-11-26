@@ -39,7 +39,7 @@ TestClientEvidenceManifest, TestAuditReport, TestNonCircularClaims, and
 TestCanonicalizationConformance below.
 
 SCHEMA-1 P0/P1 FIX PASS (2026-08-24, same date, second pass) — closes four
-false-green gaps a captain+Terra review caught in the correction above:
+false-green gaps an internal review caught in the correction above:
 (P0) the unsigned manifest is now actually TRANSMITTED: CertificateSignaturesV0
 .unsigned_manifest carries the complete typed document, not just an
 unresolvable digest (certificate_signatures_v0_schema.json#/definitions/

@@ -2607,7 +2607,7 @@ def test_sensitivity_pair_set_incomplete_does_not_fire_when_evq4_abstains() -> N
 
 
 def test_probe_coverage_insufficient_required_probe_skipped_with_registered_reason() -> None:
-    """EVQ5's required-probe rule, corrected per sol F7: a required probe
+    """EVQ5's required-probe rule, corrected per review finding F7: a required probe
     carrying an otherwise-valid REGISTERED skip reason is
     PROBE_COVERAGE_INSUFFICIENT, not an accepted skip -- only a
     non-required probe may be skipped. ProbeResultV1's own if/then permits
@@ -2817,7 +2817,7 @@ def test_claim_support_row_mismatch_row_digest_diverges_from_bundle() -> None:
 
 
 def test_claim_support_row_mismatch_does_not_shadow_claim_material_mismatch() -> None:
-    """Shadow-protection check (sol F9): CLAIM_SUPPORT_ROW_MISMATCH
+    """Shadow-protection check: CLAIM_SUPPORT_ROW_MISMATCH
     deliberately excludes claim_material_digest (A6's own field) from its
     bindings tuple. A row whose claim_material_digest alone diverges must
     still reach CLAIM_MATERIAL_MISMATCH, not this guard."""
@@ -3127,7 +3127,7 @@ def _minimal_public_bundle(
     """A bare-minimum dict carrying only the fields
     ``_verify_evaluator_quality_public`` itself reads, for use ONLY with
     ``_verify_evaluator_quality_private`` monkeypatched to a no-op -- this
-    isolates the public wrapper's code/adequacy coupling (sol F1) from the
+    isolates the public wrapper's code/adequacy coupling from the
     private pipeline's own schema/semantic/signature checks, which are
     exercised exhaustively elsewhere in this module against real, signed
     bundles."""
@@ -3154,7 +3154,7 @@ def _minimal_public_bundle(
 def test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed() -> None:
     """DATACLASS-INVARIANT: CLAIMS_PARTIAL paired with a passed
     instrument_adequacy for a non-independent reference is now REJECTED at
-    construction (P3-V.5 sol milestone review finding S2). The verifier's
+    construction. The verifier's
     own exhaustive sweep in
     test_only_independent_disjoint_combination_reaches_verified already
     proves this pair is unreachable end-to-end -- a passed adequacy always
@@ -3174,7 +3174,7 @@ def test_gv4_dataclass_forbids_claims_partial_with_adequacy_passed() -> None:
     """DATACLASS-INVARIANT: CLAIMS_PARTIAL paired with a passed
     instrument_adequacy for a held_out_status outside
     {no_selection_performed, held_out_disjoint} is now REJECTED at
-    construction (P3-V.5 sol milestone review finding S2), for the same
+    construction, for the same
     reason as test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed
     -- the former GV4 asserted this pair was legal; it no longer is."""
     with pytest.raises(ValueError):
@@ -3343,7 +3343,7 @@ def test_result_post_init_forbids_verified_without_all_three_gates() -> None:
             instrument_adequacy="failed",
         )
     # The converse is legal PROVIDED adequacy is not "passed" -- passed
-    # adequacy + CLAIMS_PARTIAL is forbidden by a separate invariant (sol
+    # adequacy + CLAIMS_PARTIAL is forbidden by a separate invariant (a reviewer
     # S2); see test_gv3_dataclass_forbids_claims_partial_with_adequacy_passed.
     result = evq.EvaluatorQualityVerificationResult(
         code=evq.EVALUATOR_QUALITY_CLAIMS_PARTIAL,
@@ -3354,7 +3354,7 @@ def test_result_post_init_forbids_verified_without_all_three_gates() -> None:
 
 
 def test_mutate_the_result_coupling_guard_is_caught() -> None:
-    """Negate the sol S2 guard (passed adequacy + CLAIMS_PARTIAL is
+    """Negate the guard (passed adequacy + CLAIMS_PARTIAL is
     forbidden) to its logical converse and confirm a legitimate GV3-shaped
     result -- directional adequacy, CLAIMS_PARTIAL -- that the real guard
     lets through is wrongly rejected by the mutant, proving the guard is
@@ -3483,7 +3483,7 @@ def test_evaluator_quality_reserved_codes_match_source_emission_audit() -> None:
     code that starts or stops being emitted (a ``_fail("<CODE>", ...)`` call
     site, or a direct ``EvaluatorQualityVerificationError("<CODE>", ...)``
     construction such as the catch-all) breaks this test rather than
-    silently drifting from the constant (P3-V.5 sol milestone review finding
+    silently drifting from the constant (P3-V.5 milestone review finding
     S1)."""
     source = Path(evq.__file__).read_text()
     emitted = set(re.findall(r'_fail\(\s*"([A-Z_]+)"', source))

@@ -380,7 +380,7 @@ def test_publish_auth_statuses_reject_malformed_and_foreign_codes(status, code, 
         assert not validator.is_valid(bad), bad
 
 
-# --- the authentication stage, the decision table and the refusal order agree (sol r5 P2) ---
+# --- the authentication stage, the decision table and the refusal order agree ---
 
 
 def _post_description():
@@ -542,7 +542,7 @@ def test_combined_failures_have_exactly_one_answer(case, failing, answer):
     assert answer in stages[first], (case, first, stages[first])
 
 
-# --- the layer-disabled contract is stated once and every predicate statement is qualified (sol r6 P2) ---
+# --- the layer-disabled contract is stated once and every predicate statement is qualified ---
 
 
 def _docs():
@@ -594,7 +594,7 @@ def test_an_unreadable_session_is_never_legacy_and_the_gap_points_at_stage_4():
     assert "every other outcome is refused at stage 4 and writes nothing" in " ".join(docs.split())
 
 
-# --- sol r9: one canonical provenance session-id parse, and the userless-key ownership rule ---
+# --- review r9: one canonical provenance session-id parse, and the userless-key ownership rule ---
 
 
 def _flat_docs():

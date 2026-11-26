@@ -543,7 +543,7 @@ _STRUCTURAL_KEYWORDS = (
 
 # The request's COMPLETE content-capable string surface: every path a client both
 # authors and bounds only by an identifier grammar, which admits `Alice.Smith.SSN.123`
-# as readily as `gpt-4o-mini`. Terra round 5 disproved the tidier story this started
+# as readily as `gpt-4o-mini`. review round 5 disproved the tidier story this started
 # as ("the only client-authored string is the evidence pointer") — it was simply
 # false, and counting exceptions was the wrong frame. This inventory is the honest
 # one, and it is what the contract's wording and its redaction obligation must both
@@ -590,7 +590,7 @@ def _free_text_paths(schema: dict) -> set[str]:
        treated as content constraints, because neither bounds which characters may be
        sent.
     """
-    # A pattern counts as constraining only if it actually REJECTS prose. Terra
+    # A pattern counts as constraining only if it actually REJECTS prose. a reviewer
     # bypassed an earlier allowlist-of-trivial-patterns version with
     # `^.{1,80}$` — non-trivial to look at, wide open in practice. So probe it:
     # if any of these representative prose/PII strings satisfies the pattern, the
@@ -601,7 +601,7 @@ def _free_text_paths(schema: dict) -> set[str]:
         "alice@customer.example",
         "traces show ~3.1k runs/day",
         "line one\nline two",
-        # Identifier-SHAPED PII. Terra round 5: without these, every field bounded
+        # Identifier-SHAPED PII. review round 5: without these, every field bounded
         # only by the repo's identifier grammar reads as "constrained" while it can
         # still carry a name and a number. A field that accepts these is a
         # content-capable channel and belongs in the inventory below.
@@ -1291,7 +1291,7 @@ def test_the_all_withheld_pair_leads_with_spend_zero_and_no_payback() -> None:
 # honesty: what the contract does NOT prove
 # --------------------------------------------------------------------------- #
 def test_an_undetermined_recommendation_cannot_invent_a_value_channel() -> None:
-    """The gap sol found in the example vectors was a contract gap underneath.
+    """The gap a reviewer found in the example vectors was a contract gap underneath.
     `ValueChannel` is closed and has no 'undetermined' member (Archetype does), while
     `dominant_value_channel` used to be unconditionally required — so a submission
     that shared nothing could only be answered by asserting a channel the backend

@@ -83,7 +83,10 @@ def validator() -> AnalyticsValidator:
             {"example_id": VALID_ID, "metrics": {7: "bad"}},
             ["Metric '7' must be numeric or null, got str"],
         ),
-        ({"example_id": "ex_abc12345_0\n", "metrics": {}}, []),
+        (
+            {"example_id": "ex_abc12345_0\n", "metrics": {}},
+            ["Invalid example_id format: ex_abc12345_0\n"],
+        ),
         ({"example_id": "ex_abc12345_١", "metrics": {}}, []),
     ],
 )

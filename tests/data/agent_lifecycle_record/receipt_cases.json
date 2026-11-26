@@ -719,7 +719,7 @@
       "id": "receipt_response_partial_available_rejected",
       "kind": "schema_invalid",
       "schema": "receipt_response",
-      "description": "Terra review P1-1 (2026-08-10). PART1_CONTRACT_FREEZE_DRAFT.md:734 makes measurement_coverage.state=COMPLETE a necessary condition for rescorability.state=available. A PARTIAL seal cannot claim an available aggregate -- schema-decidable via the root allOf/if/then, closing the AC4 gap.",
+      "description": "internal review P1-1 (2026-08-10). PART1_CONTRACT_FREEZE_DRAFT.md:734 makes measurement_coverage.state=COMPLETE a necessary condition for rescorability.state=available. A PARTIAL seal cannot claim an available aggregate -- schema-decidable via the root allOf/if/then, closing the AC4 gap.",
       "payload": {
         "schema_version": "1.0.0-beta.1",
         "reconciliation_ref": {"kind": "reconciliation", "id": "reconcile000000001", "version_id": "reconcile000000001"},

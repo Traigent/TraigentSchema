@@ -523,7 +523,7 @@ def test_grant_post_409_offers_already_granted_and_already_revoked() -> None:
 
 # ---------------------------------------------------------------------------
 # Property-name deny-list walk over EvaluationSystemValidity / PillarValidity
-# (captain review item 1: proves a stray "notes"/"reason"/"reviewer"/
+# (internal review item 1: proves a stray "notes"/"reason"/"reviewer"/
 # "principal_ref" field, or any unconstrained free-text string, cannot be
 # smuggled onto the derived, content-free readiness block.)
 # ---------------------------------------------------------------------------
@@ -591,7 +591,7 @@ def test_evaluation_system_validity_and_pillar_validity_have_no_unbounded_string
 
 
 # ---------------------------------------------------------------------------
-# EvaluationSystemValidity / PillarValidity fixtures (captain review items 2, 5, 6)
+# EvaluationSystemValidity / PillarValidity fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -671,7 +671,7 @@ def _validity(
 
 
 # ---------------------------------------------------------------------------
-# PillarValidity per-status branches (captain review item 1: proves
+# PillarValidity per-status branches (internal review item 1: proves
 # PillarValidity.allOf)
 # ---------------------------------------------------------------------------
 
@@ -739,7 +739,7 @@ def test_pillar_validity_decayed_backstop_elapsed_requires_an_expiry_others_forb
 
 # ---------------------------------------------------------------------------
 # EvaluationSystemValidity: level, observation_basis, decayed_reason, evidence_ids
-# (captain review items 2, 5, 6: proves EvaluationSystemValidity.allOf)
+#
 # ---------------------------------------------------------------------------
 
 
@@ -857,7 +857,7 @@ def test_evaluator_pillar_never_carries_a_backstop_expiry_even_when_validated() 
 
 # ---------------------------------------------------------------------------
 # ValidationRecord: validation/revocation branches, agreement pairing, method
-# and observation_basis closedness (captain review items 3, 4, 11)
+# and observation_basis closedness
 # ---------------------------------------------------------------------------
 
 
@@ -938,7 +938,7 @@ def test_validation_create_request_requires_outcome_and_sample_size() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Agreement value ranges and compared_items cap (captain review item 9)
+# Agreement value ranges and compared_items cap
 # ---------------------------------------------------------------------------
 
 
@@ -987,7 +987,7 @@ def test_agreement_compared_items_caps_at_one_million() -> None:
 
 
 # ---------------------------------------------------------------------------
-# DatasetSubjectRef.hosted_updated_at (captain review item 12)
+# DatasetSubjectRef.hosted_updated_at
 # ---------------------------------------------------------------------------
 
 
@@ -1015,7 +1015,7 @@ def test_declared_dataset_subject_ref_forces_hosted_updated_at_null() -> None:
 
 
 # ---------------------------------------------------------------------------
-# ReviewerCapabilityReasonCode: NO_PROJECT_ACCESS dropped (captain review item 8)
+# ReviewerCapabilityReasonCode: NO_PROJECT_ACCESS dropped
 # ---------------------------------------------------------------------------
 
 

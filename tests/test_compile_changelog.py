@@ -135,10 +135,11 @@ def test_dry_run_prints_and_writes_nothing(root: Path, capsys: pytest.CaptureFix
 def test_released_sections_are_untouched(root: Path) -> None:
     frag(root, "a.added.md")
     run(root, "--version", "1.1.0", "--date", "2026-02-02")
-    text = (root / "CHANGELOG.md").read_text()
-    released_before = BASE_CHANGELOG[BASE_CHANGELOG.index("## [1.0.0]"):]
-    assert text.endswith(released_before)
-    assert text.startswith(BASE_CHANGELOG[: BASE_CHANGELOG.index("## [1.0.0]")])
+    data = (root / "CHANGELOG.md").read_bytes()
+    base = BASE_CHANGELOG.encode()
+    cut = base.index(b"## [1.0.0]")
+    assert data.endswith(base[cut:])
+    assert data.startswith(base[:cut])
 
 
 def test_requires_version_and_date_and_valid_formats(root: Path) -> None:
@@ -166,4 +167,147 @@ def test_compiling_into_real_changelog_keeps_released_sections(tmp_path: Path) -
     assert run(tmp_path, "--version", "99.0.0", "--date", "2030-01-01") == 0
     new = (tmp_path / "CHANGELOG.md").read_text()
     released_from = original.index("\n## [8.0.0]")
-    assert new.endswith(original[released_from:])
+    assert new.encode().endswith(original[released_from:].encode())
+
+
+# --- review hardening -------------------------------------------------------
+
+
+def test_symlinked_fragment_directory_is_refused(tmp_path: Path) -> None:
+    real = tmp_path / "elsewhere"
+    real.mkdir()
+    (real / "a.added.md").write_text("- x\n")
+    base = tmp_path / "repo"
+    base.mkdir()
+    (base / "CHANGELOG.md").write_text(BASE_CHANGELOG)
+    (base / "changelog.d").symlink_to(real, target_is_directory=True)
+    assert run(base, "--check") == 2
+    assert run(base, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert (real / "a.added.md").exists()
+
+
+def test_symlinked_fragment_is_refused_even_named_like_an_exception(root: Path, tmp_path: Path) -> None:
+    target = tmp_path / "outside.md"
+    target.write_text("- outside\n")
+    (root / "changelog.d" / "a.added.md").symlink_to(target)
+    assert run(root, "--check") == 2
+    (root / "changelog.d" / "a.added.md").unlink()
+    (root / "changelog.d" / "README.md").unlink()
+    (root / "changelog.d" / "README.md").symlink_to(target)
+    assert run(root, "--check") == 2
+    (root / "changelog.d" / "README.md").unlink()
+    (root / "changelog.d" / "README.md").write_text("r\n")
+    (root / "changelog.d" / ".gitkeep").unlink()
+    (root / "changelog.d" / ".gitkeep").symlink_to(target)
+    assert run(root, "--check") == 2
+
+
+def test_nested_directory_is_refused(root: Path) -> None:
+    (root / "changelog.d" / "sub").mkdir()
+    assert run(root, "--check") == 2
+    (root / "changelog.d" / "sub").rmdir()
+    (root / "changelog.d" / "README.md").unlink()
+    (root / "changelog.d" / "README.md").mkdir()
+    assert run(root, "--check") == 2
+
+
+def test_write_failure_leaves_changelog_and_fragments_intact(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = frag(root, "a.added.md")
+
+    def boom(*_a: object, **_k: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(cc.os, "replace", boom)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") != 0
+    assert (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
+    assert f.exists()
+    assert [p.name for p in (root / "changelog.d").iterdir() if p.name.endswith(".tmp")] == []
+    assert sorted(p.name for p in root.iterdir()) == ["CHANGELOG.md", "changelog.d"]
+
+
+def test_unlink_failure_after_replace_is_reported_and_recoverable(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md", "- alpha\n")
+    frag(root, "b.added.md", "- beta\n")
+    real_unlink = cc._unlink
+
+    def flaky(path: Path) -> None:
+        if path.name == "b.added.md":
+            raise OSError("busy")
+        real_unlink(path)
+
+    monkeypatch.setattr(cc, "_unlink", flaky)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") not in (0, 2)
+    err = capsys.readouterr().err
+    assert "b.added.md" in err and "a.added.md" not in err
+    assert "## [1.1.0] - 2026-02-02" in (root / "CHANGELOG.md").read_text()
+    assert (root / "changelog.d" / "b.added.md").exists()
+    assert not (root / "changelog.d" / "a.added.md").exists()
+    # A retry of the compile is blocked by the duplicate-version guard ...
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    # ... so cleanup removes only fragments already present in that section.
+    monkeypatch.setattr(cc, "_unlink", real_unlink)
+    frag(root, "c.added.md", "- not compiled\n")
+    assert run(root, "--cleanup-compiled", "--version", "1.1.0") == 0
+    assert not (root / "changelog.d" / "b.added.md").exists()
+    assert (root / "changelog.d" / "c.added.md").exists()
+
+
+def test_cleanup_requires_version(root: Path) -> None:
+    assert run(root, "--cleanup-compiled") == 2
+
+
+def test_missing_current_pointer_never_falls_back_to_a_historical_heading(root: Path) -> None:
+    frag(root, "a.added.md")
+    text = BASE_CHANGELOG.replace("## [Unreleased]\n\nUnreleased changes", "Unreleased changes")
+    text = text.replace(
+        "Unreleased changes are kept as fragments in changelog.d/; see changelog.d/README.md\n\n", ""
+    )
+    text += "\n## [Unreleased]\n\n### Added\n- old\n"
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert (root / "CHANGELOG.md").read_text() == text
+
+
+def test_crlf_changelog_keeps_its_line_endings(root: Path) -> None:
+    frag(root, "a.added.md", "- one\n  more\n")
+    crlf = BASE_CHANGELOG.replace("\n", "\r\n").encode()
+    (root / "CHANGELOG.md").write_bytes(crlf)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    data = (root / "CHANGELOG.md").read_bytes()
+    assert b"\n" not in data.replace(b"\r\n", b"")
+    cut = crlf.index(b"## [1.0.0]")
+    assert data.endswith(crlf[cut:])
+    assert b"## [1.1.0] - 2026-02-02\r\n\r\n### Added\r\n- one\r\n  more\r\n" in data
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "- ok\n# Heading\n",
+        "- ok\nunindented continuation\n",
+        "- \n",
+        "-\n",
+        "- ok\n- \n",
+        "- ok\n ctl\n",
+        "text first\n- ok\n",
+    ],
+)
+def test_fragment_grammar_refuses_bad_lines(root: Path, body: str) -> None:
+    frag(root, "a.added.md", body)
+    assert run(root, "--check") == 2
+
+
+def test_fragment_grammar_accepts_bullets_continuations_and_blank_lines(root: Path) -> None:
+    frag(root, "a.added.md", "- one\n  cont\n\n- two\n    deeper\n")
+    assert run(root, "--check") == 0
+
+
+def test_trailing_newline_in_a_name_or_format_is_refused(root: Path) -> None:
+    assert cc.FRAGMENT_RE.fullmatch("a.added.md\n") is None
+    assert run(root, "--version", "1.1.0\n", "--date", "2026-02-02") == 2
+    frag(root, "a.added.md")
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02\n") == 2

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_decision_payload_response_schema.json",
+  "title": "Run Decision Payload Success Response",
+  "description": "Platform success envelope for GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload. The decision_payload DTO (analytics/decision_payload_schema.json, unchanged field set) is nested under data. Every string and array is bounded so the encoded response stays within 1 MiB (x-max-response-bytes); meta and metadata are bounded scalar maps. The historical envelope decision_payload_response_schema.json is unchanged and still serves the deprecated analytics path. In this canonical response data.run_id carries the experiment_run_ref (^experiment_run_[0-9a-f]{32}$), never the historical run id; the legacy envelope is unchanged. meta and metadata allow only strings (128 characters), booleans, null and integers within the JavaScript safe-integer range; the decision-payload route does not emit non-integer numbers there.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-response-bytes": 1048576,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "allOf": [
+        {
+          "$ref": "https://schemas.traigent.ai/analytics/decision_payload_schema.json"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "run_id": {
+              "type": "string",
+              "minLength": 47,
+              "maxLength": 47,
+              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "description": "The experiment_run_ref of the run this decision summarizes (canonical response only)."
+            }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "$ref": "#/definitions/BoundedScalarMap"
+    },
+    "metadata": {
+      "$ref": "#/definitions/BoundedScalarMap"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "definitions": {
+    "BoundedScalarMap": {
+      "type": "object",
+      "maxProperties": 8,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        ]
+      }
+    }
+  }
+}

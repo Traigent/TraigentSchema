@@ -6,6 +6,140 @@
     "description": "Canonical backend routes for example-scoring analytics, the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights) and the eleven unchanged project analytics reads and exports, declared once per mount: /api/v1/analytics, /api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics. Operation ids equal the backend register ids (analytics.*, legacy_analytics.*, project_analytics.*)."
   },
   "paths": {
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload": {
+      "get": {
+        "operationId": "experiment_run.get_run_decision_payload",
+        "summary": "Get the decision payload for one experiment run",
+        "description": "Pure read: returns the client-safe decision payload of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/decision-payload (and the legacy beta mounts of the same view). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 1 MiB; a payload that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decision payload returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_decision_payload_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref (syntax is checked before any lookup).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The payload cannot be produced within its budget (over 1 MiB, over the computation limit, deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
       "post": {
         "operationId": "experiment_run.compute_evaluator_quality",
@@ -2889,7 +3023,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED (C3 W10-S1): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload (operationId experiment_run.get_run_decision_payload), addressed by an explicit project and a server-issued run reference; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/report": {

@@ -44,8 +44,12 @@ The last command inserts a `## [X.Y.Z] - YYYY-MM-DD` section directly below the
 `[Unreleased]` pointer in `CHANGELOG.md` and deletes the compiled fragments. It
 refuses when that version already has a section.
 
-Exit codes: 0 success; 1 a failure after validation: CHANGELOG.md could not be
-written (it is left unchanged and the fragments are listed), the directory could not
-be flushed to disk after the write (the fragments are kept and listed), or a
-compiled fragment could not be deleted (the remaining paths are listed; remove them
-with `git rm`); 2 a validation or usage error.
+Exit codes: 0 success; 2 a validation or usage error; 1 a failure after validation:
+
+- CHANGELOG.md could not be written (it is left unchanged and the fragments are listed);
+- the directory could not be flushed to disk after the write (the fragments are kept
+  and listed);
+- a compiled fragment could not be deleted (the remaining paths are listed; remove them
+  with `git rm`);
+- a fragment was edited while compiling (CHANGELOG.md has the earlier text, the edited
+  fragment is kept and listed, and its new text is not yet in CHANGELOG.md).

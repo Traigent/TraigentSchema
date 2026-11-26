@@ -235,7 +235,7 @@ def test_unlink_failure_after_replace_lists_remaining_paths_and_exits_1(
     real_unlink = cc._unlink
 
     def flaky(path: Path) -> None:
-        if path.name == "b.added.md":
+        if path.name.endswith("b.added.md"):
             raise OSError("busy")
         real_unlink(path)
 
@@ -375,7 +375,10 @@ def test_readonly_mode_is_not_applied_before_replace(
     frag(root, "a.added.md")
     order: list[str] = []
     real_replace = cc.os.replace
-    monkeypatch.setattr(cc.os, "replace", lambda a, b: (order.append("replace"), real_replace(a, b))[1])
+    monkeypatch.setattr(
+        cc.os, "replace",
+        lambda a, b: (order.append("replace") if str(b).endswith("CHANGELOG.md") else None, real_replace(a, b))[1],
+    )
     monkeypatch.setattr(cc.os, "chmod", lambda a, b: order.append("chmod"))
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
     assert order == ["replace", "chmod"]
@@ -555,3 +558,36 @@ def test_unreadable_changelog_exits_2(root: Path) -> None:
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02", "--dry-run") == 2
     assert f.exists()
+
+
+def test_edit_after_the_comparison_point_never_deletes_the_new_file(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = frag(root, "a.added.md", "- alpha\n")
+    real_unlink = cc._unlink
+
+    def edit_then_unlink(path: Path) -> None:
+        original = path.with_name(path.name.removeprefix(".compiling-"))
+        original.write_text("- saved by an editor after the comparison\n")
+        real_unlink(path)
+
+    monkeypatch.setattr(cc, "_unlink", edit_then_unlink)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    assert f.read_text() == "- saved by an editor after the comparison\n"
+    assert not list((root / "changelog.d").glob(".compiling-*"))
+
+
+def test_change_that_only_differs_in_raw_bytes_counts_as_changed(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    real_write = cc.write_atomic
+
+    def write_then_edit(path: Path, text: str) -> None:
+        real_write(path, text)
+        b.write_bytes(b"- beta\r")
+
+    monkeypatch.setattr(cc, "write_atomic", write_then_edit)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    assert str(b) in capsys.readouterr().err
+    assert b.read_bytes() == b"- beta\r"

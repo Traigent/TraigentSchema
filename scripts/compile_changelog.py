@@ -42,7 +42,7 @@ POINTER = (
 )
 _IGNORED = {"README.md", ".gitkeep"}
 
-Fragment = tuple[str, str, Path, str]
+Fragment = tuple[str, str, Path, str, bytes]  # type, slug, path, body, raw bytes
 
 
 class ChangelogError(Exception):
@@ -110,8 +110,9 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
                 f"{path.name}: unknown type '{ftype}' (expected one of {', '.join(TYPES)})"
             )
             continue
+        raw_bytes = path.read_bytes()
         try:
-            raw = path.read_bytes().decode("utf-8")
+            raw = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
             errors.append(f"{path.name}: not valid UTF-8")
             continue
@@ -123,7 +124,7 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
         if problem:
             errors.append(problem)
             continue
-        found.append((ftype, match.group("slug"), path, body.rstrip()))
+        found.append((ftype, match.group("slug"), path, body.rstrip(), raw_bytes))
     if errors:
         raise ChangelogError("\n".join(errors))
     found.sort(key=lambda item: item[1])
@@ -134,7 +135,7 @@ def render_section(version: str, date: str, fragments: list[Fragment]) -> str:
     """Render ``## [version] - date`` with headings in TYPES order (LF endings)."""
     parts = [f"## [{version}] - {date}\n"]
     for ftype, heading in TYPES.items():
-        bodies = [body for t, _slug, _path, body in fragments if t == ftype]
+        bodies = [body for t, _slug, _path, body, _raw in fragments if t == ftype]
         if bodies:
             parts.append(f"### {heading}\n" + "\n".join(bodies) + "\n")
     return "\n".join(parts)
@@ -229,26 +230,44 @@ def _read_changelog(path: Path) -> str:
         raise ChangelogError(f"cannot read {path.name}: {exc.strerror or exc}") from None
 
 
-def _current_body(path: Path) -> str | None:
-    """Re-read a fragment the way collection did; ``None`` if unreadable."""
-    try:
-        raw = path.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
-    return raw.replace("\r\n", "\n").strip("\n").rstrip()
+TEMP_PREFIX = ".compiling-"
 
 
 def _remove_all(fragments: list[Fragment], version: str) -> int:
-    remaining = []
-    changed = []
-    for _t, _s, path, body in fragments:
-        if _current_body(path) != body:
-            changed.append(str(path))
-            continue
+    """Delete compiled fragments safely.
+
+    Each fragment is first renamed to a hidden temporary name, so a later save by
+    an editor creates a new file that is never touched. The renamed file is deleted
+    only if its bytes equal the compiled bytes.
+    """
+    remaining: list[str] = []
+    changed: list[str] = []
+    for _t, _s, path, _body, raw in fragments:
+        temp = path.with_name(TEMP_PREFIX + path.name)
         try:
-            _unlink(path)
+            os.replace(path, temp)
         except OSError:
             remaining.append(str(path))
+            continue
+        try:
+            same = temp.read_bytes() == raw
+        except OSError:
+            same = False
+        if same:
+            try:
+                _unlink(temp)
+                continue
+            except OSError:
+                pass
+        # Different bytes or a failed delete: put it back if the original name is free.
+        shown = str(temp)
+        if not path.exists():
+            try:
+                os.replace(temp, path)
+                shown = str(path)
+            except OSError:
+                pass
+        (remaining if same else changed).append(shown)
     status = 0
     if changed:
         print(

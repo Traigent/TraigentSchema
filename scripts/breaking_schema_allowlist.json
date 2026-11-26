@@ -10967,9 +10967,173 @@
     {
       "file": "audit/audit_endpoints.json",
       "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/audit/logs/get/responses/200/content/application/json/schema/properties/data/properties/logs/items/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "dfd8bf7c0114518849e36a45b4f5f9293dbb6b3a1d505188e2d05852a8c7492c"
+        },
+        {
+          "pointer": "#/paths//api/v1/audit/logs/export/post/responses/200/content/application/json/schema/properties/data/properties/logs/items/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "a074ed6ed5676ab27a09f5e88211a3de801711f5b36521bc0a93a6b2c3bc4aa5"
+        },
+        {
+          "pointer": "#/paths//api/v1/audit/logs/{log_id}/get/responses/200/content/application/json/schema/properties/data/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "dc91dfd5817a777c08935ef047bfbd189c7a1161472bcfd058bddff76ce98f24"
+        }
+      ],
       "reason": "Release 8.0.0 promotion of develop to main: the audit log permission value set, shared by GET /api/v1/audit/logs, GET /api/v1/audit/logs/{log_id} and the audit logs export response, gains the member fleet_import.write (three response-side enum additions, one per operation). It follows the new user-requestable API-key scope fleet_imports:write (CHANGELOG, Unreleased entry now in 8.0.0) whose use is recorded in the audit log. The enum widens only what the server may return; readers that treat the permission as an open string are unaffected, and no request body changes. The gate flags a response enum addition conservatively against main.",
       "version": "8.0.0",
-      "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/741"
     },
     {
       "file": "optimization/tvl_reactive_endpoints.json",

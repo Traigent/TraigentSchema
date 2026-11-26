@@ -29,9 +29,9 @@ class AnalyticsValidator:
     """
 
     # Pre-compiled regex patterns for validation
-    _EXAMPLE_ID_PATTERN = re.compile(r"^ex_[a-f0-9]{8,12}_\d+$")
-    _JOB_ID_PATTERN = re.compile(r"^score_[a-zA-Z0-9_-]+_\d+$")
-    _ALGORITHM_VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+    _EXAMPLE_ID_PATTERN = re.compile(r"ex_[a-f0-9]{8,12}_\d+")
+    _JOB_ID_PATTERN = re.compile(r"score_[a-zA-Z0-9_-]+_\d+")
+    _ALGORITHM_VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+")
 
     def __init__(self) -> None:
         """Initialize the validator with schema validator."""
@@ -130,7 +130,7 @@ class AnalyticsValidator:
             >>> validator.validate_example_id_format("invalid")
             False
         """
-        return bool(self._EXAMPLE_ID_PATTERN.match(example_id))
+        return bool(self._EXAMPLE_ID_PATTERN.fullmatch(example_id))
 
     def validate_job_id_format(self, job_id: str) -> bool:
         """Validate job ID follows the required pattern.
@@ -150,7 +150,7 @@ class AnalyticsValidator:
             >>> validator.validate_job_id_format("invalid_job")
             False
         """
-        return bool(self._JOB_ID_PATTERN.match(job_id))
+        return bool(self._JOB_ID_PATTERN.fullmatch(job_id))
 
     def validate_score_range(self, score: float) -> bool:
         """Validate score is in valid range [0, 1].
@@ -178,7 +178,7 @@ class AnalyticsValidator:
             >>> validator.validate_algorithm_version("v1.0.0")
             False
         """
-        return bool(self._ALGORITHM_VERSION_PATTERN.match(version))
+        return bool(self._ALGORITHM_VERSION_PATTERN.fullmatch(version))
 
     def validate_recommendation_type(self, rec_type: str) -> bool:
         """Validate recommendation type is valid.

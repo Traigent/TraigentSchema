@@ -46,7 +46,7 @@ _ERR_HOST = "invalid repository host"
 # Byte-identical to the API server contract mirror.
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _TIMESTAMP_RE = re.compile(
-    r"^[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-9]))T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?Z$"
+    r"[0-9]{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12][0-9]|3[01])|(?:0[469]|11)-(?:0[1-9]|[12][0-9]|30)|02-(?:0[1-9]|1[0-9]|2[0-9]))T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]{1,6})?Z"
 )
 _SOURCE_KINDS = frozenset(
     {
@@ -88,7 +88,7 @@ def canonical_observed_at(stamp: str) -> str:
     Only the contract ``Timestamp`` form (trailing ``Z``) is accepted: the API server rejects
     ``+00:00`` offsets, so they have no canonical form.
     """
-    if not isinstance(stamp, str) or _TIMESTAMP_RE.match(stamp) is None:
+    if not isinstance(stamp, str) or _TIMESTAMP_RE.fullmatch(stamp) is None:
         raise _fail("observed_at")
     try:
         parsed = datetime.fromisoformat(stamp[:-1] + "+00:00").astimezone(timezone.utc)
@@ -218,8 +218,8 @@ _ALLOWED_SCHEMES = {
 }
 _UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 _PERCENT = re.compile(r"%([0-9A-Fa-f]{2})")
-_HOST_PORT = re.compile(r"^(\[[0-9A-Fa-f:.]+\]|[^:/\[\]]+)(?::([0-9]{1,5}))?$")
-_SCP = re.compile(r"^(?:[^@/:]+@)?([^/:@]+):(?!//)(.*)$")
+_HOST_PORT = re.compile(r"(\[[0-9A-Fa-f:.]+\]|[^:/\[\]]+)(?::([0-9]{1,5}))?")
+_SCP = re.compile(r"(?:[^@/:]+@)?([^/:@]+):(?!//)(.*)")
 
 
 def _normalize_escapes(path: str) -> str:
@@ -244,7 +244,7 @@ def _split_remote(text: str) -> tuple[str | None, str, str]:
             authority = authority.rsplit("@", 1)[1]
     else:
         text = re.split(r"[?#]", text, maxsplit=1)[0]
-        scp = _SCP.match(text)
+        scp = _SCP.fullmatch(text)
         first_slash = text.find("/")
         if scp and (first_slash == -1 or text.find(":") < first_slash):
             authority, path = scp.group(1), scp.group(2)
@@ -257,7 +257,7 @@ def _split_remote(text: str) -> tuple[str | None, str, str]:
 
 def _host_and_port(authority: str, scheme: str | None) -> tuple[str, str | None]:
     """Validate ``authority`` and return the lower-cased host and the non-default port."""
-    match = _HOST_PORT.match(authority)
+    match = _HOST_PORT.fullmatch(authority)
     if match is None:
         raise ValueError(_ERR_HOST)
     host = match.group(1).lower()

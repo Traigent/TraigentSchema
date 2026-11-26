@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/experiment_run_leaderboard_response_schema.json",
+  "title": "Run Leaderboard Canonical Success Response",
+  "description": "Platform success envelope for GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard: one cursor page (items plus pagination) of the ranked configuration leaderboard of one experiment run. The fields mirror RunAnalyticsService.leaderboard (backend src/services/analytics/run_analytics_service.py:1400-1473): run_id, ranking_basis (objective, weights, constraints), the ranked configurations (rank, composite_score, measures, confidence, risk_flags, recommendation; :1449-1462) and warnings. The population is every configuration with a numeric measure whose status is not FAILED or CANCELLED (:1414-1425, _LEADERBOARD_INELIGIBLE_STATUSES :205-207); the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503, never truncated and presented as complete). The ranking, recommendation and every composite_score are computed over the FULL eligible population and only then paginated, so rank 1 and the winner do not depend on the page. Order: configurations that pass every constraint first, then the disqualified ones (:1443-1447); within each group by descending composite_score; ranks are assigned after the order below, so rank is a unique 1-based position across all pages and page boundaries are stable. The historical top-N truncation by limit (50 by default, at most 200, backend src/shared_infrastructure/schemas/run_analytics.py:91) is replaced by cursor pagination with limit default 20, maximum 100. CANONICAL PROJECTION OMITS INTERNAL IDS: omits config_id (internal configuration-run id; replaced by trial_ref, the shared persisted configuration_run_ref of experiment_run_trial_ref_schema.json: trial_ plus 16 lowercase hex or configuration_run_ plus 32 lowercase hex (the two issued formats, as in the shared definition: trial_ plus 16 hex issued by sessions, configuration_run_ plus 32 hex minted by mint_configuration_run_ref), issued once and never re-minted, so stable across pages and deletion of other configurations; a run with any configuration whose trial_ref is not yet issued is the closed 503 until the backfill completes) and omits label (the builder falls back to 'Trial <config_id>', which embeds the internal id, :1455; a free label is customer-chosen content), and data.run_id is the experiment_run_ref (^experiment_run_[0-9a-f]{32}(?![\\s\\S])) populated from the resolved reference, never the historical run id (:1465). The closed schema rejects config_id, label and every other undeclared property. pagination carries limit, next_cursor (null on the last page), has_more and a required integer total (the number of ranked configurations across all pages, at most 10000). The cursor is a sealed opaque string bound to the caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any ranking-relevant configuration or metric write, read from the SAME snapshot as the ranked rows), never a raw historical primary key; a cursor whose revision no longer matches is the closed 400 invalid_cursor, so a page walk never mixes two rankings. SIZE: this schema gives NO static byte bound. The 1 MiB limit (x-max-response-bytes 1048576) is enforced on the serialized envelope: the handler measures the final serialized bytes, sends those same bytes, and returns the closed 503 when over the limit. warnings are constrained to the builder's four forms (:1429, :1497-1499, :1522, :1527-1529), at most 8, identical on every page. Measure values are any finite JSON number (the builder drops non-finite values, :1738-1746). The historical envelope run_leaderboard_response_schema.json is unchanged and still serves the deprecated analytics path. NAME POLICY: every measure name, wherever echoed (measures, ranking_basis weights and constraints, risk_flags, warnings), matches ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]); a query key outside it is the closed 400 (no echo) and a stored metric name outside it is the closed 503 for the run, never truncated. WEIGHTS: each weight is a number in [0, 1000] (negative or larger is the closed 400, replacing the builder's silent exclusion of negative weights) and the composite is computed over the weights normalized to sum to 1, so it is finite; sorting uses the unrounded score. NORMALIZATION: each measure's min-max normalization is computed without overflow (the values are scaled by the largest absolute finite value before subtracting, or an equivalent exact method), so equal values score equal; the composite is a convex combination of normalized terms in [0, 1] (a B-series backend obligation, replacing the builder's range arithmetic at run_analytics_service.py:1555-1575 and :1585-1597). The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic). EFFECTIVE WEIGHTS: ranking_basis.weights are the effective weights actually applied and may be empty (for example an empty leaderboard with no fallback measure, run_analytics_service.py:1518-1523); the positive-weight rule applies only to a weights map supplied in the request (see the weights query parameter).",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-response-bytes": 1048576,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "#/definitions/LeaderboardPage"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "definitions": {
+    "TrialRef": {
+      "$ref": "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
+    },
+    "MeasureMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+      },
+      "maxProperties": 64
+    },
+    "LeaderboardPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "ranking_basis",
+        "items",
+        "warnings",
+        "pagination"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+          "minLength": 47,
+          "maxLength": 47,
+          "x-identifier": true,
+          "description": "The experiment_run_ref of the ranked run, populated from the resolved reference (never the historical run id)."
+        },
+        "ranking_basis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "objective",
+            "weights",
+            "constraints"
+          ],
+          "description": "How the ranking was produced (run_analytics_service.py:1466-1470); identical on every page. weights are the effective weights actually applied (zero weights dropped; the fallback single-measure weight when the objective had no measure, :1475-1531); constraints are upper bounds per measure.",
+          "properties": {
+            "objective": {
+              "type": "string",
+              "enum": [
+                "weighted",
+                "quality",
+                "cost",
+                "latency"
+              ]
+            },
+            "weights": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              },
+              "additionalProperties": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000
+              },
+              "description": "Effective weights as requested: each a number in [0, 1000] (a negative or larger weight is the closed 400; the builder's historical silent exclusion of negative weights, run_analytics_service.py:1489-1494 and :1615, no longer applies). Zero weights are dropped. The composite score is computed over the weights normalized to sum to 1, so it is finite. The map may be empty (no fallback measure, :1518-1523); the at-least-one-positive rule applies only to the request's supplied weights."
+            },
+            "constraints": {
+              "type": "object",
+              "maxProperties": 50,
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              },
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/LeaderboardItem"
+          },
+          "description": "This page of the ranked configurations, best first (ascending rank); at most 100 per page."
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 186,
+            "anyOf": [
+              {
+                "const": "No successful configuration is available to rank."
+              },
+              {
+                "const": "objective='weighted' requested with no weights; ranked by quality only"
+              },
+              {
+                "pattern": "^objective_unavailable:(quality|cost|latency); no numeric measure to rank by(?![\\s\\S])"
+              },
+              {
+                "pattern": "^objective_unavailable:(quality|cost|latency); ranked by fallback measure [^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              }
+            ]
+          },
+          "description": "Closed builder warnings, identical on every page: the no-eligible-configuration sentence (:1429), the weighted-without-weights sentence (:1497-1499), objective_unavailable:<objective>; no numeric measure to rank by (:1522), objective_unavailable:<objective>; ranked by fallback measure <name> (:1527-1529)."
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        }
+      }
+    },
+    "LeaderboardItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "trial_ref",
+        "composite_score",
+        "measures",
+        "confidence",
+        "risk_flags",
+        "recommendation"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "1-based unique position over the full ranked population, across all pages (:1449)."
+        },
+        "trial_ref": {
+          "$ref": "#/definitions/TrialRef"
+        },
+        "composite_score": {
+          "type": "number",
+          "description": "Composite objective score, computed over the weights normalized to sum to 1 (so finite), rounded to 9 decimals for display (run_analytics_service.py:1452); the sort and the rank use the UNROUNDED score, so distinct scores may serialize to the same value; any finite JSON number. Normalization is overflow-safe (scaled before subtracting), so equal values score equal; the composite is a convex combination of terms in [0, 1]. The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic)."
+        },
+        "measures": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/MeasureMap"
+            }
+          ],
+          "minProperties": 1,
+          "description": "Raw measured aggregate per measure name (the weighted measures plus the resolved quality, cost and latency axes), finite values only (:1738-1746); at least one. Names follow the one name policy ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]); a stored metric name outside it is the closed 503 for the run, never truncated."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "description": "Coarse confidence bucket (:1715-1725)."
+        },
+        "risk_flags": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 156,
+            "anyOf": [
+              {
+                "pattern": "^disqualified_by_constraint:[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              },
+              {
+                "pattern": "^missing_constrained_measure:[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              },
+              {
+                "pattern": "^missing_weighted_measure:[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+              },
+              {
+                "const": "low_sample"
+              }
+            ]
+          },
+          "description": "Closed risk tags (:1651, :1653, :1690, :1694): disqualified_by_constraint:<measure>, missing_constrained_measure:<measure>, missing_weighted_measure:<measure>, low_sample."
+        },
+        "recommendation": {
+          "type": "string",
+          "enum": [
+            "winner",
+            "candidate",
+            "reject"
+          ],
+          "description": "winner only for rank 1 with no risk flags; reject for every disqualified configuration; otherwise candidate (:1666-1676)."
+        }
+      }
+    },
+    "Pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more",
+        "total"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opaque sealed cursor of the next page; null on the last page."
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Number of ranked configurations across all pages, at most 10000."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": true
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": false
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "description": "has_more is true if and only if next_cursor is non-null."
+    },
+    "Cursor": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}

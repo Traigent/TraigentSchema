@@ -140,6 +140,221 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard": {
+      "get": {
+        "operationId": "experiment_run.get_run_leaderboard",
+        "summary": "Get the ranked configuration leaderboard of one experiment run, paginated",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the ranked configuration leaderboard of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/leaderboard. Query: limit (default 20, maximum 100; this replaces the backend's historical default 50 and maximum 200 of RunLeaderboardQuery, src/shared_infrastructure/schemas/run_analytics.py:86-91), cursor (opaque sealed string of at most 512 base64url characters), and the backend's own objective, weights, constraints and request_count (run_analytics.py:86-91); any other query parameter, including the retired page and offset, is rejected with the closed 400. Name policy: every measure name (weights and constraints keys, and stored metric names, wherever echoed in measures, ranking_basis, risk_flags and warnings) matches ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]); a query key outside it is the closed 400 (no echo) and a stored metric name outside it is the closed 503 for the run, never truncated. Weights: each weight is a number in [0, 1000]; a negative or larger weight is the closed 400, which replaces the builder's silent exclusion of negative weights; the composite score is computed over the weights normalized to sum to 1, so it is finite. When weights is given at least one weight must be greater than 0: all-zero weights (for example {\"accuracy\": 0}) are the closed 400 with no echo, and omitting weights keeps the default objective path. Each measure's min-max normalization is computed without overflow (values scaled by the largest absolute finite value before subtracting, or an equivalent exact method), so equal values score equal; the composite is a convex combination of normalized terms in [0, 1]. The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The ranking is computed over the full eligible population and then paginated, ordered by non-disqualified first, descending UNROUNDED composite_score (the displayed composite_score may be rounded), with ranks assigned after that order, so rank is a unique position across all pages; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any ranking-relevant configuration or metric write, read from the SAME snapshot as the ranked rows), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and label (internal id and its fallback), uses the shared persisted trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; default 20, maximum 100. 0, 101, booleans and non-integers are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (objective, weights, constraints, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision (a per-run monotonic counter).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "objective",
+            "in": "query",
+            "required": false,
+            "description": "Ranking objective (backend LeaderboardObjective, run_analytics.py:64-68): weighted (default) uses weights, the others rank by the resolved quality, cost or latency axis. An unknown value is the closed 400.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "weighted",
+                "quality",
+                "cost",
+                "latency"
+              ],
+              "default": "weighted"
+            }
+          },
+          {
+            "name": "weights",
+            "in": "query",
+            "required": false,
+            "description": "JSON-object string of measure name to weight (at most 50 keys; keys match ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]), otherwise the closed 400 with no echo; backend _parse_numeric_map, run_analytics.py:24-56). Each weight is a number in [0, 1000]; a negative or larger weight is the closed 400 (replacing the builder's silent exclusion of negative weights); zero weights are dropped, but at least one weight must be greater than 0 (all-zero, e.g. {\"accuracy\": 0}, is the closed 400 with no echo; omit weights for the default objective path); the composite is computed over weights normalized to sum to 1. At most 8192 characters on the wire.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          {
+            "name": "constraints",
+            "in": "query",
+            "required": false,
+            "description": "JSON-object string of measure name to finite upper bound (at most 50 keys, keys match ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]), otherwise the closed 400 with no echo); a configuration above a bound, or missing the measure, is disqualified and ranked after all the others. At most 8192 characters on the wire.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "description": "Backend RunLeaderboardQuery.request_count (1 to 1000000, default 1); display-only, the composite score does not use it (run_analytics_service.py:1727, 'no request_count in composite').",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the run's leaderboard returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_leaderboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, limit, cursor, objective, weights (including a weight outside [0, 1000] or all weights zero), constraints or request_count, a measure name outside the name policy, a cursor that does not belong to this caller, run and query, or an unknown or retired query parameter (page, offset and others); syntax is checked before any lookup and no value is echoed. A cursor whose analysis_revision no longer matches is the closed invalid_cursor 400.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "./leaderboard_problem_schema.json#/definitions/BadRequestProblem"
+                    },
+                    {
+                      "$ref": "./leaderboard_problem_schema.json#/definitions/InvalidCursorProblem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The leaderboard cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted), a configuration's trial_ref is not yet issued, a stored metric name is outside the name policy, or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto": {
       "get": {
         "operationId": "experiment_run.get_run_pareto",
@@ -3544,7 +3759,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED (C3 W10-S5): replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard (operationId experiment_run.get_run_leaderboard), addressed by an explicit project and a server-issued run reference and paginated (limit default 20, maximum 100, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/leaderboard (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/parameter-insights": {

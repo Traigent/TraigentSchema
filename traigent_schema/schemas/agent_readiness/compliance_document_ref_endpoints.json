@@ -352,6 +352,108 @@
           }
         }
       }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs/search": {
+      "post": {
+        "summary": "Search the document references of one Agent by a substring of the link (project members only; the search text travels in the body)",
+        "description": "A read served as POST so the search text, which is customer content, stays out of URLs, access logs and traces. Case-insensitive substring match against the declared link; every character of the text is literal. Same members-only rule, response shape, ordering (newest first) and paging as the list; the text is never logged, audited or echoed. Takes no idempotency key and is never replayed.",
+        "operationId": "project_compliance_document_refs.search_compliance_document_references",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching document references, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./compliance_document_ref_schema.json#/definitions/DocumentReferenceListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Closed-request violation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, or the feature is off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./agent_readiness_error_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        },
+        "x-replay": "read"
+      }
     }
   }
 }

@@ -862,14 +862,14 @@
     {
       "file": "execution/execution_endpoints.json",
       "rule": "property_added",
-      "reason": "identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "reason": "Identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
       "version": "5.6.0",
       "pr": "#400"
     },
     {
       "file": "execution/execution_endpoints.json",
       "rule": "type",
-      "reason": "agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "reason": "Agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
       "version": "5.6.0",
       "pr": "#400"
     },
@@ -1496,7 +1496,7 @@
     {
       "file": "optimization/session_submit_results_request_schema.json",
       "rule": "oneOf_added",
-      "reason": "measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
+      "reason": "Measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
       "version": "5.8.0",
       "pr": "#437"
     },
@@ -2460,7 +2460,7 @@
     {
       "file": "datasets/dataset_schema.json",
       "rule": "property_added",
-      "reason": "current_version is a new, optional, nullable property (default null) added under a closed additionalProperties:false object as part of the R3 dataset-version content-identity contract. It carries a DatasetVersionV1 record via cross-file $ref for callers that want a content-addressable snapshot of a dataset revision. Old readers that VALIDATE against the previous schema reject a payload carrying this key (closed object); producers MUST OMIT the key -- never emit null -- until every consumer has upgraded to a schema version that knows it; readers that ignore unknown keys are unaffected.",
+      "reason": "Current_version is a new, optional, nullable property (default null) added under a closed additionalProperties:false object as part of the R3 dataset-version content-identity contract. It carries a DatasetVersionV1 record via cross-file $ref for callers that want a content-addressable snapshot of a dataset revision. Old readers that VALIDATE against the previous schema reject a payload carrying this key (closed object); producers MUST OMIT the key -- never emit null -- until every consumer has upgraded to a schema version that knows it; readers that ignore unknown keys are unaffected.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/468",
       "findings": [
@@ -2970,7 +2970,7 @@
     {
       "file": "execution/experiment_group_schema.json",
       "rule": "property_added",
-      "reason": "dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
+      "reason": "Dataset_label is a new optional, nullable member on ExperimentGroupOverview added to let the portal's agent+dataset history table show a human-readable dataset name (Benchmark.label) instead of an opaque canonical dataset_id or 'No dataset'. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key.",
       "version": "Unreleased",
       "pr": "#472",
       "findings": [
@@ -3022,7 +3022,7 @@
           "fingerprint": "03311a9c93e55d69eb17372d76edad959da83ad6298206244b30fbd2a4b05eff"
         }
       ],
-      "reason": "selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
+      "reason": "Selection is a new OPTIONAL member of the closed SessionAggregationDTO (R3 selection receipt: records the SDK's selection decision and binds it to the session's own trials). The gate flags it under the bare-named-resource conservative heuristic because the old shape was additionalProperties:false and is echoed back in the finalize response. The Backend only echoes session_aggregation it persisted from the SDK's own finalize request, and no producer emits selection yet (Backend normalizer is R3 PR 2, Python SDK producer is PR 3), so a current SDK strictly validating the echo never receives the member; the SDK upgrade that sends selection ships together with the reader. Unreleased. Acknowledged rather than silenced so the widening of a closed shape is visible in the contract history.",
       "version": "Unreleased",
       "pr": "#491"
     },
@@ -3059,7 +3059,7 @@
       "file": "planned_projects_endpoints.json",
       "rule": "endpoint_removed",
       "pointer_prefix": "#/paths//api/v1beta/projects/{project_id}/core-exports/fine-tuning.manifest",
-      "reason": "exportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no Backend route implements (verified at TraigentBackend origin/develop efe0074ecf4c: the only `fine-tuning.manifest` route is `src/routes/analytics_routes.py:287`, mounted under /analytics; `git log -S'core-exports/fine-tuning' -- src/routes/` finds no commit registering the old path) -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: at the pinned Backend ref the drifted path is unrouted (a 404), and the project-scoped served route is `GET /api/v1beta/projects/<project_id>/analytics/exports/fine-tuning.manifest` (`src/routes/api_v1beta.py:68` registers analytics_bp project-scoped; obligation_matrix_report.txt:5127). It is still a contract-breaking path rename for anyone who coded against the declared path. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272. Callers already use the served path: TraigentFrontend src/services/coreMetricsService.ts:509, Traigent traigent/core_metrics/client.py:228, traigent-js src/core-metrics/index.ts:223 (all at origin/develop, 2026-09-17); no client references the removed path, so this rename breaks no known caller -- a reviewed pre-release exception, not a claim that the declared interface had no dependents in principle.",
+      "reason": "ExportProjectFineTuningManifest was declared at a drifted path (/core-exports/fine-tuning.manifest) that no Backend route implements (verified at TraigentBackend origin/develop efe0074ecf4c: the only `fine-tuning.manifest` route is `src/routes/analytics_routes.py:287`, mounted under /analytics; `git log -S'core-exports/fine-tuning' -- src/routes/` finds no commit registering the old path) -- the real, shipped route lives on the analytics blueprint and is mounted at /analytics/exports/fine-tuning.manifest by the v1beta project-scoped registrar. This is a same-operation path correction (operationId, parameters, and response schema are unchanged), not a removal of working functionality: at the pinned Backend ref the drifted path is unrouted (a 404), and the project-scoped served route is `GET /api/v1beta/projects/<project_id>/analytics/exports/fine-tuning.manifest` (`src/routes/api_v1beta.py:68` registers analytics_bp project-scoped; obligation_matrix_report.txt:5127). It is still a contract-breaking path rename for anyone who coded against the declared path. The catalog carries x-asserted-against-backend:false and is pre-release, which is why this ships as a path fix rather than a major bump. TraigentSchema#272. Callers already use the served path: TraigentFrontend src/services/coreMetricsService.ts:509, Traigent traigent/core_metrics/client.py:228, traigent-js src/core-metrics/index.ts:223 (all at origin/develop, 2026-09-17); no client references the removed path, so this rename breaks no known caller -- a reviewed pre-release exception, not a claim that the declared interface had no dependents in principle.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/483",
       "findings": [
@@ -6669,7 +6669,7 @@
     {
       "file": "execution/experiment_group_schema.json",
       "rule": "property_added",
-      "reason": "agent_name is a new optional, nullable member on ExperimentGroupOverview added to let the portal's optimization-history table show the agent's human-readable name (Agent.name) instead of the opaque agent_id UUID. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key. Same shape and rationale as the dataset_label acknowledgement (#472).",
+      "reason": "Agent_name is a new optional, nullable member on ExperimentGroupOverview added to let the portal's optimization-history table show the agent's human-readable name (Agent.name) instead of the opaque agent_id UUID. This is the bare-named-resource conservative heuristic: ExperimentGroupOverview is reused response-side only (GET /api/v1/experiment-groups and .../{group_id}), never as a request body, so a strict old response consumer with additionalProperties:false on a locally-hand-copied shape is the only theoretical break, and no such consumer exists in this workspace's own repos (Backend emits, Frontend/SDKs read via generated/loose types). The field is purely additive and display-only -- it is not in ExperimentGroupOverview's required list, is not referenced by any identity_state allOf branch (identified/unidentified/absent-legacy), and is not part of the group sort/tie-break vocabulary or any cursor/pagination key. Same shape and rationale as the dataset_label acknowledgement (#472).",
       "version": "Unreleased",
       "pr": "branch fix/agent-name-optimization-history, Spine-Trail st_9ca8039ca435 (PR number pending)",
       "findings": [
@@ -7170,7 +7170,7 @@
           "fingerprint": "7480ac132620feabe0f5a4769ca7c94a92a484a10ae68226a6a995dfa77711dc"
         }
       ],
-      "reason": "intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused. Correction: that is not the whole story. Python's regex '$' also matches just before a final newline, so the pattern previously admitted a 72-character digest ending in a newline ('sha256:' + 64 hex + a trailing newline). The 71-character bound additionally rejects those trailing-newline digests. This is an intentional tightening; no digest without a trailing newline is affected.",
+      "reason": "Intentional tightening; contract unreleased; owner ruling 2026-09-14 no clients yet, remove legacy now. Input-hardening bounds (#138) on the session-create objectives: metric names and legacy string objectives are capped at 255 (the bound hybrid_session_create_request_schema.json already uses for metric); the four artifact digests are capped at 71 = len('sha256:') + 64, which restates the pattern the same property already enforces, so no previously valid digest is refused. Correction: that is not the whole story. Python's regex '$' also matches just before a final newline, so the pattern previously admitted a 72-character digest ending in a newline ('sha256:' + 64 hex + a trailing newline). The 71-character bound additionally rejects those trailing-newline digests. This is an intentional tightening; no digest without a trailing newline is affected.",
       "version": "Unreleased",
       "pr": "Traigent/TraigentSchema content-less branch feat/content-less (PR not yet opened; pending contract review)"
     },
@@ -10346,6 +10346,220 @@
       "pr": "pending (TraigentSchema, feat/api-p3-agents-cursor-pagination, not yet opened)"
     },
     {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "c2c202802ef166fe12c41966e7a8960bfb2add363eed5e59d2ea4f1f52d40a87"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 2,
+          "fingerprint": "5bffc6a818240984e45341594ac5454b9adca7db647b7d9db728128acf09b853"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "8bb10cbb9e6569b4711fcd5af2e1b3cc1a11b51e5624d79bbb42f5d3a86a0f97"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "2feb5cd4752257e876ead09eb984fc845d9bb1037b1a18ac18da1fe38c327481"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "03a373ee13a7171d53ec206ed1593226d31620c922fba229c3fbda6d6a9e217c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "321ccde360df3001a1746b09a20a1a2906ab8ccbcd0b8a3431a38b5e4908b322"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "222320e4a18804b3397e4fbde479f6d10b15a2c8989eac7ed86af592d630af1e"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "90d9d431c3f21e0887d9a4c4c410e099adec4283cbac95238419adc54258cecf"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "82343c77d722469d216256967b99f02824fac1d1bee2a120f7a6104a5a5f068c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"The agent or its standing attestation changed since it was displayed.\""
+            ]
+          },
+          "old": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "new": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The agent or its standing attestation changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "fingerprint": "bd00b9fee51a6575400df4a15d58584c1df0f473bff78b568d3b3b92ae112bcb"
+        }
+      ],
+      "reason": "The sign operation's 409 answers a new closed reason stale_review_context (with its fixed message) when the echoed review_context no longer matches the server's recomputation. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "788eb146d6735c892b13ac5c53c7c186d5edf6ec9e0186dc886b75de10002aa8"
+        }
+      ],
+      "reason": "Attestation signing must echo review_context, the keyed freshness token read from the evidence response, so a signature is bound to the subject the signer reviewed. Coordinated pre-release break: the feature is dark in production and no external client signs; backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/ingredients/items/properties/review_context",
+          "role": "response",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "4168aaf4afd50a070c88bb86d61e61f0a6ecc955a07d7aabcb54826ed89f0e6c"
+        }
+      ],
+      "reason": "A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
       "file": "evaluation/experiment_schema.json",
       "rule": "property_added",
       "findings": [
@@ -10517,7 +10731,7 @@
           "fingerprint": "ec31f7b48772a83bb342974cb621deab96a1df1603d314a424a2e2b0feb378cc"
         }
       ],
-      "reason": "experiment_ref replaces experiment_id in the required set of the experiment trend response, following the move of the read to reference addressing. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
+      "reason": "Experiment_ref replaces experiment_id in the required set of the experiment trend response, following the move of the read to reference addressing. Pre-release contract with no external clients; the portal, both SDKs and the backend move in step with this change before adoption, so no released consumer is affected.",
       "version": "Unreleased pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts; backend API revision Phase 3 slice 3.3 window 1b)",
       "pr": "pending (TraigentSchema, feature/api-p33-w1b-experiment-read-contracts, not yet opened)"
     },
@@ -10764,7 +10978,7 @@
           "fingerprint": "c05cb096f136affa4e3018fee4fb7735711ac9ff4a20cd79aca5af444da665a9"
         }
       ],
-      "reason": "truncated and empty_reason are added to the required list of the fine-tuning manifest response because the backend emits both on every successful export (core_domain_analytics_service.export_fine_tuning_manifest always sets 'truncated' and 'empty_reason', including empty and failed-to-record-job cases). Response-only requirement matching the real payload; it cannot reject any response the backend produces. A third-party producer or mock that omits them would now fail validation, which is the intended tightening: the old schema rejected the real payload, the new one accepts it.",
+      "reason": "Truncated and empty_reason are added to the required list of the fine-tuning manifest response because the backend emits both on every successful export (core_domain_analytics_service.export_fine_tuning_manifest always sets 'truncated' and 'empty_reason', including empty and failed-to-record-job cases). Response-only requirement matching the real payload; it cannot reject any response the backend produces. A third-party producer or mock that omits them would now fail validation, which is the intended tightening: the old schema rejected the real payload, the new one accepts it.",
       "version": "Unreleased (C3-PR1c, analytics contracts)",
       "pr": "pending (TraigentSchema, feature/api-p33-c3-analytics-contracts, not yet opened)"
     },
@@ -11064,7 +11278,7 @@
           "fingerprint": "42c48b418108d39ce403798bdddde28344461c6c6c600d5bff500fa385f648ae"
         }
       ],
-      "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
+      "reason": "Path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
       "version": "Unreleased",
       "pr": "pending (TraigentSchema, fix/reactive-agent-ref-is-agent-id)"
     }

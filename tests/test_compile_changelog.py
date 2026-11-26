@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -50,7 +51,20 @@ def frag(root: Path, name: str, body: str = "- entry\n") -> Path:
     return path
 
 
+GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"]
+
+
+def commit_all(root: Path) -> None:
+    if not (root / ".git").exists():
+        subprocess.run([*GIT, "init", "-q", str(root)], check=True)
+    subprocess.run([*GIT, "-C", str(root), "add", "-A"], check=True)
+    subprocess.run([*GIT, "-C", str(root), "commit", "-q", "--allow-empty", "-m", "fixture"], check=True)
+
+
 def run(root: Path, *args: str) -> int:
+    """Run the compiler; compile-mode runs first commit the fixture to a temp git repo."""
+    if "--check" not in args and "--dry-run" not in args and root.is_dir():
+        commit_all(root)
     return cc.main(["--root", str(root), *args])
 
 
@@ -224,7 +238,7 @@ def test_write_failure_leaves_changelog_and_fragments_intact(
     assert (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
     assert f.exists()
     assert [p.name for p in (root / "changelog.d").iterdir() if p.name.endswith(".tmp")] == []
-    assert sorted(p.name for p in root.iterdir()) == ["CHANGELOG.md", "changelog.d"]
+    assert sorted(p.name for p in root.iterdir() if p.name != ".git") == ["CHANGELOG.md", "changelog.d"]
 
 
 def test_unlink_failure_after_replace_lists_remaining_paths_and_exits_1(
@@ -408,7 +422,7 @@ def test_dry_run_never_writes_or_deletes(root: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(cc, "_unlink", forbidden)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02", "--dry-run") == 0
     assert f.exists() and (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
-    assert sorted(p.name for p in root.iterdir()) == ["CHANGELOG.md", "changelog.d"]
+    assert sorted(p.name for p in root.iterdir() if p.name != ".git") == ["CHANGELOG.md", "changelog.d"]
 
 
 def test_missing_current_pointer_never_falls_back_to_a_historical_heading(root: Path) -> None:
@@ -591,3 +605,88 @@ def test_change_that_only_differs_in_raw_bytes_counts_as_changed(
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     assert str(b) in capsys.readouterr().err
     assert b.read_bytes() == b"- beta\r"
+
+
+# --- clean git precondition and rename safety ---------------------------------
+
+
+def test_dirty_fragment_refuses_compile(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    f = frag(root, "a.added.md", "- one\n")
+    commit_all(root)
+    f.write_text("- one, edited\n")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "commit or stash changelog changes before compiling" in capsys.readouterr().err
+    assert f.exists() and (root / "CHANGELOG.md").read_text() == BASE_CHANGELOG
+
+
+def test_untracked_fragment_refuses_compile(root: Path) -> None:
+    commit_all(root)
+    f = frag(root, "a.added.md")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert f.exists()
+
+
+def test_dirty_changelog_refuses_compile(root: Path) -> None:
+    frag(root, "a.added.md")
+    commit_all(root)
+    (root / "CHANGELOG.md").write_text(BASE_CHANGELOG + "\nextra\n")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+
+
+def test_outside_a_git_work_tree_refuses_compile(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    f = frag(root, "a.added.md")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "commit or stash changelog changes before compiling" in capsys.readouterr().err
+    assert f.exists()
+
+
+def test_check_and_dry_run_do_not_need_a_clean_git_state(root: Path) -> None:
+    frag(root, "a.added.md")
+    assert cc.main(["--root", str(root), "--check"]) == 0
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02", "--dry-run"]) == 0
+
+
+def test_restore_never_overwrites_a_file_created_at_the_original_name(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    real_replace = cc.os.replace
+
+    def replace_then_race(src: object, dst: object) -> None:
+        real_replace(src, dst)
+        if Path(str(dst)).name.startswith(".compiling-"):
+            Path(str(dst)).write_bytes(b"- changed while renamed\n")
+            Path(str(src)).write_text("- fresh file from an editor\n")
+
+    monkeypatch.setattr(cc.os, "replace", replace_then_race)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    temp = root / "changelog.d" / ".compiling-b.added.md"
+    assert str(temp) in err and str(b) in err
+    assert b.read_text() == "- fresh file from an editor\n"
+    assert temp.read_bytes() == b"- changed while renamed\n"
+
+
+def test_rename_failure_message_does_not_recommend_git_rm(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    real_replace = cc.os.replace
+
+    def fail_on_aside(src: object, dst: object) -> None:
+        if Path(str(dst)).name.startswith(".compiling-"):
+            raise OSError("locked")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(cc.os, "replace", fail_on_aside)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    assert "could not move" in err and f"git diff -- {b}" in err
+    assert "git rm" not in err
+    assert b.exists()
+
+
+def test_check_flags_a_leftover_compiling_file(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (root / "changelog.d" / ".compiling-a.added.md").write_text("- x\n")
+    assert run(root, "--check") == 2
+    assert "leftover from an interrupted compile" in capsys.readouterr().err

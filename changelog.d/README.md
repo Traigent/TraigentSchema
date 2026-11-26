@@ -44,6 +44,14 @@ The last command inserts a `## [X.Y.Z] - YYYY-MM-DD` section directly below the
 `[Unreleased]` pointer in `CHANGELOG.md` and deletes the compiled fragments. It
 refuses when that version already has a section.
 
+Precondition: compiling (not `--check` or `--dry-run`) requires the repository root to
+be a git work tree with no uncommitted or untracked changes in `changelog.d/` and
+`CHANGELOG.md` (`git status --porcelain -- changelog.d CHANGELOG.md` prints nothing);
+otherwise it exits 2 with "commit or stash changelog changes before compiling". Every
+file it rewrites or removes is then recoverable from git. Run it from a single process
+on a quiet checkout. `--check` also reports any leftover `.compiling-*` file from an
+interrupted compile.
+
 Exit codes: 0 success; 2 a validation or usage error; 1 a failure after validation:
 
 - CHANGELOG.md could not be written (it is left unchanged and the fragments are listed);

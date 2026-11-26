@@ -17,6 +17,7 @@ import os
 import re
 import stat
 import sys
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -41,6 +42,7 @@ POINTER = (
     "see changelog.d/README.md"
 )
 _IGNORED = {"README.md", ".gitkeep"}
+TEMP_PREFIX = ".compiling-"
 
 Fragment = tuple[str, str, Path, str, bytes]  # type, slug, path, body, raw bytes
 
@@ -77,6 +79,26 @@ def _check_body(name: str, body: str) -> str | None:
     return None
 
 
+def require_clean_git(root: Path) -> None:
+    """Compile mode needs the inputs committed, so everything it removes is recoverable."""
+    message = "commit or stash changelog changes before compiling"
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False,
+        )
+        if top.returncode != 0 or os.path.realpath(top.stdout.strip()) != os.path.realpath(root):
+            raise ChangelogError(f"{message} (the repository root must be a git work tree)")
+        status = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--", "changelog.d", "CHANGELOG.md"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        raise ChangelogError(f"{message} (git is not available)") from None
+    if status.returncode != 0 or status.stdout.strip():
+        raise ChangelogError(message)
+
+
 def collect_fragments(fragments_dir: Path) -> list[Fragment]:
     """Return validated ``(type, slug, path, body)`` tuples, sorted by slug."""
     if fragments_dir.is_symlink() or (
@@ -99,6 +121,9 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
             errors.append(f"{path.name}: resolves outside {fragments_dir.name}/")
             continue
         if path.name in _IGNORED:
+            continue
+        if path.name.startswith(TEMP_PREFIX):
+            errors.append(f"{path.name}: leftover from an interrupted compile; inspect it with git and remove it")
             continue
         match = FRAGMENT_RE.fullmatch(path.name)
         if not match:
@@ -230,7 +255,17 @@ def _read_changelog(path: Path) -> str:
         raise ChangelogError(f"cannot read {path.name}: {exc.strerror or exc}") from None
 
 
-TEMP_PREFIX = ".compiling-"
+def _restore(temp: Path, path: Path) -> bool:
+    """Give ``temp`` back its original name without ever overwriting a file."""
+    try:
+        os.link(temp, path)
+    except OSError:
+        return False
+    try:
+        os.unlink(temp)
+    except OSError:
+        pass
+    return True
 
 
 def _remove_all(fragments: list[Fragment], version: str) -> int:
@@ -238,16 +273,18 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
 
     Each fragment is first renamed to a hidden temporary name, so a later save by
     an editor creates a new file that is never touched. The renamed file is deleted
-    only if its bytes equal the compiled bytes.
+    only if its bytes equal the compiled bytes; otherwise it is given back its name
+    when that name is free, and never overwrites anything.
     """
-    remaining: list[str] = []
+    undeleted: list[str] = []
     changed: list[str] = []
+    unmoved: list[str] = []
     for _t, _s, path, _body, raw in fragments:
         temp = path.with_name(TEMP_PREFIX + path.name)
         try:
             os.replace(path, temp)
         except OSError:
-            remaining.append(str(path))
+            unmoved.append(str(path))
             continue
         try:
             same = temp.read_bytes() == raw
@@ -259,15 +296,11 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
                 continue
             except OSError:
                 pass
-        # Different bytes or a failed delete: put it back if the original name is free.
-        shown = str(temp)
-        if not path.exists():
-            try:
-                os.replace(temp, path)
-                shown = str(path)
-            except OSError:
-                pass
-        (remaining if same else changed).append(shown)
+        if _restore(temp, path):
+            shown = str(path)
+        else:
+            shown = f"{temp} (the name {path} is taken or could not be restored; both paths are kept)"
+        (undeleted if same else changed).append(shown)
     status = 0
     if changed:
         print(
@@ -276,11 +309,19 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
             file=sys.stderr,
         )
         status = 1
-    if remaining:
+    if undeleted:
         print(
             f"error: CHANGELOG.md was updated; these fragments were already compiled into "
             f"{version} but could not be deleted, remove them with `git rm`:\n  "
-            + "\n  ".join(remaining),
+            + "\n  ".join(undeleted),
+            file=sys.stderr,
+        )
+        status = 1
+    if unmoved:
+        print(
+            "error: cleanup could not move these fragments aside; their committed text is "
+            "in CHANGELOG.md. Check `git diff -- <path>` before removing each one:\n  "
+            + "\n  ".join(f"{p} (git diff -- {p})" for p in unmoved),
             file=sys.stderr,
         )
         status = 1
@@ -299,6 +340,8 @@ def main(argv: list[str] | None = None) -> int:
     fragments_dir = args.root / "changelog.d"
     changelog_path = args.root / "CHANGELOG.md"
     try:
+        if not args.check and not args.dry_run:
+            require_clean_git(args.root)
         fragments = collect_fragments(fragments_dir)
         if args.check:
             print(f"ok: {len(fragments)} changelog fragment(s) valid")

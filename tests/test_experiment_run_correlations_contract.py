@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
-"""C3 W10-S4: experiment_run.get_run_correlations on the experiment-run reference URL."""
+"""experiment_run.get_run_correlations on the experiment-run reference URL."""
 
 from __future__ import annotations
 

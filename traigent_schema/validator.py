@@ -432,10 +432,18 @@ class SchemaValidator:
         self._known_endpoints.add(key)
 
         if schema_ref:
-            schema_name = schema_ref.split("/")[-1]
-            if schema_name.endswith(".json"):
-                schema_name = schema_name[:-5]
-            self._endpoint_schemas[key] = schema_name
+            file_part, _, pointer = schema_ref.partition("#")
+            if pointer.startswith("/"):
+                # ``file.json#/json/pointer``: keep the fragment so the sub-schema is validated.
+                schema_name = file_part.split("/")[-1]
+                if schema_name.endswith(".json"):
+                    schema_name = schema_name[:-5]
+                self._endpoint_schemas[key] = f"{schema_name}#{pointer}"
+            else:
+                schema_name = schema_ref.split("/")[-1]
+                if schema_name.endswith(".json"):
+                    schema_name = schema_name[:-5]
+                self._endpoint_schemas[key] = schema_name
         elif isinstance(json_schema, dict) and json_schema:
             self._inline_request_schemas[key] = json_schema
             self._inline_request_schema_base_ids[key] = inline_base_id
@@ -581,13 +589,21 @@ class SchemaValidator:
         Returns:
             List of validation error messages. Empty if valid.
         """
-        schema = self._schemas.get(schema_name)
+        name, _, pointer = schema_name.partition("#")
+        schema = self._schemas.get(name)
         if not schema:
             # Try with _schema suffix
-            schema = self._schemas.get(f"{schema_name}_schema")
+            schema = self._schemas.get(f"{name}_schema")
 
         if not schema:
-            return [f"Schema not found: {schema_name}"]
+            return [f"Schema not found: {name}"]
+
+        if pointer:
+            # ``name#/json/pointer``: validate against that sub-schema of the named file.
+            schema_id = schema.get("$id")
+            if not isinstance(schema_id, str) or not pointer.startswith("/"):
+                return [f"Schema not found: {schema_name}"]
+            return self._run_validator(data, {"$ref": f"{schema_id}#{pointer}"})
 
         return self._run_validator(data, schema)
 

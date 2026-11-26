@@ -27,7 +27,7 @@
             "description": "Default measure created successfully"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -50,7 +50,9 @@
             "in": "query",
             "required": false,
             "description": "Filter metrics by whether at least one evaluator visible to the caller is attached. A non-boolean value is rejected with a 422 validation error.",
-            "schema": { "type": "boolean" }
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -58,7 +60,7 @@
             "description": "Measures retrieved successfully"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -86,7 +88,7 @@
             "description": "Measure created successfully"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -115,7 +117,7 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -143,7 +145,7 @@
             "description": "Measure updated successfully"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -163,7 +165,7 @@
             "description": "Measure deleted successfully"
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -195,7 +197,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Metrics retrieved successfully"
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_list_response_schema.json"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated.",
@@ -228,7 +237,7 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -322,13 +331,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_validation_failed_error_schema.json"
                 }
               }
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -348,7 +357,14 @@
         "x-asserted-against-backend": false,
         "responses": {
           "200": {
-            "description": "Metrics retrieved successfully"
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./metric_list_response_schema.json"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthenticated.",
@@ -371,7 +387,7 @@
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -443,13 +459,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_validation_failed_error_schema.json"
                 }
               }
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -504,13 +520,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_not_found_error_schema.json"
                 }
               }
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -593,7 +609,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_not_found_error_schema.json"
                 }
               }
             }
@@ -603,13 +619,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_validation_failed_error_schema.json"
                 }
               }
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -665,13 +681,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "../error_envelope_schema.json"
+                  "$ref": "./metric_not_found_error_schema.json"
                 }
               }
             }
           },
           "429": {
-            "description": "Too many requests — rate limit exceeded.",
+            "description": "Too many requests \u2014 rate limit exceeded.",
             "content": {
               "application/json": {
                 "schema": {

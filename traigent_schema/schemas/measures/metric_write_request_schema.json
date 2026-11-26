@@ -83,8 +83,18 @@
     "inverse": {
       "type": "boolean"
     },
-    "is_custom": {
-      "type": "boolean"
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 20,
+      "description": "Unit of the value, for example ms or $."
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 20,
+      "description": "Metric definition version, for example 1.0.0."
     }
   }
 }

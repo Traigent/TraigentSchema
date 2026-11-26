@@ -146,7 +146,7 @@
     },
     "/api/v1/datasets/{dataset_id}/public-benchmark": {
       "put": {
-        "summary": "Set or clear the dataset's public-benchmark opt-in (ruling D3)",
+        "summary": "Set or clear the dataset's public-benchmark opt-in",
         "deprecated": true,
         "x-deprecated": "Use PUT /api/v1/projects/{project_id}/datasets/{dataset_id}/public-benchmark. Removal is unscheduled.",
         "description": "TraigentBackend src/routes/dataset_version_routes.py set_dataset_public_benchmark. Requires dataset write access and project editor role, THEN tenant owner/admin (or platform admin) membership; API-key principals are refused even when the key's owner is a tenant admin. A refusal is audited (ACCESS_DENIED, reason tenant_admin_required); a change is audited (DATASET_PUBLIC_BENCHMARK_CHANGED) and not applied if the audit write fails. The Backend also emits the flag as public_benchmark on the dataset read (Benchmark.to_dict); dataset_schema.json is closed and does not declare it yet -- adding it is a separately acknowledged contract change (breaking_schema_check classifies it property_added on a closed schema).",
@@ -267,7 +267,7 @@
     "/api/v1/projects/{project_id}/datasets/{dataset_id}/public-benchmark": {
       "put": {
         "operationId": "dataset_version.set_dataset_public_benchmark",
-        "summary": "Set or clear the dataset's public-benchmark opt-in (ruling D3)",
+        "summary": "Set or clear the dataset's public-benchmark opt-in",
         "description": "Project-scoped form of PUT /api/v1/datasets/{dataset_id}/public-benchmark. Same request, response and error bodies. Requires dataset write access and the project editor role, then tenant owner or admin membership; API-key principals are refused.",
         "x-asserted-against-backend": false,
         "x-wrap-status": "wrapped",

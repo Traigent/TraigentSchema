@@ -52,7 +52,10 @@
       "maxLength": 255
     },
     "description": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 5000
     },
     "category": {
@@ -136,13 +139,18 @@
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": {
-        "type": [
-          "number",
-          "null"
-        ]
-      },
-      "description": "[min, max]. A null min means unbounded below; an unbounded max is reported as 1e308."
+      "items": [
+        {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "description": "[min, max]. A null min means unbounded below; an unbounded max is reported as 1e308 and is never null."
     },
     "created_at": {
       "type": [

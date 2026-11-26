@@ -224,3 +224,19 @@ def test_404_on_every_item_op_is_bound_to_the_closed_not_found_error():
     assert _errors(name, {**NOT_FOUND, "details": {"metric_ref": "metric_x"}})
     assert _errors(name, {**NOT_FOUND, "message": "Metric metric_x not found"})
     assert _errors(name, VALIDATION_FAILED)
+
+
+def test_metric_description_accepts_null_and_still_caps_strings():
+    assert not _errors("metric_schema.json", _metric(description=None))
+    assert not _errors("metric_schema.json", _metric(description="Accuracy of the answer"))
+    assert _errors("metric_schema.json", _metric(description="x" * 5001))
+
+
+@pytest.mark.parametrize("domain", [[0, 1], [None, 1e308], [None, 1], [0.5, 2.5]])
+def test_metric_domain_accepts_numeric_bounds_and_null_lower(domain):
+    assert not _errors("metric_schema.json", _metric(domain=domain))
+
+
+@pytest.mark.parametrize("domain", [[0, None], [None, None], [0, "1"], [0, 1, 2]])
+def test_metric_domain_rejects_null_upper_bound(domain):
+    assert _errors("metric_schema.json", _metric(domain=domain))

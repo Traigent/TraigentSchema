@@ -381,7 +381,7 @@ def test_example_set_read_responses_nest_pagination_under_data():
 
 # ---- #591 review: the analytics dashboard 200 must describe the WIRE body ----
 
-_OVERVIEW_V1 = "/api/v1/analytics/dashboards/optimization-overview"
+_OVERVIEW_V1 = "/api/v1/projects/{project_id}/analytics/dashboards/optimization-overview"
 _OVERVIEW_V1BETA = (
     "/api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview"
 )

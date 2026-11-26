@@ -11344,6 +11344,63 @@
       "reason": "BREAKING PUBLIC CHANGE (pre-release). The configuration-run operations move to the canonical project paths and the old flat paths are removed: GET/POST /api/v1/configuration-runs/runs/{experiment_run_id}/configurations become GET/POST /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs; GET/PUT/DELETE /api/v1/configuration-runs/{config_run_id} become GET/PUT/DELETE /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}; the status, summary-stats, workflow-metadata and cancel sub-routes move under that same path; PUT .../measures becomes PUT .../measurement and its operation id configuration_run.update_configuration_run_measures becomes configuration_run.update_configuration_run_measurement. Request and response bodies are unchanged; project_id and the opaque references come from the path. Consumers: the Python SDK and the Backend, updated in the same release.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/773"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/evaluator-quality/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "866c40e17965dac7d2e2a9aa00352ea714f70137c5f5f930dc676b8e8f062ed3"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/observability-summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9bc5eba22e8d07ae9646bb6f8ca59d40da50919c76886adcdee5aee87d195200"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0bba9078a499a69542fa31dfe6b403b587d225df198d3f8f10f72a244c8e9aa9"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/project-usage/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9903b127744606f04f5b5ae5b4fa073a6e340ea17f611fd7f83bc0a8b2ff6b69"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/pricing-catalog/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "73cc4072147dea36181c7434c10516537d12b03ea3df1a54611fc34415a05421"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "25ef9d36aacecf4b878b57383b41e19317f138032ce0ef0eb65ce5aa51c150bd"
+        }
+      ],
+      "reason": "Route moved to its project-scoped canonical path with the same operation id; the backend retires the old path with a closed 404.",
+      "version": "Unreleased",
+      "pr": "Traigent/TraigentSchema#TBD"
     }
   ]
 }

@@ -15,7 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "compile_changelog.py"
 
 _spec = importlib.util.spec_from_file_location("compile_changelog", SCRIPT)
-assert _spec and _spec.loader
+assert _spec
+assert _spec.loader
 cc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cc)
 
@@ -101,7 +102,8 @@ def test_compiled_fragments_are_deleted_but_readme_and_gitkeep_stay(root: Path) 
     a = frag(root, "a.added.md")
     b = frag(root, "b.fixed.md")
     run(root, "--version", "1.1.0", "--date", "2026-02-02")
-    assert not a.exists() and not b.exists()
+    assert not a.exists()
+    assert not b.exists()
     assert (root / "changelog.d" / "README.md").exists()
     assert (root / "changelog.d" / ".gitkeep").exists()
 
@@ -259,7 +261,8 @@ def test_unlink_failure_after_replace_lists_remaining_paths_and_exits_1(
     err = capsys.readouterr().err
     assert str(root / "changelog.d" / "b.added.md") in err
     assert "a.added.md" not in err
-    assert "1.1.0" in err and "git rm" in err
+    assert "1.1.0" in err
+    assert "git rm" in err
     assert "## [1.1.0] - 2026-02-02" in (root / "CHANGELOG.md").read_text()
     assert (root / "changelog.d" / "b.added.md").exists()
     assert not (root / "changelog.d" / "a.added.md").exists()
@@ -347,7 +350,8 @@ def test_fsync_failure_keeps_fragments_and_exits_1(
     monkeypatch.setattr(cc, "_fsync_dir", boom)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
-    assert "durable" in err and str(f) in err
+    assert "durable" in err
+    assert str(f) in err
     assert f.exists()
 
 
@@ -422,7 +426,8 @@ def test_dry_run_never_writes_or_deletes(root: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(cc, "write_atomic", forbidden)
     monkeypatch.setattr(cc, "_unlink", forbidden)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02", "--dry-run") == 0
-    assert f.exists() and (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
+    assert f.exists()
+    assert (root / "CHANGELOG.md").read_bytes() == BASE_CHANGELOG.encode()
     assert sorted(p.name for p in root.iterdir() if p.name != ".git") == ["CHANGELOG.md", "changelog.d"]
 
 
@@ -520,7 +525,8 @@ def test_mixed_line_endings_outside_the_inserted_section_are_untouched(root: Pat
     (root / "CHANGELOG.md").write_bytes(head + rest)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
     data = (root / "CHANGELOG.md").read_bytes()
-    assert data.startswith(head) and data.endswith(rest)
+    assert data.startswith(head)
+    assert data.endswith(rest)
     inserted = data[len(head): -len(rest)]
     assert inserted == b"## [1.1.0] - 2026-02-02\r\n\r\n### Added\r\n- one\r\n\r\n"
 
@@ -552,7 +558,8 @@ def test_fragment_changed_during_compilation_is_kept_and_reported(
     monkeypatch.setattr(cc, "write_atomic", write_then_edit)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
-    assert str(b) in err and "changed during compilation" in err
+    assert str(b) in err
+    assert "changed during compilation" in err
     assert "not in CHANGELOG.md" in err
     assert not a.exists()
     assert b.read_text() == "- beta, edited after compile\n"
@@ -617,7 +624,8 @@ def test_dirty_fragment_refuses_compile(root: Path, capsys: pytest.CaptureFixtur
     f.write_text("- one, edited\n")
     assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
     assert "commit or stash changelog changes before compiling" in capsys.readouterr().err
-    assert f.exists() and (root / "CHANGELOG.md").read_text() == BASE_CHANGELOG
+    assert f.exists()
+    assert (root / "CHANGELOG.md").read_text() == BASE_CHANGELOG
 
 
 def test_untracked_fragment_refuses_compile(root: Path) -> None:
@@ -683,7 +691,8 @@ def test_rename_failure_message_does_not_recommend_git_rm(
     monkeypatch.setattr(cc.os, "replace", fail_on_aside)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
-    assert "could not move" in err and f"git diff -- {b}" in err
+    assert "could not move" in err
+    assert f"git diff -- {b}" in err
     assert "git rm" not in err
     assert b.exists()
 
@@ -747,8 +756,10 @@ def test_restore_link_ok_but_unlink_fails_lists_both_paths(
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
     temp = root / "changelog.d" / ".compiling-b.added.md"
-    assert str(b) in err and str(temp) in err
-    assert b.exists() and temp.exists()
+    assert str(b) in err
+    assert str(temp) in err
+    assert b.exists()
+    assert temp.exists()
 
 
 def test_restore_link_failure_lists_only_the_temp_path_and_never_says_git_rm(
@@ -760,8 +771,10 @@ def test_restore_link_failure_lists_only_the_temp_path_and_never_says_git_rm(
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
     temp = root / "changelog.d" / ".compiling-b.added.md"
-    assert str(temp) in err and str(b) not in err
-    assert "git diff" in err and "git rm" not in err
+    assert str(temp) in err
+    assert str(b) not in err
+    assert "git diff" in err
+    assert "git rm" not in err
     assert temp.read_bytes() == b"- changed while renamed\n"
 
 
@@ -806,7 +819,8 @@ def test_read_error_during_cleanup_is_reported_as_a_read_error(
     monkeypatch.setattr(Path, "read_bytes", flaky)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
-    assert "could not be read" in err and "changed during compilation" not in err
+    assert "could not be read" in err
+    assert "changed during compilation" not in err
     assert b.exists() or (root / "changelog.d" / ".compiling-b.added.md").exists()
 
 
@@ -825,11 +839,58 @@ def test_input_read_failure_is_not_reported_as_git_unavailable(
     monkeypatch.setattr(Path, "read_bytes", flaky)
     assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
     err = capsys.readouterr().err
-    assert "cannot read" in err and "git is not available" not in err
+    assert "cannot read" in err
+    assert "git is not available" not in err
 
 
 def test_readme_does_not_advise_git_rm_for_compiling_files() -> None:
     text = (REPO_ROOT / "changelog.d" / "README.md").read_text()
     for line in text.splitlines():
         assert not (".compiling-" in line and "git rm" in line)
-    assert "kept under" in text and ".compiling-" in text
+    assert "kept under" in text
+    assert ".compiling-" in text
+
+
+@pytest.mark.parametrize("rel", ["-x", "--output=/tmp/x", "changelog.d/a\nb.md", "a\x00b", "/etc/passwd", "../x", ""])
+def test_git_refuses_an_unsafe_path_before_running(
+    root: Path, monkeypatch: pytest.MonkeyPatch, rel: str
+) -> None:
+    def forbidden(*_a: object, **_k: object) -> None:
+        raise AssertionError("git must not run for an unsafe path")
+
+    monkeypatch.setattr(cc.subprocess, "run", forbidden)
+    with pytest.raises(cc.ChangelogError):
+        cc._git(root, "show", rel)
+
+
+def test_git_refuses_an_unknown_operation(root: Path) -> None:
+    with pytest.raises(cc.ChangelogError):
+        cc._git(root, "-c")
+    with pytest.raises(cc.ChangelogError):
+        cc._git(root, "show")
+
+
+def test_git_argv_is_built_only_from_fixed_lists(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    def record(argv: list[str], **kwargs: object) -> object:
+        seen.append(list(argv))
+        assert kwargs.get("shell") is False
+        return subprocess.CompletedProcess(argv, 0, b"", b"")
+
+    monkeypatch.setattr(cc.subprocess, "run", record)
+    cc._git(root, "toplevel")
+    cc._git(root, "exists", "changelog.d/a.added.md")
+    cc._git(root, "show", "CHANGELOG.md")
+    cc._git(root, "status")
+    prefix = [cc._GIT, "-c", "core.quotepath=off", "-C", str(root)]
+    assert [a[: len(prefix)] for a in seen] == [prefix] * 4
+    assert [a[len(prefix):] for a in seen] == [
+        ["rev-parse", "--show-toplevel"],
+        ["cat-file", "-e", "HEAD:changelog.d/a.added.md"],
+        ["show", "HEAD:CHANGELOG.md"],
+        [
+            "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
+            "--", "changelog.d", "CHANGELOG.md",
+        ],
+    ]

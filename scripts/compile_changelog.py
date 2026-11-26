@@ -15,11 +15,16 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import stat
-import sys
 import subprocess
+import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+
+CHANGELOG_NAME = "CHANGELOG.md"
+FRAGMENTS_DIRNAME = "changelog.d"
 
 # Fragment type -> CHANGELOG heading, in the order the headings are emitted.
 TYPES: dict[str, str] = {
@@ -79,11 +84,73 @@ def _check_body(name: str, body: str) -> str | None:
     return None
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", "-c", "core.quotepath=off", "-C", str(root), *args],
-        capture_output=True, check=False,
-    )
+# Closed table of git invocations. Every argument vector is built from these fixed
+# literals; the only caller-supplied value is one validated repository-relative path.
+_GIT = shutil.which("git") or "git"  # resolved once
+_GIT_PREFIX = ("-c", "core.quotepath=off", "-C")
+_GIT_FIXED: dict[str, tuple[str, ...]] = {
+    "toplevel": ("rev-parse", "--show-toplevel"),
+    "status": (
+        "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
+        "--", FRAGMENTS_DIRNAME, CHANGELOG_NAME,
+    ),
+}
+_GIT_HEAD_PATH: dict[str, tuple[str, ...]] = {
+    "exists": ("cat-file", "-e"),
+    "show": ("show",),
+}
+
+
+def _checked_rel(rel: str) -> str:
+    """Return ``rel`` when it is a plain relative path inside the repository."""
+    parts = rel.split("/")
+    if (
+        not rel
+        or rel.startswith(("-", "/"))
+        or any(ch in rel for ch in ("\x00", "\n", "\r", "\\"))
+        or any(part in ("", ".", "..") for part in parts)
+    ):
+        raise ChangelogError("refusing an unsafe repository path")
+    return rel
+
+
+def _git(root: Path, op: str, rel: str | None = None) -> subprocess.CompletedProcess[bytes]:
+    """Run one operation of the closed git table; ``rel`` only for the HEAD forms."""
+    if op in _GIT_FIXED:
+        tail = list(_GIT_FIXED[op])
+    elif op in _GIT_HEAD_PATH and rel is not None:
+        tail = [*_GIT_HEAD_PATH[op], f"HEAD:{_checked_rel(rel)}"]
+    else:
+        raise ChangelogError("unknown git operation")
+    argv = [_GIT, *_GIT_PREFIX, str(root), *tail]
+    return subprocess.run(argv, capture_output=True, check=False, shell=False)  # noqa: S603
+
+
+def _fragment_inputs(root: Path) -> list[str]:
+    """Return the changelog inputs, relative to the repository root."""
+    inputs = [CHANGELOG_NAME]
+    fragments_dir = root / FRAGMENTS_DIRNAME
+    if fragments_dir.is_dir():
+        inputs += [
+            f"{FRAGMENTS_DIRNAME}/{p.name}" for p in sorted(fragments_dir.iterdir())
+            if p.name not in _IGNORED
+        ]
+    return inputs
+
+
+def _check_input_at_head(root: Path, rel: str, message: str) -> None:
+    path = root / rel
+    if not path.is_file() or path.is_symlink():
+        return  # reported by the regular validation
+    if _git(root, "exists", rel).returncode != 0:
+        raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
+    committed = _git(root, "show", rel)
+    try:
+        current = path.read_bytes()
+    except OSError as exc:
+        raise ChangelogError(f"cannot read {rel}: {exc.strerror or exc}") from None
+    if committed.returncode != 0 or committed.stdout != current:
+        raise ChangelogError(f"{message} ({rel} differs from HEAD)")
 
 
 def require_clean_git(root: Path) -> None:
@@ -95,41 +162,20 @@ def require_clean_git(root: Path) -> None:
     """
     message = "commit or stash changelog changes before compiling"
     try:
-        top = _git(root, "rev-parse", "--show-toplevel")
+        top = _git(root, "toplevel")
         if top.returncode != 0 or os.path.realpath(top.stdout.decode().strip()) != os.path.realpath(root):
             raise ChangelogError(f"{message} (the repository root must be a git work tree)")
-        inputs = ["CHANGELOG.md"]
-        fragments_dir = root / "changelog.d"
-        if fragments_dir.is_dir():
-            inputs += [
-                f"changelog.d/{p.name}" for p in sorted(fragments_dir.iterdir())
-                if p.name not in _IGNORED
-            ]
-        for rel in inputs:
-            path = root / rel
-            if not path.is_file() or path.is_symlink():
-                continue  # reported by the regular validation
-            if _git(root, "cat-file", "-e", f"HEAD:{rel}").returncode != 0:
-                raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
-            committed = _git(root, "show", f"HEAD:{rel}")
-            try:
-                current = path.read_bytes()
-            except OSError as exc:
-                raise ChangelogError(f"cannot read {rel}: {exc.strerror or exc}") from None
-            if committed.returncode != 0 or committed.stdout != current:
-                raise ChangelogError(f"{message} ({rel} differs from HEAD)")
-        status = _git(
-            root, "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
-            "--", "changelog.d", "CHANGELOG.md",
-        )
+        for rel in _fragment_inputs(root):
+            _check_input_at_head(root, rel, message)
+        status = _git(root, "status")
     except OSError:
         raise ChangelogError(f"{message} (git is not available)") from None
     if status.returncode != 0 or status.stdout.strip():
         raise ChangelogError(message)
 
 
-def collect_fragments(fragments_dir: Path) -> list[Fragment]:
-    """Return validated ``(type, slug, path, body)`` tuples, sorted by slug."""
+def _check_fragments_dir(fragments_dir: Path) -> Path:
+    """Validate the directory and return its real base path."""
     if fragments_dir.is_symlink() or (
         hasattr(fragments_dir, "is_junction") and fragments_dir.is_junction()
     ):
@@ -139,46 +185,67 @@ def collect_fragments(fragments_dir: Path) -> list[Fragment]:
     base = Path(os.path.join(os.path.realpath(fragments_dir.parent), fragments_dir.name))
     if os.path.realpath(fragments_dir) != str(base):
         raise ChangelogError(f"{fragments_dir} must be a real directory directly under the repository root")
+    return base
+
+
+def _location_error(path: Path, base: Path, fragments_dir: Path) -> str | None:
+    if not stat.S_ISREG(os.lstat(path).st_mode):
+        return f"{path.name}: must be a regular file (no symlinks or directories)"
+    if Path(os.path.realpath(path)).parent != base:
+        return f"{path.name}: resolves outside {fragments_dir.name}/"
+    return None
+
+
+def _parse_name(path: Path) -> tuple[re.Match[str] | None, str | None]:
+    if path.name.startswith(TEMP_PREFIX):
+        return None, f"{path.name}: leftover from an interrupted compile; inspect it with git and remove it"
+    match = FRAGMENT_RE.fullmatch(path.name)
+    if not match:
+        return None, f"{path.name}: name must be <slug>.<type>.md (lowercase slug)"
+    ftype = match.group("type")
+    if ftype not in TYPES:
+        return None, f"{path.name}: unknown type '{ftype}' (expected one of {', '.join(TYPES)})"
+    return match, None
+
+
+def _read_body(path: Path) -> tuple[bytes, str, str | None]:
+    """Return raw bytes, the normalized body and an error message, if any."""
+    raw_bytes = path.read_bytes()
+    try:
+        raw = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw_bytes, "", f"{path.name}: not valid UTF-8"
+    if re.search(r"\r(?!\n)", raw):
+        return raw_bytes, "", f"{path.name}: bare carriage return (CR without LF) is not allowed"
+    body = raw.replace("\r\n", "\n").strip("\n")
+    return raw_bytes, body, _check_body(path.name, body)
+
+
+def _load_fragment(path: Path, base: Path, fragments_dir: Path) -> Fragment | str | None:
+    """Return a fragment, an error message, or None for an ignored file."""
+    problem = _location_error(path, base, fragments_dir)
+    if problem or path.name in _IGNORED:
+        return problem
+    match, problem = _parse_name(path)
+    if match is None:
+        return problem
+    raw_bytes, body, problem = _read_body(path)
+    if problem:
+        return problem
+    return (match.group("type"), match.group("slug"), path, body.rstrip(), raw_bytes)
+
+
+def collect_fragments(fragments_dir: Path) -> list[Fragment]:
+    """Return validated ``(type, slug, path, body)`` tuples, sorted by slug."""
+    base = _check_fragments_dir(fragments_dir)
     errors: list[str] = []
     found: list[Fragment] = []
     for path in sorted(fragments_dir.iterdir()):
-        mode = os.lstat(path).st_mode
-        if not stat.S_ISREG(mode):
-            errors.append(f"{path.name}: must be a regular file (no symlinks or directories)")
-            continue
-        if Path(os.path.realpath(path)).parent != base:
-            errors.append(f"{path.name}: resolves outside {fragments_dir.name}/")
-            continue
-        if path.name in _IGNORED:
-            continue
-        if path.name.startswith(TEMP_PREFIX):
-            errors.append(f"{path.name}: leftover from an interrupted compile; inspect it with git and remove it")
-            continue
-        match = FRAGMENT_RE.fullmatch(path.name)
-        if not match:
-            errors.append(f"{path.name}: name must be <slug>.<type>.md (lowercase slug)")
-            continue
-        ftype = match.group("type")
-        if ftype not in TYPES:
-            errors.append(
-                f"{path.name}: unknown type '{ftype}' (expected one of {', '.join(TYPES)})"
-            )
-            continue
-        raw_bytes = path.read_bytes()
-        try:
-            raw = raw_bytes.decode("utf-8")
-        except UnicodeDecodeError:
-            errors.append(f"{path.name}: not valid UTF-8")
-            continue
-        if re.search(r"\r(?!\n)", raw):
-            errors.append(f"{path.name}: bare carriage return (CR without LF) is not allowed")
-            continue
-        body = raw.replace("\r\n", "\n").strip("\n")
-        problem = _check_body(path.name, body)
-        if problem:
-            errors.append(problem)
-            continue
-        found.append((ftype, match.group("slug"), path, body.rstrip(), raw_bytes))
+        loaded = _load_fragment(path, base, fragments_dir)
+        if isinstance(loaded, str):
+            errors.append(loaded)
+        elif loaded is not None:
+            found.append(loaded)
     if errors:
         raise ChangelogError("\n".join(errors))
     found.sort(key=lambda item: item[1])
@@ -198,6 +265,36 @@ def render_section(version: str, date: str, fragments: list[Fragment]) -> str:
 DATED_HEADING_RE = re.compile(r"## \[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2}")
 
 
+def _structure_message() -> str:
+    return (
+        "CHANGELOG.md must start with '## [Unreleased]', the line '"
+        + POINTER
+        + "', a blank line, then a dated '## [X.Y.Z] - YYYY-MM-DD' release heading"
+    )
+
+
+def _check_pointer_section(text_lines: list[str]) -> tuple[int, int]:
+    """Validate the pointer section; return the indexes of its heading and the next."""
+    structure = _structure_message()
+    heads = [i for i, ln in enumerate(text_lines) if ln.startswith("## ")]
+    if len(heads) < 2 or text_lines[heads[0]] != "## [Unreleased]":
+        raise ChangelogError(structure)
+    first, nxt = heads[0], heads[1]
+    for ln in text_lines[:first]:
+        if ln.lstrip(" ").startswith(("```", "~~~", "<!--")):
+            raise ChangelogError(
+                "CHANGELOG.md has a code fence or HTML comment before the [Unreleased] pointer"
+            )
+    body = list(text_lines[first + 1 : nxt])
+    while body and not body[0].strip():
+        body.pop(0)
+    if len(body) < 2 or body[0] != POINTER or body[1].strip() or any(x.strip() for x in body[2:]):
+        raise ChangelogError(structure)
+    if not DATED_HEADING_RE.fullmatch(text_lines[nxt]):
+        raise ChangelogError(structure)
+    return first, nxt
+
+
 def insert_section(changelog: str, version: str, section: str) -> str:
     """Insert ``section`` directly below the ``[Unreleased]`` pointer section.
 
@@ -215,29 +312,8 @@ def insert_section(changelog: str, version: str, section: str) -> str:
         offsets.append(pos)
         pos += len(ln)
     text_lines = [ln.rstrip("\r\n") for ln in lines]
-    structure = (
-        "CHANGELOG.md must start with '## [Unreleased]', the line '"
-        + POINTER
-        + "', a blank line, then a dated '## [X.Y.Z] - YYYY-MM-DD' release heading"
-    )
-    heads = [i for i, ln in enumerate(text_lines) if ln.startswith("## ")]
-    if len(heads) < 2 or text_lines[heads[0]] != "## [Unreleased]":
-        raise ChangelogError(structure)
-    first, nxt = heads[0], heads[1]
-    for ln in text_lines[:first]:
-        if ln.lstrip(" ").startswith(("```", "~~~", "<!--")):
-            raise ChangelogError(
-                "CHANGELOG.md has a code fence or HTML comment before the [Unreleased] pointer"
-            )
-    body = [ln for ln in text_lines[first + 1 : nxt]]
-    while body and not body[0].strip():
-        body.pop(0)
-    if len(body) < 2 or body[0] != POINTER or body[1].strip() or any(x.strip() for x in body[2:]):
-        raise ChangelogError(structure)
-    if not DATED_HEADING_RE.fullmatch(text_lines[nxt]):
-        raise ChangelogError(structure)
-    release_line = lines[nxt]
-    eol = "\r\n" if release_line.endswith("\r\n") else "\n"
+    _first, nxt = _check_pointer_section(text_lines)
+    eol = "\r\n" if lines[nxt].endswith("\r\n") else "\n"
     end = offsets[nxt]
     return f"{changelog[:end]}{section.replace(chr(10), eol)}{eol}{changelog[end:]}"
 
@@ -301,6 +377,66 @@ def _restore(temp: Path, path: Path) -> str:
     return "restored"
 
 
+def _cleanup_one(path: Path, raw: bytes) -> tuple[str, str] | None:
+    """Delete one compiled fragment safely.
+
+    Returns None when deleted, else ``(bucket, item)`` for the report.
+    """
+    temp = path.with_name(TEMP_PREFIX + path.name)
+    try:
+        os.replace(path, temp)
+    except OSError:
+        return "unmoved", str(path)
+    unreadable_now = False
+    try:
+        same = temp.read_bytes() == raw
+    except OSError:
+        same = False
+        unreadable_now = True
+    if same:
+        try:
+            _unlink(temp)
+            return None
+        except OSError:
+            pass
+    state = _restore(temp, path)
+    if state == "both":
+        return "both", f"{path} and {temp}"
+    if state == "kept":
+        return "kept", str(temp)
+    if same:
+        return "undeleted", str(path)
+    return ("unreadable" if unreadable_now else "changed"), str(path)
+
+
+def _list_items(items: list[str]) -> str:
+    return "\n  ".join(items)
+
+
+# Bucket -> message builder (version, items), in the order the reports are printed.
+_REPORTS: tuple[tuple[str, Callable[[str, list[str]], str]], ...] = (
+    ("changed", lambda _v, items: (
+        "error: these fragments changed during compilation; their new text is not in "
+        "CHANGELOG.md and they were NOT deleted:\n  " + _list_items(items))),
+    ("unreadable", lambda _v, items: (
+        "error: these fragments could not be read back during cleanup, so they were NOT "
+        "deleted; check `git diff` before removing them:\n  " + _list_items(items))),
+    ("undeleted", lambda v, items: (
+        "error: CHANGELOG.md was updated; these fragments were already compiled into "
+        f"{v} but could not be deleted, remove them with `git rm`:\n  " + _list_items(items))),
+    ("both", lambda _v, items: (
+        "error: both the fragment and its temporary copy exist for these; compare them "
+        "with `git diff` and remove the `.compiling-` copy by hand:\n  " + _list_items(items))),
+    ("kept", lambda _v, items: (
+        "error: these fragments are kept under their temporary names; check `git diff` and "
+        "compare or rename them by hand:\n  " + _list_items(items))),
+    ("unmoved", lambda _v, items: (
+        "error: cleanup could not move these fragments aside; their committed text is "
+        "in CHANGELOG.md. Check `git diff -- <path>` before removing each one:\n  "
+        + _list_items([f"{p} (git diff -- {p})" for p in items]))),
+)
+
+
 def _remove_all(fragments: list[Fragment], version: str) -> int:
     """Delete compiled fragments safely.
 
@@ -309,84 +445,71 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
     only if its bytes equal the compiled bytes; otherwise it is given back its name
     when that name is free, and never overwrites anything.
     """
-    undeleted: list[str] = []
-    changed: list[str] = []
-    unmoved: list[str] = []
-    both: list[str] = []
-    unreadable: list[str] = []
-    kept: list[str] = []
+    buckets: dict[str, list[str]] = {name: [] for name, _build in _REPORTS}
     for _t, _s, path, _body, raw in fragments:
-        temp = path.with_name(TEMP_PREFIX + path.name)
-        try:
-            os.replace(path, temp)
-        except OSError:
-            unmoved.append(str(path))
-            continue
-        try:
-            same = temp.read_bytes() == raw
-        except OSError:
-            same = False
-            unreadable_now = True
-        else:
-            unreadable_now = False
-        if same:
-            try:
-                _unlink(temp)
-                continue
-            except OSError:
-                pass
-        state = _restore(temp, path)
-        if state == "both":
-            both.append(f"{path} and {temp}")
-        elif state == "kept":
-            kept.append(str(temp))
-        else:
-            (undeleted if same else unreadable if unreadable_now else changed).append(str(path))
+        outcome = _cleanup_one(path, raw)
+        if outcome is not None:
+            buckets[outcome[0]].append(outcome[1])
     status = 0
-    if changed:
+    for name, build in _REPORTS:
+        if buckets[name]:
+            print(build(version, buckets[name]), file=sys.stderr)
+            status = 1
+    return status
+
+
+def _listing(fragments: list[Fragment]) -> str:
+    return "\n  ".join(str(f[2]) for f in fragments)
+
+
+def _preflight(args: argparse.Namespace, fragments_dir: Path, changelog_path: Path) -> None:
+    if fragments_dir.is_symlink() or (
+        hasattr(fragments_dir, "is_junction") and fragments_dir.is_junction()
+    ):
+        raise ChangelogError(f"{fragments_dir} must not be a symlink or junction")
+    if changelog_path.is_symlink():
+        raise ChangelogError("CHANGELOG.md must not be a symlink")
+    if os.path.lexists(changelog_path) and not stat.S_ISREG(os.lstat(changelog_path).st_mode):
+        raise ChangelogError("CHANGELOG.md must be a regular file")
+    if not args.check and not args.dry_run:
+        require_clean_git(args.root)
+
+
+def _validate_release(args: argparse.Namespace, fragments: list[Fragment]) -> None:
+    if not args.version or not args.date:
+        raise ChangelogError("--version and --date are required unless --check is given")
+    if not VERSION_RE.fullmatch(args.version):
+        raise ChangelogError(f"invalid --version '{args.version}' (expected X.Y.Z)")
+    if not DATE_RE.fullmatch(args.date):
+        raise ChangelogError(f"invalid --date '{args.date}' (expected YYYY-MM-DD)")
+    if not fragments:
+        raise ChangelogError("no changelog fragments to compile")
+
+
+def _publish(changelog_path: Path, updated: str, fragments: list[Fragment], version: str) -> int:
+    try:
+        write_atomic(changelog_path, updated)
+    except OSError as exc:
         print(
-            "error: these fragments changed during compilation; their new text is not in "
-            "CHANGELOG.md and they were NOT deleted:\n  " + "\n  ".join(changed),
+            "error: could not write CHANGELOG.md (unchanged); fragments kept:\n  "
+            + _listing(fragments)
+            + f"\n({exc})",
             file=sys.stderr,
         )
-        status = 1
-    if unreadable:
+        return 1
+    try:
+        _fsync_dir(changelog_path.parent)
+    except OSError as exc:
         print(
-            "error: these fragments could not be read back during cleanup, so they were NOT "
-            "deleted; check `git diff` before removing them:\n  " + "\n  ".join(unreadable),
+            f"error: CHANGELOG.md was replaced but could not be confirmed durable ({exc}); "
+            "fragments were NOT deleted and are still present:\n  "
+            + _listing(fragments),
             file=sys.stderr,
         )
-        status = 1
-    if undeleted:
-        print(
-            f"error: CHANGELOG.md was updated; these fragments were already compiled into "
-            f"{version} but could not be deleted, remove them with `git rm`:\n  "
-            + "\n  ".join(undeleted),
-            file=sys.stderr,
-        )
-        status = 1
-    if both:
-        print(
-            "error: both the fragment and its temporary copy exist for these; compare them "
-            "with `git diff` and remove the `.compiling-` copy by hand:\n  " + "\n  ".join(both),
-            file=sys.stderr,
-        )
-        status = 1
-    if kept:
-        print(
-            "error: these fragments are kept under their temporary names; check `git diff` and "
-            "compare or rename them by hand:\n  " + "\n  ".join(kept),
-            file=sys.stderr,
-        )
-        status = 1
-    if unmoved:
-        print(
-            "error: cleanup could not move these fragments aside; their committed text is "
-            "in CHANGELOG.md. Check `git diff -- <path>` before removing each one:\n  "
-            + "\n  ".join(f"{p} (git diff -- {p})" for p in unmoved),
-            file=sys.stderr,
-        )
-        status = 1
+        return 1
+    status = _remove_all(fragments, version)
+    if status == 0:
+        print(f"compiled {len(fragments)} fragment(s) into CHANGELOG.md [{version}]")
     return status
 
 
@@ -399,60 +522,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent,
                         help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
-    fragments_dir = args.root / "changelog.d"
-    changelog_path = args.root / "CHANGELOG.md"
+    fragments_dir = args.root / FRAGMENTS_DIRNAME
+    changelog_path = args.root / CHANGELOG_NAME
     try:
-        if fragments_dir.is_symlink() or (
-            hasattr(fragments_dir, "is_junction") and fragments_dir.is_junction()
-        ):
-            raise ChangelogError(f"{fragments_dir} must not be a symlink or junction")
-        if changelog_path.is_symlink():
-            raise ChangelogError("CHANGELOG.md must not be a symlink")
-        if os.path.lexists(changelog_path) and not stat.S_ISREG(os.lstat(changelog_path).st_mode):
-            raise ChangelogError("CHANGELOG.md must be a regular file")
-        if not args.check and not args.dry_run:
-            require_clean_git(args.root)
+        _preflight(args, fragments_dir, changelog_path)
         fragments = collect_fragments(fragments_dir)
         if args.check:
             print(f"ok: {len(fragments)} changelog fragment(s) valid")
             return 0
-        if not args.version or not args.date:
-            raise ChangelogError("--version and --date are required unless --check is given")
-        if not VERSION_RE.fullmatch(args.version):
-            raise ChangelogError(f"invalid --version '{args.version}' (expected X.Y.Z)")
-        if not DATE_RE.fullmatch(args.date):
-            raise ChangelogError(f"invalid --date '{args.date}' (expected YYYY-MM-DD)")
-        if not fragments:
-            raise ChangelogError("no changelog fragments to compile")
+        _validate_release(args, fragments)
         section = render_section(args.version, args.date, fragments)
         updated = insert_section(_read_changelog(changelog_path), args.version, section)
         if args.dry_run:
             print(section)
             return 0
-        try:
-            write_atomic(changelog_path, updated)
-        except OSError as exc:
-            print(
-                f"error: could not write CHANGELOG.md (unchanged); fragments kept:\n  "
-                + "\n  ".join(str(f[2]) for f in fragments)
-                + f"\n({exc})",
-                file=sys.stderr,
-            )
-            return 1
-        try:
-            _fsync_dir(changelog_path.parent)
-        except OSError as exc:
-            print(
-                f"error: CHANGELOG.md was replaced but could not be confirmed durable ({exc}); "
-                "fragments were NOT deleted and are still present:\n  "
-                + "\n  ".join(str(f[2]) for f in fragments),
-                file=sys.stderr,
-            )
-            return 1
-        status = _remove_all(fragments, args.version)
-        if status == 0:
-            print(f"compiled {len(fragments)} fragment(s) into CHANGELOG.md [{args.version}]")
-        return status
+        return _publish(changelog_path, updated, fragments, args.version)
     except ChangelogError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

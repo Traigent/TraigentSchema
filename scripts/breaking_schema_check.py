@@ -57,16 +57,20 @@ import argparse
 import hashlib
 import hmac
 import json
+import math
 import re
 import subprocess
 import sys
+import uuid
 import tarfile
 import tempfile
 from collections import defaultdict
+from collections.abc import Iterator
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
-from urllib.parse import quote, urldefrag, urljoin, urlparse
+from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse
 
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT7
@@ -137,16 +141,24 @@ class Finding:
     subject: Any = None
     old: Any = None
     new: Any = None
+    # Digests of the old/new schema content, set only where `old`/`new` record a count or a
+    # presence flag (branch counts, added/removed members) and so cannot tell two different
+    # changes of the same shape apart. Part of the identity only when set, so every other
+    # rule keeps its existing fingerprints.
+    content: Any = None
 
     def identity(self) -> dict[str, Any]:
         """Return the structured, stable identity used by allowlist matching."""
-        return {
+        identity = {
             "pointer": self.pointer,
             "role": self.role,
             "subject": _canonical_value(self.subject),
             "old": _canonical_value(self.old),
             "new": _canonical_value(self.new),
         }
+        if self.content is not None:
+            identity["content"] = _canonical_value(self.content)
+        return identity
 
     def fingerprint(self) -> str:
         """Return a deterministic digest of the complete finding identity."""
@@ -157,6 +169,14 @@ class Finding:
         return (
             f"  [{tag}] {self.pointer}  ({self.rule}, role={self.role})\n            {self.message}"
         )
+
+
+def _finding_dict(finding: Finding) -> dict[str, Any]:
+    """JSON form of a finding; ``content`` appears only where it is part of the identity."""
+    data = dict(finding.__dict__)
+    if data.get("content") is None:
+        data.pop("content", None)
+    return data
 
 
 def emit(
@@ -171,6 +191,7 @@ def emit(
     subject: Any = None,
     old: Any = None,
     new: Any = None,
+    content: Any = None,
 ) -> None:
     findings.append(
         Finding(
@@ -183,6 +204,7 @@ def emit(
             subject=subject,
             old=old,
             new=new,
+            content=content,
         )
     )
 
@@ -211,6 +233,19 @@ def _canonical_json_bytes(value: Any) -> bytes:
 
 
 _STRUCTURED_IDENTITY_KEYS = frozenset({"pointer", "role", "subject", "old", "new"})
+_CONTENT_IDENTITY_KEY = "content"
+
+
+def content_digest(value: Any) -> str:
+    """SHA-256 of the canonical JSON of a schema fragment (None for an absent side)."""
+    return hashlib.sha256(_canonical_json_bytes(value)).hexdigest()
+
+
+def _content_pair(old: Any = None, new: Any = None) -> dict[str, str | None]:
+    return {
+        "old": None if old is None else content_digest(old),
+        "new": None if new is None else content_digest(new),
+    }
 
 
 def _fingerprint_for_identity(file: str, rule: str, identity: dict[str, Any]) -> str:
@@ -231,6 +266,7 @@ def _keyword_finding(
     subject: Any = None,
     old: Any = None,
     new: Any = None,
+    content: Any = None,
 ) -> None:
     """Route a single keyword-level diff through the role's mirror-image rule.
 
@@ -264,6 +300,7 @@ def _keyword_finding(
         subject=subject if subject is not None else keyword,
         old=old,
         new=new,
+        content=content,
     )
 
 
@@ -498,6 +535,14 @@ class _NodeScope:
     # additionalProperties); False below oneOf/anyOf/allOf branches, where narrowing a branch
     # can widen the whole.
     monotone: bool = True
+    # True while every ancestor maps monotonically to this node (root, properties, items,
+    # additionalProperties, definitions, allOf members): the only positions where a boolean
+    # subschema's accept-all/accept-nothing change decides the parent's direction. False below
+    # oneOf/anyOf (and anything else this differ does not recurse into).
+    boolean_rank: bool = True
+    # True once an ancestor's $ref chain was followed to reach this node: definitions declared
+    # below it are reported at their declaration, not again at every use site.
+    via_ref: bool = False
 
     def emit(self, pointer: str, rule: str, severity: Severity, message: str, **identity) -> None:
         emit(self.findings, self.file, pointer, rule, severity, self.role, message, **identity)
@@ -506,7 +551,13 @@ class _NodeScope:
         _keyword_finding(self.findings, self.file, pointer, self.role, keyword, **kwargs)
 
     def recurse(
-        self, old_raw: Any, new_raw: Any, pointer: str, *, monotone: bool = True
+        self,
+        old_raw: Any,
+        new_raw: Any,
+        pointer: str,
+        *,
+        monotone: bool = True,
+        boolean_rank: bool = True,
     ) -> None:
         compare_node(
             old_raw,
@@ -523,6 +574,8 @@ class _NodeScope:
             findings=self.findings,
             depth=self.depth + 1,
             monotone=self.monotone and monotone,
+            via_ref=self.via_ref,
+            boolean_rank=self.boolean_rank and boolean_rank,
         )
 
 
@@ -542,6 +595,8 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     findings: list[Finding],
     depth: int = 0,
     monotone: bool = True,
+    via_ref: bool = False,
+    boolean_rank: bool = True,
 ) -> None:
     scope = _NodeScope(
         old_base=old_base,
@@ -555,11 +610,22 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         findings=findings,
         depth=depth,
         monotone=monotone,
+        via_ref=via_ref,
+        boolean_rank=boolean_rank,
     )
     if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
+        # The shortcut judges only the node's own constraints; declarations that lived on the
+        # old node (and may have moved into an allOf member) are still contract surface.
+        _compare_definitions(scope, pointer, old_raw, new_raw)
+        _compare_nested_declarations(scope, pointer, old_raw, new_raw)
         return
+    # Definitions declared on this node are resolved against the node's own document, not
+    # against whatever its $ref points at, and stay addressable even when a $ref sits beside
+    # them, so they are walked from the raw node whether or not the $ref chain resolves.
+    declaring_scope = scope
     resolved = _resolve_node_pair(scope, old_raw, new_raw, pointer)
     if resolved is None:
+        _compare_definitions(declaring_scope, pointer, old_raw, new_raw)
         return
     old, new, scope = resolved
 
@@ -576,6 +642,52 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     _compare_items(scope, pointer, old, new)
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
+    _compare_definitions(declaring_scope, pointer, old_raw, new_raw)
+
+
+def _compare_nested_declarations(
+    scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any
+) -> None:
+    """Declarations at every depth below ``old_raw``, for the paths that return before the
+    ordinary walk reaches them (the allOf-narrowing shortcut): each old descendant's
+    definitions/$defs are compared with whatever sits at the same pointer in the new node
+    (nothing, when the object moved into an allOf member), so a removal is reported at any
+    depth. Literal values (enum, const, default, examples) are not schema positions."""
+
+    def walk(old: Any, new: Any, at: str, *, names: bool, root: bool = False) -> None:
+        if isinstance(old, list):
+            for index, item in enumerate(old):
+                new_item = new[index] if isinstance(new, list) and index < len(new) else None
+                walk(item, new_item, f"{at}/{index}", names=False)
+            return
+        if not isinstance(old, dict):
+            return
+        if not names and not root:
+            _compare_definitions(scope, at, old, new if isinstance(new, dict) else {})
+        for key, value in old.items():
+            if not names and _is_metadata_entry(key, value):
+                continue
+            new_child = new.get(key) if isinstance(new, dict) else None
+            if (
+                not names
+                and key in ("definitions", "$defs")
+                and isinstance(value, dict)
+            ):
+                # Entries absent on the new side are already reported as removed; their own
+                # nested declarations are part of that removal.
+                for name, entry in value.items():
+                    new_entry = new_child.get(name) if isinstance(new_child, dict) else None
+                    if new_entry is not None:
+                        walk(entry, new_entry, f"{at}/{key}/{name}", names=False)
+                continue
+            walk(
+                value if names else _named_children(key, value),
+                new_child,
+                f"{at}/{key}",
+                names=not names and _is_named_map(key, value),
+            )
+
+    walk(old_raw, new_raw, pointer, names=False, root=True)
 
 
 _ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
@@ -602,11 +714,51 @@ _LITERAL_KEYWORDS = frozenset(
     | {"title", "description", "$comment", "$schema", "$id"}
 )
 _NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
+# Maps whose keys are NAMES, never keywords, in the three metadata-skipping walks: schema maps
+# plus the OpenAPI maps keyed by status code, header or parameter name, media type, link or
+# callback name, or component name. A response header named ``x-widget-state`` or a status
+# ``default`` is a real entry. The x-*/literal skip applies only to the keys of a schema or
+# operation object itself; ``examples`` is skipped as a literal list but is a named map when
+# it is an object (OpenAPI).
+_NAMED_CHILD_KEYS = _NAME_MAP_KEYWORDS | frozenset(
+    {"responses", "headers", "parameters", "components", "links", "callbacks", "encoding"}
+    | {"content", "examples", "schemas", "requestBodies", "securitySchemes"}
+)
 _VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})
 
 
 def _is_literal_keyword(key: str) -> bool:
     return key in _LITERAL_KEYWORDS or key.startswith("x-")
+
+
+def _is_metadata_entry(key: str, value: Any) -> bool:
+    """True for a key of a schema/operation object that holds literal metadata, never a
+    reference or declaration (an object-valued ``examples`` is an OpenAPI named map)."""
+    if key == "examples" and isinstance(value, dict):
+        return False
+    return key in _VALUE_LITERAL_SKIP or _is_literal_keyword(key)
+
+
+_EXAMPLE_LITERAL_KEYS = frozenset({"value", "externalValue"})
+
+
+def _named_children(key: str, value: Any) -> Any:
+    """The children of a named map as the walks should see them: an OpenAPI Example Object's
+    ``value`` / ``externalValue`` is a literal, so a $ref inside it is never a reference."""
+    if key == "examples" and isinstance(value, dict):
+        return {
+            name: (
+                {k: v for k, v in entry.items() if k not in _EXAMPLE_LITERAL_KEYS}
+                if isinstance(entry, dict)
+                else entry
+            )
+            for name, entry in value.items()
+        }
+    return value
+
+
+def _is_named_map(key: str, value: Any) -> bool:
+    return key in _NAMED_CHILD_KEYS and isinstance(value, dict)
 
 
 _ALWAYS_REFUSED_KEYWORDS = frozenset(
@@ -807,6 +959,55 @@ def _is_response_narrowing_wrap(
     return False
 
 
+_VALIDATION_NEUTRAL_KEYS = frozenset(
+    {"description", "title", "$comment", "example", "examples", "default", "deprecated"}
+    | {"readOnly", "writeOnly"}
+)
+
+
+def _is_validation_neutral(key: str) -> bool:
+    return key in _VALIDATION_NEUTRAL_KEYS or key.startswith("x-")
+
+
+def _subschema_rank(value: Any) -> int | None:
+    """2 when the subschema certainly accepts everything (``true``, ``{}``, or an object of
+    annotation keywords only), 0 when it certainly accepts nothing (``false``, or ``not`` of an
+    accept-all schema, annotations aside); None for every other schema, whose meaning is not
+    decided here."""
+    if value is True:
+        return 2
+    if value is False:
+        return 0
+    if not isinstance(value, dict):
+        return None
+    rest = {k: v for k, v in value.items() if not _is_validation_neutral(k)}
+    if not rest:
+        return 2
+    if set(rest) == {"not"} and _subschema_rank(rest["not"]) == 2:
+        return 0
+    return None
+
+
+def _compare_boolean_subschema(scope: _NodeScope, pointer: str, old: Any, new: Any) -> bool:
+    """accept-all -> accept-nothing is NARROWING and the reverse is widening, routed through
+    the role's mirror-image rule like any keyword. Only transitions between those two certain
+    classes are handled (True when handled); every other change keeps the leaf_changed path."""
+    if not scope.boolean_rank:
+        return False
+    old_rank, new_rank = _subschema_rank(old), _subschema_rank(new)
+    if old_rank is None or new_rank is None or old_rank == new_rank:
+        return False
+    scope.keyword(
+        pointer,
+        "boolean_subschema_changed",
+        narrowed=new_rank < old_rank,
+        detail=f"subschema changed from {old!r} to {new!r}",
+        old=old,
+        new=new,
+    )
+    return True
+
+
 def _resolve_node_pair(
     scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
 ) -> tuple[dict, dict, _NodeScope] | None:
@@ -849,6 +1050,8 @@ def _resolve_node_pair(
         return None
 
     if not isinstance(old, dict) or not isinstance(new, dict):
+        if old != new and _compare_boolean_subschema(scope, pointer, old, new):
+            return None
         if old != new:
             scope.emit(
                 pointer,
@@ -873,6 +1076,9 @@ def _resolve_node_pair(
         new_base=new_base,
         old_visited=old_visited,
         new_visited=new_visited,
+        via_ref=scope.via_ref
+        or old_visited != scope.old_visited
+        or new_visited != scope.new_visited,
     )
     return old, new, resolved_scope
 
@@ -1086,14 +1292,16 @@ def _compare_properties(
     for name in sorted(set(old_props) | set(new_props)):
         child_pointer = f"{pointer}/properties/{name}"
         if name in old_props and name not in new_props:
-            _property_removed(scope, child_pointer, name, new_rank)
+            _property_removed(scope, child_pointer, name, new_rank, old_props[name])
         elif name not in old_props and name in new_props:
             _property_added(scope, child_pointer, name, old_rank, new_props[name], old)
         else:
             scope.recurse(old_props[name], new_props[name], child_pointer)
 
 
-def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank: int) -> None:
+def _property_removed(
+    scope: _NodeScope, child_pointer: str, name: str, new_rank: int, old_schema: Any = None
+) -> None:
     if new_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -1103,6 +1311,7 @@ def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank
             subject=name,
             old=True,
             new=False,
+            content=_content_pair(old=old_schema),
         )
     else:
         scope.emit(
@@ -1184,6 +1393,7 @@ def _request_narrowing_added(
         subject=subject,
         old=False,
         new=True,
+        content=_content_pair(new=new_schema),
     )
     return True
 
@@ -1226,6 +1436,7 @@ def _property_added(
             subject=name,
             old=False,
             new=True,
+            content=_content_pair(new=new_schema),
         )
     else:
         scope.emit(
@@ -1257,6 +1468,7 @@ def _compare_pattern_properties(
                 subject=pat,
                 old=True,
                 new=False,
+                content=_content_pair(old=old_pp[pat]),
             )
         elif pat not in old_pp and pat in new_pp:
             _pattern_property_added(scope, child_pointer, pat, old_rank, new_pp[pat], old)
@@ -1296,6 +1508,7 @@ def _pattern_property_added(
             subject=pat,
             old=False,
             new=True,
+            content=_content_pair(new=new_schema),
         )
     else:
         scope.emit(
@@ -1307,6 +1520,74 @@ def _pattern_property_added(
                 "old consumers already accepted matching unknown members"
             ),
         )
+
+
+# Per *_endpoints.json file: the unescaped document pointers under ``/paths/`` that another
+# file's $ref addresses. compare_trees sets it for the whole run.
+_EXPORTED_INLINE_POINTERS: ContextVar[dict[str, frozenset[str]]] = ContextVar(
+    "_EXPORTED_INLINE_POINTERS", default={}  # noqa: B039 - read-only default, never mutated
+)
+
+
+def _exported_inline_role(scope: _NodeScope, definition_pointer: str) -> Role | None:
+    """None when the definition is local to an inline schema of an operation in an
+    *_endpoints.json file (pointer under ``#/paths/``) that no other file's $ref addresses:
+    nothing outside that fragment can reach it. Otherwise ``conservative``: whoever reaches it
+    (directly or through any chain), it is judged in both directions, never as the declaring
+    operation's own role."""
+    wanted = definition_pointer[1:]
+    for ref in _EXPORTED_INLINE_POINTERS.get().get(scope.file, frozenset()):
+        if ref == wanted or ref.startswith(wanted + "/"):
+            return "conservative"
+    return None
+
+
+def _compare_definitions(scope: _NodeScope, pointer: str, old_raw: Any, new_raw: Any) -> None:
+    """definitions / $defs, read from the RAW node: a definition is a contract surface in its
+    own right (other files and consumers address it by JSON pointer, and a root that does not
+    $ref it never reaches it), so every member present on both sides is compared with the same
+    rules as any node, under a pointer such as
+    ``#/definitions/ExperimentRead/properties/agent_ref``. A removed definition is BREAKING in
+    every role, like a removed file: whatever resolved that pointer breaks. An added
+    definition is INFO. A change is reported at its declaration; where a response also
+    reaches it through a $ref, the use-site finding carries that use's own role and pointer,
+    so the two are distinct allowlist identities and are deliberately not merged."""
+    if scope.via_ref:
+        return
+    old, new = _as_dict(old_raw), _as_dict(new_raw)
+    for keyword in ("definitions", "$defs"):
+        old_defs = _as_dict(old.get(keyword))
+        new_defs = _as_dict(new.get(keyword))
+        for name in sorted(set(old_defs) | set(new_defs)):
+            child_pointer = f"{pointer}/{keyword}/{name}"
+            child_scope = scope
+            if child_pointer.startswith("#/paths/"):
+                exported_role = _exported_inline_role(scope, child_pointer)
+                if exported_role is None:
+                    continue
+                child_scope = replace(scope, role=exported_role)
+            if name in old_defs and name not in new_defs:
+                child_scope.emit(
+                    child_pointer,
+                    "definition_removed",
+                    "BREAKING",
+                    f"definition '{name}' removed from {keyword} — any $ref or consumer "
+                    "addressing it breaks",
+                    subject=name,
+                    old=True,
+                    new=False,
+                    content=_content_pair(old=old_defs[name]),
+                )
+            elif name not in old_defs:
+                child_scope.emit(
+                    child_pointer,
+                    "definition_added",
+                    "INFO",
+                    f"definition '{name}' added to {keyword}",
+                    subject=name,
+                )
+            else:
+                child_scope.recurse(old_defs[name], new_defs[name], child_pointer)
 
 
 def _compare_items(scope: _NodeScope, pointer: str, old: dict, new: dict) -> None:
@@ -1389,10 +1670,13 @@ def _compare_combinator_branches(
             subject=combinator,
             old=len(old_list),
             new=len(new_list),
+            content=_content_pair(old=old_list, new=new_list),
         )
         return
     for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
-        scope.recurse(ob, nb, f"{combinator_pointer}/{i}", monotone=False)
+        scope.recurse(
+            ob, nb, f"{combinator_pointer}/{i}", monotone=False, boolean_rank=combinator == "allOf"
+        )
 
 
 def _combinator_appeared(
@@ -1414,6 +1698,7 @@ def _combinator_appeared(
             subject=combinator,
             old=0,
             new=len(new_list),
+            content=_content_pair(new=new_list),
         )
 
 
@@ -1437,6 +1722,7 @@ def _combinator_disappeared(
             subject=combinator,
             old=len(old_list),
             new=0,
+            content=_content_pair(old=old_list),
         )
 
 
@@ -1835,27 +2121,76 @@ def _relpath_from_ref_string(current_file: str, ref: str) -> str | None:
     return "/".join(parts)
 
 
-def crawl_endpoint_roles(files: dict[str, Any]) -> dict[str, set[str]]:
+def _ref_target_file(
+    current_file: str, ref: str, by_uri: dict[str, str] | None, base: str | None
+) -> str | None:
+    """The schema file a $ref names: a document URI registered by a file's own ``$id`` wins
+    (so an intermediate schema reached through a custom ``$id`` stays in the role graph), else
+    the path-style resolution."""
+    if by_uri and not ref.startswith("#"):
+        document_uri = urldefrag(urljoin(base or SCHEMA_ID_BASE + current_file, ref))[0]
+        if document_uri in by_uri:
+            return by_uri[document_uri]
+    return _relpath_from_ref_string(current_file, ref)
+
+
+def uri_index(*trees: SchemaTree) -> dict[str, str]:
+    """document URI (a file's declared ``$id`` or its path-style URI) -> relpath."""
+    by_uri: dict[str, str] = {}
+    for tree in trees:
+        for relpath in tree.files:
+            declared = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
+            by_uri[urldefrag(declared)[0]] = relpath
+            by_uri[SCHEMA_ID_BASE + relpath] = relpath
+    return by_uri
+
+
+def crawl_endpoint_roles(
+    files: dict[str, Any],
+    by_uri: dict[str, str] | None = None,
+    base_uris: dict[str, str] | None = None,
+) -> dict[str, set[str]]:
     """Direct request/response role, straight from *_endpoints.json requestBody/responses/params."""
     direct: dict[str, set[str]] = defaultdict(set)
 
-    def walk(node: Any, current_file: str, context: str | None) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if key == "$ref" and isinstance(value, str) and context is not None:
-                    target = _relpath_from_ref_string(current_file, value)
-                    if target:
-                        direct[target].add(context)
-                    continue
-                next_context = context
-                if key == "requestBody" or key == "parameters":
-                    next_context = "request"
-                elif key == "responses":
-                    next_context = "response"
-                walk(value, current_file, next_context)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item, current_file, context)
+    def walk(start: Any, current_file: str, start_context: str | None) -> None:
+        # Iterative: a deeply nested schema must not exhaust the interpreter stack.
+        stack: list[tuple[Any, str | None, bool]] = [(start, start_context, False)]
+        while stack:
+            node, context, names = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if (
+                        not names
+                        and key == "$ref"
+                        and isinstance(value, str)
+                        and context is not None
+                    ):
+                        target = _ref_target_file(
+                            current_file, value, by_uri, (base_uris or {}).get(current_file)
+                        )
+                        if target:
+                            direct[target].add(context)
+                        continue
+                    # Literal values and x-* extensions are metadata, never references (the
+                    # same keys the declaration walk and the reference scan skip).
+                    if not names and _is_metadata_entry(key, value):
+                        continue
+                    next_context = context
+                    if not names and (key == "requestBody" or key == "parameters"):
+                        next_context = "request"
+                    elif not names and key == "responses":
+                        next_context = "response"
+                    stack.append(
+                        (
+                            value if names else _named_children(key, value),
+                            next_context,
+                            not names and _is_named_map(key, value),
+                        )
+                    )
+            elif isinstance(node, list):
+                for item in node:
+                    stack.append((item, context, False))
 
     for relpath, doc in files.items():
         if "_endpoints" not in Path(relpath).name:
@@ -1866,28 +2201,174 @@ def crawl_endpoint_roles(files: dict[str, Any]) -> dict[str, set[str]]:
     return dict(direct)
 
 
-def build_ref_graph(files: dict[str, Any]) -> dict[str, set[str]]:
+def build_ref_graph(
+    files: dict[str, Any],
+    by_uri: dict[str, str] | None = None,
+    base_uris: dict[str, str] | None = None,
+) -> dict[str, set[str]]:
     """file -> set of schema files it $refs anywhere (for transitive role propagation)."""
     graph: dict[str, set[str]] = defaultdict(set)
 
-    def walk(node: Any, current_file: str) -> None:
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if key == "$ref" and isinstance(value, str):
-                    target = _relpath_from_ref_string(current_file, value)
-                    if target and target != current_file:
-                        graph[current_file].add(target)
-                    continue
-                walk(value, current_file)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item, current_file)
+    def walk(start: Any, current_file: str) -> None:
+        stack: list[Any] = [start]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "$ref" and isinstance(value, str):
+                        target = _ref_target_file(
+                            current_file, value, by_uri, (base_uris or {}).get(current_file)
+                        )
+                        if target and target != current_file:
+                            graph[current_file].add(target)
+                        continue
+                    stack.append(value)
+            elif isinstance(node, list):
+                stack.extend(node)
 
     for relpath, doc in files.items():
         if "_endpoints" in Path(relpath).name:
             continue
         walk(doc, relpath)
     return dict(graph)
+
+
+def _iter_refs(node: Any, *, names: bool = False) -> Iterator[str]:
+    """Every $ref in schema positions. Literal values (enum, const, default, examples) and
+    x-* extension values are metadata, never references, so a $ref inside them is skipped
+    (the same keys the declaration walk skips). Keys of a properties-style map are names.
+    Iterative, so a deeply nested schema cannot exhaust the interpreter stack."""
+    stack: list[tuple[Any, bool]] = [(node, names)]
+    while stack:
+        current, current_names = stack.pop()
+        if isinstance(current, dict):
+            ref = current.get("$ref")
+            if isinstance(ref, str) and not current_names:
+                yield ref
+            children: list[tuple[Any, bool]] = []
+            for key, value in current.items():
+                if not current_names and _is_metadata_entry(key, value):
+                    continue
+                children.append(
+                    (
+                        value if current_names else _named_children(key, value),
+                        not current_names and _is_named_map(key, value),
+                    )
+                )
+            stack.extend(reversed(children))
+        elif isinstance(current, list):
+            stack.extend((value, False) for value in reversed(current))
+
+
+def _escape_pointer_token(token: Any) -> str:
+    """RFC 6901 escaping, so a key containing ``/`` cannot collide with a nested path."""
+    return str(token).replace("~", "~0").replace("/", "~1")
+
+
+def _nested_id_entries(doc: Any) -> list[tuple[str, str, str, Any]]:
+    """(pointer, keyword, id value, subschema) for every ``$id`` (or Draft-4 ``id``) string
+    BELOW the root of a document, in schema or operation positions. A nested resource id
+    re-bases the references inside it, which this checker does not model. Names (property
+    names, definition names, status codes) and literal positions (enum, const, default,
+    examples, x-*, example values) are skipped with the same helpers as the other walks.
+    Iterative (explicit stack, document order) so depth cannot exhaust the interpreter."""
+    found: list[tuple[str, str, str, Any]] = []
+    stack: list[tuple[Any, str, bool, bool]] = [(doc, "#", False, True)]
+    while stack:
+        node, at, names, root = stack.pop()
+        if isinstance(node, list):
+            stack.extend(
+                (item, f"{at}/{index}", False, False)
+                for index, item in reversed(list(enumerate(node)))
+            )
+            continue
+        if not isinstance(node, dict):
+            continue
+        if not names and not root:
+            for keyword in ("$id", "id"):
+                if isinstance(node.get(keyword), str):
+                    found.append((at, keyword, node[keyword], node))
+        children: list[tuple[Any, str, bool, bool]] = []
+        for key, value in node.items():
+            if not names and _is_metadata_entry(key, value):
+                continue
+            children.append(
+                (
+                    value if names else _named_children(key, value),
+                    f"{at}/{_escape_pointer_token(key)}",
+                    not names and _is_named_map(key, value),
+                    False,
+                )
+            )
+        stack.extend(reversed(children))
+    return found
+
+
+def nested_id_pointers(doc: Any) -> list[tuple[str, str]]:
+    """(pointer, keyword) for every nested ``$id``/``id``; see `_nested_id_entries`."""
+    return [(pointer, keyword) for pointer, keyword, _value, _node in _nested_id_entries(doc)]
+
+
+def _iterative_content_digest(value: Any) -> str:
+    """SHA-256 of a canonical, key-sorted serialization of ``value`` that never recurses,
+    so an arbitrarily deep subschema can be bound into a finding identity."""
+    digest = hashlib.sha256()
+    stack: list[Any] = [("v", value)]
+    while stack:
+        kind, item = stack.pop()
+        if kind == "t":
+            digest.update(item.encode("utf-8", errors="surrogatepass"))
+        elif isinstance(item, dict):
+            stack.append(("t", "}"))
+            for key in sorted(item, key=str, reverse=True):
+                stack.append(("v", item[key]))
+                stack.append(("t", json.dumps(str(key), ensure_ascii=False) + ":"))
+            stack.append(("t", "{"))
+        elif isinstance(item, (list, tuple)):
+            stack.append(("t", "]"))
+            for member in reversed(item):
+                stack.append(("v", member))
+            stack.append(("t", "["))
+        elif isinstance(item, float) and not math.isfinite(item):
+            token = "NaN" if math.isnan(item) else ("Infinity" if item > 0 else "-Infinity")
+            digest.update(b"float:" + token.encode("ascii"))
+        else:
+            encoded = json.dumps(item, ensure_ascii=False, allow_nan=False)
+            digest.update(encoded.encode("utf-8", errors="surrogatepass"))
+        if kind == "v" and isinstance(item, (dict, list, tuple)):
+            continue
+        digest.update(b",")
+    return digest.hexdigest()
+
+
+def exported_inline_pointers(*trees: SchemaTree) -> dict[str, frozenset[str]]:
+    """For each *_endpoints.json file, the unescaped document pointers under ``/paths/`` that a
+    $ref in a DIFFERENT file addresses, in ANY of the given trees. A ref is resolved against
+    the referencing file's own base URI, so one that names the document by a registered
+    ``$id`` differing from its path is found too. Each tree is read on its own and the sets
+    are unioned; edges are never joined across revisions.
+
+    Fail-safe rule: such a definition is public and is judged ``conservative`` (both
+    directions breaking) by its caller, however the reference chain reaches it. No consumer
+    role graph is built, so no chain shape can hide a request-breaking change; the price is
+    that a definition used only by response consumers is also held to the request rules (a
+    deliberate false-positive tradeoff)."""
+    exported: dict[str, set[str]] = defaultdict(set)
+    for tree in trees:
+        by_uri = uri_index(tree)
+        for relpath, doc in tree.files.items():
+            base = tree.file_base_uri.get(relpath, SCHEMA_ID_BASE + relpath)
+            for ref in _iter_refs(doc):
+                if "#" not in ref:
+                    continue
+                document_uri, fragment = urldefrag(urljoin(base, ref))
+                target = by_uri.get(document_uri) or _relpath_from_ref_string(relpath, ref)
+                if not target or target == relpath or "_endpoints" not in Path(target).name:
+                    continue
+                pointer = unquote(fragment).replace("~1", "/").replace("~0", "~")
+                if pointer.startswith("/paths/"):
+                    exported[target].add(pointer)
+    return {file: frozenset(pointers) for file, pointers in exported.items()}
 
 
 def propagate_roles(direct: dict[str, set[str]], graph: dict[str, set[str]]) -> dict[str, set[str]]:
@@ -1994,6 +2475,42 @@ def _relative_to_schemas_dir(repo_relative_path: str) -> str | None:
     if not repo_relative_path.startswith(prefix):
         return None
     return repo_relative_path[len(prefix) :]
+
+
+def _merge_base_or_self(repo_root: Path, base_ref: str, head_ref: str) -> str:
+    """The merge base of base_ref and head_ref (a commit sha), or base_ref itself when git
+    reports none (unrelated histories, shallow clone)."""
+    safe_repo_root = _resolve_repo_root(repo_root)
+    tree_type = subprocess.run(
+        ["git", "-C", str(safe_repo_root), "cat-file", "-t", f"{base_ref}:{SCHEMAS_SUBDIR}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    if tree_type != "tree":
+        return base_ref  # let the archive loader reject a base ref without a schemas tree
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(safe_repo_root),
+            "merge-base",
+            _safe_git_ref(base_ref, "--base-ref"),
+            _safe_git_ref(head_ref, "--head-ref"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    sha = result.stdout.strip()
+    if result.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        print(
+            f"WARNING: no merge base for {base_ref} and {head_ref}; comparing against "
+            f"{base_ref} directly",
+            file=sys.stderr,
+        )
+        return base_ref
+    return sha
 
 
 def changed_schema_files(
@@ -2117,14 +2634,18 @@ def _stored_identity_matches(
     # A structured acknowledgement is valid only when it contains exactly the
     # canonical identity fields plus a verified SHA-256 digest.  In particular,
     # a digest cannot be used to bless a later semantic edit to the identity.
-    if set(stored_identity) != _STRUCTURED_IDENTITY_KEYS | {"fingerprint"}:
+    stored_keys = set(stored_identity)
+    if stored_keys not in (
+        _STRUCTURED_IDENTITY_KEYS | {"fingerprint"},
+        _STRUCTURED_IDENTITY_KEYS | {"fingerprint", _CONTENT_IDENTITY_KEY},
+    ):
         return False
     stored_fingerprint = stored_identity.get("fingerprint")
     if not (
         isinstance(stored_fingerprint, str) and re.fullmatch(r"[0-9a-f]{64}", stored_fingerprint)
     ):
         return False
-    identity = {key: stored_identity[key] for key in _STRUCTURED_IDENTITY_KEYS}
+    identity = {key: stored_identity[key] for key in stored_keys - {"fingerprint"}}
     try:
         expected_fingerprint = _fingerprint_for_identity(entry["file"], entry["rule"], identity)
     except (TypeError, ValueError):
@@ -2225,11 +2746,16 @@ def compare_trees(
     changed: list[tuple[str, str]],
     allow_entries: list[dict[str, Any]],
 ) -> Report:
+    # Each revision resolves its references with its OWN URI index: a $id that moved at head
+    # must not reroute the base snapshot's references.
+    base_uri_index, head_uri_index = uri_index(base), uri_index(head)
     base_graph_roles = propagate_roles(
-        crawl_endpoint_roles(base.files), build_ref_graph(base.files)
+        crawl_endpoint_roles(base.files, base_uri_index, base.file_base_uri),
+        build_ref_graph(base.files, base_uri_index, base.file_base_uri),
     )
     head_graph_roles = propagate_roles(
-        crawl_endpoint_roles(head.files), build_ref_graph(head.files)
+        crawl_endpoint_roles(head.files, head_uri_index, head.file_base_uri),
+        build_ref_graph(head.files, head_uri_index, head.file_base_uri),
     )
     merged_graph_roles: dict[str, set[str]] = defaultdict(set)
     for src in (base_graph_roles, head_graph_roles):
@@ -2238,7 +2764,91 @@ def compare_trees(
 
     findings: list[Finding] = []
     role_notes: dict[str, tuple[str, str]] = {}
+    exported_token = _EXPORTED_INLINE_POINTERS.set(exported_inline_pointers(base, head))
+    try:
+        _compare_changed_files(
+            base, head, changed, merged_graph_roles, findings, role_notes
+        )
+    finally:
+        _EXPORTED_INLINE_POINTERS.reset(exported_token)
 
+    _emit_nested_id_findings(base, head, findings)
+
+    breaking = [f for f in findings if f.severity == "BREAKING"]
+    unacked: list[Finding] = []
+    acked: list[tuple[Finding, dict[str, Any]]] = []
+    near_miss: dict[int, list[tuple[dict[str, Any], str]]] = {}
+    for f in breaking:
+        match = find_allow_entry(f, allow_entries)
+        if match.entry is not None:
+            acked.append((f, match.entry))
+        else:
+            unacked.append(f)
+            if match.rejected:
+                near_miss[id(f)] = match.rejected
+
+    return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
+
+
+def _emit_nested_id_findings(base: SchemaTree, head: SchemaTree, findings: list[Finding]) -> None:
+    """Fail closed: a nested ``$id`` re-bases the references below it, which the reference
+    graph does not model. EVERY file of BOTH revisions is scanned, independently of the
+    graph and of what changed, so an unchanged bridge file cannot hide one; each (file,
+    pointer) is reported once, so a hit present in both revisions blocks every comparison
+    until it is acknowledged by an exact allowlist entry."""
+    # Per (file, pointer): the id value and the subschema digest of each revision, so an
+    # acknowledgement is bound to the content it reviewed. A changed id (which redirects the
+    # relative $refs below it) or a changed subschema needs a new acknowledgement.
+    per_side: dict[tuple[str, str], dict[str, Any]] = {}
+    for side, tree in (("old", base), ("new", head)):
+        for relpath in sorted(tree.files):
+            for pointer, keyword, value, node in _nested_id_entries(tree.files[relpath]):
+                slot = per_side.setdefault((relpath, pointer), {"keyword": keyword})
+                try:
+                    node_digest = _iterative_content_digest(node)
+                except Exception:  # fail closed: a unique token no acknowledgement can match
+                    node_digest = "unhashable-unacknowledgeable:" + uuid.uuid4().hex
+                slot.setdefault(side, []).append((keyword, value, node_digest))
+    for (relpath, pointer), slot in sorted(per_side.items()):
+        old, new = slot.get("old"), slot.get("new")
+
+        def _bind(entries: list[tuple[str, str, str]] | None) -> tuple[Any, Any]:
+            if not entries:
+                return None, None
+            if len(entries) == 1:
+                return entries[0][1], entries[0][2]
+            return (
+                sorted([e[0], e[1]] for e in entries),
+                sorted([e[0], e[2]] for e in entries),
+            )
+
+        old_value, old_digest = _bind(old)
+        new_value, new_digest = _bind(new)
+        emit(
+            findings,
+            relpath,
+            pointer,
+            "nested_id_unsupported",
+            "BREAKING",
+            "conservative",
+            f"nested {slot['keyword']} re-bases the references below it; this checker does "
+            "not model nested $id base URIs, so the change must be reviewed and "
+            "acknowledged",
+            subject=slot["keyword"],
+            old=old_value,
+            new=new_value,
+            content={"old": old_digest, "new": new_digest},
+        )
+
+
+def _compare_changed_files(
+    base: SchemaTree,
+    head: SchemaTree,
+    changed: list[tuple[str, str]],
+    merged_graph_roles: dict[str, set[str]],
+    findings: list[Finding],
+    role_notes: dict[str, tuple[str, str]],
+) -> None:
     for status, relpath in changed:
         if status == "A":
             emit(
@@ -2293,6 +2903,21 @@ def compare_trees(
                 new_reg=head.registry,
                 findings=findings,
             )
+            # Root-level definitions of an OpenAPI document are not reached by the paths walk.
+            compare_node(
+                {k: _as_dict(old_doc).get(k) for k in ("definitions", "$defs") if k in old_doc},
+                {k: _as_dict(new_doc).get(k) for k in ("definitions", "$defs") if k in new_doc},
+                old_base=old_base_uri,
+                new_base=new_base_uri,
+                old_reg=base.registry,
+                new_reg=head.registry,
+                old_visited=frozenset(),
+                new_visited=frozenset(),
+                pointer="#",
+                role="conservative",
+                file=relpath,
+                findings=findings,
+            )
         else:
             role, why = classify_file_role(relpath, merged_graph_roles.get(relpath, set()))
             role_notes[relpath] = (role, why)
@@ -2310,21 +2935,6 @@ def compare_trees(
                 file=relpath,
                 findings=findings,
             )
-
-    breaking = [f for f in findings if f.severity == "BREAKING"]
-    unacked: list[Finding] = []
-    acked: list[tuple[Finding, dict[str, Any]]] = []
-    near_miss: dict[int, list[tuple[dict[str, Any], str]]] = {}
-    for f in breaking:
-        match = find_allow_entry(f, allow_entries)
-        if match.entry is not None:
-            acked.append((f, match.entry))
-        else:
-            unacked.append(f)
-            if match.rejected:
-                near_miss[id(f)] = match.rejected
-
-    return Report(base.label, head.label, changed, findings, unacked, acked, near_miss, role_notes)
 
 
 def _suggest_allowlist_json(file: str, rule: str, group_findings: list[Finding]) -> str:
@@ -2477,7 +3087,15 @@ def main(argv: list[str] | None = None) -> int:
 
         with tempfile.TemporaryDirectory(prefix="breaking-schema-check-") as tmp:
             tmp_path = Path(tmp).resolve()
+            if head_ref:
+                # Compare from the merge base, as the workflow's change classifier does: a
+                # PR branch is charged only with what it changed, never with what the target
+                # branch added after the PR branched off.
+                requested_base_ref = base_ref
+                base_ref = _merge_base_or_self(repo_root, base_ref, head_ref)
             base_tree = load_tree_from_ref(repo_root, base_ref, tmp_path / "base", tmp_path)
+            if head_ref and base_ref != requested_base_ref:
+                base_tree.label = f"{requested_base_ref}@{base_ref[:12]}"
             if head_ref:
                 head_tree = load_tree_from_ref(repo_root, head_ref, tmp_path / "head", tmp_path)
             else:
@@ -2499,10 +3117,10 @@ def main(argv: list[str] | None = None) -> int:
                     "base": report.base_label,
                     "head": report.head_label,
                     "changed": report.changed,
-                    "findings": [f.__dict__ for f in report.findings],
-                    "breaking_unacked": [f.__dict__ for f in report.breaking_unacked],
+                    "findings": [_finding_dict(f) for f in report.findings],
+                    "breaking_unacked": [_finding_dict(f) for f in report.breaking_unacked],
                     "breaking_acked": [
-                        {"finding": f.__dict__, "allowlist_entry": e}
+                        {"finding": _finding_dict(f), "allowlist_entry": e}
                         for f, e in report.breaking_acked
                     ],
                 },

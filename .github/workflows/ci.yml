@@ -342,7 +342,7 @@ jobs:
         id: refs
         env:
           EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           MG_BASE_SHA: ${{ github.event.merge_group.base_sha }}
           MG_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
@@ -357,12 +357,12 @@ jobs:
             echo "base_ref=${MG_BASE_SHA}" >> "$GITHUB_OUTPUT"
             echo "head_sha=${MG_HEAD_SHA}" >> "$GITHUB_OUTPUT"
           else
-            if [ -z "$PR_BASE_REF" ] || [ -z "$PR_HEAD_SHA" ]; then
-              echo "::error::pull_request event missing base ref/head sha; refusing to run the gate"
+            if [ -z "$PR_BASE_SHA" ] || [ -z "$PR_HEAD_SHA" ]; then
+              echo "::error::pull_request event missing base/head sha; refusing to run the gate"
               exit 1
             fi
-            git fetch origin "$PR_BASE_REF"
-            echo "base_ref=origin/${PR_BASE_REF}" >> "$GITHUB_OUTPUT"
+            git fetch origin "$PR_BASE_SHA"
+            echo "base_ref=${PR_BASE_SHA}" >> "$GITHUB_OUTPUT"
             echo "head_sha=${PR_HEAD_SHA}" >> "$GITHUB_OUTPUT"
           fi
 

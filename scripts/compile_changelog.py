@@ -79,19 +79,44 @@ def _check_body(name: str, body: str) -> str | None:
     return None
 
 
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["git", "-c", "core.quotepath=off", "-C", str(root), *args],
+        capture_output=True, check=False,
+    )
+
+
 def require_clean_git(root: Path) -> None:
-    """Compile mode needs the inputs committed, so everything it removes is recoverable."""
+    """Compile mode needs every input committed at HEAD and unmodified.
+
+    The per-file check (tracked at HEAD, working-tree bytes equal to HEAD's) is the
+    guarantee; ``git status`` is only an extra refusal. Everything the compile removes
+    is then recoverable from git.
+    """
     message = "commit or stash changelog changes before compiling"
     try:
-        top = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, check=False,
-        )
-        if top.returncode != 0 or os.path.realpath(top.stdout.strip()) != os.path.realpath(root):
+        top = _git(root, "rev-parse", "--show-toplevel")
+        if top.returncode != 0 or os.path.realpath(top.stdout.decode().strip()) != os.path.realpath(root):
             raise ChangelogError(f"{message} (the repository root must be a git work tree)")
-        status = subprocess.run(
-            ["git", "-C", str(root), "status", "--porcelain", "--", "changelog.d", "CHANGELOG.md"],
-            capture_output=True, text=True, check=False,
+        inputs = ["CHANGELOG.md"]
+        fragments_dir = root / "changelog.d"
+        if fragments_dir.is_dir():
+            inputs += [
+                f"changelog.d/{p.name}" for p in sorted(fragments_dir.iterdir())
+                if p.name not in _IGNORED
+            ]
+        for rel in inputs:
+            path = root / rel
+            if not path.is_file() or path.is_symlink():
+                continue  # reported by the regular validation
+            if _git(root, "cat-file", "-e", f"HEAD:{rel}").returncode != 0:
+                raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
+            committed = _git(root, "show", f"HEAD:{rel}")
+            if committed.returncode != 0 or committed.stdout != path.read_bytes():
+                raise ChangelogError(f"{message} ({rel} differs from HEAD)")
+        status = _git(
+            root, "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
+            "--", "changelog.d", "CHANGELOG.md",
         )
     except OSError:
         raise ChangelogError(f"{message} (git is not available)") from None
@@ -255,17 +280,21 @@ def _read_changelog(path: Path) -> str:
         raise ChangelogError(f"cannot read {path.name}: {exc.strerror or exc}") from None
 
 
-def _restore(temp: Path, path: Path) -> bool:
-    """Give ``temp`` back its original name without ever overwriting a file."""
+def _restore(temp: Path, path: Path) -> str:
+    """Give ``temp`` back its original name without ever overwriting a file.
+
+    Returns ``restored``, ``both`` (linked, but the temporary name could not be
+    removed) or ``kept`` (could not link; only the temporary name exists).
+    """
     try:
         os.link(temp, path)
     except OSError:
-        return False
+        return "kept"
     try:
         os.unlink(temp)
     except OSError:
-        pass
-    return True
+        return "both"
+    return "restored"
 
 
 def _remove_all(fragments: list[Fragment], version: str) -> int:
@@ -279,6 +308,8 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
     undeleted: list[str] = []
     changed: list[str] = []
     unmoved: list[str] = []
+    both: list[str] = []
+    kept: list[str] = []
     for _t, _s, path, _body, raw in fragments:
         temp = path.with_name(TEMP_PREFIX + path.name)
         try:
@@ -296,11 +327,13 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
                 continue
             except OSError:
                 pass
-        if _restore(temp, path):
-            shown = str(path)
+        state = _restore(temp, path)
+        if state == "both":
+            both.append(f"{path} and {temp}")
+        elif state == "kept":
+            kept.append(str(temp))
         else:
-            shown = f"{temp} (the name {path} is taken or could not be restored; both paths are kept)"
-        (undeleted if same else changed).append(shown)
+            (undeleted if same else changed).append(str(path))
     status = 0
     if changed:
         print(
@@ -314,6 +347,20 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
             f"error: CHANGELOG.md was updated; these fragments were already compiled into "
             f"{version} but could not be deleted, remove them with `git rm`:\n  "
             + "\n  ".join(undeleted),
+            file=sys.stderr,
+        )
+        status = 1
+    if both:
+        print(
+            "error: both the fragment and its temporary copy exist for these; compare them "
+            "with `git diff` and remove the `.compiling-` copy by hand:\n  " + "\n  ".join(both),
+            file=sys.stderr,
+        )
+        status = 1
+    if kept:
+        print(
+            "error: these fragments are kept under their temporary names; check `git diff` and "
+            "compare or rename them by hand:\n  " + "\n  ".join(kept),
             file=sys.stderr,
         )
         status = 1
@@ -340,6 +387,8 @@ def main(argv: list[str] | None = None) -> int:
     fragments_dir = args.root / "changelog.d"
     changelog_path = args.root / "CHANGELOG.md"
     try:
+        if changelog_path.is_symlink():
+            raise ChangelogError("CHANGELOG.md must not be a symlink")
         if not args.check and not args.dry_run:
             require_clean_git(args.root)
         fragments = collect_fragments(fragments_dir)

@@ -45,10 +45,12 @@ The last command inserts a `## [X.Y.Z] - YYYY-MM-DD` section directly below the
 refuses when that version already has a section.
 
 Precondition: compiling (not `--check` or `--dry-run`) requires the repository root to
-be a git work tree with no uncommitted or untracked changes in `changelog.d/` and
-`CHANGELOG.md` (`git status --porcelain -- changelog.d CHANGELOG.md` prints nothing);
-otherwise it exits 2 with "commit or stash changelog changes before compiling". Every
-file it rewrites or removes is then recoverable from git. Run it from a single process
+be a git work tree in which `CHANGELOG.md` and every file in `changelog.d/` are tracked
+at HEAD with working-tree bytes equal to HEAD's (untracked, ignored or modified inputs
+are refused, whatever `git status` is configured to show); otherwise it exits 2 with
+"commit or stash changelog changes before compiling". `CHANGELOG.md` must not be a
+symlink in any mode. Every file it rewrites or removes is then recoverable from git.
+Run it from a single process
 on a quiet checkout. `--check` also reports any leftover `.compiling-*` file from an
 interrupted compile.
 

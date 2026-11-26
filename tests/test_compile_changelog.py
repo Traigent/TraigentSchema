@@ -662,7 +662,8 @@ def test_restore_never_overwrites_a_file_created_at_the_original_name(
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
     err = capsys.readouterr().err
     temp = root / "changelog.d" / ".compiling-b.added.md"
-    assert str(temp) in err and str(b) in err
+    assert str(temp) in err
+    assert "git rm" not in err.split(str(temp))[1].split("\n")[0]
     assert b.read_text() == "- fresh file from an editor\n"
     assert temp.read_bytes() == b"- changed while renamed\n"
 
@@ -690,3 +691,74 @@ def test_check_flags_a_leftover_compiling_file(root: Path, capsys: pytest.Captur
     (root / "changelog.d" / ".compiling-a.added.md").write_text("- x\n")
     assert run(root, "--check") == 2
     assert "leftover from an interrupted compile" in capsys.readouterr().err
+
+
+def test_ignored_fragment_refuses_compile(root: Path) -> None:
+    (root / ".gitignore").write_text("*.added.md\n")
+    commit_all(root)
+    f = frag(root, "a.added.md")
+    commit_all(root)  # git add -A skips the ignored file
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert f.exists()
+
+
+def test_untracked_fragment_refuses_even_when_status_hides_untracked_files(root: Path) -> None:
+    commit_all(root)
+    subprocess.run([*GIT, "-C", str(root), "config", "status.showUntrackedFiles", "no"], check=True)
+    f = frag(root, "a.added.md")
+    assert subprocess.run(
+        [*GIT, "-C", str(root), "status", "--porcelain", "--", "changelog.d"],
+        capture_output=True, text=True, check=True,
+    ).stdout == ""
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert f.exists()
+
+
+def test_symlinked_changelog_is_refused_in_every_mode(root: Path, tmp_path: Path) -> None:
+    frag(root, "a.added.md")
+    real = tmp_path.parent / (tmp_path.name + "-real-changelog.md")
+    real.write_text(BASE_CHANGELOG)
+    (root / "CHANGELOG.md").unlink()
+    (root / "CHANGELOG.md").symlink_to(real)
+    assert cc.main(["--root", str(root), "--check"]) == 2
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02", "--dry-run"]) == 2
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert real.read_text() == BASE_CHANGELOG
+
+
+def _edit_while_renamed(monkeypatch: pytest.MonkeyPatch) -> None:
+    real_replace = cc.os.replace
+
+    def replace_then_edit(src: object, dst: object) -> None:
+        real_replace(src, dst)
+        if Path(str(dst)).name.startswith(".compiling-"):
+            Path(str(dst)).write_bytes(b"- changed while renamed\n")
+
+    monkeypatch.setattr(cc.os, "replace", replace_then_edit)
+
+
+def test_restore_link_ok_but_unlink_fails_lists_both_paths(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    _edit_while_renamed(monkeypatch)
+    monkeypatch.setattr(cc.os, "unlink", lambda *_a, **_k: (_ for _ in ()).throw(OSError("busy")))
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    temp = root / "changelog.d" / ".compiling-b.added.md"
+    assert str(b) in err and str(temp) in err
+    assert b.exists() and temp.exists()
+
+
+def test_restore_link_failure_lists_only_the_temp_path_and_never_says_git_rm(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    _edit_while_renamed(monkeypatch)
+    monkeypatch.setattr(cc.os, "link", lambda *_a, **_k: (_ for _ in ()).throw(OSError("no links")))
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    temp = root / "changelog.d" / ".compiling-b.added.md"
+    assert str(temp) in err and str(b) not in err
+    assert "git diff" in err and "git rm" not in err
+    assert temp.read_bytes() == b"- changed while renamed\n"

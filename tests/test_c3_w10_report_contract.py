@@ -404,12 +404,13 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     for name in ("AggregatedResultRow", "RawExampleResultRow"):
         assert new["definitions"][name]["properties"]["trial_ref"] == {"$ref": ref}, name
     assert shared["$id"] == ref
-    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})(?![\\s\\S])"
+    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$"
+    assert "(?!" not in shared["pattern"]
     assert (shared["minLength"], shared["maxLength"]) == (22, 50)
     one = Draft7Validator(shared)
     assert one.is_valid("trial_0123456789abcdef")
     assert one.is_valid("configuration_run_" + "0f" * 16)
-    for bad in ("trial_1", "trial_" + "a" * 15, "trial_" + "a" * 17, "trial_10000", "configuration_run_" + "a" * 31, "configuration_run_" + "a" * 33, "configuration_run_" + "A" * 32, "configuration_run_1", "Configuration_run_" + "a" * 32, "trial_" + "a" * 16 + "\n", "configuration_run_" + "a" * 32 + "\n"):
+    for bad in ("trial_1", "trial_" + "a" * 15, "trial_" + "a" * 17, "trial_10000", "configuration_run_" + "a" * 31, "configuration_run_" + "a" * 33, "configuration_run_" + "A" * 32, "configuration_run_1", "Configuration_run_" + "a" * 32, "", "trial_" + "A" * 16):
         assert not one.is_valid(bad), bad
     assert "report-scoped" not in new["description"]
     assert "1-based" not in new["description"] and "1-based" not in shared["description"]
@@ -421,14 +422,46 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     assert "the closed 503" in desc
 
 
-def test_trailing_newline_is_rejected_on_report_refs_and_both_formats_are_accepted():
+def test_report_refs_reject_malformed_ids_and_both_trial_formats_are_accepted():
+    # Interim ruling: "$" patterns, no lookahead; trailing-newline hardening is Python-side.
     v = _validator("experiment_run_report_response_schema")
     d = _report()
     agg = d["aggregated_results"][0]
     for ref in ("trial_" + "0f" * 8, "configuration_run_" + "0f" * 16):
         row = {**agg, "trial_ref": ref}
         assert not list(v.iter_errors(_envelope({**d, "aggregated_results": [row]}))), ref
-        assert list(v.iter_errors(_envelope({**d, "aggregated_results": [{**agg, "trial_ref": ref + "\n"}]}))), ref
-    assert list(v.iter_errors(_envelope({**d, "provenance": {**d["provenance"], "run_id": REF + "\n"}})))
-    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid(REF + "\n")
-    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid("12345\n")
+    for bad in ("", "trial_" + "0f" * 7, "configuration_run_" + "0F" * 16, "run_" + "0f" * 16):
+        assert list(v.iter_errors(_envelope({**d, "aggregated_results": [{**agg, "trial_ref": bad}]}))), bad
+    path_ref = Draft7Validator(OP["parameters"][1]["schema"])
+    assert path_ref.is_valid(REF)
+    for bad in ("", "12345", REF[:-1], REF + "0", REF.upper(), "experiment_" + REF[len("experiment_run_"):], "experiment_bad_" + "0f" * 16):
+        assert not path_ref.is_valid(bad), bad
+    raw = d["raw_example_results"][0]
+    for ref in ("trial_" + "0f" * 8, "configuration_run_" + "0f" * 16):
+        assert not list(v.iter_errors(_envelope({**d, "raw_example_results": [{**raw, "trial_ref": ref}]}))), ref
+    for bad in ("", "trial_" + "0f" * 7, "trial_" + "0F" * 8, "configuration_run_" + "0f" * 15,
+                "configuration_run_" + "0F" * 16, "run_" + "0f" * 16):
+        assert list(v.iter_errors(_envelope({**d, "raw_example_results": [{**raw, "trial_ref": bad}]}))), bad
+    assert not list(v.iter_errors(_envelope({**d, "provenance": {**d["provenance"], "run_id": REF}})))
+    for bad in ("", "experiment_bad_" + "0f" * 16, REF[:-1], REF + "0"):  # correct prefix, wrong length too
+        assert list(v.iter_errors(_envelope({**d, "provenance": {**d["provenance"], "run_id": bad}}))), bad
+    assert list(v.iter_errors(_envelope({**d, "provenance": {**d["provenance"], "run_id": "12345"}})))
+
+
+def test_no_report_pattern_uses_a_lookahead():
+    def walk(n):
+        if isinstance(n, dict):
+            for k, val in n.items():
+                if k == "pattern" and isinstance(val, str):
+                    yield val
+                else:
+                    yield from walk(val)
+        elif isinstance(n, list):
+            for it in n:
+                yield from walk(it)
+
+    pats = [*walk(OP), *walk(_load("analytics/experiment_run_report_response_schema.json")),
+            *walk(_load("analytics/report_problem_schema.json")),
+            *walk(_load("analytics/experiment_run_trial_ref_schema.json"))]
+    assert pats
+    assert not [p for p in pats if "(?!" in p]

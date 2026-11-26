@@ -27,7 +27,7 @@
               "type": "string",
               "minLength": 47,
               "maxLength": 47,
-              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
               "description": "The experiment_run_ref of the run this decision summarizes (canonical response only)."
             }
           }

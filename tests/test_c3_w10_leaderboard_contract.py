@@ -34,7 +34,7 @@ MAX_BYTES = 1048576
 PROBLEM_FILE = "analytics/leaderboard_problem_schema.json"
 REF = "experiment_run_" + "0f" * 16
 TRIAL_REF_REF = "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
-NAME_POLICY = "^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S])"
+NAME_POLICY = "^[^\\x00-\\x1f\\x7f]{1,128}$"
 
 
 def _load(rel: str) -> dict:
@@ -309,7 +309,7 @@ def test_trial_ref_is_the_shared_persisted_reference():
     assert RESP["definitions"]["TrialRef"] == {"$ref": TRIAL_REF_REF}
     shared = _load("analytics/experiment_run_trial_ref_schema.json")
     assert shared["$id"] == TRIAL_REF_REF
-    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})(?![\\s\\S])"
+    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$"
     assert RESP["definitions"]["LeaderboardItem"]["properties"]["trial_ref"] == {"$ref": "#/definitions/TrialRef"}
     assert "configuration_run_ref" in RESP["description"]
     assert "not yet issued is the closed 503" in RESP["description"]
@@ -494,43 +494,36 @@ ALL_PATTERNS = (
 )
 
 
-def test_no_leaderboard_pattern_ends_in_a_dollar_anchor():
+def test_no_leaderboard_pattern_uses_a_lookahead():
+    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
     assert len(ALL_PATTERNS) >= 10
     for pat in ALL_PATTERNS:
-        assert not pat.endswith("$"), pat
-        assert pat.endswith("(?![\\s\\S])"), pat
+        assert "(?!" not in pat, pat
+        assert pat.endswith("$"), pat
 
 
-def test_a_trailing_newline_is_rejected_by_every_anchored_pattern():
-    import re
-
-    for pat in ALL_PATTERNS:
-        if not pat.endswith("(?![\\s\\S])"):
-            continue
-        # a pattern that matches some string must stop matching once "\n" is appended
-        body = pat[: -len("(?![\\s\\S])")]
-        sample = {
-            "^experiment_run_[0-9a-f]{32}": "experiment_run_" + "a" * 32,
-            "^[A-Za-z0-9_-]{1,512}": "abc",
-            "^[^\\x00-\\x1f\\x7f]{1,128}": "abc",
-        }.get(body)
-        if sample is None:
-            continue
-        assert re.search(pat, sample), pat
-        assert not re.search(pat, sample + "\n"), pat
-    trial = _load("analytics/experiment_run_trial_ref_schema.json")["pattern"]
-    for ok in ("trial_" + "a" * 16, "configuration_run_" + "b" * 32):
-        assert re.search(trial, ok) and not re.search(trial, ok + "\n")
+def test_every_leaderboard_ref_rejects_empty_and_malformed_ids_and_accepts_valid_ones():
+    path_ref = Draft7Validator(OP["parameters"][1]["schema"])
+    cursor = Draft7Validator(QUERY["cursor"]["schema"])
+    trial = Draft7Validator(_load("analytics/experiment_run_trial_ref_schema.json"))
+    assert path_ref.is_valid(REF) and cursor.is_valid("abc") and trial.is_valid("trial_" + "a" * 16)
+    assert trial.is_valid("configuration_run_" + "b" * 32)
+    for bad in ("", "12345", REF[:-1], REF + "0", REF.upper(), "experiment_" + "0f" * 16,
+                "experiment_bad_" + "0f" * 16):
+        assert not path_ref.is_valid(bad), bad
+    for bad in ("", "a b", "a" * 513):
+        assert not cursor.is_valid(bad), bad
+    for bad in ("", "trial_" + "a" * 15, "trial_" + "a" * 17, "trial_" + "A" * 16,
+                "configuration_run_" + "b" * 31, "configuration_run_" + "B" * 32, "run_" + "a" * 16):
+        assert not trial.is_valid(bad), bad
     v = _validator("experiment_run_leaderboard_response_schema")
     d = _page()
-    assert list(v.iter_errors(_env({**d, "run_id": REF + "\n"})))
-    assert list(v.iter_errors(_env({**d, "items": [{**_item(1), "trial_ref": "trial_" + "a" * 16 + "\n"}]})))
-    assert list(v.iter_errors(_env({**d, "pagination": {**d["pagination"], "next_cursor": "abc\n", "has_more": True}})))
-    assert list(v.iter_errors(_env({**d, "items": [{**_item(1), "measures": {"a\n": 1.0}}]})))
-    assert list(v.iter_errors(_env({**d, "warnings": ["objective_unavailable:cost; ranked by fallback measure x\n"]})))
-    assert list(v.iter_errors(_env({**d, "items": [_item(1, flags=["disqualified_by_constraint:x\n"])]})))
-    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid(REF + "\n")
-    assert not Draft7Validator(QUERY["cursor"]["schema"]).is_valid("abc\n")
+    assert not list(v.iter_errors(_env({**d, "run_id": REF})))
+    for bad in ("", "12345", REF[:-1], REF.upper()):
+        assert list(v.iter_errors(_env({**d, "run_id": bad}))), bad
+    assert list(v.iter_errors(_env({**d, "items": [{**_item(1), "trial_ref": ""}]})))
+    assert list(v.iter_errors(_env({**d, "pagination": {**d["pagination"], "next_cursor": "", "has_more": True}})))
+    assert list(v.iter_errors(_env({**d, "items": [{**_item(1), "measures": {"a\x00": 1.0}}]})))
 
 
 def test_description_names_both_issued_trial_ref_formats():

@@ -87,6 +87,9 @@ def test_path_parameters_and_ref_pattern():
     assert not ref.is_valid("experiment_run_abc")  # short
     assert not ref.is_valid("experiment_run_" + "a" * 33)  # long
     assert not ref.is_valid("experiment_" + "a" * 32)  # wrong prefix
+    assert not ref.is_valid("experiment_bad_" + "a" * 32)  # same length, wrong prefix
+    assert not ref.is_valid("")
+    assert "(?!" not in OP["parameters"][1]["schema"]["pattern"]
 
 
 def test_query_parameters_follow_the_backend_query_model():
@@ -239,11 +242,6 @@ def test_response_validates_and_is_closed():
         {**d, "measure_correlations": [{**_measure(), "y": "a\x7fb"}]},
         {**d, "parameter_correlations": [{**_param(), "parameter": "a\nb"}]},
         {**d, "parameter_correlations": [{**_param(), "parameter": "a\tb"}]},  # tab: stored name -> closed 503
-        {**d, "measure_correlations": [{**_measure(), "x": "name\n"}]},  # trailing newline, absolute end
-        {**d, "parameter_correlations": [{**_param(), "parameter": "name\n"}]},
-        {**d, "warnings": ["zero_variance:name\n"]},
-        {**d, "warnings": ["insufficient_samples:a~b\n"]},
-        {**d, "warnings": ["categorical_parameters_omitted:unordered_levels_have_no_signed_effect\n"]},
         {**d, "parameter_correlations": [{**_param(), "measure": "a\tb"}]},
     ):
         assert list(v.iter_errors(_envelope(bad))), bad
@@ -355,10 +353,10 @@ def test_stored_name_failing_the_pattern_is_the_closed_503_not_sanitized():
         assert "fails the name pattern" in text
         assert "tab" in text
     assert "never truncated and never sanitized" in OP["description"]
-    assert "(?![\\s\\S])" in _load(RESP_FILE)["description"]
+    assert "(?!" not in _load(RESP_FILE)["description"]
 
 
-def test_every_name_and_warning_pattern_ends_with_an_absolute_end():
+def test_no_name_or_warning_pattern_uses_a_lookahead():
     def walk(node):
         if isinstance(node, dict):
             for key, value in node.items():
@@ -373,8 +371,8 @@ def test_every_name_and_warning_pattern_ends_with_an_absolute_end():
     patterns = list(walk(_load(RESP_FILE)))
     assert len(patterns) == 7  # 4 names + 3 warning formats
     for pattern in patterns:
-        assert pattern.endswith("(?![\\s\\S])"), pattern
-        assert not pattern.endswith("$"), pattern
+        assert pattern.endswith("$"), pattern  # interim ruling: no lookahead (Pydantic v2 rust-regex)
+        assert "(?!" not in pattern, pattern
 
 
 def test_parameter_scan_exclusion_and_key_cap_are_stated():

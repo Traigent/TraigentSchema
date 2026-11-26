@@ -31,7 +31,7 @@
             "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
             "schema": {
               "type": "string",
-              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
               "minLength": 47,
               "maxLength": 47,
               "x-identifier": true
@@ -144,7 +144,7 @@
       "get": {
         "operationId": "experiment_run.get_run_leaderboard",
         "summary": "Get the ranked configuration leaderboard of one experiment run, paginated",
-        "description": "Pure read: returns one cursor page (items plus pagination) of the ranked configuration leaderboard of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/leaderboard. Query: limit (default 20, maximum 100; this replaces the backend's historical default 50 and maximum 200 of RunLeaderboardQuery, src/shared_infrastructure/schemas/run_analytics.py:86-91), cursor (opaque sealed string of at most 512 base64url characters), and the backend's own objective, weights, constraints and request_count (run_analytics.py:86-91); any other query parameter, including the retired page and offset, is rejected with the closed 400. Name policy: every measure name (weights and constraints keys, and stored metric names, wherever echoed in measures, ranking_basis, risk_flags and warnings) matches ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]); a query key outside it is the closed 400 (no echo) and a stored metric name outside it is the closed 503 for the run, never truncated. Weights: each weight is a number in [0, 1000]; a negative or larger weight is the closed 400, which replaces the builder's silent exclusion of negative weights; the composite score is computed over the weights normalized to sum to 1, so it is finite. When weights is given at least one weight must be greater than 0: all-zero weights (for example {\"accuracy\": 0}) are the closed 400 with no echo, and omitting weights keeps the default objective path. Each measure's min-max normalization is computed without overflow (values scaled by the largest absolute finite value before subtracting, or an equivalent exact method), so equal values score equal; the composite is a convex combination of normalized terms in [0, 1]. The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The ranking is computed over the full eligible population and then paginated, ordered by non-disqualified first, descending UNROUNDED composite_score (the displayed composite_score may be rounded), with ranks assigned after that order, so rank is a unique position across all pages; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any ranking-relevant configuration or metric write, read from the SAME snapshot as the ranked rows), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and label (internal id and its fallback), uses the shared persisted trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the ranked configuration leaderboard of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/leaderboard. Query: limit (default 20, maximum 100; this replaces the backend's historical default 50 and maximum 200 of RunLeaderboardQuery, src/shared_infrastructure/schemas/run_analytics.py:86-91), cursor (opaque sealed string of at most 512 base64url characters), and the backend's own objective, weights, constraints and request_count (run_analytics.py:86-91); any other query parameter, including the retired page and offset, is rejected with the closed 400. Name policy: every measure name (weights and constraints keys, and stored metric names, wherever echoed in measures, ranking_basis, risk_flags and warnings) matches ^[^\\x00-\\x1f\\x7f]{1,128}$; a query key outside it is the closed 400 (no echo) and a stored metric name outside it is the closed 503 for the run, never truncated. Weights: each weight is a number in [0, 1000]; a negative or larger weight is the closed 400, which replaces the builder's silent exclusion of negative weights; the composite score is computed over the weights normalized to sum to 1, so it is finite. When weights is given at least one weight must be greater than 0: all-zero weights (for example {\"accuracy\": 0}) are the closed 400 with no echo, and omitting weights keeps the default objective path. Each measure's min-max normalization is computed without overflow (values scaled by the largest absolute finite value before subtracting, or an equivalent exact method), so equal values score equal; the composite is a convex combination of normalized terms in [0, 1]. The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The ranking is computed over the full eligible population and then paginated, ordered by non-disqualified first, descending UNROUNDED composite_score (the displayed composite_score may be rounded), with ranks assigned after that order, so rank is a unique position across all pages; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any ranking-relevant configuration or metric write, read from the SAME snapshot as the ranked rows), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and label (internal id and its fallback), uses the shared persisted trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
         "x-max-response-bytes": 1048576,
         "x-asserted-against-backend": false,
         "parameters": [
@@ -165,7 +165,7 @@
             "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
             "schema": {
               "type": "string",
-              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
               "minLength": 47,
               "maxLength": 47,
               "x-identifier": true
@@ -190,7 +190,7 @@
             "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (objective, weights, constraints, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision (a per-run monotonic counter).",
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+              "pattern": "^[A-Za-z0-9_-]{1,512}$",
               "minLength": 1,
               "maxLength": 512
             }
@@ -215,7 +215,7 @@
             "name": "weights",
             "in": "query",
             "required": false,
-            "description": "JSON-object string of measure name to weight (at most 50 keys; keys match ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]), otherwise the closed 400 with no echo; backend _parse_numeric_map, run_analytics.py:24-56). Each weight is a number in [0, 1000]; a negative or larger weight is the closed 400 (replacing the builder's silent exclusion of negative weights); zero weights are dropped, but at least one weight must be greater than 0 (all-zero, e.g. {\"accuracy\": 0}, is the closed 400 with no echo; omit weights for the default objective path); the composite is computed over weights normalized to sum to 1. At most 8192 characters on the wire.",
+            "description": "JSON-object string of measure name to weight (at most 50 keys; keys match ^[^\\x00-\\x1f\\x7f]{1,128}$, otherwise the closed 400 with no echo; backend _parse_numeric_map, run_analytics.py:24-56). Each weight is a number in [0, 1000]; a negative or larger weight is the closed 400 (replacing the builder's silent exclusion of negative weights); zero weights are dropped, but at least one weight must be greater than 0 (all-zero, e.g. {\"accuracy\": 0}, is the closed 400 with no echo; omit weights for the default objective path); the composite is computed over weights normalized to sum to 1. At most 8192 characters on the wire.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -226,7 +226,7 @@
             "name": "constraints",
             "in": "query",
             "required": false,
-            "description": "JSON-object string of measure name to finite upper bound (at most 50 keys, keys match ^[^\\x00-\\x1f\\x7f]{1,128}(?![\\s\\S]), otherwise the closed 400 with no echo); a configuration above a bound, or missing the measure, is disqualified and ranked after all the others. At most 8192 characters on the wire.",
+            "description": "JSON-object string of measure name to finite upper bound (at most 50 keys, keys match ^[^\\x00-\\x1f\\x7f]{1,128}$, otherwise the closed 400 with no echo); a configuration above a bound, or missing the measure, is disqualified and ranked after all the others. At most 8192 characters on the wire.",
             "schema": {
               "type": "string",
               "minLength": 1,
@@ -359,7 +359,7 @@
       "get": {
         "operationId": "experiment_run.get_run_pareto",
         "summary": "Get the Pareto analysis of one experiment run, paginated",
-        "description": "Pure read: returns one cursor page (items plus pagination) of the Pareto frontier analysis of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/pareto. Query: limit (default 20, maximum 100), cursor (opaque sealed string of at most 512 base64url characters), x_measure, y_measure, request_count; any other query parameter, including the retired page and offset, is rejected with the closed 400. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The frontier, knee and shape are computed over the full population and then paginated; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); frontier ties are broken by ascending trial_ref (lexicographic) before ranks are assigned and dominated entries are ordered by ascending trial_ref (lexicographic); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any insert, update or delete of the run's configuration rows or their metrics), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and project_id (internal ids), uses the opaque run-scoped trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the Pareto frontier analysis of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/pareto. Query: limit (default 20, maximum 100), cursor (opaque sealed string of at most 512 base64url characters), x_measure, y_measure, request_count; any other query parameter, including the retired page and offset, is rejected with the closed 400. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The frontier, knee and shape are computed over the full population and then paginated; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); frontier ties are broken by ascending trial_ref (lexicographic) before ranks are assigned and dominated entries are ordered by ascending trial_ref (lexicographic); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any insert, update or delete of the run's configuration rows or their metrics), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and project_id (internal ids), uses the opaque run-scoped trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}$ (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
         "x-max-response-bytes": 1048576,
         "x-asserted-against-backend": false,
         "parameters": [
@@ -380,7 +380,7 @@
             "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
             "schema": {
               "type": "string",
-              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
               "minLength": 47,
               "maxLength": 47,
               "x-identifier": true
@@ -405,7 +405,7 @@
             "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (x_measure, y_measure, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision.",
             "schema": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_-]{1,512}(?![\\s\\S])",
+              "pattern": "^[A-Za-z0-9_-]{1,512}$",
               "minLength": 1,
               "maxLength": 512
             }
@@ -420,7 +420,7 @@
               "minLength": 1,
               "maxLength": 100,
               "default": "cost",
-              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}$"
             }
           },
           {
@@ -433,7 +433,7 @@
               "minLength": 1,
               "maxLength": 100,
               "default": "quality",
-              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}$"
             }
           },
           {
@@ -537,7 +537,7 @@
             }
           },
           "503": {
-            "description": "The Pareto analysis cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S]) (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+            "description": "The Pareto analysis cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}$ (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4591,7 +4591,7 @@
             "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
             "schema": {
               "type": "string",
-              "pattern": "^experiment_run_[0-9a-f]{32}(?![\\s\\S])",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
               "minLength": 47,
               "maxLength": 47,
               "x-identifier": true

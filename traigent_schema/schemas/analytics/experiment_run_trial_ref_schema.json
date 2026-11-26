@@ -4,7 +4,7 @@
   "title": "Experiment Run Trial Reference",
   "description": "The configuration run's issued public reference (configuration_runs.configuration_run_ref; backend infrastructure/migrations/versions/20261122_0001_configuration_run_ref_role_v1.py:1-24: sessions issue trial_ plus 16 hex, D5 never re-mint an issued reference, UNIQUE (tenant_id, configuration_run_ref), NULL until the 4d backfill). Two issued formats exist: trial_ plus 16 hex (issued by sessions; backend src/dal/configuration_run_dal.py:50) and configuration_run_ plus 32 hex (minted by mint_configuration_run_ref, configuration_run_dal.py:60, :345, called from src/services/configuration_run_service.py:238). Issued once, never re-minted, so it is stable across views, pages and deletion of other configurations. The internal id is never emitted. A canonical view of a run with any configuration whose reference is not yet issued is the closed 503 until the backfill completes (never a positional or synthetic stand-in). Shared by the report, Pareto, correlations and leaderboard views of one experiment run.",
   "type": "string",
-  "pattern": "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})(?![\\s\\S])",
+  "pattern": "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$",
   "minLength": 22,
   "maxLength": 50
 }

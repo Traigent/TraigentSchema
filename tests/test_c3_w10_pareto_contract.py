@@ -358,7 +358,7 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     assert RESP["definitions"]["TrialRef"] == {"$ref": ref}
     shared = _load("analytics/experiment_run_trial_ref_schema.json")
     assert shared["$id"] == ref
-    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})(?![\\s\\S])"
+    assert shared["pattern"] == "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$"
     assert (shared["minLength"], shared["maxLength"]) == (22, 50)
     assert Draft7Validator(shared).is_valid("trial_0123456789abcdef")
     assert Draft7Validator(shared).is_valid("configuration_run_" + "0f" * 16)
@@ -455,12 +455,12 @@ def test_deprecation_names_the_full_beta_route():
 def test_measure_names_reject_control_characters_and_warnings_use_the_same_class():
     for name in ("x_measure", "y_measure"):
         schema = QUERY[name]["schema"]
-        assert schema["pattern"] == "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+        assert schema["pattern"] == "^[^\\x00-\\x1f\\x7f]{1,100}$"
         v = Draft7Validator(schema)
         assert v.is_valid("total_cost")
         assert v.is_valid("a b.c-d")
         assert v.is_valid("x" * 100)
-        for bad in ("", "x" * 101, "cost\n", "a\nb", "a\x00b", "a\x1fb", "a\x7fb", "a\tb"):
+        for bad in ("", "x" * 101, "a\nb", "a\x00b", "a\x1fb", "a\x7fb", "a\tb"):
             assert not v.is_valid(bad), repr(bad)
     assert "control characters" in OP["responses"]["400"]["description"]
     warn = RESP["definitions"]["ParetoPage"]["properties"]["warnings"]["items"]["anyOf"][0]["pattern"]
@@ -469,9 +469,6 @@ def test_measure_names_reject_control_characters_and_warnings_use_the_same_class
     d = _page()
     assert not list(v.iter_errors(_env({**d, "warnings": ["measure_unavailable:name with spaces"]})))
     assert list(v.iter_errors(_env({**d, "warnings": ["measure_unavailable:a\nb"]})))
-
-
-END = "(?![\\s\\S])"
 
 
 def _all_patterns(node, out):
@@ -487,32 +484,41 @@ def _all_patterns(node, out):
     return out
 
 
-def test_every_w10_pattern_ends_at_an_absolute_end_anchor():
-    # Python's "$" also matches before a trailing newline; (?![\s\S]) is an absolute end in ECMA-262 and Python
+def test_no_w10_pattern_uses_a_lookahead():
+    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
     pats = _all_patterns(RESP, []) + _all_patterns(_load("analytics/experiment_run_trial_ref_schema.json"), [])
     pats += _all_patterns(OP, []) + _all_patterns(_load("analytics/experiment_run_report_response_schema.json"), [])
     pats += _all_patterns(CATALOG["paths"]["/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report"], [])
     assert len(pats) >= 10
     for pat in pats:
-        assert pat.endswith(END), pat
-        assert not pat.endswith("$"), pat
+        assert "(?!" not in pat, pat
+        assert pat.endswith("$"), pat
 
 
-def test_a_trailing_newline_is_rejected_everywhere():
+def test_every_pareto_ref_rejects_empty_and_malformed_ids_and_accepts_valid_ones():
     v = _validator("experiment_run_pareto_response_schema")
     d = _page()
-    assert not Draft7Validator(QUERY["x_measure"]["schema"]).is_valid("cost\n")
-    assert not Draft7Validator(QUERY["y_measure"]["schema"]).is_valid("quality\n")
-    assert not Draft7Validator(QUERY["cursor"]["schema"]).is_valid("c2Vh\n")
-    assert not Draft7Validator(OP["parameters"][1]["schema"]).is_valid(REF + "\n")
-    assert list(v.iter_errors(_env({**d, "warnings": ["measure_unavailable:cost\n"]})))
-    assert list(v.iter_errors(_env({**d, "warnings": ["non_finite_filtered:3\n"]})))
-    assert list(v.iter_errors(_env({**d, "run_id": REF + "\n"})))
-    assert list(v.iter_errors(_env({**d, "knee_ref": "trial_" + "a" * 16 + "\n"})))
+    path_ref = Draft7Validator(OP["parameters"][1]["schema"])
+    cursor = Draft7Validator(QUERY["cursor"]["schema"])
+    assert path_ref.is_valid(REF) and cursor.is_valid("c2Vh")
+    for bad in ("", "12345", REF[:-1], REF + "0", REF.upper(), "experiment_" + "0f" * 16,
+                "experiment_bad_" + "0f" * 16):
+        assert not path_ref.is_valid(bad), bad
+    for bad in ("", "a b", "a" * 513):
+        assert not cursor.is_valid(bad), bad
+    assert not list(v.iter_errors(_env({**d, "run_id": REF})))
+    for bad in ("", "12345", REF[:-1], REF.upper()):
+        assert list(v.iter_errors(_env({**d, "run_id": bad}))), bad
     f = _frontier(0, 1)
-    assert list(v.iter_errors(_env({**d, "items": [{**f, "trial_ref": "trial_" + "a" * 16 + "\n"}]})))
-    assert list(v.iter_errors(_env({**d, "items": [{**_dominated(3, 1), "dominated_by": "configuration_run_" + "a" * 32 + "\n"}]})))
-    assert list(v.iter_errors(_env({**d, "pagination": {**d["pagination"], "next_cursor": "c2Vh\n", "has_more": True}})))
+    bad_trials = ("", "trial_" + "a" * 15, "trial_" + "A" * 16, "configuration_run_" + "a" * 31, "configuration_run_" + "A" * 32,
+                "trial_bad_" + "a" * 16, "configuration_bad_" + "a" * 32, "configuration_run_" + "a" * 33)
+    for bad in bad_trials:
+        assert list(v.iter_errors(_env({**d, "knee_ref": bad}))), bad
+        assert list(v.iter_errors(_env({**d, "items": [{**f, "trial_ref": bad}]}))), bad
+        assert list(v.iter_errors(_env({**d, "items": [{**_dominated(3, 1), "dominated_by": bad}]}))), bad
+        assert list(v.iter_errors(_env({**d, "items": [{**_dominated(3, 1), "trial_ref": bad}]}))), bad
+    assert list(v.iter_errors(_env({**d, "pagination": {**d["pagination"], "next_cursor": "", "has_more": True}})))
+    assert list(v.iter_errors(_env({**d, "warnings": ["measure_unavailable:a\nb"]})))
     assert not list(v.iter_errors(_env({**d, "warnings": ["measure_unavailable:cost"]})))
 
 
@@ -532,11 +538,11 @@ def test_metric_keys_use_the_shared_name_class_and_a_stored_bad_name_is_the_503(
     d = _page()
     f = _frontier(0, 1)
     pn = RESP["definitions"]["Metrics"]["propertyNames"]["pattern"]
-    assert pn == QUERY["x_measure"]["schema"]["pattern"] == "^[^\\x00-\\x1f\\x7f]{1,100}(?![\\s\\S])"
+    assert pn == QUERY["x_measure"]["schema"]["pattern"] == "^[^\\x00-\\x1f\\x7f]{1,100}$"
     for ok in ("review score", "cost", "1st", "a.b-c", "\u00e9t\u00e9", "x" * 100):
         item = {**f, "metrics": {ok: 1.0}}
         assert not list(v.iter_errors(_env({**d, "items": [item]}))), ok
-    for bad in ("a\tb", "a\n", "cost\n", "a\x00b", "a\x7fb", "", "x" * 101):
+    for bad in ("a\tb", "a\x00b", "a\x7fb", "", "x" * 101):
         item = {**f, "metrics": {bad: 1.0}}
         assert list(v.iter_errors(_env({**d, "items": [item]}))), repr(bad)
     needle = "A stored metric name outside the shared name class"

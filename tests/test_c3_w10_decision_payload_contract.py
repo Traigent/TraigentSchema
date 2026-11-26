@@ -288,18 +288,19 @@ def _all_patterns(node):
             yield from _all_patterns(v)
 
 
-def test_no_pattern_ends_in_dollar_and_trailing_newline_is_rejected():
+def test_no_pattern_uses_a_lookahead_and_refs_reject_malformed_ids():
+    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead); the
+    # trailing-newline hardening is applied by the Python-side validators, not by the schema.
     ref = "experiment_run_" + "0f" * 16
     resp = _load("analytics/run_decision_payload_response_schema.json")
     patterns = [*_all_patterns(OP), *_all_patterns(resp), *_all_patterns(_load(PROBLEM_FILE))]
     assert patterns
-    assert not [p for p in patterns if p.endswith("$")]
+    assert not [p for p in patterns if "(?!" in p]
     path_ref = Draft7Validator(OP["parameters"][1]["schema"])
-    assert path_ref.is_valid(ref)
-    assert not path_ref.is_valid(ref + "\n")
-    v = _validator("run_decision_payload_response_schema")
-    for node in (resp["properties"]["data"]["allOf"][1]["properties"]["run_id"],):
-        field = Draft7Validator(node)
+    run_id = Draft7Validator(resp["properties"]["data"]["allOf"][1]["properties"]["run_id"])
+    for field in (path_ref, run_id):
         assert field.is_valid(ref)
-        assert not field.is_valid(ref + "\n")
-    del v
+        for bad in ("", "12345", "experiment_" + "0f" * 16, "experiment_run_" + "0f" * 15,
+                    "experiment_run_" + "0f" * 17, "experiment_run_" + "0F" * 16,
+                    "experiment_bad_" + "0f" * 16):  # same length as a valid ref: prefix rule alone
+            assert not field.is_valid(bad), bad

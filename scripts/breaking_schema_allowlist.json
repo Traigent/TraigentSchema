@@ -11343,7 +11343,7 @@
       ],
       "reason": "BREAKING PUBLIC CHANGE (pre-release). The configuration-run operations move to the canonical project paths and the old flat paths are removed: GET/POST /api/v1/configuration-runs/runs/{experiment_run_id}/configurations become GET/POST /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs; GET/PUT/DELETE /api/v1/configuration-runs/{config_run_id} become GET/PUT/DELETE /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}; the status, summary-stats, workflow-metadata and cancel sub-routes move under that same path; PUT .../measures becomes PUT .../measurement and its operation id configuration_run.update_configuration_run_measures becomes configuration_run.update_configuration_run_measurement. Request and response bodies are unchanged; project_id and the opaque references come from the path. Consumers: the Python SDK and the Backend, updated in the same release.",
       "version": "Unreleased",
-      "pr": "pending"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/773"
     }
   ]
 }

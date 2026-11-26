@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import pytest
 from jsonschema import Draft7Validator, FormatChecker
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
+
+_PRIVATE = re.compile(r"\.py\b|src/|_dal\b|_service\b|_bp\b|mint_|migrations?/|\d{8}_\d{4}_|[a-z_]+s\.[a-z_]+_id")
 
 S = get_schemas_dir()
 PATH = "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report"
@@ -321,6 +324,39 @@ def test_truncation_is_declared_through_the_required_meta_totals():
     assert "aggregated_results_total" in text
 
 
+def test_insight_and_warning_totals_are_integer_keys_of_the_open_meta_map():
+    v = _validator("experiment_run_report_response_schema")
+    d = _report()
+    ok = _envelope(d)
+    # absent: still valid; present as integer keys of the open meta map: valid (no new typed property)
+    assert not list(v.iter_errors(ok))
+    assert not list(v.iter_errors({**ok, "meta": {**_meta(), "insights_total": 80, "warnings_total": 2500}}))
+    assert not list(v.iter_errors({**ok, "meta": {**_meta(), "insights_total": 0, "warnings_total": 0}}))
+    # the open meta map is unchanged: extra scalar keys allowed, nested values and over-count rejected
+    assert not list(v.iter_errors({**ok, "meta": {**_meta(), "note": "x"}}))
+    assert list(v.iter_errors({**ok, "meta": {**_meta(), "note": {"nested": 1}}}))
+    assert list(v.iter_errors({**ok, "meta": {**_meta(), **{f"k{i}": 1 for i in range(7)}}}))
+    # no typed property was added (that would tighten the open map)
+    props = _load("analytics/experiment_run_report_response_schema.json")["definitions"]["MetaMap"]["properties"]
+    assert "insights_total" not in props and "warnings_total" not in props
+
+
+def test_truncation_order_and_over_length_warning_omission_are_stated():
+    text = _load("analytics/experiment_run_report_response_schema.json")["description"]
+    for phrase in (
+        "insights beyond 50 and warnings beyond 1000 are truncated server-side in a deterministic order",
+        "omitted (never cut, so no partial identifier is emitted)",
+        "the server reports the untruncated counts under the optional meta keys insights_total and warnings_total",
+    ):
+        assert phrase in text, phrase
+    assert "insights beyond 50 and warnings beyond 1000 are truncated server-side" in OP["description"]
+    assert "omitted (never cut" in OP["description"]
+    for t in (text, OP["description"]):
+        assert "a warning longer than 512 characters is omitted" in t
+        assert "counting omitted over-length warnings" in t
+    assert "warnings 1000 of at most 512 characters" in text
+
+
 def test_config_params_follow_the_sanitizer_shapes():
     v = _validator("experiment_run_report_response_schema")
     d = _report()
@@ -333,7 +369,7 @@ def test_config_params_follow_the_sanitizer_shapes():
     assert not list(v.iter_errors(with_params({"a": {"b": {"c": {"d": 1}}}})))
     assert not list(v.iter_errors(with_params({"a": {"b": {"c": ["x", 2, None, True]}}})))
     assert not list(v.iter_errors(with_params({"safe_nested": {"temperature": 0.2}})))
-    # the sanitizer emits {} and [] at its depth limit (config_redaction.py:157,172)
+    # the sanitizer emits {} and [] at its depth limit
     assert not list(v.iter_errors(with_params({"a": {"b": {"c": []}}})))
     assert not list(v.iter_errors(with_params({"a": {"b": {"c": {}}}})))
     assert not list(v.iter_errors(with_params({"a": {"b": {"c": {"d": []}}}})))
@@ -415,8 +451,7 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     assert "report-scoped" not in new["description"]
     assert "1-based" not in new["description"] and "1-based" not in shared["description"]
     desc = shared["description"]
-    assert "configuration_runs.configuration_run_ref" in desc
-    assert "20261122_0001_configuration_run_ref_role_v1.py:1-24" in desc
+    assert "the stored configuration-run reference" in desc and not _PRIVATE.search(desc)
     assert "Issued once, never re-minted" in desc
     assert "never a positional or synthetic stand-in" in desc
     assert "the closed 503" in desc
@@ -465,3 +500,24 @@ def test_no_report_pattern_uses_a_lookahead():
             *walk(_load("analytics/experiment_run_trial_ref_schema.json"))]
     assert pats
     assert not [p for p in pats if "(?!" in p]
+
+
+def test_trial_ref_description_lists_only_views_that_reference_it():
+    shared = _load("analytics/experiment_run_trial_ref_schema.json")["description"]
+    assert "Shared by the report, Pareto and leaderboard views" in shared
+    assert "correlations" not in shared
+    corr = json.dumps(_load("analytics/experiment_run_correlations_response_schema.json"))
+    assert "trial_ref" not in corr
+
+
+def test_meta_totals_wording_matches_what_the_schema_guarantees():
+    resp = _load("analytics/experiment_run_report_response_schema.json")
+    meta = resp["definitions"]["MetaMap"]
+    assert "insights_total" not in meta["required"] and "warnings_total" not in meta["required"]
+    texts = [resp["description"], resp["definitions"]["BoundedReport"]["properties"]["insights"]["description"] if "BoundedReport" in resp["definitions"] else "", OP["description"], json.dumps(resp)]
+    blob = " ".join(texts)
+    for stale in ("as the integers meta.insights_total", "as the integer meta.insights_total", "as the integer meta.warnings_total"):
+        assert stale not in blob, stale
+    assert "optional meta keys insights_total and warnings_total" in resp["description"]
+    assert "optional meta keys insights_total and warnings_total" in OP["description"]
+    assert "optional meta key insights_total" in blob and "optional meta key warnings_total" in blob

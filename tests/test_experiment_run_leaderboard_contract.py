@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import pytest
 from jsonschema import Draft7Validator, FormatChecker
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
+
+_PRIVATE = re.compile(r"\.py\b|src/|_dal\b|_service\b|_bp\b|mint_|migrations?/|\d{8}_\d{4}_|[a-z_]+s\.[a-z_]+_id")
 
 S = get_schemas_dir()
 PATH = "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard"
@@ -121,7 +124,7 @@ def test_path_parameters_and_ref_pattern():
 
 
 def test_query_vocabulary_matches_the_backend_query_model():
-    # backend RunLeaderboardQuery (src/shared_infrastructure/schemas/run_analytics.py:86-91): objective,
+    # the backend leaderboard query model: objective,
     # weights, constraints, request_count, limit; page/offset are replaced by the cursor
     assert set(QUERY) == {"limit", "cursor", "objective", "weights", "constraints", "request_count"}
     assert all(not p["required"] for p in QUERY.values())
@@ -138,7 +141,7 @@ def test_query_vocabulary_matches_the_backend_query_model():
     for text in (OP["description"], OP["responses"]["400"]["description"]):
         assert "page" in text and "offset" in text
     assert "any other query parameter" in OP["description"]
-    assert "run_analytics.py:86-91" in OP["description"]
+    assert "of the legacy leaderboard query" in OP["description"] and ".py" not in OP["description"]
 
 
 def test_limit_bounds_and_default_replace_the_backend_50_200():
@@ -234,10 +237,8 @@ def test_has_more_is_true_if_and_only_if_next_cursor_is_non_null():
 
 
 def test_field_set_matches_the_backend_builder():
-    # backend src/services/analytics/run_analytics_service.py:1465-1472 (payload keys: run_id,
-    # ranking_basis, configs, warnings) and :1449-1462 (config entry keys: rank, config_id, label,
-    # composite_score, measures, confidence, risk_flags, recommendation); route
-    # src/routes/analytics_runs_routes.py:119-142; query model run_analytics.py:86-91
+    # backend payload keys: run_id, ranking_basis, configs, warnings; config entry keys: rank,
+    # config_id, label, composite_score, measures, confidence, risk_flags, recommendation
     page = RESP["definitions"]["LeaderboardPage"]
     assert set(page["properties"]) == {"run_id", "ranking_basis", "items", "warnings", "pagination"}
     basis = page["properties"]["ranking_basis"]
@@ -249,8 +250,8 @@ def test_field_set_matches_the_backend_builder():
     assert set(RESP["definitions"]["LeaderboardItem"]["required"]) == set(
         RESP["definitions"]["LeaderboardItem"]["properties"]
     )
-    for cite in ("run_analytics_service.py:1400-1473", ":1449-1462", ":1466-1470"):
-        assert cite in RESP["description"] or cite in json.dumps(RESP)
+    assert "The fields mirror the backend's leaderboard analysis" in RESP["description"]
+    assert not re.search(r"\.py\b|\.py:\d|src/|:\d{3,}-\d{3,}", json.dumps(RESP))
     old = _load("analytics/run_leaderboard_schema.json")
     assert set(old["required"]) == {"run_id", "ranking_basis", "configs", "warnings"}  # untouched
 
@@ -412,7 +413,7 @@ def test_deprecated_path_points_at_the_successor_and_the_full_beta_route():
     assert OP_ID in old["description"]
     assert "{experiment_run_ref}/leaderboard" in old["description"]
     assert "/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/leaderboard" in old["description"]
-    assert "api_v1beta.py:111" in old["description"]
+    assert not _PRIVATE.search(old["description"])
     assert not OP.get("deprecated")
     assert old["responses"]["200"]["content"]["application/json"]["schema"]["$ref"] == "./run_leaderboard_response_schema.json"
 
@@ -467,12 +468,21 @@ def test_weights_are_bounded_normalized_and_the_score_sorts_unrounded():
     assert "UNROUNDED" in RESP["definitions"]["LeaderboardItem"]["properties"]["composite_score"]["description"]
 
 
+REVISION_RULE = (
+    "a per-run monotonic counter the backend increments in the same transaction as any insert or delete "
+    "of the run's configuration rows, and any update that changes a configuration row's analysis content "
+    "(its status, measures, summary_stats, experiment_parameters or metadata); writes that change none of "
+    "these (timestamps, workflow metadata, public-reference backfill, identical rewrites) do not change it"
+)
+
+
 def test_analysis_revision_is_a_monotonic_counter_from_the_same_snapshot():
     for text in (RESP["description"], OP["description"]):
         assert "per-run monotonic counter" in text
         assert "same transaction" in text
         assert "SAME snapshot as the ranked rows" in text
         assert "maximum configuration updated_at" not in text
+        assert REVISION_RULE in text
 
 
 def _patterns(node, out=None):
@@ -529,7 +539,7 @@ def test_every_leaderboard_ref_rejects_empty_and_malformed_ids_and_accepts_valid
 def test_description_names_both_issued_trial_ref_formats():
     for text in (RESP["description"],):
         assert "trial_ plus 16 lowercase hex or configuration_run_ plus 32 lowercase hex" in text
-        assert "mint_configuration_run_ref" in text
+        assert "minted by the backend" in text and not _PRIVATE.search(text)
     shared = _load("analytics/experiment_run_trial_ref_schema.json")
     assert "Two issued formats exist" in shared["description"]
 
@@ -553,7 +563,7 @@ def test_normalization_is_overflow_safe_and_a_convex_combination():
         assert "distinct finite values keep their order" not in text
         assert "equal values score equal" in text
         assert "convex combination" in text
-    assert "run_analytics_service.py:1555-1575" in RESP["description"]
+    assert "replacing the builder's range arithmetic" in RESP["description"] and ".py" not in RESP["description"]
     cs = RESP["definitions"]["LeaderboardItem"]["properties"]["composite_score"]["description"]
     assert "overflow-safe" in cs and "unrounded binary64 composite" in cs
     assert "distinct finite" not in cs
@@ -600,3 +610,14 @@ def test_one_tie_rule_identical_in_all_four_places_and_no_other_tie_wording():
         rest = text.replace(TIE_RULE, "")
         assert not re.search(r"\btie[- ]?break|\bties\b|\btie\b", rest, re.IGNORECASE), rest[:0] or re.findall(r".{40}\btie.{40}", rest)
         assert "as the tie-break" not in rest
+
+
+def test_cursor_failures_are_invalid_cursor_never_bad_request_in_the_wording():
+    desc = _load(PROBLEM_FILE)["description"]
+    bad, _, rest = desc.partition("BadRequestProblem is")
+    bad_sentence = rest.split("ServiceUnavailableProblem is", 1)[0]
+    assert "cursor" not in bad_sentence
+    assert "any invalid or stale cursor" in desc.split("InvalidCursorProblem", 1)[1]
+    text400 = OP["responses"]["400"]["description"]
+    head, _, tail = text400.partition("Any invalid or stale cursor")
+    assert "cursor" not in head and "is the closed invalid_cursor 400" in tail

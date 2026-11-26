@@ -59,7 +59,12 @@ Exit codes: 0 success; 2 a validation or usage error; 1 a failure after validati
 - CHANGELOG.md could not be written (it is left unchanged and the fragments are listed);
 - the directory could not be flushed to disk after the write (the fragments are kept
   and listed);
-- a compiled fragment could not be deleted (the remaining paths are listed; remove them
-  with `git rm`);
+- a compiled fragment could not be deleted (the remaining paths are listed; once
+  `git diff` shows nothing new in them, remove them by hand);
+- a fragment could only be kept under its hidden `.compiling-` name, or could not be
+  read back (the path is listed; compare it with `git diff` and rename or remove it by
+  hand, never with `git rm`);
 - a fragment was edited while compiling (CHANGELOG.md has the earlier text, the edited
   fragment is kept and listed, and its new text is not yet in CHANGELOG.md).
+
+Files kept under `.compiling-` names are listed as "kept under" their temporary names.

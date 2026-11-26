@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -762,3 +763,73 @@ def test_restore_link_failure_lists_only_the_temp_path_and_never_says_git_rm(
     assert str(temp) in err and str(b) not in err
     assert "git diff" in err and "git rm" not in err
     assert temp.read_bytes() == b"- changed while renamed\n"
+
+
+def test_non_regular_changelog_is_refused_in_every_mode(root: Path) -> None:
+    frag(root, "a.added.md")
+    (root / "CHANGELOG.md").unlink()
+    os.mkfifo(root / "CHANGELOG.md")
+    assert cc.main(["--root", str(root), "--check"]) == 2
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02", "--dry-run"]) == 2
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+
+
+def test_symlinked_fragment_directory_is_refused_before_any_git_or_file_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = tmp_path / "elsewhere"
+    real.mkdir()
+    (real / "a.added.md").write_text("- x\n")
+    base = tmp_path / "repo"
+    base.mkdir()
+    (base / "CHANGELOG.md").write_text(BASE_CHANGELOG)
+    (base / "changelog.d").symlink_to(real, target_is_directory=True)
+
+    def forbidden(*_a: object, **_k: object) -> None:
+        raise AssertionError("must not run git or read through a symlinked changelog.d")
+
+    monkeypatch.setattr(cc, "_git", forbidden)
+    assert cc.main(["--root", str(base), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+
+
+def test_read_error_during_cleanup_is_reported_as_a_read_error(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    b = frag(root, "b.added.md", "- beta\n")
+    real_read = Path.read_bytes
+
+    def flaky(self: Path) -> bytes:
+        if self.name.startswith(".compiling-"):
+            raise OSError("i/o error")
+        return real_read(self)
+
+    monkeypatch.setattr(Path, "read_bytes", flaky)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    err = capsys.readouterr().err
+    assert "could not be read" in err and "changed during compilation" not in err
+    assert b.exists() or (root / "changelog.d" / ".compiling-b.added.md").exists()
+
+
+def test_input_read_failure_is_not_reported_as_git_unavailable(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+    commit_all(root)
+    real_read = Path.read_bytes
+
+    def flaky(self: Path) -> bytes:
+        if self.name == "a.added.md":
+            raise OSError("permission denied")
+        return real_read(self)
+
+    monkeypatch.setattr(Path, "read_bytes", flaky)
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    err = capsys.readouterr().err
+    assert "cannot read" in err and "git is not available" not in err
+
+
+def test_readme_does_not_advise_git_rm_for_compiling_files() -> None:
+    text = (REPO_ROOT / "changelog.d" / "README.md").read_text()
+    for line in text.splitlines():
+        assert not (".compiling-" in line and "git rm" in line)
+    assert "kept under" in text and ".compiling-" in text

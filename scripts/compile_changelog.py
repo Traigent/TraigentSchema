@@ -112,7 +112,11 @@ def require_clean_git(root: Path) -> None:
             if _git(root, "cat-file", "-e", f"HEAD:{rel}").returncode != 0:
                 raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
             committed = _git(root, "show", f"HEAD:{rel}")
-            if committed.returncode != 0 or committed.stdout != path.read_bytes():
+            try:
+                current = path.read_bytes()
+            except OSError as exc:
+                raise ChangelogError(f"cannot read {rel}: {exc.strerror or exc}") from None
+            if committed.returncode != 0 or committed.stdout != current:
                 raise ChangelogError(f"{message} ({rel} differs from HEAD)")
         status = _git(
             root, "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
@@ -309,6 +313,7 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
     changed: list[str] = []
     unmoved: list[str] = []
     both: list[str] = []
+    unreadable: list[str] = []
     kept: list[str] = []
     for _t, _s, path, _body, raw in fragments:
         temp = path.with_name(TEMP_PREFIX + path.name)
@@ -321,6 +326,9 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
             same = temp.read_bytes() == raw
         except OSError:
             same = False
+            unreadable_now = True
+        else:
+            unreadable_now = False
         if same:
             try:
                 _unlink(temp)
@@ -333,12 +341,19 @@ def _remove_all(fragments: list[Fragment], version: str) -> int:
         elif state == "kept":
             kept.append(str(temp))
         else:
-            (undeleted if same else changed).append(str(path))
+            (undeleted if same else unreadable if unreadable_now else changed).append(str(path))
     status = 0
     if changed:
         print(
             "error: these fragments changed during compilation; their new text is not in "
             "CHANGELOG.md and they were NOT deleted:\n  " + "\n  ".join(changed),
+            file=sys.stderr,
+        )
+        status = 1
+    if unreadable:
+        print(
+            "error: these fragments could not be read back during cleanup, so they were NOT "
+            "deleted; check `git diff` before removing them:\n  " + "\n  ".join(unreadable),
             file=sys.stderr,
         )
         status = 1
@@ -387,8 +402,14 @@ def main(argv: list[str] | None = None) -> int:
     fragments_dir = args.root / "changelog.d"
     changelog_path = args.root / "CHANGELOG.md"
     try:
+        if fragments_dir.is_symlink() or (
+            hasattr(fragments_dir, "is_junction") and fragments_dir.is_junction()
+        ):
+            raise ChangelogError(f"{fragments_dir} must not be a symlink or junction")
         if changelog_path.is_symlink():
             raise ChangelogError("CHANGELOG.md must not be a symlink")
+        if os.path.lexists(changelog_path) and not stat.S_ISREG(os.lstat(changelog_path).st_mode):
+            raise ChangelogError("CHANGELOG.md must be a regular file")
         if not args.check and not args.dry_run:
             require_clean_git(args.root)
         fragments = collect_fragments(fragments_dir)

@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Some changes inside shared `definitions`/`$defs` were not flagged by the breaking-change check, and some of them narrow what consumers accept.
 - A fix that makes the check walk definitions is in progress.
 
-## [7.1.0] - 2026-10-29
+## [7.1.0] - 2026-11-03
 
 ### Added
 - **Certification data-flow mode `private_online` (additive minor).** `DataFlowModeV0` gains a third value, accepted by the unsigned manifest `privacy_mode.declared_mode`, the `bind-g1` request `declared_mode` enum and the Python relying-party verifier's closed mode set (`expected_privacy_mode`). Meaning: the server-recorded session privacy policy was active for the run and the run used the online Traigent backend; it does NOT attest complete SDK egress, customer-content confinement or zero egress, and it is derived by the server from its own stamp, never from a client declaration alone. `current_online` stays an explicitly client-declared, unwitnessed mode; `offline` stays reserved for a witnessed zero-backend-egress run (D2, unsupported in v0). The D2 payload constant and the fixed 14 non-claims are unchanged. Existing documents with `offline` or `current_online` validate unchanged. Parity manifest regenerated.

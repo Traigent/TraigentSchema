@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/agent_observation_record_schema.json",
+  "title": "agent_observation_record_schema.json",
+  "description": "Independent fields on an agent record (D4, A5): creation provenance, ownership and review state are three separate fields, not one mutually exclusive enum. An autonomously created agent can be owned and reviewed; 'owned' never implies 'reviewed'; every field has an explicit 'unknown'. Nothing in this schema constrains one field by another.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "agent_ref",
+    "creation_provenance",
+    "ownership_state",
+    "review_state"
+  ],
+  "properties": {
+    "agent_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/AgentRef"
+    },
+    "cluster_ref": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "fleet_observe_common_schema.json#/definitions/ClusterRef"
+        }
+      ]
+    },
+    "creation_provenance": {
+      "type": "string",
+      "enum": [
+        "human_created",
+        "autonomously_created",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Who or what created the agent."
+    },
+    "ownership_state": {
+      "type": "string",
+      "enum": [
+        "owned",
+        "unowned",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Whether a responsible owner is recorded. 'unowned' is the Observe-tier 'observed, unowned' state."
+    },
+    "review_state": {
+      "type": "string",
+      "enum": [
+        "reviewed",
+        "unreviewed",
+        "unknown"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Whether a human review is recorded."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/run_reference_review_response_schema.json",
+  "title": "Run Reference Review Success Response",
+  "description": "Platform success envelope for GET /api/v1/analytics/runs/{run_id}/reference-review. The reference review queue is nested under data.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "const": "Run reference review queue retrieved successfully"
+    },
+    "data": {
+      "$ref": "https://schemas.traigent.ai/analytics/run_reference_review_schema.json"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data"
+  ]
+}

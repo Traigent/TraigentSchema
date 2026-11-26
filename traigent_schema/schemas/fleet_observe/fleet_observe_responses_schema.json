@@ -1,0 +1,1418 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/fleet_observe_responses_schema.json",
+  "title": "fleet_observe_responses_schema.json",
+  "description": "Response envelopes of the six Fleet Observe routes (TRAIG-179), grounded in the API server. Standard {success, message, data} envelope; closed objects; refs, enums, digests, counts and timestamps only. Observability is not privacy-preserving; these shapes carry no customer text. Cross-field facts JSON Schema cannot state (aggregates equal to SQL counts over the snapshot, ranked lists bounded to 5000, cursors bound to one snapshot) are API server behaviour documented in reads.py.",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/ImportResponse"
+    },
+    {
+      "$ref": "#/definitions/ListClustersResponse"
+    },
+    {
+      "$ref": "#/definitions/GetClusterResponse"
+    },
+    {
+      "$ref": "#/definitions/CoverageResponse"
+    },
+    {
+      "$ref": "#/definitions/DiffResponse"
+    },
+    {
+      "$ref": "#/definitions/FindingsResponse"
+    },
+    {
+      "$ref": "#/definitions/ErrorBody"
+    },
+    {
+      "$ref": "#/definitions/RateLimitedBody"
+    },
+    {
+      "$ref": "#/definitions/RateLimitUnavailableBody"
+    },
+    {
+      "$ref": "#/definitions/AuthErrorBody"
+    }
+  ],
+  "definitions": {
+    "Snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "import_seq",
+        "as_of"
+      ],
+      "properties": {
+        "import_seq": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "as_of": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+            }
+          ]
+        }
+      },
+      "description": "The snapshot coordinate every read is pinned to: the highest import_seq of the project at read time (or the one carried in a cursor). as_of is null when the project has no import."
+    },
+    "Page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "x-content-class": "number"
+        },
+        "next_cursor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/Cursor"
+            }
+          ]
+        },
+        "has_more": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        }
+      }
+    },
+    "Cursor": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_-]+\\.[0-9a-f]{32}(?![\\s\\S])",
+      "x-content-class": "opaque_ref",
+      "description": "Opaque server-signed pagination cursor: base64url body, a dot and a 32-hex HMAC bound to the tenant and project. Pass it back unchanged."
+    },
+    "Truncation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ranked",
+        "ranked_bound",
+        "truncated",
+        "returned_through"
+      ],
+      "properties": {
+        "ranked": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "ranked_bound": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000000,
+              "x-content-class": "number"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        },
+        "returned_through": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        }
+      }
+    },
+    "ClusterSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cluster_ref",
+        "cluster_state",
+        "confidence",
+        "agent_ref",
+        "boundary",
+        "first_observed_at",
+        "last_observed_at",
+        "revision",
+        "member_count"
+      ],
+      "properties": {
+        "cluster_ref": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/ClusterRef"
+        },
+        "cluster_state": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "unknown"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "confidence": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/ConfidenceLevel"
+        },
+        "agent_ref": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/AgentRef"
+            }
+          ]
+        },
+        "boundary": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/ObservationBoundary"
+        },
+        "first_observed_at": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+        },
+        "last_observed_at": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000,
+          "x-content-class": "number"
+        },
+        "member_count": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        }
+      },
+      "description": "identity_cluster_schema.json fields plus member_count, minus members (see ClusterDetail). agent_ref is always null today: promotion to an agent record is a later release."
+    },
+    "ClusterPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "clusters",
+        "page",
+        "aggregates",
+        "truncation"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/Snapshot"
+        },
+        "clusters": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/ClusterSummary"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/Page"
+        },
+        "aggregates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clusters_total",
+            "members_total",
+            "by_state",
+            "by_confidence",
+            "matching_total"
+          ],
+          "properties": {
+            "clusters_total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "members_total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "by_state": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "candidate",
+                "unknown"
+              ],
+              "properties": {
+                "candidate": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "unknown": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                }
+              }
+            },
+            "by_confidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "high",
+                "medium",
+                "low",
+                "unknown"
+              ],
+              "properties": {
+                "high": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "medium": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "low": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "unknown": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                }
+              }
+            },
+            "matching_total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            }
+          }
+        },
+        "truncation": {
+          "$ref": "#/definitions/Truncation"
+        }
+      }
+    },
+    "ClusterDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "cluster",
+        "member_count",
+        "members_truncated"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/Snapshot"
+        },
+        "cluster": {
+          "$ref": "./identity_cluster_schema.json"
+        },
+        "member_count": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "members_truncated": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        }
+      }
+    },
+    "CoverageBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage",
+        "internal_import_total"
+      ],
+      "properties": {
+        "coverage": {
+          "$ref": "./coverage_ratio_schema.json"
+        },
+        "internal_import_total": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        }
+      }
+    },
+    "DenominatorNote": {
+      "const": "internal_import: no independent inventory, so no ratio is claimed",
+      "x-content-class": "closed_enum",
+      "type": "string"
+    },
+    "CoverageData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "boundaries",
+        "totals",
+        "truncation",
+        "denominator_note"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/Snapshot"
+        },
+        "boundaries": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/definitions/CoverageBoundary"
+          }
+        },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "boundaries_total",
+            "observed_count",
+            "unknown_count"
+          ],
+          "properties": {
+            "boundaries_total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "observed_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "unknown_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            }
+          }
+        },
+        "truncation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "truncated",
+            "boundary_limit"
+          ],
+          "properties": {
+            "truncated": {
+              "type": "boolean",
+              "x-content-class": "closed_enum"
+            },
+            "boundary_limit": {
+              "const": 200,
+              "type": "integer",
+              "x-content-class": "number"
+            }
+          }
+        },
+        "denominator_note": {
+          "$ref": "#/definitions/DenominatorNote"
+        }
+      }
+    },
+    "DiffData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "from_import_seq",
+        "to_import_seq",
+        "imports_in_range",
+        "new_clusters",
+        "changed_clusters",
+        "members_added",
+        "findings_new",
+        "coverage_state",
+        "denominator_note"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/Snapshot"
+        },
+        "from_import_seq": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "to_import_seq": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "imports_in_range": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "new_clusters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total",
+            "cluster_refs",
+            "truncated"
+          ],
+          "properties": {
+            "total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "cluster_refs": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 200,
+              "items": {
+                "$ref": "./fleet_observe_common_schema.json#/definitions/ClusterRef"
+              }
+            },
+            "truncated": {
+              "type": "boolean",
+              "x-content-class": "closed_enum"
+            }
+          }
+        },
+        "changed_clusters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total",
+            "cluster_refs",
+            "truncated"
+          ],
+          "properties": {
+            "total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "cluster_refs": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 200,
+              "items": {
+                "$ref": "./fleet_observe_common_schema.json#/definitions/ClusterRef"
+              }
+            },
+            "truncated": {
+              "type": "boolean",
+              "x-content-class": "closed_enum"
+            }
+          }
+        },
+        "members_added": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "findings_new": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+        },
+        "coverage_state": {
+          "const": "unknown",
+          "x-content-class": "closed_enum"
+        },
+        "denominator_note": {
+          "$ref": "#/definitions/DenominatorNote"
+        }
+      }
+    },
+    "FindingItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding",
+        "source"
+      ],
+      "properties": {
+        "finding": {
+          "$ref": "./finding_schema.json"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "import_event_ref",
+            "source_ref"
+          ],
+          "properties": {
+            "import_event_ref": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/ImportEventRef"
+            },
+            "source_ref": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/SourceRef"
+            }
+          }
+        }
+      }
+    },
+    "FindingsData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshot",
+        "findings",
+        "page",
+        "aggregates",
+        "rollup"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/definitions/Snapshot"
+        },
+        "findings": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/definitions/FindingItem"
+          }
+        },
+        "page": {
+          "$ref": "#/definitions/Page"
+        },
+        "aggregates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "findings_total",
+            "by_basis"
+          ],
+          "properties": {
+            "findings_total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "by_basis": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_in_multiple_clusters",
+                "credential_shared_across_clusters",
+                "workload_digest_mismatch"
+              ],
+              "properties": {
+                "member_in_multiple_clusters": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "credential_shared_across_clusters": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                },
+                "workload_digest_mismatch": {
+                  "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                }
+              }
+            }
+          }
+        },
+        "rollup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "surface_limit",
+            "total",
+            "surfaced",
+            "folded",
+            "groups"
+          ],
+          "properties": {
+            "surface_limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "x-content-class": "number"
+            },
+            "total": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "surfaced": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "folded": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "groups": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "basis",
+                  "total",
+                  "surfaced",
+                  "folded",
+                  "representative_finding_refs",
+                  "suppression_provenance"
+                ],
+                "properties": {
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "member_in_multiple_clusters",
+                      "credential_shared_across_clusters",
+                      "workload_digest_mismatch"
+                    ],
+                    "x-content-class": "closed_enum"
+                  },
+                  "total": {
+                    "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                  },
+                  "surfaced": {
+                    "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                  },
+                  "folded": {
+                    "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+                  },
+                  "representative_finding_refs": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 3,
+                    "items": {
+                      "$ref": "./fleet_observe_common_schema.json#/definitions/FindingRef"
+                    }
+                  },
+                  "suppression_provenance": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "grouped_under_representative",
+                      "budget"
+                    ],
+                    "x-content-class": "closed_enum"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ImportData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "import_event",
+        "evidence",
+        "outcome",
+        "replayed"
+      ],
+      "properties": {
+        "import_event": {
+          "$ref": "./import_event_schema.json"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_class",
+            "origin_trust_level"
+          ],
+          "properties": {
+            "evidence_class": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/EvidenceClass"
+            },
+            "origin_trust_level": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/TrustLevel"
+            }
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "import_seq",
+            "new_cluster_count",
+            "changed_cluster_count",
+            "unknown_member_count",
+            "conflict_count"
+          ],
+          "properties": {
+            "import_seq": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "new_cluster_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "changed_cluster_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "unknown_member_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            },
+            "conflict_count": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Count"
+            }
+          }
+        },
+        "replayed": {
+          "type": "boolean",
+          "x-content-class": "closed_enum"
+        }
+      },
+      "description": "The API server's import view  plus replayed. Not flat: import_event, evidence and outcome are sibling objects. replayed is true on the 200 replay of an already-accepted idempotency key, false on the 201."
+    },
+    "ImportResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Import accepted",
+            "Import already accepted"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/ImportData"
+        }
+      },
+      "description": "201 with 'Import accepted' and data.replayed false, or 200 with 'Import already accepted' and data.replayed true.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "message": {
+                "const": "Import accepted"
+              }
+            },
+            "required": [
+              "message"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "properties": {
+                  "replayed": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "message": {
+                "const": "Import already accepted"
+              }
+            },
+            "required": [
+              "message"
+            ]
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "properties": {
+                  "replayed": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ListClustersResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Clusters retrieved",
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/ClusterPage"
+        }
+      }
+    },
+    "GetClusterResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Cluster retrieved",
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/ClusterDetail"
+        }
+      }
+    },
+    "CoverageResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Coverage retrieved",
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/CoverageData"
+        }
+      }
+    },
+    "DiffResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Diff retrieved",
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/DiffData"
+        }
+      }
+    },
+    "FindingsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "const": true,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Findings retrieved",
+          "x-content-class": "closed_enum"
+        },
+        "data": {
+          "$ref": "#/definitions/FindingsData"
+        }
+      }
+    },
+    "ErrorBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "description": "Closed Fleet Observe error body (the API server's closed error body): one fixed message and error class per error_code; nothing the client sent is echoed. fleet_observe_idempotency_conflict (409) and fleet_observe_project_quota_exceeded (429) are PLANNED codes: the API server does not emit them yet, and their message wording here is a proposal the API server must match or amend through a Schema change first.",
+      "properties": {
+        "success": {
+          "const": false,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "The request is not valid.",
+            "Not found.",
+            "The idempotency key was already used with a different request.",
+            "The project import quota is exhausted.",
+            "Internal error.",
+            "The fleet view is unavailable. Retry later."
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "validation_error",
+            "not_found",
+            "conflict",
+            "quota_exceeded",
+            "internal_error",
+            "unavailable"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "fleet_observe_validation_failed",
+            "fleet_observe_not_found",
+            "fleet_observe_idempotency_conflict",
+            "fleet_observe_project_quota_exceeded",
+            "fleet_observe_internal_error",
+            "fleet_observe_unavailable"
+          ],
+          "x-content-class": "closed_enum"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_validation_failed"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "The request is not valid."
+              },
+              "error": {
+                "const": "validation_error"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_not_found"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "Not found."
+              },
+              "error": {
+                "const": "not_found"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_idempotency_conflict"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "The idempotency key was already used with a different request."
+              },
+              "error": {
+                "const": "conflict"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_project_quota_exceeded"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "The project import quota is exhausted."
+              },
+              "error": {
+                "const": "quota_exceeded"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_internal_error"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "Internal error."
+              },
+              "error": {
+                "const": "internal_error"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "fleet_observe_unavailable"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "message": {
+                "const": "The fleet view is unavailable. Retry later."
+              },
+              "error": {
+                "const": "unavailable"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RateLimitedBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code",
+        "details"
+      ],
+      "properties": {
+        "success": {
+          "const": false,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Rate limit exceeded",
+            "Too many requests for this operation. Please retry later."
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "error": {
+          "const": "Too many requests",
+          "x-content-class": "closed_enum"
+        },
+        "error_code": {
+          "const": "RATE_LIMIT_EXCEEDED",
+          "x-content-class": "closed_enum"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope",
+            "retry_after"
+          ],
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": [
+                "expensive_bulk",
+                "global",
+                "api"
+              ],
+              "x-content-class": "closed_enum"
+            },
+            "retry_after": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400,
+              "x-content-class": "number"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000,
+              "x-content-class": "number"
+            },
+            "remaining": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000,
+              "x-content-class": "number"
+            }
+          }
+        }
+      },
+      "description": "The 429 the shared limiter answers (Retry-After header set). The per-operation import limiter sends the long message with scope expensive_bulk plus limit and remaining (also as X-RateLimit-* headers); the platform middleware and global handlers send 'Rate limit exceeded' with only scope and retry_after. Other middleware scope names, if any, are not enumerated here."
+    },
+    "RateLimitUnavailableBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "const": "Internal server error",
+          "x-content-class": "closed_enum"
+        },
+        "error": {
+          "const": "Internal server error",
+          "x-content-class": "closed_enum"
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "RATE_LIMIT_UNAVAILABLE",
+            "INTERNAL_SERVER_ERROR"
+          ],
+          "x-content-class": "closed_enum"
+        }
+      },
+      "description": "A 5xx the platform masks: the limiter's fail-closed 503 (error_code RATE_LIMIT_UNAVAILABLE; its own message and details are replaced by the generic 5xx mask) and any unhandled 5xx (INTERNAL_SERVER_ERROR). Applies to every route."
+    },
+    "AuthErrorBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "message",
+        "error",
+        "error_code"
+      ],
+      "properties": {
+        "success": {
+          "const": false,
+          "x-content-class": "closed_enum"
+        },
+        "message": {
+          "type": "string",
+          "enum": [
+            "Unauthorized",
+            "Authentication required",
+            "Session has been revoked",
+            "Account is deactivated"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "INVALID_TOKEN",
+            "AUTHENTICATION_REQUIRED",
+            "TOKEN_EXPIRED",
+            "AUTH_TEST_TOKEN_BLOCKED",
+            "TOKEN_REVOKED",
+            "ACCOUNT_DEACTIVATED"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "INVALID_TOKEN",
+            "AUTHENTICATION_REQUIRED",
+            "TOKEN_EXPIRED",
+            "AUTH_TEST_TOKEN_BLOCKED",
+            "TOKEN_REVOKED",
+            "ACCOUNT_DEACTIVATED"
+          ],
+          "x-content-class": "closed_enum"
+        }
+      },
+      "description": "401 from the shared authentication layer or middleware. The route wrapper rewrites only 403 and 404 to the closed 404, so a 401 keeps its status. error equals error_code. The message is fixed per code: 'Unauthorized' (the authentication layer, for the token codes) or 'Authentication required' (the request middleware, for a missing or malformed credential, codes AUTHENTICATION_REQUIRED and INVALID_TOKEN); TOKEN_REVOKED and ACCOUNT_DEACTIVATED carry their own fixed messages. Other 401 failures (for example the test-authentication bypass denial, or a token error with a dynamic message) may carry other fixed codes and messages that are not enumerated here.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "INVALID_TOKEN"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "INVALID_TOKEN"
+              },
+              "message": {
+                "enum": [
+                  "Unauthorized",
+                  "Authentication required"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "AUTHENTICATION_REQUIRED"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "AUTHENTICATION_REQUIRED"
+              },
+              "message": {
+                "enum": [
+                  "Unauthorized",
+                  "Authentication required"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "TOKEN_EXPIRED"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "TOKEN_EXPIRED"
+              },
+              "message": {
+                "enum": [
+                  "Unauthorized"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "AUTH_TEST_TOKEN_BLOCKED"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "AUTH_TEST_TOKEN_BLOCKED"
+              },
+              "message": {
+                "enum": [
+                  "Unauthorized"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "TOKEN_REVOKED"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "TOKEN_REVOKED"
+              },
+              "message": {
+                "enum": [
+                  "Session has been revoked"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "error_code": {
+                "const": "ACCOUNT_DEACTIVATED"
+              }
+            },
+            "required": [
+              "error_code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "const": "ACCOUNT_DEACTIVATED"
+              },
+              "message": {
+                "enum": [
+                  "Account is deactivated"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ImportTooManyRequestsBody": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/RateLimitedBody"
+        },
+        {
+          "$ref": "#/definitions/ErrorBody"
+        }
+      ]
+    }
+  }
+}

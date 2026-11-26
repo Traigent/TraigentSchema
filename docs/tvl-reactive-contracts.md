@@ -32,15 +32,14 @@ walks the `optimization/` documents (the manifest `docs/content-class-manifest.j
 
 ## Policy read
 
-`GET /api/v1/projects/{project_id}/agents/{agent_id}/production-reactive-policy`
+`GET /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive-policy`
 (response `optimization/tvl_reactive_policy_schema.json`; route in the portal catalog `production_requirements/tvl_reactive_policy_endpoints.json`, registered in `mep_endpoints.json`) is the
 authoritative read of the declared policy: P-human portal read, tenant and project from the
 authenticated context, project and agent authorized before anything is returned. It returns
 `{schema_version, agent_ref, environments: [{environment_ref, policy: null | {policy_revision_ref, contract_digest, rules, promotion_gates, control_limits, monitors}}]}`.
 `environment_ref` is an opaque hosted token, never the customer-chosen environment name; the portal resolves the name through the existing production-requirements API. Each environment has its own policy (activation is scoped per tenant, project, agent and environment). `monitors` lists every monitor as `{monitor, role}` with `role` one of `native`, `customer`, `liveness`, `promotion` (a zero-native contract has no `native`).
 The import route (`production_requirements/tvl_reactive_import_endpoints.json`) models only the zero-native `ReactiveImportReceipt` (`receipt_kind`, `schema_version`, `contract_digest`, `policy_revision_ref`, `environment_ref`, `created`, `monitors`); the legacy native response and the request body are outside this contract.
-The `agent_ref` is the server-issued opaque ref the portal then uses unchanged on every reactive route. The plain
-`project_id`/`agent_id` path ids exist only at this authorized human edge. Like the other portal catalogs (agent readiness)
+The policy read returns `agent_ref` as a server-issued opaque ref. The 14 production-reactive operations in `optimization/tvl_reactive_endpoints.json` instead take the agent id the agents API returns in `{agent_ref}`; the `agentref_` digest is retired there. The policy read takes the plain `project_id` and `agent_id` in its path, and so do the 14 production-reactive operations. Like the other portal catalogs (agent readiness)
 the route lives outside the optimization-channel content-class lint roots and its path parameters are unannotated; the
 response schema stays a lint root, closed and content-class checked, and the `legacy_content` ratchet is untouched.
 The plain ids are never sent through the Director bridge or observability. Declarations only: every identifier is a hosted token,
@@ -126,8 +125,8 @@ from the new pin with `git show <ref>:spec/grammar/<file>`, update `SOURCE.json`
 3. The deploy publish-result/finalize contracts are content-class lint roots; the pinned config read and deploy publication
    request (they carry config content) are the explicit allow-listed exception.
 4. Deploy publication is a separate route from `POST /api/v1/best-configs`, which is left untouched (see above).
-5. Paths are `/api/v1/production-reactive/agents/{agent_ref}/...` with the project from the auth context only.
-6. `agent_ref` (`agentref_<hex>`) is the only agent addressing form, including the pinned config read.
+5. Paths are `/api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/...`; the project comes from the path and must match the authenticated request context (never a header or query string).
+6. On the 14 production-reactive operations, `{agent_ref}` is the agent id the agents API returns, and the `agentref_<hex>` digest is retired there. The other reactive contracts (the policy read, the pinned config read, deploy publication) keep their own `agent_ref` declarations. On those 14 operations only an agent id that is a single path segment can be used; a legacy agent id that contains `/` cannot address them (the policy read accepts it).
 7. Attempt read routes were added: a human has no other way to learn the `attempt_ref` a grant needs.
 8. The stage schema accepts the full fact vocabulary (including `approval`, `started`, `deploy_started`) so harnesses can post
    fixture histories; such facts never create authority and a contradiction is 409 `fact_contradicts_record`.

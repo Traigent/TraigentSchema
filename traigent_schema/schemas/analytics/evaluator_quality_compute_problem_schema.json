@@ -1,0 +1,346 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_quality_compute_problem_schema.json",
+  "title": "Evaluator Quality Compute Problem",
+  "description": "Closed RFC 9457 problem documents of experiment_run.compute_evaluator_quality (application/problem+json). Each definition is one closed status/code/type combination from the backend problem catalogue (src/api_kit/problems.py PROBLEMS) with its fixed title, detail and server-minted problem_id (first 32 hex of sha256 of the type URN); nothing the client sent is echoed. evaluator_audit_in_progress is new: 409 is used ONLY for it (another request is computing this run's audit). 429, 503 and 409 may carry a Retry-After header.",
+  "definitions": {
+    "UnauthenticatedProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:unauthenticated",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Unauthorized",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 401,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "unauthenticated",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "Authentication is required.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "b7351f9e417dcb0f3b2afdfd70ffb1e4",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "ForbiddenProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 403,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The credential is not allowed to perform this operation.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "de4a04360e276a7cefc6671cf759dfa3",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "NotFoundProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:not_found",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Not Found",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 404,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "not_found",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The requested resource was not found.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "2662cfb75ed0a8574c3d105e1a28dc67",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "EvaluatorAuditInProgressProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:evaluator_audit_in_progress",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Conflict",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 409,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "evaluator_audit_in_progress",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The evaluator-quality audit for this run is being computed by another request. Retry later.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "dbec1700449b25093331bc373dd74a10",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "ValidationFailedProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:validation_failed",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Unprocessable Content",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 422,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "validation_failed",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The request is not valid.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "f55465d2c05b31cee9e5e8db12c2ca11",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "RateLimitedProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:rate_limited",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Too Many Requests",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 429,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "rate_limited",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "Too many requests. Retry later.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "c6d983b3899233ce34e3e9b9c0c19806",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "InternalErrorProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:internal_error",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Internal Server Error",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 500,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "internal_error",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The request could not be completed.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "2b75bc535867815580a4a559b16699a7",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "ServiceUnavailableProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:service_unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Service Unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 503,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "service_unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The service is temporarily unavailable. Retry later.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "66fc702c29f90cf4f284ddbe9ecd8cfa",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/definitions/UnauthenticatedProblem"
+    },
+    {
+      "$ref": "#/definitions/ForbiddenProblem"
+    },
+    {
+      "$ref": "#/definitions/NotFoundProblem"
+    },
+    {
+      "$ref": "#/definitions/EvaluatorAuditInProgressProblem"
+    },
+    {
+      "$ref": "#/definitions/ValidationFailedProblem"
+    },
+    {
+      "$ref": "#/definitions/RateLimitedProblem"
+    },
+    {
+      "$ref": "#/definitions/InternalErrorProblem"
+    },
+    {
+      "$ref": "#/definitions/ServiceUnavailableProblem"
+    }
+  ]
+}

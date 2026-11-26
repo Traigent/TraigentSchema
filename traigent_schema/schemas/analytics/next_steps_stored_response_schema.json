@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/next_steps_stored_response_schema.json",
+  "title": "NextStepsStoredResponse",
+  "description": "CLOSED data object of the stored-guidance read (viewer GET of next steps). The read returns already stored guidance only: it never generates guidance, persists a decision or variant assignment, schedules a job or invokes a provider (generation is a separate write). Two separately addressable states: NotGeneratedResponse (no stored guidance; the exact empty body) and ReadyResponse (the bounded stored projection: decision id, public category, evidence hash, evidence level and action kind only). The stored rationale, command template, internal operation vocabulary and customer content are never returned.",
+  "x-privacy-classification": "aggregate_safe",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/NotGeneratedResponse"
+    },
+    {
+      "$ref": "#/definitions/ReadyResponse"
+    }
+  ],
+  "definitions": {
+    "NotGeneratedResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Authorized run with no stored guidance: exactly this empty body inside the normal response envelope.",
+      "required": [
+        "state",
+        "decision",
+        "next_steps",
+        "variant_assignment"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "state": {
+          "const": "not_generated",
+          "description": "Guidance has not been generated for this run.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "decision": {
+          "type": "null",
+          "description": "Always null: no stored decision.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "next_steps": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Always empty.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "variant_assignment": {
+          "type": "null",
+          "description": "Always null: the read never pins a variant.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    },
+    "ReadyResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Stored guidance exists: the bounded stored projection. Rationale and command template are deliberately absent.",
+      "required": [
+        "state",
+        "decision",
+        "next_steps",
+        "variant_assignment"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "state": {
+          "const": "ready",
+          "description": "Stored guidance is available.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "decision": {
+          "$ref": "#/definitions/StoredDecision",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "next_steps": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Always empty on the stored read: the single decision is authoritative (as in the lifecycle response, a decision excludes next_steps).",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "variant_assignment": {
+          "type": "null",
+          "description": "Always null: the read never pins a variant.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    },
+    "StoredDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed projection of the newest stored decision for the run.",
+      "required": [
+        "id",
+        "category",
+        "evidence_snapshot_hash",
+        "evidence_level",
+        "action_kind"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
+          "description": "Stable decision identifier (server-issued token).",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "category": {
+          "$ref": "next_steps_schema.json#/properties/decision/properties/category",
+          "description": "Client-safe public action category (existing vocabulary).",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "evidence_snapshot_hash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
+          "description": "Opaque content hash joining the decision to its redacted evidence snapshot.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "evidence_level": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z_]{1,64}$",
+          "description": "Coarse evidence level. Values matching the pattern are returned as stored; values that do not match are returned as null.",
+          "x-privacy-classification": "aggregate_safe"
+        },
+        "action_kind": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z_]{1,64}$",
+          "description": "Action surface kind. Values matching the pattern are returned as stored; values that do not match are returned as null.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    }
+  }
+}

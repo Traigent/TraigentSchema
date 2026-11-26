@@ -16,6 +16,8 @@ enforces it and `tests/test_content_class_lint.py` pins it.
 | `code_identifier` | Verified code identifier (function ref, module, repo-relative path). |
 | `encrypted_blob` | Label-service ciphertext, accepted only by the label service. |
 | `auth_header` | Allow-listed transport or authentication header. |
+| `version` | Dotted numeric version string (digit groups only, bounded). |
+| `server_text` | Server-composed text from fixed templates; never request-derived. |
 | `legacy_content` | **Transitional.** Carries, or may carry, customer content today and is scheduled for removal by the content-less plan. |
 
 `legacy_content` makes today's leaks visible instead of passing them: it is not a class a
@@ -40,6 +42,8 @@ a looser class.
 | `timestamp` | `format: date-time`/`date`, or a timestamp pattern |
 | `opaque_ref` | an approved ref pattern: UUID, `<kind>ref_<32 lowercase hex>` (a Backend-issued opaque reference resolved within tenant/project, distinct from the Backend primary key), key id, or one of the fixed derived-token patterns listed in the lint |
 | `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
+| `version` | an anchored pattern of digit groups joined by dots (`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?![\s\S])`, an absolute end that a trailing newline cannot pass) that accepts `1.2.3` and rejects text, and a `maxLength` |
+| `server_text` | a `maxLength` and an `x-content-note` naming the fixed-template source. Keywords cannot prove it (prose is prose), so it is an assertion by the contract owner, accepted only at the exact (file, JSON pointer) locations in the lint's `SERVER_TEXT_LOCATIONS` allow-list (today one response field); never in a request, a parameter, a map key (it is not a key class) or through a `$ref` from elsewhere |
 | `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
 
 Map-key classes are checked against `propertyNames` the same way.
@@ -155,7 +159,7 @@ members of its closed vocabulary.
 
 | Item | Contract |
 |---|---|
-| `GET /api/v1/best-configs/agent-heads/by-ref/{agent_ref}?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body `optimization/agent_head_by_ref_response_schema.json` = `{agent_ref, environment, generation (integer >= 0), exists}`, closed, no raw ids or names; `exists` is false iff `generation` is 0 |
+| `GET /api/v1/projects/{project_id}/agents/{agent_ref}/best-config-head?environment=<SessionEnvironment>` | `optimization/best_config_head_endpoints.json`; 200 body is declared inline there = `{success, data: {agent_id, environment, generation (integer >= 0), best_config_id, best_config_version, promoted_by_run_id, updated_at}}`; `generation` 0 means never promoted (the by-ref form and its closed `exists` response schema were removed: the backend never served them) |
 | `X-Traigent-Agent-Ref` (request header) | `opaque_ref`, `agentref_<32 hex>` |
 | `X-Traigent-Expected-Head-Generation` (request header) | `number`, integer 0 .. 2^53-1 |
 | Closed envelope | `optimization/best_config_head_refusal_schema.json`: `reference_not_found` (404, the existing identity-ref refusal), `head_capture_invalid` (400), `head_environment_mismatch` (409), `head_agent_mismatch` (409), `head_generation_stale` (409), `head_write_unauthorized` (403), `head_body_invalid` (400), `head_publish_conflict` (409), and for the read route `unauthenticated` (401), `forbidden` (403), `internal_error` (500) |
@@ -244,6 +248,18 @@ closed enums and a random nonce.
 | Closed envelope | `invalid_request` (400), `reference_not_issued` (422), `stale_revision` / `stale_epoch` / `conflict` (409), `internal_error` (500), `service_unavailable` (503, Retry-After preserved); fixed text, nothing echoed. While dark the route answers the uniform unknown-route 404 |
 
 The legacy `PUT /api/v1/labels/objects` is unchanged. The discriminator is the route, not a header or body flag.
+
+## Release acceptance, release and head rollback (additive)
+
+`optimization/release_acceptance_schema.json` holds the closed request, receipt, read-model and
+refusal definitions; `optimization/release_endpoints.json` declares the planned routes
+(`.../agents/{agent_ref}/release-acceptances` POST and GET, `.../best-config-head/release`,
+`.../best-config-head/rollback`). A person's acceptance binds the candidate fingerprint, a
+required gate-result digest (a 64-hex digest, or the fixed value `no_gate_run`), the configuration-space
+digest, the agent code version and the expected head generation. The refusal envelope
+(`ReleaseRefusal`) has one fixed message per code and echoes no request value. `HeadHistoryEntry`
+adds `actor_id`, `actor_kind` (`user` | `service_principal`, both null on entries written before actors were recorded) and a nullable `acceptance_id` to the head
+history read model.
 
 ## Scope and commands
 

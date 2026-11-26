@@ -352,19 +352,59 @@ class SchemaValidator:
     ) -> None:
         """Parse OpenAPI spec to extract endpoint-schema mappings."""
         catalog_dir = self._catalog_dir(catalog_path)
-        inline_base_id = (
-            f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
-            if catalog_dir
-            else _INLINE_SCHEMA_BASE_ID
-        )
+        inline_base_id = self._inline_base_id(catalog_dir)
         paths = openapi.get("paths", {})
         for path, methods in paths.items():
             if not isinstance(methods, dict):
                 continue
+            item_base_id = inline_base_id
+            if isinstance(methods.get("$ref"), str):
+                # A path item that points at the canonical declaration in another catalog.
+                resolved = self._resolve_path_item_ref(methods["$ref"], catalog_path)
+                if resolved is None:
+                    continue
+                methods, target_path = resolved
+                target_dir = self._catalog_dir(target_path)
+                item_base_id = self._inline_base_id(target_dir)
             for method, spec in methods.items():
                 if not isinstance(spec, dict):
                     continue
-                self._register_operation(f"{method.upper()}:{path}", spec, inline_base_id)
+                self._register_operation(f"{method.upper()}:{path}", spec, item_base_id)
+
+    @staticmethod
+    def _inline_base_id(catalog_dir: str) -> str:
+        """Base schema id for inline request schemas of a catalog directory."""
+        if catalog_dir:
+            return f"{SCHEMA_ID_BASE}{catalog_dir}/__inline_request_schema__"
+        return _INLINE_SCHEMA_BASE_ID
+
+    def _resolve_path_item_ref(
+        self,
+        ref: str,
+        catalog_path: Path | None,
+    ) -> tuple[dict[str, Any], Path] | None:
+        """Resolve a ``<file>#/<json-pointer>`` path-item ``$ref`` between endpoint catalogs.
+
+        The file must stay inside the catalog's own directory tree; anything else
+        (absolute, escaping, missing, not a path item) is skipped with a warning.
+        """
+        base_dir = catalog_path.parent if catalog_path is not None else get_schemas_dir()
+        file_part, _, pointer = ref.partition("#")
+        target = self._resolve_package_relative_path(base_dir, file_part)
+        if target is None or not target.is_file() or not pointer.startswith("/"):
+            logger.warning("Unresolvable path-item $ref %r in contract %s", ref, self.contract)
+            return None
+        try:
+            with open(target, encoding="utf-8") as handle:
+                node: Any = json.load(handle)
+            for token in pointer[1:].split("/"):
+                node = node[token.replace("~1", "/").replace("~0", "~")]
+        except (OSError, json.JSONDecodeError, KeyError, TypeError):
+            logger.warning("Unresolvable path-item $ref %r in contract %s", ref, self.contract)
+            return None
+        if not isinstance(node, dict):
+            return None
+        return node, target
 
     @staticmethod
     def _catalog_dir(catalog_path: Path | None) -> str:

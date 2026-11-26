@@ -494,6 +494,10 @@ class _NodeScope:
     file: str
     findings: list[Finding]
     depth: int
+    # True while every ancestor position is monotone for narrowing (root, properties, items,
+    # additionalProperties); False below oneOf/anyOf/allOf branches, where narrowing a branch
+    # can widen the whole.
+    monotone: bool = True
 
     def emit(self, pointer: str, rule: str, severity: Severity, message: str, **identity) -> None:
         emit(self.findings, self.file, pointer, rule, severity, self.role, message, **identity)
@@ -501,7 +505,9 @@ class _NodeScope:
     def keyword(self, pointer: str, keyword: str, **kwargs) -> None:
         _keyword_finding(self.findings, self.file, pointer, self.role, keyword, **kwargs)
 
-    def recurse(self, old_raw: Any, new_raw: Any, pointer: str) -> None:
+    def recurse(
+        self, old_raw: Any, new_raw: Any, pointer: str, *, monotone: bool = True
+    ) -> None:
         compare_node(
             old_raw,
             new_raw,
@@ -516,6 +522,7 @@ class _NodeScope:
             file=self.file,
             findings=self.findings,
             depth=self.depth + 1,
+            monotone=self.monotone and monotone,
         )
 
 
@@ -534,6 +541,7 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     file: str,
     findings: list[Finding],
     depth: int = 0,
+    monotone: bool = True,
 ) -> None:
     scope = _NodeScope(
         old_base=old_base,
@@ -546,7 +554,10 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
         file=file,
         findings=findings,
         depth=depth,
+        monotone=monotone,
     )
+    if _is_response_narrowing_wrap(scope, old_raw, new_raw, pointer):
+        return
     resolved = _resolve_node_pair(scope, old_raw, new_raw, pointer)
     if resolved is None:
         return
@@ -565,6 +576,235 @@ def compare_node(  # noqa: PLR0913 - internal recursive worker (not a public API
     _compare_items(scope, pointer, old, new)
     for combinator in ("oneOf", "anyOf", "allOf"):
         _compare_combinator(scope, pointer, combinator, old.get(combinator), new.get(combinator))
+
+
+_ANNOTATION_KEYS = frozenset({"description", "title", "$comment", "example", "examples"})
+
+
+# CLOSED keyword classification for the allOf-narrowing shortcut. Every keyword of a visited
+# schema node must be in exactly one of these sets; ANY other keyword (including a typo or a
+# future draft keyword) means no shortcut, so an unlisted schema-valued keyword can never hide
+# a $ref whose target widened.
+_SCHEMA_MAP_KEYWORDS = frozenset(
+    {"properties", "patternProperties", "definitions", "$defs", "dependentSchemas", "dependencies"}
+)
+_SCHEMA_KEYWORDS = frozenset(
+    {"items", "prefixItems", "additionalProperties", "additionalItems", "unevaluatedItems"}
+    | {"unevaluatedProperties", "contains", "propertyNames", "not", "if", "then", "else"}
+)
+_SCHEMA_LIST_KEYWORDS = frozenset({"allOf", "anyOf", "oneOf"})
+_LITERAL_KEYWORDS = frozenset(
+    {"type", "enum", "const", "default", "examples", "example", "required", "format", "pattern"}
+    | {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"}
+    | {"minLength", "maxLength", "minItems", "maxItems", "uniqueItems"}
+    | {"minProperties", "maxProperties", "minContains", "maxContains", "dependentRequired"}
+    | {"contentEncoding", "contentMediaType", "readOnly", "writeOnly", "deprecated", "nullable"}
+    | {"title", "description", "$comment", "$schema", "$id"}
+)
+_NAME_MAP_KEYWORDS = _SCHEMA_MAP_KEYWORDS
+_VALUE_LITERAL_SKIP = frozenset({"enum", "const", "default", "examples", "example"})
+
+
+def _is_literal_keyword(key: str) -> bool:
+    return key in _LITERAL_KEYWORDS or key.startswith("x-")
+
+
+_ALWAYS_REFUSED_KEYWORDS = frozenset(
+    {"id", "$anchor", "$dynamicRef", "$dynamicAnchor", "$recursiveRef", "$recursiveAnchor"}
+)
+
+
+def _refuse_base_changing_keywords(node: dict, base: str, reg: Registry) -> None:
+    """Fail closed: a keyword that changes (or aliases) the resolution base makes the
+    $ref-equality below unreliable, so the allOf shortcut must not fire. A file's own ROOT
+    ``$id`` is allowed only when it equals the registry key the walker used to reach that
+    file; any other ``$id`` (nested, or on a non-root node) is refused."""
+    if _ALWAYS_REFUSED_KEYWORDS & node.keys():
+        raise UnresolvedRef("base-changing keyword")
+    if "$id" in node:
+        try:
+            is_root = reg.contents(base) is node
+        except Exception:  # noqa: BLE001 - unknown base: refuse
+            is_root = False
+        if not is_root or node["$id"] != base:
+            raise UnresolvedRef("$id not the registry key of its file")
+
+
+_DOC_SCAN_CACHE: dict[tuple[int, str], tuple[Registry, bool]] = {}
+
+
+def _document_changes_base(doc: Any) -> bool:
+    """True when the WHOLE document holds a base-changing / aliasing keyword other than its
+    own root ``$id``: any nested ``$id``/``id``, or any ``$anchor``/``$dynamic*``/
+    ``$recursive*``. A JSON Pointer fragment can cross such an ancestor without the walker
+    ever visiting it, so the check is document-level. Property/definition NAMES and literal
+    values (enum, const, default, examples) are not schema positions and are skipped."""
+
+    def scan(node: Any, *, root: bool) -> bool:
+        if isinstance(node, list):
+            return any(scan(item, root=False) for item in node)
+        if not isinstance(node, dict):
+            return False
+        for key, value in node.items():
+            if key in _ALWAYS_REFUSED_KEYWORDS or (key == "$id" and not root):
+                return True
+            if key in _VALUE_LITERAL_SKIP or key.startswith("x-"):
+                continue
+            if key in _NAME_MAP_KEYWORDS and isinstance(value, dict):
+                if any(scan(sub, root=False) for sub in value.values()):
+                    return True
+            elif scan(value, root=False):
+                return True
+        return False
+
+    return scan(doc, root=True)
+
+
+def _document_dialect(reg: Registry, uri: str) -> Any:
+    doc = reg.contents(uri)
+    return doc.get("$schema", "<absent>") if isinstance(doc, dict) else "<absent>"
+
+
+def _refuse_document(reg: Registry, uri: str) -> None:
+    """Fail closed for any document (old or new registry) that changes its resolution base
+    below its root; the verdict is cached once per registry and uri."""
+    key = (id(reg), uri)
+    cached = _DOC_SCAN_CACHE.get(key)
+    if cached is None or cached[0] is not reg:
+        try:
+            bad = _document_changes_base(reg.contents(uri))
+        except Exception:  # noqa: BLE001 - unknown document: refuse
+            bad = True
+        cached = (reg, bad)
+        _DOC_SCAN_CACHE[key] = cached
+    if cached[1]:
+        raise UnresolvedRef("document contains a base-changing keyword")
+
+
+_REF_SIBLING_ANNOTATIONS = frozenset({"description", "title", "$comment", "examples", "example"})
+
+
+def _refuse_ref_siblings(node: dict, base: str, reg: Registry) -> None:
+    """A ``$ref`` object with sibling keywords other than pure annotations is ambiguous
+    (draft-07 ignores the siblings, later drafts honour them), and deref() drops them: no
+    shortcut. The base-changing keyword guard also runs on the raw node."""
+    extra = set(node) - {"$ref"} - _REF_SIBLING_ANNOTATIONS
+    if extra:
+        raise UnresolvedRef("$ref with sibling keywords")
+    _refuse_base_changing_keywords(node, base, reg)
+
+
+def _fully_resolved_bytes(raw: Any, base: str, reg: Registry) -> bytes | None:
+    """Typed canonical serialization of the schema ``raw`` with every nested SCHEMA-position
+    $ref resolved against ``reg``. Only schema-valued keywords are descended; enum, const,
+    default, examples and any unknown keyword hold literal JSON values, compared as typed
+    bytes without resolving a ``$ref``-shaped object inside them. None on an unresolvable
+    ref or a cycle, so the caller never shortcuts then."""
+
+    def walk_value(key: str, value: Any, node_base: str, visited: frozenset[str], depth: int):
+        if key in _SCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+            return {
+                name: walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                for name, sub in value.items()
+            }
+        if key in _SCHEMA_KEYWORDS:
+            if isinstance(value, dict):
+                return walk(value, node_base, visited, depth + 1)
+            if isinstance(value, list):
+                return [
+                    walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                    for sub in value
+                ]
+            return value
+        if key in _SCHEMA_LIST_KEYWORDS and isinstance(value, list):
+            return [
+                walk(sub, node_base, visited, depth + 1) if isinstance(sub, dict) else sub
+                for sub in value
+            ]
+        if _is_literal_keyword(key):
+            return value  # literal: compared as typed bytes, never resolved
+        raise UnresolvedRef(f"keyword {key!r} is not classified")
+
+    def walk(node: Any, node_base: str, visited: frozenset[str], depth: int) -> Any:
+        if depth > 60:
+            raise UnresolvedRef("too deep")
+        # deref() drops a $ref object's siblings, so inspect every node of the $ref chain RAW,
+        # one hop at a time, before it is followed.
+        cur, cur_base, cur_visited, hops = node, node_base, visited, 0
+        _refuse_document(reg, node_base)
+        dialects[node_base] = _document_dialect(reg, node_base)
+        while isinstance(cur, dict) and isinstance(cur.get("$ref"), str):
+            hops += 1
+            _refuse_ref_siblings(cur, cur_base, reg)
+            if hops > 25:
+                raise UnresolvedRef("ref chain too long")
+            doc_uri, pointer = _split_ref(cur_base, cur["$ref"])
+            key = f"{doc_uri}#{pointer}"
+            if key in cur_visited:
+                raise UnresolvedRef("cyclic")
+            try:
+                cur = _json_pointer_get(reg.contents(doc_uri), pointer)
+            except Exception as exc:  # noqa: BLE001 - unresolvable: no shortcut
+                raise UnresolvedRef(str(exc)) from exc
+            cur_visited, cur_base = cur_visited | {key}, doc_uri
+            _refuse_document(reg, doc_uri)
+            dialects[doc_uri] = _document_dialect(reg, doc_uri)
+        resolved, resolved_base, resolved_visited = cur, cur_base, cur_visited
+        if not isinstance(resolved, dict):
+            return resolved
+        _refuse_base_changing_keywords(resolved, resolved_base, reg)
+        return {
+            key: walk_value(key, value, resolved_base, resolved_visited, depth)
+            for key, value in resolved.items()
+        }
+
+    dialects: dict[str, Any] = {}
+    try:
+        body = walk(raw, base, frozenset(), 0)
+        # fold every visited document's $schema into the compared bytes: a dialect switch in a
+        # referenced document changes keyword semantics invisibly (absent != any value)
+        return _canonical_json_bytes({"dialects": dialects, "body": body})
+    except (UnresolvedRef, ValueError):
+        return None
+
+
+def _is_response_narrowing_wrap(
+    scope: _NodeScope, old_raw: Any, new_raw: Any, pointer: str
+) -> bool:
+    """RESPONSE side only: the old schema S became ``allOf`` whose members include S verbatim
+    (identical after every nested $ref is resolved, typed comparison). Every instance the new schema
+    accepts is then also accepted by S, so a client written against S still reads every
+    response: the change only narrows what the server may send, which is not breaking for a
+    response, and only where narrowing is monotone (the body root and below
+    properties/items/additionalProperties, never inside oneOf/anyOf/allOf/not branches). Emits one INFO and returns True. Anything else (no member equals the old S, an
+    extra sibling constraint keyword next to allOf, a request/conservative role) returns False
+    and the ordinary comparison reports the root findings as before; the allOf members are
+    never skipped blindly, so ``allOf: [{}]`` or an allOf without S stays BREAKING."""
+    if (
+        scope.role != "response"
+        or not scope.monotone
+        or not isinstance(new_raw, dict)
+    ):
+        return False
+    members = new_raw.get("allOf")
+    if "$ref" in new_raw or not isinstance(members, list) or not members:
+        return False
+    if any(key != "allOf" and key not in _ANNOTATION_KEYS for key in new_raw):
+        return False
+    old_bytes = _fully_resolved_bytes(old_raw, scope.old_base, scope.old_reg)
+    if old_bytes is None or old_bytes.endswith((b'"body":{}}', b'"body":true}')):
+        return False
+    for member in members:
+        if _fully_resolved_bytes(member, scope.new_base, scope.new_reg) == old_bytes:
+            scope.emit(
+                pointer,
+                "response_narrowed_by_allof",
+                "INFO",
+                "response schema now allOf[...] with the previous schema as a member: it can "
+                "only narrow what is sent, not break a client written against the previous schema",
+            )
+            return True
+    return False
 
 
 def _resolve_node_pair(
@@ -848,7 +1088,7 @@ def _compare_properties(
         if name in old_props and name not in new_props:
             _property_removed(scope, child_pointer, name, new_rank)
         elif name not in old_props and name in new_props:
-            _property_added(scope, child_pointer, name, old_rank)
+            _property_added(scope, child_pointer, name, old_rank, new_props[name], old)
         else:
             scope.recurse(old_props[name], new_props[name], child_pointer)
 
@@ -877,7 +1117,85 @@ def _property_removed(scope: _NodeScope, child_pointer: str, name: str, new_rank
         )
 
 
-def _property_added(scope: _NodeScope, child_pointer: str, name: str, old_rank: int) -> None:
+# Keys that never reject a value. Anything else (type, enum, const, format, pattern, bounds,
+# items, properties, required, $ref, combinators, not, if/then/else, nullable) counts as a
+# constraint, so the test is deliberately conservative. x-* extensions are annotation-only.
+_NON_CONSTRAINING_KEYS = _ANNOTATION_KEYS | {"default", "deprecated", "readOnly", "writeOnly"}
+
+
+def _accepts_every_value(schema: Any) -> bool:
+    """True only when ``schema`` provably accepts every JSON value: ``true``, or an object
+    carrying nothing but annotation keywords (so ``{}``). Any other keyword, including an
+    unresolved ``$ref`` or an unknown one, is treated as a constraint."""
+    if schema is True:
+        return True
+    if not isinstance(schema, dict):
+        return False
+    return all(key in _NON_CONSTRAINING_KEYS or key.startswith("x-") for key in schema)
+
+
+def _pattern_matches(pattern: str, name: str) -> bool:
+    try:
+        return re.search(pattern, name) is not None
+    except re.error:
+        return True  # unknown regex: assume it governs the name (conservative)
+
+
+def _name_previously_accepted(old: dict, name: str, old_rank: int) -> bool:
+    """True when the old schema let a not-yet-declared key ``name`` through: the object was
+    open, an additionalProperties value schema applied, or an old patternProperties pattern
+    matched it. Only a fully closed object with no matching pattern rejected every value."""
+    if old_rank < 2:
+        return True
+    return any(_pattern_matches(pat, name) for pat in _as_dict(old.get("patternProperties")))
+
+
+def _request_narrowing_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    rule: str,
+    subject: str,
+    new_schema: Any,
+    *,
+    previously_accepted: bool,
+    old_rank: int,
+) -> bool:
+    """Request/conservative roles: a constrained schema newly applied to a key (or pattern)
+    the old schema accepted under any looser rule can reject previously valid payloads.
+    No equality shortcut: an identical-looking schema or $ref can resolve differently across
+    revisions, and pattern/property/additionalProperties rules combine per key. A genuinely
+    unchanged addition is acknowledged through the allowlist. Emits BREAKING and returns True
+    in that case."""
+    if scope.role == "response" or _accepts_every_value(new_schema):
+        return False
+    if scope.role == "conservative" and old_rank >= 1:
+        return False  # the union role is already BREAKING through the keyword routing below
+    if not previously_accepted:
+        return False
+    scope.emit(
+        child_pointer,
+        rule,
+        "BREAKING",
+        (
+            f"{rule.split('_')[0]} '{subject}' added with a constrained schema while the old "
+            "schema accepted that key under a looser rule; a previously valid payload the new "
+            f"schema rejects is now invalid [{subject}]"
+        ),
+        subject=subject,
+        old=False,
+        new=True,
+    )
+    return True
+
+
+def _property_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    name: str,
+    old_rank: int,
+    new_schema: Any = None,
+    old: dict | None = None,
+) -> None:
     # A request can safely grow an object shape: submissions valid against the
     # old schema remain valid.  A response is the mirror image only when old
     # consumers could already accept the new member.  An old closed object
@@ -889,6 +1207,12 @@ def _property_added(scope: _NodeScope, child_pointer: str, name: str, old_rank: 
     # This intentionally applies whether the new property is optional or
     # required.  ``required`` answers whether the producer promises to emit
     # it, not whether an old strict consumer can parse it when it does.
+    if _request_narrowing_added(
+        scope, child_pointer, "property_added", name, new_schema,
+        previously_accepted=_name_previously_accepted(old or {}, name, old_rank),
+        old_rank=old_rank,
+    ):
+        return
     if old_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -935,12 +1259,30 @@ def _compare_pattern_properties(
                 new=False,
             )
         elif pat not in old_pp and pat in new_pp:
-            _pattern_property_added(scope, child_pointer, pat, old_rank)
+            _pattern_property_added(scope, child_pointer, pat, old_rank, new_pp[pat], old)
         else:
             scope.recurse(old_pp[pat], new_pp[pat], child_pointer)
 
 
-def _pattern_property_added(scope: _NodeScope, child_pointer: str, pat: str, old_rank: int) -> None:
+def _pattern_property_added(
+    scope: _NodeScope,
+    child_pointer: str,
+    pat: str,
+    old_rank: int,
+    new_schema: Any = None,
+    old: dict | None = None,
+) -> None:
+    has_old_patterns = bool(_as_dict((old or {}).get("patternProperties")))
+    if _request_narrowing_added(
+        scope, child_pointer, "patternProperties_added", pat, new_schema,
+        previously_accepted=(
+            old_rank < 2
+            or has_old_patterns
+            or any(_pattern_matches(pat, name) for name in _as_dict((old or {}).get("properties")))
+        ),
+        old_rank=old_rank,
+    ):
+        return
     if old_rank >= 1:
         scope.keyword(
             child_pointer,
@@ -1050,7 +1392,7 @@ def _compare_combinator_branches(
         )
         return
     for i, (ob, nb) in enumerate(zip(old_list, new_list, strict=True)):
-        scope.recurse(ob, nb, f"{combinator_pointer}/{i}")
+        scope.recurse(ob, nb, f"{combinator_pointer}/{i}", monotone=False)
 
 
 def _combinator_appeared(
@@ -1189,15 +1531,24 @@ class _OperationScope:
     def emit(self, pointer: str, rule: str, severity: Severity, role: str, message: str) -> None:
         emit(self.findings, self.file, pointer, rule, severity, role, message)
 
-    def media(self, old_content: Any, new_content: Any, *, role: Role, pointer: str) -> None:
+    def media(
+        self,
+        old_content: Any,
+        new_content: Any,
+        *,
+        role: Role,
+        pointer: str,
+        old_base: str | None = None,
+        new_base: str | None = None,
+    ) -> None:
         _compare_media_schemas(
             old_content,
             new_content,
             role=role,
             file=self.file,
             pointer=pointer,
-            old_base=self.old_base,
-            new_base=self.new_base,
+            old_base=self.old_base if old_base is None else old_base,
+            new_base=self.new_base if new_base is None else new_base,
             old_reg=self.old_reg,
             new_reg=self.new_reg,
             findings=self.findings,
@@ -1353,12 +1704,52 @@ def _compare_responses(scope: _OperationScope, pointer: str, old_op: dict, new_o
                 ptr, "response_status_added", "INFO", "response", f"response status {status} added"
             )
         else:
-            scope.media(
-                _as_dict(old_resp[status]).get("content"),
-                _as_dict(new_resp[status]).get("content"),
-                role="response",
-                pointer=ptr,
-            )
+            _compare_response_pair(scope, ptr, old_resp[status], new_resp[status])
+
+
+def _compare_response_pair(scope: _OperationScope, ptr: str, old_raw: Any, new_raw: Any) -> None:
+    """Resolve a response given as a (possibly chained) `$ref` to its component on each side's
+    own document/registry, then compare the bodies. The media schemas resolve against the base
+    URI of the document the response object was found in, which may differ from the operation's."""
+    try:
+        old_r, old_base, _, old_cyclic = deref(old_raw, scope.old_base, scope.old_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the BASE side could not be resolved: {exc}",
+        )
+        return
+    try:
+        new_r, new_base, _, new_cyclic = deref(new_raw, scope.new_base, scope.new_reg, frozenset())
+    except UnresolvedRef as exc:
+        scope.emit(
+            ptr,
+            "unresolved_ref",
+            "BREAKING",
+            "response",
+            f"response $ref on the HEAD side could not be resolved: {exc}",
+        )
+        return
+    if old_cyclic or new_cyclic:
+        scope.emit(
+            ptr,
+            "cyclic_ref",
+            "INFO",
+            "response",
+            "recursive response $ref chain detected; not compared further",
+        )
+        return
+    scope.media(
+        _as_dict(old_r).get("content"),
+        _as_dict(new_r).get("content"),
+        role="response",
+        pointer=ptr,
+        old_base=old_base,
+        new_base=new_base,
+    )
 
 
 def compare_endpoints_file(

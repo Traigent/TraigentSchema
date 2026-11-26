@@ -188,15 +188,19 @@ def test_group_list_response_uses_canonical_dataset_and_pagination() -> None:
     assert _errors("ExperimentGroupListResponse", data)
 
 
-def test_group_detail_response_wraps_group_payload_under_data() -> None:
-    data = {
-        "group": _group(),
-        "source_experiments": [_source_experiment()],
-    }
+def test_group_detail_envelope_carries_group_and_manifest_without_source_experiments() -> None:
+    data = {"group": _group(), "column_manifest": _manifest()}
 
-    assert _errors("ExperimentGroupDetailPayload", data) == []
-    assert _errors("ExperimentGroupDetailResponse", _success_envelope(data)) == []
-    assert _errors("ExperimentGroupDetailResponse", data)
+    assert _errors("ExperimentGroupDetailEnvelope", _success_envelope(data)) == []
+    # source_experiments moved to experiment_group.list_group_experiments.
+    assert _errors(
+        "ExperimentGroupDetailEnvelope",
+        _success_envelope({**data, "source_experiments": [_source_experiment()]}),
+    )
+    for field in ("group", "column_manifest"):
+        incomplete = dict(data)
+        incomplete.pop(field)
+        assert _errors("ExperimentGroupDetailEnvelope", _success_envelope(incomplete)), field
 
 
 def test_null_dataset_is_explicit_and_empty_dataset_is_rejected() -> None:
@@ -370,23 +374,42 @@ def test_grouped_configuration_run_list_is_paginated() -> None:
     assert _errors("GroupedConfigurationRunListResponse", data)
 
 
+PROJECT_GROUPS = "/api/v1/projects/{project_id}/experiment-groups"
+GROUP_OPERATIONS = {
+    ("post", f"{PROJECT_GROUPS}/search"): (
+        "experiment_group.list_groups",
+        "ExperimentGroupsPageEnvelope",
+    ),
+    ("get", f"{PROJECT_GROUPS}/{{group_ref}}"): (
+        "experiment_group.get_group",
+        "ExperimentGroupDetailEnvelope",
+    ),
+    ("get", f"{PROJECT_GROUPS}/{{group_ref}}/configuration-runs"): (
+        "experiment_group.list_group_runs",
+        "GroupConfigurationRunsPageEnvelope",
+    ),
+    ("post", f"{PROJECT_GROUPS}/{{group_ref}}/configuration-runs/query"): (
+        "experiment_group.query_group_runs",
+        "GroupConfigurationRunsPageEnvelope",
+    ),
+    ("get", f"{PROJECT_GROUPS}/{{group_ref}}/experiments"): (
+        "experiment_group.list_group_experiments",
+        "GroupExperimentsPageEnvelope",
+    ),
+}
+
+
 def test_openapi_wires_experiment_group_routes_to_response_schemas() -> None:
     spec = _load_schema("execution/execution_endpoints.json")
-    expected = {
-        "/api/v1/experiment-groups": "ExperimentGroupListResponse",
-        "/api/v1/experiment-groups/{group_id}": "ExperimentGroupDetailResponse",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs": (
-            "GroupedConfigurationRunListResponse"
-        ),
-    }
 
-    for path, definition in expected.items():
-        ref = (
-            spec["paths"][path]["get"]["responses"]["200"]["content"]["application/json"][
-                "schema"
-            ]["$ref"]
-        )
+    for (method, path), (operation_id, definition) in GROUP_OPERATIONS.items():
+        operation = spec["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
         assert ref == f"./experiment_group_schema.json#/definitions/{definition}"
+
+    # The retired unscoped /api/v1/experiment-groups paths are gone.
+    assert not [p for p in spec["paths"] if p.startswith("/api/v1/experiment-groups")]
 
 
 def test_schema_validator_loads_group_schema_and_no_request_body_routes_fail_open() -> None:
@@ -395,9 +418,9 @@ def test_schema_validator_loads_group_schema_and_no_request_body_routes_fail_ope
     assert SCHEMA_NAME in validator.available_schemas
     assert validator.validate_json({"group": _group()}, SCHEMA_NAME) == []
     for path in (
-        "/api/v1/experiment-groups",
-        "/api/v1/experiment-groups/group_123",
-        "/api/v1/experiment-groups/group_123/configuration-runs",
+        "/api/v1/projects/proj_123/experiment-groups/group_123",
+        "/api/v1/projects/proj_123/experiment-groups/group_123/configuration-runs",
+        "/api/v1/projects/proj_123/experiment-groups/group_123/experiments",
     ):
         assert validator.validate_request(path, "GET", {}) == []
 
@@ -884,7 +907,7 @@ def test_predicate_operator_operand_coupling_is_enforced_on_the_validator_path()
     """The same op/operand coupling holds through the authoritative request
     validator, not only against the bare ColumnPredicate definition."""
     validator = SchemaValidator(contract="backend")
-    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+    path = "/api/v1/projects/proj_123/experiment-groups/group_123/configuration-runs/query"
 
     def _predicate(**over: Any) -> dict[str, Any]:
         pred = {"kind": "parameter", "key": "temperature", "op": "eq", "value": 0.2}
@@ -962,28 +985,25 @@ def test_query_payload_stays_complete_when_comparison_semantics_are_unknown() ->
 
 def test_openapi_wires_the_read_only_query_route() -> None:
     spec = _load_schema("execution/execution_endpoints.json")
-    path = "/api/v1/experiment-groups/{group_id}/configuration-runs/query"
+    path = f"{PROJECT_GROUPS}/{{group_ref}}/configuration-runs/query"
     operation = spec["paths"][path]["post"]
 
+    assert operation["operationId"] == "experiment_group.query_group_runs"
     ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ref == (
-        "./experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryResponse"
+        "./experiment_group_schema.json#/definitions/GroupConfigurationRunsPageEnvelope"
     )
     body_ref = operation["requestBody"]["content"]["application/json"]["schema"]["allOf"][0]["$ref"]
-    assert body_ref.endswith(
-        "experiment_group_schema.json#/definitions/GroupedConfigurationRunQueryRequest"
-    )
-    # POST is a read-only query carrier: the route must document no side effects.
+    assert body_ref.endswith("experiment_group_schema.json#/definitions/GroupConfigurationRunQuery")
+    # POST is a read carrier: the route must say so.
     description = operation["description"].lower()
-    assert "read-only" in description
-    assert "no side effects" in description
-    # Wave B stays out of this surface.
-    assert "query" in spec["paths"][path]["post"]["summary"].lower()
+    assert "a read, served as post" in description
+    assert "query" in operation["summary"].lower()
 
 
 def test_query_route_binds_its_request_schema_through_the_validator() -> None:
     validator = SchemaValidator(contract="backend")
-    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+    path = "/api/v1/projects/proj_123/experiment-groups/group_123/configuration-runs/query"
 
     # An empty body is a valid unfiltered first window...
     assert validator.validate_request(path, "POST", {}) == []
@@ -1001,38 +1021,103 @@ def test_query_route_binds_its_request_schema_through_the_validator() -> None:
     ) == []
 
 
-def test_group_list_route_keeps_page_params_and_adds_search_filter_sort_cursor() -> None:
-    spec = _load_schema("execution/execution_endpoints.json")
-    parameters = spec["paths"]["/api/v1/experiment-groups"]["get"]["parameters"]
-    by_name = {parameter["name"]: parameter for parameter in parameters}
+def _resolve_pointer(document: dict[str, Any], pointer: str) -> Any:
+    node: Any = document
+    for token in pointer.lstrip("#/").split("/"):
+        node = node[token]
+    return node
 
-    # Pre-existing params are preserved.
-    assert {"page", "per_page", "agent_id", "dataset_id"} <= set(by_name)
-    # Fixed search/filter/sort/cursor surface is added.
-    assert {"search", "dataset_scope", "sort_by", "sort_order", "cursor", "limit"} <= set(by_name)
 
-    assert by_name["sort_by"]["schema"]["$ref"].endswith(
-        "#/definitions/ExperimentGroupSortField"
+def _request_schema(spec: dict[str, Any], method: str, path: str) -> dict[str, Any]:
+    """Resolve an operation's requestBody schema through the allOf wrapper."""
+    body = spec["paths"][path][method]["requestBody"]["content"]["application/json"]["schema"]
+    ref = body["allOf"][0]["$ref"]
+    file_part, _, pointer = ref.partition("#")
+    assert file_part == "./experiment_group_schema.json", ref
+    return _resolve_pointer(_load_schema("execution/experiment_group_schema.json"), pointer)
+
+
+def _response_schema(spec: dict[str, Any], method: str, path: str) -> dict[str, Any]:
+    ref = spec["paths"][path][method]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["$ref"]
+    file_part, _, pointer = ref.partition("#")
+    assert file_part == "./experiment_group_schema.json", ref
+    return _resolve_pointer(_load_schema("execution/experiment_group_schema.json"), pointer)
+
+
+def _operation_validator(schema: dict[str, Any]) -> Draft7Validator:
+    root = dict(_load_schema("execution/experiment_group_schema.json"))
+    root.pop("properties", None)
+    root.pop("required", None)
+    root.pop("additionalProperties", None)
+    root.update(schema)
+    return Draft7Validator(
+        root, registry=SchemaValidator()._registry, format_checker=FormatChecker()
     )
-    assert by_name["sort_order"]["schema"]["$ref"].endswith("#/definitions/SortDirection")
-    assert by_name["cursor"]["schema"]["$ref"].endswith("#/definitions/OpaqueCursor")
-    assert by_name["dataset_scope"]["schema"]["$ref"].endswith(
-        "#/definitions/ExperimentGroupDatasetScope"
-    )
-    assert by_name["search"]["schema"]["maxLength"] == 200
-    # cursor/page mutual exclusion is documented on the cursor param.
-    assert "mutually exclusive with page" in by_name["cursor"]["description"].lower()
 
 
-def test_configuration_runs_route_keeps_page_params_and_adds_cursor_mode() -> None:
+def test_group_search_route_is_a_cursor_only_post_with_the_filters_in_the_body() -> None:
+    """Asserted against the OPERATION: POST .../search must carry the request body."""
     spec = _load_schema("execution/execution_endpoints.json")
-    path = "/api/v1/experiment-groups/{group_id}/configuration-runs"
-    parameters = spec["paths"][path]["get"]["parameters"]
-    by_name = {parameter["name"]: parameter for parameter in parameters}
+    path = f"{PROJECT_GROUPS}/search"
+    operation = spec["paths"][path]["post"]
 
-    assert {"group_id", "page", "per_page"} <= set(by_name)
-    assert {"cursor", "limit"} <= set(by_name)
-    assert "mutually exclusive with page" in by_name["cursor"]["description"].lower()
+    # Filters and search text are in the body, never query parameters.
+    assert [p["name"] for p in operation["parameters"]] == ["project_id"]
+    request = _request_schema(spec, "post", path)
+    assert request["additionalProperties"] is False
+    assert set(request["properties"]) == {
+        "search",
+        "agent_id",
+        "dataset_id",
+        "dataset_scope",
+        "sort_by",
+        "sort_order",
+        "limit",
+        "cursor",
+    }
+    assert request["properties"]["search"]["maxLength"] == 200
+    assert request["properties"]["dataset_scope"]["enum"] == [
+        "all",
+        "with_dataset",
+        "without_dataset",
+    ]
+    assert request["properties"]["sort_by"]["enum"] == (
+        _load_schema("execution/experiment_group_schema.json")["definitions"][
+            "ExperimentGroupSortField"
+        ]["enum"]
+    )
+    assert request["properties"]["limit"]["maximum"] == 100
+    assert request["properties"]["limit"]["default"] == 20
+    assert request["properties"]["cursor"]["maxLength"] == 4096
+
+    validator = _operation_validator(request)
+    assert list(validator.iter_errors({})) == []
+    assert list(validator.iter_errors({"search": "x" * 200, "limit": 100})) == []
+    for bad in (
+        {"search": "x" * 201},
+        {"limit": 101},
+        {"limit": 0},
+        {"cursor": "c" * 4097},
+        {"dataset_scope": "none"},
+        {"sort_by": "group_id"},
+        {"page": 1},
+        {"per_page": 10},
+        {"offset": 0},
+    ):
+        assert list(validator.iter_errors(bad)), bad
+
+
+def test_paged_get_routes_take_limit_and_cursor_only() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    for suffix in ("configuration-runs", "experiments"):
+        operation = spec["paths"][f"{PROJECT_GROUPS}/{{group_ref}}/{suffix}"]["get"]
+        by_name = {p["name"]: p for p in operation["parameters"]}
+        assert set(by_name) == {"project_id", "group_ref", "limit", "cursor"}, suffix
+        assert by_name["limit"]["schema"]["maximum"] == 100
+        assert by_name["limit"]["schema"]["default"] == 20
+        assert by_name["cursor"]["schema"]["maxLength"] == 4096
 
 
 def test_no_dataset_filtering_is_explicit_rather_than_an_empty_string() -> None:
@@ -1056,64 +1141,226 @@ SERVICE_UNAVAILABLE_ERROR_REF = (
 )
 
 
-def test_read_surfaces_expose_redacted_error_envelopes_without_forbidden_leakage() -> None:
-    """Safe errors: malformed input and the single indistinguishable hidden/
-    not-found condition emit the STRICT redacted error subtype (not the generic
-    envelope directly). Group-scoped resources expose 404 but never 403, so
-    'forbidden' is never distinguishable from 'not found'. Every constrained
-    group_id route also carries a safe 400 for a malformed id. Tests inspect the
-    actual response schemas, not prose."""
+GROUPS_PROBLEM_CODES = {
+    "bad_request",
+    "invalid_cursor",
+    "invalid_page_size",
+    "not_found",
+    "payload_too_large",
+    "service_unavailable",
+    "unauthenticated",
+    "validation_failed",
+}
+POST_OPERATIONS = {key for key in GROUP_OPERATIONS if key[0] == "post"}
+
+
+def _problem_response_names(spec: dict[str, Any], path: str, method: str) -> dict[str, str]:
+    responses = spec["paths"][path][method]["responses"]
+    return {
+        code: response["$ref"].rsplit("/", 1)[-1]
+        for code, response in responses.items()
+        if code.startswith(("4", "5"))
+    }
+
+
+EXPECTED_PROBLEM_RESPONSES = {
+    "400": "GroupsBadRequest",
+    "401": "GroupsUnauthenticated",
+    "403": "GroupsForbidden",
+    "404": "GroupsNotFound",
+    "413": "GroupsPayloadTooLarge",
+    "429": "GroupsRateLimited",
+    "500": "GroupsInternalError",
+    "503": "GroupsServiceUnavailable",
+}
+
+
+def test_read_surfaces_expose_closed_problem_responses_for_every_declared_status() -> None:
+    """Every operation declares the same closed problem set (422 on all but the experiments listing),
+    and each status resolves to its own Groups* response component."""
     spec = _load_schema("execution/execution_endpoints.json")
 
-    def _responses(path: str, method: str) -> dict[str, Any]:
-        return spec["paths"][path][method]["responses"]
+    for method, path in GROUP_OPERATIONS:
+        names = _problem_response_names(spec, path, method)
+        expected = dict(EXPECTED_PROBLEM_RESPONSES)
+        # 422 is declared everywhere except the experiments listing.
+        if not path.endswith("/experiments"):
+            expected["422"] = "GroupsValidationFailed"
+        assert names == expected, (path, method)
 
-    def _error_ref(response: dict[str, Any]) -> str:
-        return response["content"]["application/json"]["schema"]["$ref"]
+    not_found = spec["components"]["responses"]["GroupsNotFound"]
+    assert "identical for absent, hidden and foreign groups" in not_found["description"]
 
-    group_scoped = {
-        ("/api/v1/experiment-groups/{group_id}", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
-    }
-    for path, method in group_scoped:
-        responses = _responses(path, method)
-        # The single indistinguishable hidden/not-found condition is 404...
-        assert "404" in responses, (path, method)
-        # ...and there is deliberately NO 403 that would leak forbidden-vs-missing.
-        assert "403" not in responses, (path, method)
-        # 404 carries the strict redacted subtype, and the prose says the two
-        # conditions are indistinguishable.
-        assert _error_ref(responses["404"]).endswith(STRICT_ERROR_REF), (path, method)
-        assert "indistinguishable" in responses["404"]["description"].lower()
-        # Ordinary auth/server errors are present and also strict-redacted.
-        assert _error_ref(responses["401"]).endswith(STRICT_ERROR_REF), (path, method)
-        assert _error_ref(responses["500"]).endswith(STRICT_ERROR_REF), (path, method)
-        # Every constrained-group_id route has a safe malformed-id 400.
-        assert "400" in responses, (path, method)
-        assert _error_ref(responses["400"]).endswith(STRICT_ERROR_REF), (path, method)
 
-    # The detail GET specifically gained its previously-missing malformed-id 400.
-    detail_400 = _responses("/api/v1/experiment-groups/{group_id}", "get")["400"]
-    assert "group_id" in detail_400["description"]
-
-    # Malformed query returns the strict subtype on the query surface.
-    query_responses = _responses(
-        "/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"
+def _problem_validator(spec: dict[str, Any]) -> Draft7Validator:
+    return Draft7Validator(
+        spec["components"]["schemas"]["GroupsProblem"], format_checker=FormatChecker()
     )
-    assert _error_ref(query_responses["400"]).endswith(STRICT_ERROR_REF)
-    malformed_desc = query_responses["400"]["description"].lower()
-    assert "malformed query" in malformed_desc
-    # The malformed-query envelope must not promise to echo raw query text.
-    assert "never" in malformed_desc
 
-    # The bare list surface has no group to hide, so it carries no 404/403 but
-    # still redacts malformed-input and server errors via the strict subtype.
-    list_responses = _responses("/api/v1/experiment-groups", "get")
-    assert "403" not in list_responses
-    assert "404" not in list_responses
-    assert _error_ref(list_responses["400"]).endswith(STRICT_ERROR_REF)
-    assert _error_ref(list_responses["500"]).endswith(STRICT_ERROR_REF)
+
+_PROBLEM_FIXED_TEXT = {
+    "bad_request": (400, "Bad Request"),
+    "forbidden": (403, "Forbidden"),
+    "internal_error": (500, "Internal Server Error"),
+    "invalid_cursor": (400, "Bad Request"),
+    "invalid_page_size": (400, "Bad Request"),
+    "not_found": (404, "Not Found"),
+    "payload_too_large": (413, "Content Too Large"),
+    "rate_limited": (429, "Too Many Requests"),
+    "service_unavailable": (503, "Service Unavailable"),
+    "unauthenticated": (401, "Unauthorized"),
+    "validation_failed": (422, "Unprocessable Content"),
+}
+
+
+def _problem_body(branch: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    body = {
+        name: spec["const"]
+        for name, spec in branch["properties"].items()
+        if "const" in spec
+    }
+    body["problem_id"] = "0123456789abcdef0123456789abcdef"
+    body.update(overrides)
+    return body
+
+
+def test_group_problem_bodies_are_application_problem_json_with_a_closed_code() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    responses = spec["components"]["responses"]
+    assert set(responses) == {
+        "GroupsBadRequest",
+        "GroupsUnauthenticated",
+        "GroupsNotFound",
+        "GroupsValidationFailed",
+        "GroupsServiceUnavailable",
+        "GroupsPayloadTooLarge",
+        "GroupsForbidden",
+        "GroupsRateLimited",
+        "GroupsInternalError",
+    }
+    for name, response in responses.items():
+        assert list(response["content"]) == ["application/problem+json"], name
+        assert response["content"]["application/problem+json"]["schema"] == {
+            "$ref": "#/components/schemas/GroupsProblem"
+        }, name
+
+    problem = spec["components"]["schemas"]["GroupsProblem"]
+    branches = problem["oneOf"]
+    assert {b["properties"]["code"]["const"] for b in branches} == set(_PROBLEM_FIXED_TEXT)
+    assert len(branches) == len(_PROBLEM_FIXED_TEXT)
+    for branch in branches:
+        code = branch["properties"]["code"]["const"]
+        status, title = _PROBLEM_FIXED_TEXT[code]
+        assert branch["additionalProperties"] is False, code
+        assert set(branch["required"]) == {
+            "type",
+            "title",
+            "status",
+            "code",
+            "detail",
+            "problem_id",
+        }, code
+        assert branch["properties"]["status"]["const"] == status, code
+        assert branch["properties"]["title"]["const"] == title, code
+        assert branch["properties"]["problem_id"] == {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "minLength": 32,
+            "maxLength": 32,
+        }, code
+
+
+def test_group_problem_bodies_reject_request_derived_text_and_extra_fields() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    validator = _problem_validator(spec)
+    for branch in spec["components"]["schemas"]["GroupsProblem"]["oneOf"]:
+        code = branch["properties"]["code"]["const"]
+        good = _problem_body(branch)
+        assert list(validator.iter_errors(good)) == [], code
+        # Request-derived detail text is rejected: detail is a fixed constant.
+        assert list(validator.iter_errors({**good, "detail": "project grp_secretvalue"})), code
+        # An extra (possibly request-derived) field is rejected.
+        assert list(validator.iter_errors({**good, "echo": "grp_secretvalue"})), code
+        # problem_id must be 32 lowercase hex.
+        assert list(validator.iter_errors({**good, "problem_id": "GRP_secretvalue"})), code
+        # A trailing newline is rejected (a bare pattern would accept it).
+        assert list(
+            validator.iter_errors({**good, "problem_id": "0123456789abcdef0123456789abcdef\n"})
+        ), code
+        # A missing field is rejected.
+        assert list(validator.iter_errors({k: v for k, v in good.items() if k != "detail"})), code
+    # An unknown code is rejected.
+    assert list(
+        validator.iter_errors(
+            {
+                "type": "urn:traigent:problem:other",
+                "title": "Other",
+                "status": 400,
+                "code": "other",
+                "detail": "x",
+                "problem_id": "0123456789abcdef0123456789abcdef",
+            }
+        )
+    )
+
+
+def test_every_operation_error_response_resolves_to_the_closed_problem() -> None:
+    spec = _load_schema("execution/execution_endpoints.json")
+    problem = spec["components"]["schemas"]["GroupsProblem"]
+    codes_by_status: dict[int, set[str]] = {}
+    for branch in problem["oneOf"]:
+        status = branch["properties"]["status"]["const"]
+        codes_by_status.setdefault(status, set()).add(branch["properties"]["code"]["const"])
+    for method, path in GROUP_OPERATIONS:
+        for code, response in spec["paths"][path][method]["responses"].items():
+            if not code.startswith(("4", "5")):
+                continue
+            target = _resolve_pointer(spec, response["$ref"])
+            schema_ref = target["content"]["application/problem+json"]["schema"]["$ref"]
+            assert schema_ref == "#/components/schemas/GroupsProblem", (path, method, code)
+            # The declared status has a matching closed branch in GroupsProblem.
+            assert int(code) in codes_by_status, (path, method, code)
+
+
+def test_active_success_envelopes_are_closed_over_success_message_and_data() -> None:
+    """Every ACTIVE W9 operation's 200 is an envelope that requires success (const true),
+    a non-empty message and data."""
+    spec = _load_schema("execution/execution_endpoints.json")
+    page = {"limit": 20, "next_cursor": None, "has_more": False}
+    samples = {
+        "experiment_group.list_groups": {"items": [_group()], "pagination": page},
+        "experiment_group.get_group": {"group": _group(), "column_manifest": _manifest()},
+        "experiment_group.list_group_runs": {
+            "items": [_browse_row()],
+            "column_manifest": _manifest(),
+            "pagination": page,
+        },
+        "experiment_group.query_group_runs": {
+            "items": [_browse_row()],
+            "column_manifest": _manifest(),
+            "pagination": page,
+        },
+        "experiment_group.list_group_experiments": {
+            "items": [_source_experiment()],
+            "pagination": page,
+        },
+    }
+    for (method, path), (operation_id, _definition) in GROUP_OPERATIONS.items():
+        envelope = _response_schema(spec, method, path)
+        assert set(envelope["required"]) == {"success", "message", "data"}, operation_id
+        assert envelope["properties"]["success"]["const"] is True, operation_id
+        assert envelope["properties"]["message"]["minLength"] == 1, operation_id
+        validator = _operation_validator(envelope)
+        good = {"success": True, "message": "ok", "data": samples[operation_id]}
+        assert list(validator.iter_errors(good)) == [], operation_id
+        assert list(validator.iter_errors({**good, "success": False})), operation_id
+        assert list(validator.iter_errors({**good, "message": ""})), operation_id
+        assert list(
+            validator.iter_errors({k: v for k, v in good.items() if k != "message"})
+        ), operation_id
+        assert list(
+            validator.iter_errors({k: v for k, v in good.items() if k != "data"})
+        ), operation_id
 
 
 def _strict_error(**overrides: Any) -> dict[str, Any]:
@@ -1341,53 +1588,26 @@ def test_strict_error_positive_covers_every_backend_error_and_code_combination()
     assert _errors("ExperimentGroupErrorEnvelope", minimal) == []
 
 
-def test_group_scoped_error_routes_point_at_the_strict_subtype_not_the_generic() -> None:
-    """Fix 1/2: every experiment-group 400/401/404/500 references the strict
-    subtype, never the generic envelope directly."""
+def test_group_scoped_error_routes_point_at_the_problem_components_not_the_generic() -> None:
+    """Every experiment-group 4xx/5xx references a Groups* problem component, never
+    the generic envelope directly."""
     spec = _load_schema("execution/execution_endpoints.json")
-    group_routes = (
-        ("/api/v1/experiment-groups", "get"),
-        ("/api/v1/experiment-groups/{group_id}", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
-    )
-    for path, method in group_routes:
+    for method, path in GROUP_OPERATIONS:
         responses = spec["paths"][path][method]["responses"]
         for code, response in responses.items():
             if not code.startswith(("4", "5")):
                 continue
-            if code == "503":
-                # The dedicated finite service-unavailable subtype is asserted
-                # separately below; the pre-existing 400/401/404/500 contract
-                # stays on ExperimentGroupErrorEnvelope.
-                continue
-            ref = response["content"]["application/json"]["schema"]["$ref"]
-            assert ref.endswith(STRICT_ERROR_REF), (path, method, code, ref)
-            # The strict subtype lives in the group schema, not the generic file.
-            assert not ref.endswith("../error_envelope_schema.json"), (path, method, code)
+            assert set(response) == {"$ref"}, (path, method, code)
+            assert response["$ref"].startswith("#/components/responses/Groups"), (
+                path,
+                method,
+                code,
+            )
 
 
-def test_auth_backend_unavailable_503_is_finite_redacted_and_route_complete() -> None:
-    """Every experiment-group operation exposes the fail-closed authentication-
-    backend 503 as a dedicated finite envelope. Both supported middleware shapes
-    are exact server-controlled constants, and neither accepts details or request-
-    derived content."""
-    spec = _load_schema("execution/execution_endpoints.json")
-    group_routes = (
-        ("/api/v1/experiment-groups", "get"),
-        ("/api/v1/experiment-groups/{group_id}", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
-    )
-    for path, method in group_routes:
-        responses = spec["paths"][path][method]["responses"]
-        assert "503" in responses, (path, method)
-        ref = responses["503"]["content"]["application/json"]["schema"]["$ref"]
-        assert ref.endswith(SERVICE_UNAVAILABLE_ERROR_REF), (path, method, ref)
-        description = responses["503"]["description"].lower()
-        assert "authentication backend" in description
-        assert "redacted" in description
-
+def test_auth_backend_unavailable_503_shapes_stay_finite_and_redacted() -> None:
+    """The ExperimentGroupServiceUnavailableErrorEnvelope definition keeps both
+    supported middleware shapes as exact server-controlled constants."""
     public_shapes = (
         {
             "success": False,
@@ -1415,69 +1635,43 @@ def test_auth_backend_unavailable_503_is_finite_redacted_and_route_complete() ->
             assert _errors("ExperimentGroupServiceUnavailableErrorEnvelope", leaked), field
 
 
-def test_every_constrained_group_id_route_has_a_safe_malformed_id_400() -> None:
-    """Fix 2: routes whose group_id is the constrained OpaqueExperimentGroupId all
-    carry a redacted 400 for a malformed id."""
+def test_every_group_ref_route_declares_a_bounded_group_ref_and_a_safe_400() -> None:
+    """Routes addressed by group_ref carry a bounded opaque path parameter and a closed
+    400 for a malformed reference."""
     spec = _load_schema("execution/execution_endpoints.json")
-    constrained = (
-        ("/api/v1/experiment-groups/{group_id}", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs", "get"),
-        ("/api/v1/experiment-groups/{group_id}/configuration-runs/query", "post"),
-    )
-    for path, method in constrained:
+    for method, path in GROUP_OPERATIONS:
+        if "{group_ref}" not in path:
+            continue
         operation = spec["paths"][path][method]
-        group_param = next(
-            p for p in operation["parameters"] if p["name"] == "group_id"
-        )
-        assert group_param["schema"]["$ref"].endswith("#/definitions/OpaqueExperimentGroupId")
-        assert "400" in operation["responses"], (path, method)
+        group_param = next(p for p in operation["parameters"] if p["name"] == "group_ref")
+        assert group_param["in"] == "path"
+        assert group_param["required"] is True
+        assert group_param["schema"] == {"type": "string", "minLength": 1, "maxLength": 128}
+        assert operation["responses"]["400"] == {"$ref": "#/components/responses/GroupsBadRequest"}
 
 
-def test_legacy_and_cursor_modes_are_mutually_exclusive_and_matrix_complete() -> None:
-    """Fix 3: both paginated GET routes make legacy page mode (page/per_page) and
-    cursor mode (cursor/limit) mutually exclusive via the repository's established
-    machine-readable x-excludes extension on each parameter. The exclusion is
-    symmetric and its induced rejected-pair set is the COMPLETE cross-product of the
-    two mode sets, so every cross-mix - cursor+page, cursor+per_page, limit+page,
-    limit+per_page - is covered and no ambiguous mixed state is left undocumented."""
+def test_group_routes_are_cursor_only_and_project_scoped() -> None:
+    """Cursor-only paging: no page, per_page or offset anywhere (query parameters or
+    request bodies), and every operation is scoped by a bounded project_id."""
     spec = _load_schema("execution/execution_endpoints.json")
-    legacy_set = {"page", "per_page"}
-    cursor_set = {"cursor", "limit"}
-    paginated = (
-        "/api/v1/experiment-groups",
-        "/api/v1/experiment-groups/{group_id}/configuration-runs",
-    )
-    for path in paginated:
-        operation = spec["paths"][path]["get"]
-        by_name = {p["name"]: p for p in operation["parameters"]}
-
-        # All four mode parameters exist and each declares its x-excludes set.
-        assert (legacy_set | cursor_set) <= set(by_name), path
-        excludes = {name: set(by_name[name]["x-excludes"]) for name in legacy_set | cursor_set}
-
-        # Each legacy param excludes exactly the cursor set, and vice versa.
-        for name in legacy_set:
-            assert excludes[name] == cursor_set, (path, name, excludes[name])
-        for name in cursor_set:
-            assert excludes[name] == legacy_set, (path, name, excludes[name])
-
-        # The exclusion relation is symmetric: A excludes B <=> B excludes A.
-        for name, others in excludes.items():
-            for other in others:
-                assert name in excludes[other], (path, name, other)
-
-        # The induced set of rejected unordered pairs is the COMPLETE cross-product
-        # of the two modes (the full 2x2 matrix), with no legacy/legacy or
-        # cursor/cursor pair wrongly excluded.
-        induced = {
-            frozenset((name, other)) for name, others in excludes.items() for other in others
-        }
-        expected = {frozenset((legacy, cur)) for legacy in legacy_set for cur in cursor_set}
-        assert induced == expected, (path, induced, expected)
-        assert len(induced) == 4, path
-
-        # Ordinary omitted defaults are documented as legacy page mode.
-        assert "defaults to legacy page mode" in by_name["page"]["description"].lower()
+    schema = _load_schema("execution/experiment_group_schema.json")["definitions"]
+    for method, path in GROUP_OPERATIONS:
+        operation = spec["paths"][path][method]
+        names = {p["name"] for p in operation["parameters"]}
+        assert not names & {"page", "per_page", "offset"}, (path, method)
+        project = next(p for p in operation["parameters"] if p["name"] == "project_id")
+        assert project["schema"] == {"type": "string", "minLength": 1, "maxLength": 128}
+    for body in ("ExperimentGroupSearchRequest", "GroupConfigurationRunQuery"):
+        properties = schema[body]["properties"]
+        assert schema[body]["additionalProperties"] is False
+        assert not set(properties) & {"page", "per_page", "offset"}, body
+    for envelope in (
+        "ExperimentGroupsPageEnvelope",
+        "GroupConfigurationRunsPageEnvelope",
+        "GroupExperimentsPageEnvelope",
+    ):
+        data = schema[envelope]["properties"]["data"]
+        assert data["properties"]["pagination"] == {"$ref": "#/definitions/GroupPageBlock"}
 
 
 def test_group_list_sort_vocabulary_is_closed_and_identity_scoped() -> None:
@@ -1530,28 +1724,11 @@ def test_group_list_tie_break_is_canonical_identity_not_opaque_group_id() -> Non
     assert "group_id ascending" not in sort_field_desc
     assert "group_id ascending for groups" not in top_desc
 
-    # (6b) The OpenAPI endpoint's inline sort_by mirror must not drift from the
-    #     authoritative field: it carries the exact authoritative language and no
-    #     residual 'group_id ascending' tie-break mandate. This closes the inline
-    #     contradiction where the endpoint parameter still said the tie-break was
-    #     group_id ascending while the field schema had moved to canonical identity.
-    spec = _load_schema("execution/execution_endpoints.json")
-    inline_sort_by = next(
-        parameter
-        for parameter in spec["paths"]["/api/v1/experiment-groups"]["get"]["parameters"]
-        if parameter["name"] == "sort_by"
+    # (6b) The search request's sort_by carries exactly the authoritative field enum.
+    search_request = schema["definitions"]["ExperimentGroupSearchRequest"]
+    assert search_request["properties"]["sort_by"]["enum"] == (
+        schema["definitions"]["ExperimentGroupSortField"]["enum"]
     )
-    inline_desc = inline_sort_by["description"]
-    # The inline mirror is byte-identical to the authoritative field description...
-    assert inline_desc == schema["definitions"]["ExperimentGroupSortField"]["description"]
-    # ...and therefore carries the canonical-identity tie-break, not group_id ascending.
-    assert "agent_id ascending" in inline_desc.lower()
-    assert "canonical dataset_id ascending" in inline_desc.lower()
-    assert "agent_id ascending with nulls ordered last" in inline_desc.lower()
-    assert "canonical dataset_id ascending with nulls ordered first" in inline_desc.lower()
-    assert "run_id ascending with nulls ordered first" in inline_desc.lower()
-    assert "portable case null-rank terms" in inline_desc.lower()
-    assert "group_id ascending" not in inline_desc.lower()
 
     # (7) The row-level configuration-run tie-break is untouched: still
     #     configuration_run_id ascending, and the group amendment did not bleed
@@ -1635,7 +1812,7 @@ def test_predicate_string_operands_are_consistently_bounded() -> None:
 def test_predicate_string_operand_cap_is_enforced_on_the_validator_path() -> None:
     """The authoritative request validator rejects over-cap scalar and set strings."""
     validator = SchemaValidator(contract="backend")
-    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+    path = "/api/v1/projects/proj_123/experiment-groups/group_123/configuration-runs/query"
     base = {"kind": "parameter", "key": "prompt"}
     at_cap = "x" * PREDICATE_STRING_MAX_LENGTH
     over_cap = "x" * (PREDICATE_STRING_MAX_LENGTH + 1)
@@ -1700,7 +1877,7 @@ def test_predicate_null_operand_is_rejected_on_the_validator_path() -> None:
     """The null-operand exclusion holds through the authoritative request
     validator, not only against the bare ColumnPredicate definition."""
     validator = SchemaValidator(contract="backend")
-    path = "/api/v1/experiment-groups/group_123/configuration-runs/query"
+    path = "/api/v1/projects/proj_123/experiment-groups/group_123/configuration-runs/query"
 
     def _pred(**over: Any) -> dict[str, Any]:
         pred = {"kind": "parameter", "key": "temperature", "op": "eq", "value": 0.2}

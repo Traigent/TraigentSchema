@@ -98,7 +98,7 @@ def test_generate_examples_request_bounds():
 _SET_ITEM_KEYS = {
     "id", "example_set_id", "tenant_id", "project_id", "agent_id", "name",
     "description", "type", "selection_method", "num_examples",
-    "similarity_threshold", "tags", "created_at", "updated_at", "examples",
+    "similarity_threshold", "tags", "created_at", "updated_at",
 }
 _EXAMPLE_ITEM_KEYS = {
     "example_id", "tenant_id", "project_id", "example_set_id", "input",
@@ -113,12 +113,16 @@ def test_example_set_read_routes_are_declared():
 
 
 def test_example_set_list_item_matches_the_serializer_not_the_resource_schema():
-    """ExampleSet.to_dict() (src/models/agent.py:287-305) emits 15 keys."""
+    """The summary form ExampleSet.to_dict(include_examples=False) emits 14 keys."""
     schema = _load("example_set_list_response_schema.json")
     item = schema["definitions"]["SerializedExampleSet"]
     assert set(item["properties"]) == _SET_ITEM_KEYS
     assert set(item["required"]) == _SET_ITEM_KEYS
     assert item["additionalProperties"] is False
+    # the list is summary-only: example rows are never embedded (num_examples stays)
+    assert "examples" not in item["properties"]
+    assert "examples" not in item["required"]
+    assert "num_examples" in item["required"]
     # the divergence this transcription exists to avoid
     resource = _load("example_set_schema.json")
     assert resource["additionalProperties"] is False
@@ -159,14 +163,14 @@ def test_example_content_fields_carry_the_privacy_annotation():
         assert prop.get("x-privacy-classification") == "user_content", field
 
 
-def test_nested_examples_reuse_the_serialized_example_definition():
-    """A set row embeds FULL example rows, so both surfaces must agree."""
-    ref = _load("example_set_list_response_schema.json")["definitions"][
-        "SerializedExampleSet"
-    ]["properties"]["examples"]["items"]["$ref"]
-    assert ref == (
-        "./example_set_examples_list_response_schema.json#/definitions/SerializedExample"
-    )
+def test_example_set_list_is_summary_only_and_rows_stay_on_the_paged_surface():
+    """The list embeds no example rows; rows live on the per-set paged route."""
+    item = _load("example_set_list_response_schema.json")["definitions"]["SerializedExampleSet"]
+    assert "examples" not in item["properties"]
+    paths = _load("datasets_endpoints.json")["paths"]
+    assert "get" in paths["/api/v1/example-sets/{set_id}/examples"]
+    # an oversized page size is a declared 400, not a clamp
+    assert "400" in paths["/api/v1/example-sets"]["get"]["responses"]
 
 
 # --------------------------------------------------------------------------- #
@@ -180,8 +184,8 @@ def test_standalone_model_parameters_route_binds_its_own_request_schema():
     assert v._endpoint_schemas["POST:/api/v1/model-parameters"] == (
         "standalone_model_parameters_create_request_schema"
     )
-    assert v._endpoint_schemas["POST:/api/v1/agents/{agent_id}/model-parameters"] == (
-        "model_parameters_create_request_schema"
+    assert v._endpoint_schemas["POST:/api/v1/projects/{project_id}/agents/{agent_ref}/model-parameters"] == (
+        "project_model_parameters_create_request_schema"
     )
     body = {
         "agentId": "a1",

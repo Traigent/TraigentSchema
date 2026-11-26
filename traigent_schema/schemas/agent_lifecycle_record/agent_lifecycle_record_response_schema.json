@@ -8,7 +8,7 @@
   "required": [
     "schema_version",
     "record_ref",
-    "agent_ref",
+    "lifecycle_agent_ref",
     "agent_revision_ref",
     "created_at",
     "as_of",
@@ -42,7 +42,7 @@
         "artifact": "agent_lifecycle_disclosure_register.v1"
       }
     },
-    "agent_ref": {
+    "lifecycle_agent_ref": {
       "allOf": [
         {
           "$ref": "agent_lifecycle_common_schema.json#/definitions/StableOpaqueRef"

@@ -131,6 +131,15 @@
           "type": ["object", "null"],
           "description": "Compact numeric latest-configuration measures for list views",
           "additionalProperties": { "type": "number" }
+        },
+        "best_trial_id": {
+          "type": ["string", "null"],
+          "description": "Id of the trial the server selected as best at finalize; null when no trial succeeded"
+        },
+        "best_metrics": {
+          "type": ["object", "null"],
+          "description": "Numeric metrics of that best trial (same compaction as metrics); null when no trial succeeded",
+          "additionalProperties": { "type": "number" }
         }
       },
       "required": [
@@ -146,8 +155,13 @@
   "properties": {
     "id": {
       "type": "string",
-      "description": "Unique identifier for this experiment instance",
+      "description": "Unique identifier for this experiment instance. The historical primary key: still the identifier of operations that have not moved to references, and not the URL reference of the project-scoped read operations (see experiment_ref).",
       "x-identifier": true
+    },
+    "experiment_ref": {
+      "$ref": "./experiment_reads_schema.json#/definitions/ExperimentRef",
+      "readOnly": true,
+      "description": "Server-minted URL reference (experiment_ plus 32 lowercase hex) returned by the project-scoped experiment reads. Read-only: a write that supplies it is rejected or ignored, never honoured."
     },
     "name": {
       "type": "string",

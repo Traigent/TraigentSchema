@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/validation_error_loc_type_schema.json",
+  "title": "Closed Request-Validation Error (loc/type list)",
+  "description": "Closed body for a request that failed model validation: `details` is a list of `{loc, type}` entries. `loc` names only fields of the server's own request model (a client-chosen key is replaced by the fixed label \"[unknown]\"), and `type` is a validation rule code. No submitted value or client key is ever echoed. This is a different shape from validation_error_schema.json, whose `details` is a `{field: [reason]}` map. The guidance session routes carry `error_code` \"VALIDATION_ERROR\"; the cold-start route omits `error_code` and also carries a fixed-text `msg` per entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error", "details"],
+  "properties": {
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Fixed phrase, \"Invalid request\"."
+    },
+    "error_code": {
+      "type": "string",
+      "const": "VALIDATION_ERROR",
+      "description": "Stable code. Present on the guidance session routes; absent on the cold-start route."
+    },
+    "details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["loc", "type"],
+        "properties": {
+          "loc": {
+            "type": "array",
+            "description": "Path to the offending field of the server's request model.",
+            "items": {
+              "type": ["string", "integer"]
+            }
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Validation rule code, for example \"missing\" or \"extra_forbidden\"."
+          },
+          "msg": {
+            "type": "string",
+            "description": "Fixed server-authored sentence for the rule (cold-start route only); never quotes the request."
+          }
+        }
+      }
+    }
+  }
+}

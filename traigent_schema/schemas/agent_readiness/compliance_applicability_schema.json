@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/agent_readiness/compliance_applicability_schema.json",
+  "title": "Compliance Applicability Screen",
+  "description": "AGB-74 slice 4: closed contracts for the applicability screen of one Agent. A human project admin answers a small closed screening (role, jurisdictions, domain, whether the Agent interacts with people) and records, per catalogue obligation, a decision: applicable, not_applicable or unresolved. The platform only SUGGESTS: suggestions are evaluated from the catalogue's applicability expressions against the screening answers, a missing answer evaluates to unresolved (never to false), and a suggestion never sets a decision. Every submission is one immutable snapshot; the chain is linear and a stale `expected_current_id` is refused (409 stale_revision). A changed catalogue version, or changed screening facts an obligation depends on, make the affected decisions unresolved on read (`effective_decision`); nothing stored is rewritten. The screening answers and the rationale are CUSTOMER CONTENT: tenant-scoped, returned only to project members, never logged and never sent to the Director, an LLM or observability. Reviewer, time, tenant, project, catalogue version and digest are always server-derived.",
+  "definitions": {
+    "OpaqueId": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_common_schema.json#/definitions/OpaqueId"
+    },
+    "Principal": {
+      "$ref": "https://schemas.traigent.ai/agent_readiness/compliance_attestation_schema.json#/definitions/Principal"
+    },
+    "FrameworkId": { "type": "string", "pattern": "^FW-[A-Z0-9-]{1,60}$", "maxLength": 64 },
+    "ObligationId": { "type": "string", "pattern": "^OBL-[A-Z0-9-]{1,100}$", "maxLength": 110 },
+    "Role": {
+      "type": "string",
+      "enum": ["provider", "deployer", "developer", "both"],
+      "description": "The role the organisation holds for this Agent. `both` means it holds the provider/developer role and the deployer role."
+    },
+    "Jurisdiction": {
+      "type": "string",
+      "enum": ["EU", "CO", "US", "other"],
+      "description": "Closed list drawn from the catalogue's applicability vocabulary, plus `other` for a jurisdiction the catalogue does not name."
+    },
+    "Domain": {
+      "type": "string",
+      "enum": ["consequential_decision", "high_risk", "other"],
+      "description": "Closed list drawn from the catalogue's applicability vocabulary, plus `other`."
+    },
+    "Decision": {
+      "type": "string",
+      "enum": ["applicable", "not_applicable", "unresolved"]
+    },
+    "InvalidationReason": {
+      "type": "string",
+      "enum": ["catalogue_changed", "facts_changed"],
+      "description": "Why a stored decision is read as unresolved: the catalogue version/digest differs from the one it was made against, or a screening fact its obligation depends on differs between the revision the decision was made in (`decided_in_revision_id`) and the current revision. A decision made in the current revision is never invalidated by that revision's own facts."
+    },
+    "ScreeningAnswers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "jurisdictions", "domain", "interacts_with_people"],
+      "properties": {
+        "role": { "oneOf": [{ "$ref": "#/definitions/Role" }, { "type": "null" }] },
+        "jurisdictions": {
+          "oneOf": [
+            {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": { "$ref": "#/definitions/Jurisdiction" }
+            },
+            { "type": "null" }
+          ],
+          "description": "null: not answered. An empty list: answered, none of the listed jurisdictions."
+        },
+        "domain": { "oneOf": [{ "$ref": "#/definitions/Domain" }, { "type": "null" }] },
+        "interacts_with_people": { "type": ["boolean", "null"] }
+      },
+      "description": "CUSTOMER CONTENT. null means not answered; a missing answer makes every obligation that depends on it unresolved."
+    },
+    "DecisionInput": {
+      "description": "A decision made in THIS submission: it takes this revision's id as `decided_in_revision_id`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "decision"],
+      "properties": {
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "decision": { "$ref": "#/definitions/Decision" },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "Optional free text. CUSTOMER CONTENT: stored with the snapshot, returned only to project members, kept on user erasure, never logged and never sent to the Director, an LLM or observability."
+        }
+      }
+    },
+    "DecisionCarry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "carry"],
+      "properties": {
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "carry": { "const": true }
+      },
+      "description": "Keep the predecessor's decision for this obligation exactly as it is, including its rationale and the revision it was decided in. Refused (400) when the predecessor holds no decision for the obligation."
+    },
+    "DecisionItem": {
+      "oneOf": [{ "$ref": "#/definitions/DecisionInput" }, { "$ref": "#/definitions/DecisionCarry" }],
+      "description": "Either a new decision made in this submission, or `carry: true` for the predecessor's decision."
+    },
+    "ApplicabilityRevisionCreateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "expected_current_id", "review_period_days", "screening", "decisions"],
+      "properties": {
+        "agent_id": { "$ref": "#/definitions/OpaqueId" },
+        "expected_current_id": {
+          "oneOf": [{ "$ref": "#/definitions/OpaqueId" }, { "type": "null" }],
+          "description": "The revision the caller believes is current (null when there is none). A stale value is refused with 409 stale_revision."
+        },
+        "review_period_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 366,
+          "description": "The server sets review_due_at to the recording time plus this many days."
+        },
+        "screening": { "$ref": "#/definitions/ScreeningAnswers" },
+        "decisions": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/definitions/DecisionItem" },
+          "description": "At most one item per obligation of a visible pack: a new decision, or `carry: true` to keep the predecessor's. An obligation with no item reads as unresolved."
+        }
+      },
+      "description": "Reviewer, time, tenant, project, posture revision, catalogue version and digest are server-derived and are NOT accepted. Writes are for human project admins only."
+    },
+    "DecisionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "decision", "rationale", "decided_in_revision_id"],
+      "properties": {
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "decision": { "$ref": "#/definitions/Decision" },
+        "rationale": {
+          "type": ["string", "null"],
+          "maxLength": 2000,
+          "description": "CUSTOMER CONTENT. Null when none was given."
+        },
+        "decided_in_revision_id": {
+          "$ref": "#/definitions/OpaqueId",
+          "description": "The revision in which this decision was made. A decision made in a submission carries that submission's id; a carried decision keeps the id of the revision it was first made in."
+        }
+      }
+    },
+    "ApplicabilityRevisionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision_id",
+        "predecessor_id",
+        "posture_revision_id",
+        "catalogue_version",
+        "catalogue_digest",
+        "screening",
+        "decisions",
+        "reviewer",
+        "recorded_at",
+        "review_due_at"
+      ],
+      "properties": {
+        "revision_id": { "$ref": "#/definitions/OpaqueId" },
+        "predecessor_id": { "oneOf": [{ "$ref": "#/definitions/OpaqueId" }, { "type": "null" }] },
+        "posture_revision_id": {
+          "oneOf": [{ "$ref": "#/definitions/OpaqueId" }, { "type": "null" }],
+          "description": "The Agent's posture revision current when this snapshot was recorded; null when none was declared."
+        },
+        "catalogue_version": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "catalogue_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "sha256 of the Backend's vendored-catalogue manifest at recording time."
+        },
+        "screening": { "$ref": "#/definitions/ScreeningAnswers" },
+        "decisions": {
+          "type": "array",
+          "maxItems": 500,
+          "items": { "$ref": "#/definitions/DecisionRecord" }
+        },
+        "reviewer": {
+          "$ref": "#/definitions/Principal",
+          "description": "principal_ref is 'erased' after account erasure; the snapshot and its rationale are kept."
+        },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "review_due_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "ObligationEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework_id",
+        "obligation_id",
+        "suggestion",
+        "decision",
+        "effective_decision",
+        "invalidation"
+      ],
+      "properties": {
+        "framework_id": { "$ref": "#/definitions/FrameworkId" },
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "suggestion": {
+          "$ref": "#/definitions/Decision",
+          "description": "Evaluated from the catalogue's applicability expression against the current screening answers. A suggestion never sets a decision."
+        },
+        "decision": {
+          "oneOf": [{ "$ref": "#/definitions/Decision" }, { "type": "null" }],
+          "description": "The decision stored in the current snapshot; null when the snapshot has none for this obligation."
+        },
+        "effective_decision": {
+          "$ref": "#/definitions/Decision",
+          "description": "The decision as it reads NOW: the stored decision, or unresolved when none was recorded or when `invalidation` is set."
+        },
+        "invalidation": { "oneOf": [{ "$ref": "#/definitions/InvalidationReason" }, { "type": "null" }] }
+      }
+    },
+    "ApplicabilityCurrent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "catalogue_changed", "review_overdue", "obligations"],
+      "properties": {
+        "revision": { "$ref": "#/definitions/ApplicabilityRevisionRecord" },
+        "catalogue_changed": {
+          "type": "boolean",
+          "description": "True iff the vendored catalogue is not the one this snapshot was recorded against."
+        },
+        "review_overdue": { "type": "boolean" },
+        "obligations": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "$ref": "#/definitions/ObligationEvaluation" }
+        }
+      }
+    },
+    "ApplicabilityResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "catalogue",
+        "can_write",
+        "current",
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0.0-beta.1" },
+        "catalogue": { "$ref": "#/definitions/CatalogueIdentity" },
+        "can_write": {
+          "type": "boolean",
+          "description": "True iff the caller may record a revision: a human session that is a project member with the admin role."
+        },
+        "current": {
+          "oneOf": [{ "$ref": "#/definitions/ApplicabilityCurrent" }, { "type": "null" }],
+          "description": "The current snapshot with its read-time evaluation; null when none was recorded."
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/definitions/ApplicabilityRevisionRecord" },
+          "description": "History, newest first (the current snapshot included)."
+        },
+        "pagination": {
+          "allOf": [
+            { "$ref": "../pagination_schema.json" },
+            { "properties": { "per_page": { "maximum": 100 } } }
+          ]
+        }
+      }
+    },
+    "CatalogueIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "manifest_sha256"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "SuggestionsRequest": {
+      "allOf": [{ "$ref": "#/definitions/ScreeningAnswers" }],
+      "description": "The screening answers to evaluate. Pure: nothing is stored."
+    },
+    "Suggestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework_id", "obligation_id", "suggestion"],
+      "properties": {
+        "framework_id": { "$ref": "#/definitions/FrameworkId" },
+        "obligation_id": { "$ref": "#/definitions/ObligationId" },
+        "suggestion": { "$ref": "#/definitions/Decision" }
+      }
+    },
+    "SuggestionsResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "catalogue", "suggestions"],
+      "properties": {
+        "schema_version": { "const": "1.0.0-beta.1" },
+        "catalogue": { "$ref": "#/definitions/CatalogueIdentity" },
+        "suggestions": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "$ref": "#/definitions/Suggestion" }
+        }
+      }
+    },
+    "ApplicabilitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decided", "unresolved", "not_applicable", "reviewed_at"],
+      "properties": {
+        "decided": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Obligations of the pack whose effective decision is applicable."
+        },
+        "unresolved": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Obligations of the pack whose effective decision is unresolved, including those with no decision and those invalidated on read."
+        },
+        "not_applicable": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Obligations of the pack whose effective decision is not_applicable. Their ingredients are excluded from the pack's coverage counts when every link of the ingredient into this pack points to such an obligation."
+        },
+        "reviewed_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the current snapshot was recorded; null when none was."
+        }
+      },
+      "description": "The closed per-pack summary carried on the compliance-evidence response. decided + unresolved + not_applicable equals the pack's obligation count. It never carries the screening answers or any rationale."
+    }
+  }
+}

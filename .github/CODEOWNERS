@@ -1,0 +1,16 @@
+# Code owners for review routing. Changes to these paths need review from the
+# owning team (write access) before merge.
+
+# CI and release workflows: a change here can alter what runs with repo secrets.
+/.github/workflows/          @Traigent/core
+
+# Package and dependency manifests and lockfiles.
+/pyproject.toml              @Traigent/core
+/requirements.txt            @Traigent/core
+/requirements-dev.txt        @Traigent/core
+/uv.lock                     @Traigent/core
+
+# Schema and contract sources (the cross-repo contract).
+/traigent_schema/schemas/    @Traigent/core
+/traigent_schema/data/       @Traigent/core
+/parity/capabilities/        @Traigent/core

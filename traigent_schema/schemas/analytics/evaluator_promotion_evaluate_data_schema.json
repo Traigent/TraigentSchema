@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_promotion_evaluate_data_schema.json",
+  "title": "EvaluatorPromotionEvaluateData",
+  "description": "Decision returned by POST .../evaluator-promotion/evaluate: the persisted decision projection plus audit_status.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "decision",
+    "lcb",
+    "point_diff",
+    "n_pairs",
+    "delta",
+    "anchor_type",
+    "incumbent_fingerprint",
+    "challenger_fingerprint",
+    "challenger_only_wins",
+    "incumbent_only_wins",
+    "created_at",
+    "audit_status"
+  ],
+  "x-privacy-classification": "aggregate_safe",
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "description": "Identifier of the persisted decision row.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "opaque_ref"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "promote",
+        "hold",
+        "insufficient_evidence",
+        "abstain"
+      ],
+      "description": "Advisory outcome. promote: challenger recommended on a strictly positive lower bound; hold: incumbent retained (tie, non-positive bound, or a failed evaluator-quality audit); insufficient_evidence: too few shared anchor-backed pairs, or nothing to compare against; abstain: no verifiable anchor evidence.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "lcb": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Conservative lower bound on the mean paired agreement difference; null unless a bound was computed.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "point_diff": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "Mean paired agreement difference (challenger minus incumbent); null when there were no pairs. Unbounded: with too few pairs the raw mean of finite scores is stored as is.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "n_pairs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of shared anchor-backed pairs used.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "delta": {
+      "type": "number",
+      "description": "The delta the decision was computed with.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "anchor_type": {
+      "type": "string",
+      "enum": [
+        "verifiable",
+        "proxy",
+        "none"
+      ],
+      "description": "Anchor evidence class used: verifiable, proxy (present but proxy-only) or none.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    },
+    "incumbent_fingerprint": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{16,64})?$",
+      "maxLength": 64,
+      "description": "Incumbent evaluator fingerprint, lowercase hex of 16 to 64 characters; the empty string when no incumbent could be resolved.",
+      "x-privacy-classification": "aggregate_safe"
+    },
+    "challenger_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "minLength": 64,
+      "maxLength": 64,
+      "description": "Challenger evaluator fingerprint, as submitted.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "digest"
+    },
+    "challenger_only_wins": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of pairs where only the challenger agreed with the anchor.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "incumbent_only_wins": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of pairs where only the incumbent agreed with the anchor.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "number"
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "When the decision was recorded, ISO 8601.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "timestamp"
+    },
+    "audit_status": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "passed",
+        "directional",
+        "abstain",
+        "failed",
+        "missing",
+        "audit_stale",
+        "audit_unavailable",
+        null
+      ],
+      "description": "Evaluator-quality audit status for the run at decision time. \"missing\" when no audit exists for the run, and on servers that predate the audit_unavailable value also when the audit lookup fails; \"audit_unavailable\" when the lookup fails, on servers that report it; \"audit_stale\" when the stored audit predates the current eligibility rules; otherwise the stored audit status. Present on the POST response only.",
+      "x-privacy-classification": "aggregate_safe",
+      "x-content-class": "closed_enum"
+    }
+  }
+}

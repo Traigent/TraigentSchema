@@ -64,11 +64,11 @@
       "owner": "TraigentBackend route layer -- path templates are fixed contract text, not JSON Schema",
       "checked_via": "route_path_templates",
       "path_templates": [
-        "/api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions",
-        "/api/v1beta/projects/{project_id}/agent-lifecycle/measurement-contracts",
-        "/api/v1beta/projects/{project_id}/agent-lifecycle/run-plans",
-        "/api/v1beta/projects/{project_id}/agent-lifecycle/run-plans/{run_plan_ref}/receipts",
-        "/api/v1beta/projects/{project_id}/agent-lifecycle/agent-revisions/{agent_revision_ref}/record"
+        "/api/v1/projects/{project_id}/agent-lifecycle/agent-revisions",
+        "/api/v1/projects/{project_id}/agent-lifecycle/measurement-contracts",
+        "/api/v1/projects/{project_id}/agent-lifecycle/run-plans",
+        "/api/v1/projects/{project_id}/agent-lifecycle/run-plans/{run_plan_ref}/receipts",
+        "/api/v1/projects/{project_id}/agent-lifecycle/agent-revisions/{agent_revision_ref}/record"
       ]
     }
   }

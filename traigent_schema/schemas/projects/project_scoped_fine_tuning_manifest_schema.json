@@ -40,11 +40,20 @@
       "type": ["string", "null"],
       "minLength": 1,
       "maxLength": 128,
-      "description": "Recorded export-job identifier for this manifest generation. May be null if the export artifact was generated successfully but audit persistence failed."
+      "description": "Recorded export-job identifier for this manifest generation. Null when recording the export job failed: job recording is best effort, so the manifest is still delivered. Delivery itself requires the export audit record; an export whose audit record cannot be written is refused with a 500 and is never delivered."
     },
     "record_count": {
       "type": "integer",
       "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "True when more rows matched the query than the requested limit, so this page was cut at the limit."
+    },
+    "empty_reason": {
+      "type": ["string", "null"],
+      "enum": ["no_prompt_response_pair_captured_for_fine_tuning_export", null],
+      "description": "Null when records is non-empty; otherwise the closed reason no record was produced."
     },
     "records": {
       "type": "array",
@@ -109,6 +118,8 @@
     "include_content",
     "job_id",
     "record_count",
+    "truncated",
+    "empty_reason",
     "records"
   ]
 }

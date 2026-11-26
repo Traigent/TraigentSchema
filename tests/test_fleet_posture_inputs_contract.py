@@ -350,10 +350,10 @@ def test_e4_posture_write_follows_the_target_revision_convention() -> None:
     endpoints = _load(POSTURE_ENDPOINTS_PATH)
     readiness = _load(READINESS_ENDPOINTS_PATH)
     posture_path = (
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions"
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/posture-revisions"
     )
     target_path = (
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions"
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions"
     )
     assert set(endpoints["paths"]) == {posture_path}
     assert posture_path.rsplit("/", 1)[0] == target_path.rsplit("/", 1)[0]
@@ -399,20 +399,26 @@ def _request_ref(endpoints_path: Path, path: str) -> str:
 def test_e4_posture_route_request_body_resolves_and_rejects_server_fields() -> None:
     ref = _request_ref(
         POSTURE_ENDPOINTS_PATH,
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/posture-revisions",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/posture-revisions",
     )
     assert _errors(ref, _case("posture_request_first_declaration")["instance"]) == []
     assert _errors(ref, _case("posture_request_client_declared_by")["instance"])
 
 
-_LIST_PATH = "/api/v1beta/projects/{project_id}/agent-readiness"
+_LIST_PATH = "/api/v1/projects/{project_id}/agent-readiness/search"
 
 
 def _list_parameter(name: str) -> dict[str, Any]:
-    parameters = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["get"]["parameters"]
-    matches = [parameter for parameter in parameters if parameter["name"] == name]
-    assert len(matches) == 1, name
-    return matches[0]
+    """The filter `name` of the readiness search, which travels in the request body."""
+    body = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["post"]["requestBody"]
+    schema = body["content"]["application/json"]["schema"]
+    prop = schema["properties"][name]
+    return {
+        "name": name,
+        "in": "body",
+        "required": name in schema.get("required", []),
+        "schema": {"$ref": prop["$ref"]},
+    }
 
 
 def _parameter_ref(parameter: dict[str, Any]) -> str:
@@ -438,7 +444,7 @@ def test_e4_portfolio_list_filters_by_posture(
 ) -> None:
     parameter = _list_parameter(name)
     stage = _list_parameter("stage")
-    assert parameter["in"] == stage["in"] == "query"
+    assert parameter["in"] == stage["in"] == "body"
     assert parameter["required"] is False
     # Same single-value convention as the existing stage/attention filters.
     assert set(parameter["schema"]) == {"$ref"}
@@ -450,7 +456,7 @@ def test_e4_portfolio_list_filters_by_posture(
         assert _errors(ref, value) == [], value
     for value in rejected:
         assert _errors(ref, value), value
-    list_bad_request = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["get"][
+    list_bad_request = _load(READINESS_ENDPOINTS_PATH)["paths"][_LIST_PATH]["post"][
         "responses"
     ]["400"]["description"]
     assert name in list_bad_request
@@ -590,7 +596,7 @@ def test_target_schema_root_lists_every_revision_shape() -> None:
 def test_e5_target_route_accepts_accuracy_and_still_answers_declared_target() -> None:
     readiness = _load(READINESS_ENDPOINTS_PATH)
     operation = readiness["paths"][
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions"
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions"
     ]["post"]
     assert operation["x-asserted-against-backend"] is False
     assert operation["responses"]["201"]["content"]["application/json"]["schema"][
@@ -598,7 +604,7 @@ def test_e5_target_route_accepts_accuracy_and_still_answers_declared_target() ->
     ].endswith("#/definitions/DeclaredTarget")
     ref = _request_ref(
         READINESS_ENDPOINTS_PATH,
-        "/api/v1beta/projects/{project_id}/agent-readiness/{agent_id}/target-revisions",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/target-revisions",
     )
     assert _errors(ref, _case("target_request_accuracy")["instance"]) == []
     assert _errors(ref, _case("target_request_latency_unchanged")["instance"]) == []

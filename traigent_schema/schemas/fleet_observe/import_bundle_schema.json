@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/import_bundle_schema.json",
+  "title": "import_bundle_schema.json",
+  "description": "Offline import bundle and run manifest of the repeatable-onboarding flow (TRAIG-179). Bundle: a customer-side file the SDK writes and later posts batch by batch; it holds digests only (no names, no labels; the label map and the digest key never leave the customer machine). Manifest: the non-sensitive record of a bundle (batch list, counts, key id) a run keeps beside it, for resume and reporting. Both name digest_scheme hmac_sha256_v1 and the digest_key_id, so a consumer can detect a key change. Batches are posted unchanged, in order, each as one POST /imports body (the bundle header fields plus the batch's idempotency_key and members). The Manifest layout may be extended additively. The document root accepts either a Bundle or a Manifest; both are closed, so a bundle carrying a name, label or label map is rejected.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/Bundle"
+    },
+    {
+      "$ref": "#/definitions/Manifest"
+    }
+  ],
+  "definitions": {
+    "Bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_version",
+        "digest_scheme",
+        "digest_key_id",
+        "source_kind",
+        "boundary",
+        "observed_at",
+        "batches"
+      ],
+      "properties": {
+        "bundle_version": {
+          "const": 1,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "digest_scheme": {
+          "const": "hmac_sha256_v1",
+          "x-content-class": "closed_enum"
+        },
+        "digest_key_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}(?![\\s\\S])",
+          "maxLength": 16,
+          "x-content-class": "opaque_ref",
+          "description": "16 hex of HMAC-SHA256(key, 'tfl1-key-id'): names the customer-held digest key without revealing it."
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "cloud_iam_principal",
+            "credential_inventory",
+            "kubernetes_workload",
+            "llm_gateway_log",
+            "otel_trace_export",
+            "sdk_declaration",
+            "spawn_parent_report",
+            "parent_evidence_inherit",
+            "vendor_platform_registry"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "boundary_kind",
+            "boundary_digest"
+          ],
+          "properties": {
+            "boundary_kind": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/BoundaryKind"
+            },
+            "boundary_digest": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        },
+        "observed_at": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+        },
+        "batches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/definitions/Batch"
+          }
+        }
+      }
+    },
+    "Manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_version",
+        "digest_scheme",
+        "digest_key_id",
+        "source_kind",
+        "boundary",
+        "observed_at",
+        "manifest_version",
+        "batch_count",
+        "member_count_total",
+        "batches"
+      ],
+      "properties": {
+        "bundle_version": {
+          "const": 1,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "digest_scheme": {
+          "const": "hmac_sha256_v1",
+          "x-content-class": "closed_enum"
+        },
+        "digest_key_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}(?![\\s\\S])",
+          "maxLength": 16,
+          "x-content-class": "opaque_ref",
+          "description": "16 hex of HMAC-SHA256(key, 'tfl1-key-id'): names the customer-held digest key without revealing it."
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "cloud_iam_principal",
+            "credential_inventory",
+            "kubernetes_workload",
+            "llm_gateway_log",
+            "otel_trace_export",
+            "sdk_declaration",
+            "spawn_parent_report",
+            "parent_evidence_inherit",
+            "vendor_platform_registry"
+          ],
+          "x-content-class": "closed_enum"
+        },
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "boundary_kind",
+            "boundary_digest"
+          ],
+          "properties": {
+            "boundary_kind": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/BoundaryKind"
+            },
+            "boundary_digest": {
+              "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+            }
+          }
+        },
+        "observed_at": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Timestamp"
+        },
+        "manifest_version": {
+          "const": 1,
+          "type": "integer",
+          "x-content-class": "number"
+        },
+        "batch_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "x-content-class": "number"
+        },
+        "member_count_total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000000,
+          "x-content-class": "number"
+        },
+        "batches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "batch_no",
+              "idempotency_key",
+              "request_digest",
+              "member_count"
+            ],
+            "properties": {
+              "batch_no": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000,
+                "x-content-class": "number"
+              },
+              "idempotency_key": {
+                "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+              },
+              "request_digest": {
+                "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+              },
+              "member_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5000,
+                "x-content-class": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Batch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key",
+        "request_digest",
+        "members"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+        },
+        "request_digest": {
+          "$ref": "./fleet_observe_common_schema.json#/definitions/Sha256Digest"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5000,
+          "items": {
+            "$ref": "./import_request_schema.json#/definitions/ImportMember"
+          }
+        }
+      },
+      "description": "One frozen import batch. request_digest and idempotency_key follow data/fleet_observe/request_digest_v1.md and are computed over the batch's members with the bundle's source_kind, boundary and observed_at (retention_class absent, so ledger_minimal)."
+    }
+  }
+}

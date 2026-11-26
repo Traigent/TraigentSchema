@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/evaluator_promotion_decisions_response_schema.json",
+  "title": "EvaluatorPromotionDecisionsResponse",
+  "description": "Platform success envelope for GET .../evaluator-promotion; data.decisions lists the run's decisions newest first (at most the requested limit).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisions"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "./evaluator_promotion_decision_schema.json"
+          },
+          "description": "Decisions, newest first.",
+          "x-privacy-classification": "aggregate_safe"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

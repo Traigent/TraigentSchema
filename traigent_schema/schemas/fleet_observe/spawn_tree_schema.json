@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/fleet_observe/spawn_tree_schema.json",
+  "title": "spawn_tree_schema.json",
+  "description": "Spawn tree stub (F5, A6): a placeholder entity so autonomous spawn trees are not forced into agent rows or crew bindings. v1 carries only an id, a root and a placeholder for aggregates. aggregates_state is always 'not_computed' in v1; no counters exist yet and none may be invented. No lineage edges, birth records or terminal records are defined here (F2: no producer yet). root_cluster_ref points at an identity cluster, not a crew; crews are owned by the crews design.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spawn_tree_ref",
+    "root_cluster_ref",
+    "aggregates_state"
+  ],
+  "properties": {
+    "spawn_tree_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/SpawnTreeRef"
+    },
+    "root_cluster_ref": {
+      "$ref": "fleet_observe_common_schema.json#/definitions/ClusterRef"
+    },
+    "aggregates_state": {
+      "type": "string",
+      "enum": [
+        "not_computed"
+      ],
+      "x-content-class": "closed_enum",
+      "description": "Placeholder. A later contract may add computed states and counters additively."
+    }
+  }
+}

@@ -1614,7 +1614,7 @@ class TestAgentLifecycleCommonSchema:
     def test_record_comparable_single_subject_corpus_case_is_now_invalid_for_the_right_reason(
         self, validator
     ):
-        """Regression guard for the Terra-flagged defect: an earlier submission had
+        """Regression guard for reviewer-flagged defect: an earlier submission had
         this exact contract-named case backwards (in the valid bucket, with
         comparability_verdict=NOT_APPLICABLE). It must now be schema_invalid, and
         specifically because its comparability_verdict is COMPARABLE -- not because

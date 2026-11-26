@@ -383,7 +383,7 @@
       "name": "target_request_accuracy_upper_bound_rejected",
       "schema_ref": "https://schemas.traigent.ai/agent_readiness/agent_readiness_target_schema.json#/definitions/TargetDeclarationRequest",
       "valid": false,
-      "why": "captain ruling 2026-09-24: only the lower bound of the CI may clear the threshold (debt-model Stay rule)",
+      "why": "a reviewer ruling 2026-09-24: only the lower bound of the CI may clear the threshold (debt-model Stay rule)",
       "instance": {
         "expected_current_revision_id": null,
         "source_run_id": "run-anchor",

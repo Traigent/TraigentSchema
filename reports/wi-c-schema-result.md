@@ -1,6 +1,6 @@
 # WI-C Schema — economics recommendation calculator contract (evidence)
 
-> **Update — rebased onto develop 5.0.0 on 2026-07-25 (captain).** The packet below was
+> **Update — rebased onto develop 5.0.0 on 2026-07-25.** The packet below was
 > written against the pre-5.0.0 develop line and then parked. Everything in the body
 > described the contract as it stood on 2026-07-18. Read the body as the ORIGINAL
 > record, not as current truth: the passages marked SUPERSEDED below no longer hold,
@@ -14,7 +14,7 @@
 > | `schemaFileCount` 375 → 377, `files=377` | 376 → **378** (develop added one schema file meanwhile); parity re-stamped with `scripts/refresh_parity.py --update` |
 > | `47 passed` in this file, `1222 passed` overall | **56** in this file; full suite **1309 passed / 1 skipped**. See the restamped Verification section below for the current commands and counts; the body's original numbers are kept as the parked packet's record. |
 >
-> **Terra review round 1 returned BLOCK; all three findings were real and are fixed
+> **Review round 1 returned BLOCK; all three findings were real and are fixed
 > in the same branch.** (1) `agent_display_name` was an 80-character free-text field
 > whose own description claimed it "cannot become a free-text egress channel" — removed
 > outright, since the agent renders locally and never needs to transmit it; and
@@ -26,7 +26,7 @@
 > and the backend" was unsupported — no producer exists — so the vectors are now
 > described as schema-valid examples, not conformance evidence. (3) `published_reference`
 > was optional while the schema claimed the formula is published and re-derivable; it is
-> now required, with resolution declared as a backend obligation. Terra's non-blocking
+> now required, with resolution declared as a backend obligation. The review's non-blocking
 > item is also done: the allowlist gate is now driven from the vocabulary across all ten
 > fields instead of spot-checking two. Each fix was mutation-tested — removing the
 > narrowing, re-adding a display name, making the reference optional, and deleting one
@@ -42,7 +42,7 @@
 > backend serves this route, and `x-asserted-against-backend: false` still holds.
 
 Branch `feature/econ-model-wi-c-schema`, worktree `TraigentSchema-wi-c`, continued from
-accepted WI-B HEAD `c27a034`. All changes left UNCOMMITTED (HEAD still `c27a034`; captain owns
+accepted WI-B HEAD `c27a034`. All changes left UNCOMMITTED (HEAD still `c27a034`; the release owner owns
 refs/commits). Schema-only WI-C: the closed characterization submission request and the
 backend-authoritative recommendation response, one canonical POST route, deterministic offline
 fixtures, adversarial tests. No `credit`/`incentive`/`grant`/`promo`/`wallet`/`billing`/pricing/
@@ -82,7 +82,7 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
   the egress/coverage/substance/evidence closed-pipe rules are the SAME pipe, not a restatement.
 - ~~Presentation-only `agent_display_name`~~ **SUPERSEDED — the field was REMOVED on 2026-07-25.**
   The original text argued that being bounded (1–80) and control-character-free meant it could not
-  become a free-text egress channel. Terra's review showed that claim was false — 80 printable
+  become a free-text egress channel. That review showed that claim was false — 80 printable
   characters carry prose — so the field was deleted rather than re-worded, and
   `additionalProperties: false` now makes it unrepresentable. The request carries no presentation
   string of any kind.
@@ -120,7 +120,7 @@ Tests + example vectors (new) — SUPERSEDED wording: these were called "determi
 
 **RESTAMPED 2026-07-25.** These figures were produced on the tree of the commit that last modified this file — resolve it with `git log -1 -- reports/wi-c-schema-result.md`. No SHA is written here on purpose: an earlier draft invented one that did not exist yet, and the next attempt (naming a parent) went stale the moment this file was edited again. A pin that cannot be wrong is worth more than one that reads as more precise. The original
 2026-07-18 numbers below the line are kept as the historical record of the parked
-packet; these are the current ones, re-run by the captain, each standalone with no
+packet; these are the current ones, re-run by the release owner, each standalone with no
 pipe that could mask an exit code:
 
 | Command | Result |
@@ -192,15 +192,15 @@ branch, a nested object, an `additionalProperties` string map, an array of strin
   `agent_display_name`, which no longer exists in the contract. Reversible (could be forked into an
   independent definition later without a contract-shape change to callers).
 
-## Residuals / notes for the captain
+## Residuals / notes for the release owner
 
 - Changes are UNCOMMITTED by design; HEAD = `c27a034`. Captain owns commit/push/PR.
 - Spine-trail: none on the branch (the local gate flagged it as a non-blocking reminder). Stamp a
-  `Spine-Trail:`/`Spine:` line before `gh pr create` per workspace policy; this is a captain action
+  `Spine-Trail:`/`Spine:` line before `gh pr create` per workspace policy; this is a release-owner action
   at PR time and does not affect the contract.
 - Branch is behind `origin/develop` because it is intentionally stacked on the frozen WI-B HEAD
   (contract-first, not yet merged). The local gate's freshness preflight warns but does not fail
-  (develop-bound, non-strict). No rebase attempted (would depend on WI-B merge order — captain's
+  (develop-bound, non-strict). No rebase attempted (would depend on WI-B merge order — the release owner's
   call).
 - Backend obligations (things Draft-07 cannot enforce) are declared as `x-backend-obligations` on
   both schemas and asserted-as-declared by the tests: tenant/project from context, budget

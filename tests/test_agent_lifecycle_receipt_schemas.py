@@ -18,7 +18,7 @@ anywhere in these schemas, and an accepted ``duplicate`` count is always
 ``const 0`` -- STORY-ALR-1102.md's AC3 text (which names the first deleted
 field) is stale and is not followed here.
 
-Terra review P1-3 (2026-08-10): neither deleted field's literal spelling
+internal review P1-3 (2026-08-10): neither deleted field's literal spelling
 appears anywhere in this module or in ``receipt_cases.json`` -- ALR-1101 was
 held to that same bar for the schema files themselves. Where a poison probe
 needs one of the two literal keys, ``_deleted_field_names()`` below builds
@@ -135,7 +135,7 @@ _DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS = [
     "coverage_omits_client_attested_only_over_attested_contract",
 ]
 
-# Terra review P2-1 (2026-08-10): this id is PART1_CONTRACT_FREEZE_DRAFT.md's
+# internal review P2-1 (2026-08-10): this id is PART1_CONTRACT_FREEZE_DRAFT.md's
 # own valid case 38 (:1014), not service_invalid -- it was misfiled in
 # _DOCUMENTED_SERVICE_INVALID_IDS_NOT_IN_THIS_CORPUS above, which would have
 # blocked a legitimate future valid witness for it. It is omitted from this
@@ -162,7 +162,7 @@ class TestSchemaDiscoveryAndCrossFileRefs:
         self, validator: SchemaValidator
     ) -> None:
         """StableOpaqueRef/TypedOpaqueRef live only in
-        agent_lifecycle_common_schema.json (Terra review P2-2, 2026-08-10:
+        agent_lifecycle_common_schema.json (internal review P2-2, 2026-08-10:
         moved out of the Route 3 request schema, since the contract defines
         them as common types every Part 1 route consumes -- hosting them in
         one consumer route file would have forced later Route 1/2/5 stories
@@ -212,7 +212,7 @@ class TestReceiptCorpusAntiVacuity:
 
     def test_documented_runtime_valid_ids_are_not_silently_duplicated_here(self) -> None:
         """Mirrors the service_invalid guard above for the separate
-        runtime-valid bucket (Terra review P2-1): a contract-named valid case
+        runtime-valid bucket: a contract-named valid case
         that needs a live Backend to witness must not silently reappear here
         either, and the two documentation lists must never overlap with each
         other -- that would be the exact misclassification P2-1 caught."""
@@ -397,7 +397,7 @@ class TestAC2ReceiptBindsPlanIndexIdentityContractScopeAndStatus:
 def _deleted_field_names() -> tuple[str, str]:
     """The two field names the 2026-08-09 owner accounting decision deleted
     from Part 1 entirely (runs/agent-lifecycle-contract-integration/
-    OWNER_DECISION_ACCOUNTING_20260809.md). Terra review P1-3 (2026-08-10):
+    OWNER_DECISION_ACCOUNTING_20260809.md). internal review P1-3 (2026-08-10):
     neither literal spelling may appear as a static string constant, fixture
     case id, or JSON property name in this module or in receipt_cases.json
     -- ALR-1101 was held to that same bar for the schema files themselves.
@@ -433,7 +433,7 @@ class TestAC3BackendDerivesCountsClientCannotSupplyDenominator:
             assert duplicate_schema.get("const") == 0
 
     # ------------------------------------------------------------------
-    # Fragment-constructed poison-key probes (Terra review P1-3): these
+    # Fragment-constructed poison-key probes: these
     # replace the three corpus cases that used to store either deleted
     # field's literal spelling as a static JSON property name in
     # receipt_cases.json. The poisoned payload is now built at test time by

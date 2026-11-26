@@ -18,6 +18,8 @@ enforces it and `tests/test_content_class_lint.py` pins it.
 | `auth_header` | Allow-listed transport or authentication header. |
 | `version` | Dotted numeric version string (digit groups only, bounded). |
 | `server_text` | Server-composed text from fixed templates; never request-derived. |
+| `customer_content` | Free text or structured values the customer authors or chooses (for example search strings and filter predicates). It can carry arbitrary customer data, so a consumer must treat it as content: never write it to logs, telemetry, metrics labels or error bodies, never send it to the optimization channel (a closed, content-free vocabulary) or to observability, and keep it within the owning tenant's own authorized request and response path. Bound its size (maxLength or maxItems) in the schema. Not allowed on any optimization-channel document; the lint rejects it there. |
+| `customer_identifier` | An identifier the customer chooses (for example an agent id or a dataset id). Customer-chosen identifiers are content: handle them like customer_content. They may be echoed only to the owning tenant through an authorized endpoint, and anywhere else (logs, audit rows, telemetry, the optimization channel) only as a keyed digest, never the raw value. Not allowed on any optimization-channel document; the lint rejects it there. |
 | `legacy_content` | **Transitional.** Carries, or may carry, customer content today and is scheduled for removal by the content-less plan. |
 
 `legacy_content` makes today's leaks visible instead of passing them: it is not a class a
@@ -44,6 +46,8 @@ a looser class.
 | `code_identifier` | a dotted `module:qualname` or repo-relative path pattern that rejects free text |
 | `version` | an anchored pattern of digit groups joined by dots (`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?![\s\S])`, an absolute end that a trailing newline cannot pass) that accepts `1.2.3` and rejects text, and a `maxLength` |
 | `server_text` | a `maxLength` and an `x-content-note` naming the fixed-template source. Keywords cannot prove it (prose is prose), so it is an assertion by the contract owner, accepted only at the exact (file, JSON pointer) locations in the lint's `SERVER_TEXT_LOCATIONS` allow-list (today one response field); never in a request, a parameter, a map key (it is not a key class) or through a `$ref` from elsewhere |
+| `customer_content` | a bounded type: `maxLength` (string), `maxItems` (array) or `maxProperties` (object); any other type or an unbounded node fails |
+| `customer_identifier` | a `string` type with `maxLength` (no pattern: the customer chooses the text) |
 | `encrypted_blob` | only inside `labels/` (base64url + `maxLength`); elsewhere a node must `$ref` the label envelope |
 
 Map-key classes are checked against `propertyNames` the same way.

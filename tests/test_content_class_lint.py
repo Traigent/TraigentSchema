@@ -613,6 +613,203 @@ def test_timestamp_requires_format_or_pattern(tmp_path: Path) -> None:
     _ok(tmp_path, {"type": "string", "format": "date-time", "x-content-class": "timestamp"})
 
 
+def _tree(tmp_path: Path, files: dict[str, dict]):
+    """Write a schema tree (relative path -> schema) and lint it; only optimization/ roots walk."""
+    root = tmp_path / "schemas"
+    for rel, schema in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(schema), encoding="utf-8")
+    return lint.run_lint(root)
+
+
+def _closed(props: dict) -> dict:
+    return {"type": "object", "additionalProperties": False, "properties": props}
+
+
+CHANNEL_MSG = lint.CHANNEL_FORBIDDEN_MESSAGE
+STRING_128_ID = {"type": "string", "maxLength": 128, "x-content-class": "customer_identifier"}
+NUMBER_VALUES = {"type": "integer", "minimum": 0, "maximum": 5, "x-content-class": "number"}
+
+
+def test_customer_content_size_rule_holds_for_a_future_non_channel_walk() -> None:
+    # The size rule is not reachable through an optimization walk any more (the channel rule
+    # rejects the class there); it is tested on the rule itself for the non-channel case.
+    assert lint.semantic_problem("customer_content", {"type": "string"})
+    assert lint.semantic_problem("customer_content", {"type": "string", "maxLength": 200}) is None
+    assert lint.semantic_problem("customer_content", {"type": "array", "maxItems": 20}) is None
+    assert lint.semantic_problem("customer_content", {"type": "object", "maxProperties": 5}) is None
+    assert lint.semantic_problem("customer_content", {"type": "integer", "maximum": 5})
+
+
+def test_customer_identifier_size_rule_holds_for_a_future_non_channel_walk() -> None:
+    assert lint.semantic_problem("customer_identifier", {"type": "string"})
+    assert lint.semantic_problem("customer_identifier", {"type": "integer", "maxLength": 9})
+    ok_id = {"type": "string", "maxLength": 128}
+    assert lint.semantic_problem("customer_identifier", ok_id) is None
+
+
+def test_customer_content_is_rejected_on_an_optimization_document(tmp_path: Path) -> None:
+    content = {"type": "string", "maxLength": 200, "x-content-class": "customer_content"}
+    result = _tree(tmp_path, {"optimization/doc.json": _closed({"q": content})})
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_customer_identifier_is_rejected_on_an_optimization_document(tmp_path: Path) -> None:
+    result = _tree(tmp_path, {"optimization/doc.json": _closed({"agent": STRING_128_ID})})
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_customer_class_is_rejected_through_a_ref_in_the_same_document(tmp_path: Path) -> None:
+    schema = _closed({"agent": {"$ref": "#/definitions/Id"}})
+    schema["definitions"] = {"Id": STRING_128_ID}
+    result = _tree(tmp_path, {"optimization/doc.json": schema})
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_customer_class_is_rejected_through_a_ref_into_another_directory(tmp_path: Path) -> None:
+    other = {"definitions": {"Id": STRING_128_ID}}
+    doc = _closed({"agent": {"$ref": "../execution/ids.json#/definitions/Id"}})
+    result = _tree(
+        tmp_path,
+        {"execution/ids.json": other, "optimization/doc.json": doc},
+    )
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_customer_class_is_rejected_as_a_map_key_on_an_optimization_document(
+    tmp_path: Path,
+) -> None:
+    key_form = _closed(
+        {
+            "m": {
+                "type": "object",
+                "additionalProperties": NUMBER_VALUES,
+                "x-content-key-class": "customer_identifier",
+            }
+        }
+    )
+    names_form = _closed(
+        {
+            "m": {
+                "type": "object",
+                "propertyNames": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "x-content-class": "customer_content",
+                },
+                "additionalProperties": NUMBER_VALUES,
+            }
+        }
+    )
+    for n, schema in enumerate((key_form, names_form)):
+        result = _tree(tmp_path / str(n), {"optimization/doc.json": schema})
+        assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_a_document_the_lint_does_not_walk_may_carry_the_customer_classes(
+    tmp_path: Path,
+) -> None:
+    content = {"type": "string", "maxLength": 200, "x-content-class": "customer_content"}
+    ident = {"type": "string", "x-content-class": "customer_identifier"}
+    other = _closed({"q": content, "a": ident})
+    result = _tree(
+        tmp_path,
+        {
+            "optimization/doc.json": _closed({"n": NUMBER_VALUES}),
+            "execution/eg.json": other,
+        },
+    )
+    assert result.invalid == [], result.invalid
+    assert result.missing == [], result.missing
+    assert "execution/eg.json" not in result.documents
+
+
+def test_a_permitted_propertynames_class_does_not_hide_a_forbidden_key_class(
+    tmp_path: Path,
+) -> None:
+    # review case (a): _record_keys returned at the permitted propertyNames class before it read the
+    # forbidden x-content-key-class on the same map.
+    names = {"type": "string", "pattern": lint.UUID_PATTERN, "x-content-class": "opaque_ref"}
+    mixed = {
+        "type": "object",
+        "propertyNames": names,
+        "additionalProperties": NUMBER_VALUES,
+        "x-content-key-class": "customer_identifier",
+    }
+    result = _tree(tmp_path, {"optimization/doc.json": _closed({"m": mixed})})
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_a_ref_from_a_redeclared_conditional_property_into_an_unwalked_file_is_rejected(
+    tmp_path: Path,
+) -> None:
+    # review case (b): the then-branch redeclares "n" without its own class, so the walker skips it
+    # before recursion; its $ref leads into execution/ids.json, which no root walks.
+    doc = _closed({"n": NUMBER_VALUES})
+    doc["if"] = {"properties": {"n": {"const": 1}}}
+    doc["then"] = {"properties": {"n": {"$ref": "../execution/ids.json#/definitions/Q"}}}
+    ids = {
+        "definitions": {
+            "Q": {"type": "string", "maxLength": 200, "x-content-class": "customer_content"}
+        }
+    }
+    result = _tree(tmp_path, {"execution/ids.json": ids, "optimization/doc.json": doc})
+    assert "execution/ids.json" not in result.documents
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_a_second_path_level_parameter_with_a_customer_identifier_is_rejected(
+    tmp_path: Path,
+) -> None:
+    # review case (c): path-level parameters share one pointer, so the second inline schema was
+    # skipped as already seen after the first.
+    ops = {
+        "openapi": "3.0.3",
+        "info": {"title": "t", "version": "1"},
+        "paths": {
+            "/api/v1/things/{a}/{b}": {
+                "parameters": [
+                    {
+                        "name": "a",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string", "pattern": lint.UUID_PATTERN,
+                                   "x-content-class": "opaque_ref"},
+                    },
+                    {
+                        "name": "b",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string", "maxLength": 128,
+                                   "x-content-class": "customer_identifier"},
+                    },
+                ],
+                "get": {"responses": {"200": {"description": "ok"}}},
+            }
+        },
+    }
+    result = _tree(tmp_path, {"optimization/ops.json": ops})
+    assert any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
+def test_a_file_that_is_neither_walked_nor_reachable_may_carry_both_classes(
+    tmp_path: Path,
+) -> None:
+    both = _closed(
+        {
+            "q": {"type": "string", "maxLength": 200, "x-content-class": "customer_content"},
+            "a": {"type": "string", "maxLength": 9, "x-content-class": "customer_identifier"},
+        }
+    )
+    result = _tree(
+        tmp_path,
+        {"optimization/doc.json": _closed({"n": NUMBER_VALUES}), "execution/unreached.json": both},
+    )
+    assert "execution/unreached.json" not in result.documents
+    assert not any(CHANNEL_MSG in w for w in result.invalid), result.invalid
+
+
 def test_opaque_ref_requires_the_ref_pattern(tmp_path: Path) -> None:
     assert _bad(tmp_path, {"type": "string", "x-content-class": "opaque_ref"})
     assert _bad(

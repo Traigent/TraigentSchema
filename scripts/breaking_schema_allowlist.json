@@ -9072,6 +9072,23 @@
       "pr": "pending (TraigentSchema, feature/private-online-mode, Spine-Trail st_13d129d009be, not yet opened)"
     },
     {
+      "file": "optimization/optimization_endpoints.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/sessions/post/requestBody/content/application/json/schema/allOf",
+          "role": "request",
+          "subject": "allOf",
+          "old": 10,
+          "new": 12,
+          "fingerprint": "10b14360efd0878cb0cf06fa79eed21414402ae600e0b8f69935b2c03dd81a40"
+        }
+      ],
+      "reason": "Promotion of develop to main: the POST /api/v1/sessions request allOf gains two conditional if/then branches (10 -> 12 against main). TraigentSchema#610 adds the optional evaluator_code_digest, guarded by a branch that fires only when the field is present. TraigentSchema#615 adds the optional snapshot_g1_required and snapshot_g1_deadline_days, guarded by a branch that fires only when snapshot_g1_deadline_days is present. Each branch was already acknowledged individually against develop. Request bodies that omit these fields validate exactly as before, so a client built on the current main contract is not rejected; the published Python SDK 0.31.1 contains none of the three fields. The gate cannot align branches positionally when the count changes, so it flags this conservatively.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/615"
+    },
+    {
       "file": "prompts/prompts_endpoints.json",
       "rule": "endpoint_removed",
       "findings": [
@@ -10948,6 +10965,177 @@
       "pr": "https://github.com/Traigent/TraigentSchema/pull/759"
     },
     {
+      "file": "audit/audit_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/audit/logs/get/responses/200/content/application/json/schema/properties/data/properties/logs/items/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "dfd8bf7c0114518849e36a45b4f5f9293dbb6b3a1d505188e2d05852a8c7492c"
+        },
+        {
+          "pointer": "#/paths//api/v1/audit/logs/export/post/responses/200/content/application/json/schema/properties/data/properties/logs/items/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "a074ed6ed5676ab27a09f5e88211a3de801711f5b36521bc0a93a6b2c3bc4aa5"
+        },
+        {
+          "pointer": "#/paths//api/v1/audit/logs/{log_id}/get/responses/200/content/application/json/schema/properties/data/properties/permission/anyOf/1",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"fleet_import.write\""
+            ]
+          },
+          "old": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "new": [
+            "\"admin\"",
+            "\"agent.read\"",
+            "\"agent.write\"",
+            "\"audit.export\"",
+            "\"audit.read\"",
+            "\"benchmark.read\"",
+            "\"benchmark.write\"",
+            "\"delete\"",
+            "\"director_evidence.read\"",
+            "\"experiment.read\"",
+            "\"experiment.write\"",
+            "\"fleet_import.write\"",
+            "\"measure.read\"",
+            "\"measure.write\"",
+            "\"project.membership.manage\"",
+            "\"read\"",
+            "\"system.read\"",
+            "\"trace.read\"",
+            "\"trace.write\"",
+            "\"write\""
+          ],
+          "fingerprint": "dc91dfd5817a777c08935ef047bfbd189c7a1161472bcfd058bddff76ce98f24"
+        }
+      ],
+      "reason": "Release 8.0.0 promotion of develop to main: the audit log permission value set, shared by GET /api/v1/audit/logs, GET /api/v1/audit/logs/{log_id} and the audit logs export response, gains the member fleet_import.write (three response-side enum additions, one per operation). It follows the new user-requestable API-key scope fleet_imports:write (CHANGELOG, Unreleased entry now in 8.0.0) whose use is recorded in the audit log. The enum widens only what the server may return; readers that treat the permission as an open string are unaffected, and no request body changes. The gate flags a response enum addition conservatively against main.",
+      "version": "8.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/741"
+    },
+    {
       "file": "optimization/tvl_reactive_endpoints.json",
       "rule": "minLength",
       "findings": [
@@ -11065,8 +11253,8 @@
         }
       ],
       "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
-      "version": "Unreleased",
-      "pr": "pending (TraigentSchema, fix/reactive-agent-ref-is-agent-id)"
+      "version": "8.0.0",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
     },
     {
       "file": "agents/agents_endpoints.json",

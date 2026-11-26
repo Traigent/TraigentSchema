@@ -262,8 +262,10 @@ def test_validation_and_not_found_components_use_the_closed_shapes():
 def test_export_is_documented_as_an_artifact_producing_get():
     op = _operation("project_analytics", "export_project_fine_tuning_manifest")
     description = op["description"]
-    assert "creates an export job" in description and "audit" in description
-    assert "truncated" in description and "empty_reason" in description
+    assert "creates an export job" in description
+    assert "audit" in description
+    assert "truncated" in description
+    assert "empty_reason" in description
     assert op["responses"]["403"] == {"$ref": "#/components/responses/AnalyticsExportPolicyDenied"}
     assert op["responses"]["500"] == {"$ref": "#/components/responses/AnalyticsExportFailed"}
 

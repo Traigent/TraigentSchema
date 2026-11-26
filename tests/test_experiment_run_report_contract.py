@@ -423,7 +423,7 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
 
 
 def test_report_refs_reject_malformed_ids_and_both_trial_formats_are_accepted():
-    # Interim ruling: "$" patterns, no lookahead; trailing-newline hardening is Python-side.
+    # Patterns end in "$" with no lookahead; trailing-newline hardening is Python-side.
     v = _validator("experiment_run_report_response_schema")
     d = _report()
     agg = d["aggregated_results"][0]

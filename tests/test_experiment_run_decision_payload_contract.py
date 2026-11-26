@@ -289,7 +289,7 @@ def _all_patterns(node):
 
 
 def test_no_pattern_uses_a_lookahead_and_refs_reject_malformed_ids():
-    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead); the
+    # Patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead); the
     # trailing-newline hardening is applied by the Python-side validators, not by the schema.
     ref = "experiment_run_" + "0f" * 16
     resp = _load("analytics/run_decision_payload_response_schema.json")

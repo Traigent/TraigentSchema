@@ -495,7 +495,7 @@ ALL_PATTERNS = (
 
 
 def test_no_leaderboard_pattern_uses_a_lookahead():
-    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
+    # Patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
     assert len(ALL_PATTERNS) >= 10
     for pat in ALL_PATTERNS:
         assert "(?!" not in pat, pat

@@ -485,7 +485,7 @@ def _all_patterns(node, out):
 
 
 def test_no_w10_pattern_uses_a_lookahead():
-    # Interim ruling: patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
+    # Patterns end in "$" (Pydantic v2's rust-regex engine refuses lookahead).
     pats = _all_patterns(RESP, []) + _all_patterns(_load("analytics/experiment_run_trial_ref_schema.json"), [])
     pats += _all_patterns(OP, []) + _all_patterns(_load("analytics/experiment_run_report_response_schema.json"), [])
     pats += _all_patterns(CATALOG["paths"]["/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report"], [])

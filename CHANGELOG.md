@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Runtime validators (AnalyticsValidator example/job ids and algorithm version; fleet-observe timestamp and remote parsing) now refuse a value with a trailing newline.
+
 ## [8.0.0] - 2026-11-24
 
 ### Breaking

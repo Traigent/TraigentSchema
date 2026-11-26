@@ -35,6 +35,7 @@ VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 BULLET_RE = re.compile(r"- +\S.*")
 CONTINUATION_RE = re.compile(r" {2,}\S.*")
+LINK_REF_RE = re.compile(r"\s*(-\s+)?\[[^\]]+\]:\s.*")
 POINTER = (
     "Unreleased changes are kept as fragments in changelog.d/; "
     "see changelog.d/README.md"
@@ -59,6 +60,8 @@ def _check_body(name: str, body: str) -> str | None:
         return f"{name}: fragment is empty"
     column = -1
     for ln in lines:
+        if LINK_REF_RE.fullmatch(ln):
+            return f"{name}: link reference definitions are not allowed ({ln!r})"
         bullet = BULLET_RE.fullmatch(ln)
         if bullet:
             column = len(ln) - len(ln[2:].lstrip(" "))
@@ -149,7 +152,7 @@ def insert_section(changelog: str, version: str, section: str) -> str:
     ``section`` uses LF.
     """
     lines = changelog.splitlines(keepends=True)
-    if any(ln.startswith(f"## [{version}]") for ln in lines):
+    if any(ln.lstrip().startswith(f"## [{version}]") for ln in lines):
         raise ChangelogError(f"CHANGELOG.md already mentions a section for {version}")
     offsets = []
     pos = 0
@@ -166,6 +169,11 @@ def insert_section(changelog: str, version: str, section: str) -> str:
     if len(heads) < 2 or text_lines[heads[0]] != "## [Unreleased]":
         raise ChangelogError(structure)
     first, nxt = heads[0], heads[1]
+    for ln in text_lines[:first]:
+        if ln.lstrip(" ").startswith(("```", "~~~", "<!--")):
+            raise ChangelogError(
+                "CHANGELOG.md has a code fence or HTML comment before the [Unreleased] pointer"
+            )
     body = [ln for ln in text_lines[first + 1 : nxt]]
     while body and not body[0].strip():
         body.pop(0)
@@ -173,11 +181,10 @@ def insert_section(changelog: str, version: str, section: str) -> str:
         raise ChangelogError(structure)
     if not DATED_HEADING_RE.fullmatch(text_lines[nxt]):
         raise ChangelogError(structure)
-    eol = "\r\n" if "\r\n" in changelog else "\n"
+    release_line = lines[nxt]
+    eol = "\r\n" if release_line.endswith("\r\n") else "\n"
     end = offsets[nxt]
-    head = changelog[:end].rstrip("\r\n")
-    tail = changelog[end:]
-    return f"{head}{eol}{eol}{section.replace(chr(10), eol)}{eol}{tail}"
+    return f"{changelog[:end]}{section.replace(chr(10), eol)}{eol}{changelog[end:]}"
 
 
 def _fsync_dir(path: Path) -> None:
@@ -270,8 +277,12 @@ def main(argv: list[str] | None = None) -> int:
         try:
             write_atomic(changelog_path, updated)
         except OSError as exc:
-            print(f"error: could not write CHANGELOG.md (unchanged, fragments kept): {exc}",
-                  file=sys.stderr)
+            print(
+                f"error: could not write CHANGELOG.md (unchanged); fragments kept:\n  "
+                + "\n  ".join(str(f[2]) for f in fragments)
+                + f"\n({exc})",
+                file=sys.stderr,
+            )
             return 1
         try:
             _fsync_dir(changelog_path.parent)

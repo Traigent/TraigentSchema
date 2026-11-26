@@ -459,3 +459,62 @@ def test_trailing_newline_in_a_name_or_format_is_refused(root: Path) -> None:
     assert run(root, "--version", "1.1.0\n", "--date", "2026-02-02") == 2
     frag(root, "a.added.md")
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02\n") == 2
+
+
+# --- final hardening ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("opener", ["```", "~~~", "   ```", "<!--", "  <!-- hidden"])
+def test_fence_or_comment_before_the_pointer_is_refused(root: Path, opener: str) -> None:
+    frag(root, "a.added.md")
+    text = opener + "\n" + BASE_CHANGELOG
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert (root / "CHANGELOG.md").read_text() == text
+
+
+def test_indented_duplicate_heading_is_refused(root: Path) -> None:
+    frag(root, "a.added.md")
+    text = BASE_CHANGELOG + "\n   ## [1.1.0] - 2026-02-02\n"
+    (root / "CHANGELOG.md").write_text(text)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-03") == 2
+
+
+@pytest.mark.parametrize("body", ["- ok\n[x]: https://example.invalid\n", "- [x]: y\n", "- ok\n  [ref]: http://a\n"])
+def test_link_reference_definitions_in_fragments_are_refused(root: Path, body: str) -> None:
+    frag(root, "a.added.md", body)
+    assert run(root, "--check") == 2
+
+
+def test_extra_blank_line_after_the_pointer_survives(root: Path) -> None:
+    frag(root, "a.added.md", "- one\n")
+    text = BASE_CHANGELOG.replace("README.md\n\n## [1.0.0]", "README.md\n\n\n## [1.0.0]")
+    (root / "CHANGELOG.md").write_bytes(text.encode())
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    data = (root / "CHANGELOG.md").read_text()
+    assert "README.md\n\n\n## [1.1.0] - 2026-02-02\n\n### Added\n- one\n\n## [1.0.0]" in data
+
+
+def test_mixed_line_endings_outside_the_inserted_section_are_untouched(root: Path) -> None:
+    frag(root, "a.added.md", "- one\n")
+    head = b"# Changelog\n\n## [Unreleased]\n\n" + cc.POINTER.encode() + b"\n\n"
+    rest = b"## [1.0.0] - 2026-01-01\r\n\r\n### Added\r\n- First.\n- mixed\r\n"
+    (root / "CHANGELOG.md").write_bytes(head + rest)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 0
+    data = (root / "CHANGELOG.md").read_bytes()
+    assert data.startswith(head) and data.endswith(rest)
+    inserted = data[len(head): -len(rest)]
+    assert inserted == b"## [1.1.0] - 2026-02-02\r\n\r\n### Added\r\n- one\r\n\r\n"
+
+
+def test_write_failure_lists_the_kept_fragments(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    f = frag(root, "a.added.md")
+
+    def boom(*_a: object, **_k: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(cc.os, "replace", boom)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 1
+    assert str(f) in capsys.readouterr().err

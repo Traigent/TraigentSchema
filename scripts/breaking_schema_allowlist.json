@@ -10960,9 +10960,9 @@
           "fingerprint": "9dd06a2be98f6c3a2868ceeb74e012f782bb5102f9c4f4b62e36ebdd5912f1ed"
         }
       ],
-      "reason": "Unreleased pre-release path move (API cutover U1): the 14 production reactive operations in optimization/tvl_reactive_endpoints.json move from /api/v1/production-reactive/agents/{agent_ref}/... to /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/... and gain the project_id path parameter. operationIds, methods, bodies and responses are unchanged. The backend operation table already serves only the new paths and answers the closed 404 on the old ones; there is no released client of the old paths, and the feature is dark behind PRODUCTION_REQUIREMENTS_ENABLED. Rollout rule: the Backend change ships with this contract.",
+      "reason": "Unreleased pre-release path move: the 14 production reactive operations in optimization/tvl_reactive_endpoints.json move from /api/v1/production-reactive/agents/{agent_ref}/... to /api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/... and gain the project_id path parameter. operationIds, methods, bodies and responses are unchanged. The backend change that serves the new paths and answers the closed 404 on the old ones ships separately; until it is deployed, the service registers the old paths behind a feature gate that is off by default. Released clients of the old paths exist (Python SDK 0.32.0 to 0.34.1). Rollout rule: the backend change, a client release that uses the new paths, and this contract ship together.",
       "version": "Unreleased",
-      "pr": "pending (TraigentSchema, feat/pa-u1-reactive-project-paths)"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/759"
     },
     {
       "file": "audit/audit_endpoints.json",
@@ -10970,6 +10970,127 @@
       "reason": "Release 8.0.0 promotion of develop to main: the audit log permission value set, shared by GET /api/v1/audit/logs, GET /api/v1/audit/logs/{log_id} and the audit logs export response, gains the member fleet_import.write (three response-side enum additions, one per operation). It follows the new user-requestable API-key scope fleet_imports:write (CHANGELOG, Unreleased entry now in 8.0.0) whose use is recorded in the audit log. The enum widens only what the server may return; readers that treat the permission as an open string are unaffected, and no request body changes. The gate flags a response enum addition conservatively against main.",
       "version": "8.0.0",
       "pr": "pending (TraigentSchema, feat/fleet-imports-write-scope, not yet opened)"
+    },
+    {
+      "file": "optimization/tvl_reactive_endpoints.json",
+      "rule": "minLength",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "430a987561f90b2e074beb0db95b3011c729b8cbbc74ce56728f4ff1d6c8a871"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "df0528213c54e082bfa4bd7846d032ab4713de824671efff0fe3fba1a3ca29e5"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/approval-context/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "9399d8aa4e0118182d71ef8f83e670f2a36a3d49f17de8022ecac91588630565"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/cancel/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "c1ccc72cf3afd45377fd4d3d4a33067ab7b9ace023c7f2c4ab023e13efd17a1b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/heartbeat/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "b18a0def7e4ace1dbf83ea4b4ca7706fe3a4958140286ec7af2085fd74685361"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/reservations/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "bf7d480c972eb226abd237586ef1c34610f983d7296db03f4b8aa4f0dae7ac4d"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/results/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "79e7b71cbccb8750fee34f6bd1e8a5d04f0453249c375cd673a775cf3f69a81f"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/attempts/{attempt_ref}/start/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "8b7e06c4129816b5965e2864565e9f144b57fc6ad2bd472f06c8f47ca473b5d1"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/evaluations/{instant}/complete/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "69534170c7c0c8d2e77b3740dbaf69db944d576efcd421ce25a19a7e4c466157"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/evaluations/{instant}/stage/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "c740f7f78c475ceebee41df9661b4df5ecd49c6b78ba00658502d0093c2821d4"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/grants/post/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "388a1b7c6d6ab10157b79249fa77d758292b2da4b293c37516c6b6732f1052af"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/grants/{grant_ref}/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "49c9a0cb978bb0480c70b96e9168d07539d4e53cb147a4637f9f0cad73832137"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/notifications/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "fd4bfcd8a71d087f9076d956bc7e60959066c2d25190cdd49e783c2261a97c80"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/production-reactive/notifications/{notification_ref}/get/parameters/agent_ref/schema",
+          "role": "request",
+          "subject": "minLength",
+          "old": null,
+          "new": 1,
+          "fingerprint": "42c48b418108d39ce403798bdddde28344461c6c6c600d5bff500fa385f648ae"
+        }
+      ],
+      "reason": "path parameter takes the agent id the agents API returns; the agentref_ digest is retired for these routes and the service answers it with the masked 404. Clients must update their id validation and use the project-scoped paths",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
     }
   ]
 }

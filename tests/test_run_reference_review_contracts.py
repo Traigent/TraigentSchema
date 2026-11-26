@@ -234,7 +234,8 @@ def test_envelope_is_closed_to_what_the_server_emits():
 def test_evaluator_quality_declares_its_path_parameter_and_shared_responses():
     op = CATALOG["paths"]["/api/v1/analytics/runs/{run_id}/evaluator-quality"]["get"]
     assert [p["name"] for p in op["parameters"]] == ["run_id"]
-    assert op["parameters"][0]["in"] == "path" and op["parameters"][0]["required"] is True
+    assert op["parameters"][0]["in"] == "path"
+    assert op["parameters"][0]["required"] is True
     assert set(op["responses"]) == {"200", *SHARED}
     for status, component in SHARED.items():
         assert op["responses"][status] == {"$ref": f"#/components/responses/{component}"}

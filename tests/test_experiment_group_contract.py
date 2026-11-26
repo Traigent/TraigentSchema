@@ -1067,7 +1067,7 @@ def test_group_search_route_is_a_cursor_only_post_with_the_filters_in_the_body()
     assert [p["name"] for p in operation["parameters"]] == ["project_id"]
     request = _request_schema(spec, "post", path)
     assert request["additionalProperties"] is False
-    assert {
+    assert set(request["properties"]) == {
         "search",
         "agent_id",
         "dataset_id",
@@ -1076,7 +1076,7 @@ def test_group_search_route_is_a_cursor_only_post_with_the_filters_in_the_body()
         "sort_order",
         "limit",
         "cursor",
-    } == set(request["properties"])
+    }
     assert request["properties"]["search"]["maxLength"] == 200
     assert request["properties"]["dataset_scope"]["enum"] == [
         "all",
@@ -1644,7 +1644,8 @@ def test_every_group_ref_route_declares_a_bounded_group_ref_and_a_safe_400() -> 
             continue
         operation = spec["paths"][path][method]
         group_param = next(p for p in operation["parameters"] if p["name"] == "group_ref")
-        assert group_param["in"] == "path" and group_param["required"] is True
+        assert group_param["in"] == "path"
+        assert group_param["required"] is True
         assert group_param["schema"] == {"type": "string", "minLength": 1, "maxLength": 128}
         assert operation["responses"]["400"] == {"$ref": "#/components/responses/GroupsBadRequest"}
 

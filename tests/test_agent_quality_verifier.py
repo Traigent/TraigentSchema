@@ -408,7 +408,7 @@ _WILSON_GRID = [
 
 @pytest.mark.parametrize("k,n", _WILSON_GRID)
 def test_wilson_bounds_never_narrow_across_a_grid(k: int, n: int) -> None:
-    """Round-2 evidence gap: make the captain's hand-run exact-arithmetic
+    """Round-2 evidence gap: make a reviewer's hand-run exact-arithmetic
     grid probe permanent, with the oracle's k=0/k=n overshoot fixed by
     handling those two cases analytically instead of via the general
     conservative sqrt bound.
@@ -1718,7 +1718,7 @@ def test_abstained_bundle_carries_claims_is_schema_preempted() -> None:
         "must validate clean -- confirms the coupling, not the claim array "
         "itself, is what rejects the abstained bundle above"
     )
-    # P1-V2.5 review P2-3 (astra's phase-gate constraint): agreement between
+    # P1-V2.5 review P2-3: agreement between
     # the schema and the module's own bucket alone is not proof -- push the
     # SAME mutated bundle through the REAL path
     # (:func:`v._run_agent_quality_checks`) and confirm it stops at SCHEMA,
@@ -1809,7 +1809,7 @@ def test_selection_estimate_in_certified_set_is_schema_preempted() -> None:
 
 
 def test_selection_estimate_duplicate_is_not_schema_preempted() -> None:
-    """Counter-proof for sol N6's widened check: SELECTION_ESTIMATE_DUPLICATE
+    """Counter-proof for review finding N6's widened check: SELECTION_ESTIMATE_DUPLICATE
     was checked against the same preemption hypothesis and found NOT
     preempted -- NonCertifiedSelectionEstimatesV1's own description says
     uniqueItems cannot express "same objective_id, different point_estimate
@@ -1944,7 +1944,7 @@ def test_schema_preempted_backstop_codes_are_proven_unreachable_by_schema() -> N
     -- a direct assertion that the shipped package data always satisfies
     the guard, so no bundle content could ever make it fail.
 
-    P1-V2.5 review P2-3 (astra's phase-gate constraint): equality between
+    P1-V2.5 review P2-3: equality between
     the schema and the registry alone is not proof by itself -- every
     equality assertion below is bound to the SHIPPED schema/registry
     document version it depends on, and the four S6 codes additionally get

@@ -1,0 +1,227 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/experiment_run_correlations_response_schema.json",
+  "title": "Run Correlations Canonical Success Response",
+  "description": "Platform success envelope for GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations. data declares every field RunAnalyticsService.correlations emits (backend src/services/analytics/run_analytics_service.py:803-832: method, sample_size, measure_correlations, parameter_correlations, warnings) as a closed, bounded definition. CANONICAL PROJECTION OMITS INTERNAL IDS: the canonical projection omits data.run_id: internal id (the builder emits run.id at run_analytics_service.py:823); the run is identified by the experiment_run_ref in the URL, and the closed schema rejects the property. DIMENSIONS AND INPUT ARE BOUNDED: the analysis runs over at most 128 numeric measure dimensions (measure pairs, :839-884, at most 8128 rows) and at most 128 numeric parameter dimensions (:898-933, at most 128 x 128 = 16384 rows; booleans count as numeric, string-valued parameters are excluded across completed configurations), counted on the exact normalized inputs after authorization and before either analysis loop; the backend accepts up to 100 search-space parameters (src/schemas/traigent.py:54-63). meta.measure_dimensions_total and meta.parameter_dimensions_total (required integers, 0 to 128) carry the analyzed counts. The input budget is a work cap of 10000 scoped configuration rows counted during the scoped read before materialization (as the Pareto contract); sample_size is the exact count of measured configurations (at most 10000). Parameter scan: non-numeric (categorical, string-valued) parameters are excluded BEFORE the importance loop, because the backend's importance loop scans every stored parameter key for each measure before it omits categorical ones (run_analytics_service.py:909-919, :3506-3529); and the number of DISTINCT stored parameter keys scanned across the run's configurations is capped at 256, with the closed 503 above it (never truncated), counted with the other caps before any analysis loop. A run over either dimension limit or the input budget is refused with the closed 503, never truncated. Names are at most 256 characters with no control characters (class [^\\x00-\\x1f\\x7f]); Any STORED measure or parameter name that fails the name pattern (a control character such as a tab, or a length over 256) makes the response the closed 503, never truncated and never sanitized. Truncation or sanitizing could merge two names. The name and warning patterns end with $, not a lookahead (Pydantic v2 rust-regex refuses it); trailing-newline hardening is applied by the Python-side validators. warnings are constrained to the builder's three formats (:855-867, :909-925): insufficient_samples:<x>~<y> (<=534 characters), zero_variance:<measure> (<=270) and the fixed categorical_parameters_omitted notice; at most one per measure pair plus one categorical notice, so at most 8129. r and effect are clamped to [-1, 1] (:873, :979) and p_value is in [0, 1]; strength is weak, moderate or strong (:3300); confidence is low, medium or high (:982). Names are run-defined identifiers shown only to the authorized reader. SIZE: this schema gives NO static byte bound. The 1 MiB limit (x-max-response-bytes 1048576) is enforced on the serialized envelope: the handler measures the final serialized bytes, sends those same bytes, and returns the closed 503 when over the limit. meta and metadata are bounded scalar maps. The historical envelope run_correlations_response_schema.json (and run_correlations_schema.json) are unchanged and still serve the deprecated analytics path.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-response-bytes": 1048576,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "#/definitions/BoundedCorrelations"
+    },
+    "meta": {
+      "$ref": "#/definitions/MetaCounts"
+    },
+    "metadata": {
+      "$ref": "#/definitions/BoundedScalarMap"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data",
+    "meta"
+  ],
+  "definitions": {
+    "MetaCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measure_dimensions_total",
+        "parameter_dimensions_total"
+      ],
+      "properties": {
+        "measure_dimensions_total": {
+          "description": "Numeric measure dimensions analyzed (at most 128; a run over the limit is the closed 503).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "parameter_dimensions_total": {
+          "description": "Numeric parameter dimensions analyzed (at most 128; a run over the limit is the closed 503).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        }
+      }
+    },
+    "BoundedScalarMap": {
+      "type": "object",
+      "maxProperties": 8,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ],
+        "maxLength": 128
+      }
+    },
+    "MeasureCorrelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "r",
+        "p_value",
+        "strength"
+      ],
+      "properties": {
+        "x": {
+          "description": "Name of the first measure in the pair.",
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        "y": {
+          "description": "Name of the second measure in the pair.",
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        "r": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0,
+          "description": "Correlation coefficient in [-1, 1]."
+        },
+        "p_value": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Significance p-value in [0, 1]."
+        },
+        "strength": {
+          "type": "string",
+          "enum": [
+            "weak",
+            "moderate",
+            "strong"
+          ],
+          "description": "Coarse strength bucket for the correlation magnitude."
+        }
+      }
+    },
+    "ParameterCorrelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parameter",
+        "measure",
+        "effect",
+        "confidence"
+      ],
+      "properties": {
+        "parameter": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "Name of the tuned parameter.",
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        "measure": {
+          "description": "Name of the affected measure.",
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        "effect": {
+          "type": "number",
+          "minimum": -1.0,
+          "maximum": 1.0,
+          "description": "Signed effect of the parameter on the measure, clamped to [-1, 1]."
+        },
+        "confidence": {
+          "allOf": [
+            {
+              "$ref": "../common_types_schema.json#/definitions/ConfidenceLabel"
+            }
+          ],
+          "description": "Coarse confidence bucket for the reported effect."
+        }
+      }
+    },
+    "BoundedCorrelations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "sample_size",
+        "measure_correlations",
+        "parameter_correlations",
+        "warnings"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "pearson",
+            "spearman"
+          ],
+          "description": "Correlation method used."
+        },
+        "sample_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Exact number of measured configurations the correlations were computed over (at most the 10000 scoped-row work cap)."
+        },
+        "measure_correlations": {
+          "type": "array",
+          "maxItems": 8128,
+          "items": {
+            "$ref": "#/definitions/MeasureCorrelation"
+          },
+          "description": "Pairwise correlations between measures (at most 128 choose 2)."
+        },
+        "parameter_correlations": {
+          "type": "array",
+          "maxItems": 16384,
+          "items": {
+            "$ref": "#/definitions/ParameterCorrelation"
+          },
+          "description": "Effect of each numeric tuned parameter on each measure (at most 128 x 128)."
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 8129,
+          "description": "Closed caveats in the builder's three formats: insufficient_samples:<x>~<y>, zero_variance:<measure>, categorical_parameters_omitted:unordered_levels_have_no_signed_effect.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 534,
+            "anyOf": [
+              {
+                "pattern": "^insufficient_samples:[^\\x00-\\x1f\\x7f]{1,256}~[^\\x00-\\x1f\\x7f]{1,256}$"
+              },
+              {
+                "pattern": "^zero_variance:[^\\x00-\\x1f\\x7f]{1,256}$"
+              },
+              {
+                "pattern": "^categorical_parameters_omitted:unordered_levels_have_no_signed_effect$"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

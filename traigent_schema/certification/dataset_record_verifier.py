@@ -37,7 +37,7 @@ convention: :func:`_check_leaf_list_input` projects each supplied list onto
 that definition before any digest, cell root or intersection is computed, so a
 free-text tag, a non-digest leaf, an out-of-taxonomy category or a duplicated
 leaf is rejected as input shape (``LEAF_LIST_SHAPE``) instead of surfacing
-later as a confusing digest mismatch (sol round 1 P1).
+later as a confusing digest mismatch.
 
 The category/stratum tag never crosses the wire; it exists only in this
 out-of-band, caller-supplied local input, where it is what lets this verifier
@@ -117,7 +117,7 @@ _EPOCH_ORDINAL = date(1970, 1, 1).toordinal()
 # below must appear in DatasetRecordDigestDomainRegistryV1, which
 # test_every_verifier_digest_domain_is_registered mechanises in both
 # directions. The first draft used claim_support_rows without registering it
-# and argued the omission was harmless (sol round 1 P2); the harm is that the
+# and argued the omission was harmless; the harm is that the
 # registry then documents a partial list, so a second implementer reading the
 # schema alone cannot reproduce this module's preimages.
 _ITEM_LEAF_DOMAIN = b"traigent.dataset_record.item_leaf.v1"
@@ -264,7 +264,7 @@ _APPLIED_POLICY_FIELDS = (
 # corpora those findings name are exactly the corpora DS3 depends on.
 _DS3_RELEVANT_FINDING_KINDS = frozenset({"declared_corpus_overlap", "split_disjointness"})
 
-# The single verifier_version every issuer_verified row must carry (sol
+# The single verifier_version every issuer_verified row must carry (review
 # round 2 P2). This module ships one fixed release of the five DSn verifiers
 # it implements, so one pinned constant covers every claim -- the same
 # "1.0.0" convention already used for taxonomy_version/registry_version in
@@ -275,7 +275,7 @@ _DS3_RELEVANT_FINDING_KINDS = frozenset({"declared_corpus_overlap", "split_disjo
 # ran.
 _VERIFIER_VERSION = "1.0.0"
 
-# The exact per-claim support-row profile (sol round 1 P2). For every claim,
+# The exact per-claim support-row profile. For every claim,
 # the verifier fixes which verifier id (and version) may appear beside it and
 # which artifact its single evidence ref must commit to -- the artifact THIS
 # module actually recomputed for that claim. ``evidence_source`` names the
@@ -361,7 +361,7 @@ def _fail(code: str, location: str = "") -> NoReturn:
     ``raise ... from None`` does NOT clear it -- it only sets
     ``__suppress_context__``, so the suppressed object, which may have been
     built from caller-supplied content, is still reachable on the escaping
-    error (sol round 1 P2 on the catch-all; the same defect class applies to
+    error (review round 1 P2 on the catch-all; the same defect class applies to
     every ``_fail`` reachable from a handler). Constructing the error, raising
     it under ``from None``, then clearing ``__context__`` and re-raising the
     same object is the discipline ``_load_registry_constant`` already uses:
@@ -675,7 +675,7 @@ def _derive_dataset_ref(identity_root: str, epoch: int) -> str:
 
 
 def _derive_dataset_ref_from_item_set(item_set_root: str) -> str:
-    """The null-identity derivation (sol round 1 P1).
+    """The null-identity derivation.
 
     ``dataset_ref`` is required by the schema whether or not the customer
     holds a long-lived identity blind, and the first draft derived it only
@@ -932,7 +932,7 @@ def _check_identity(identity: dict[str, Any], context: DatasetRecordVerification
 def _check_derived_dataset_ref(identity: dict[str, Any]) -> None:
     """Row 9a, checked FIRST and on its own.
 
-    Derived under BOTH identity branches (sol round 1 P1): with a null
+    Derived under BOTH identity branches: with a null
     ``dataset_identity_root`` the ref is derived from ``item_set_root`` under
     the ``dataset_ref_item_set`` domain, so no record can carry a supplied
     ``dsr:`` value. It is checked before the fifth input is read because the
@@ -1075,7 +1075,7 @@ def _check_leaf_list_input(
     cell root or intersection is computed from it, each supplied list is
     projected onto its contract artifact -- ``DatasetItemSetLeafListV1`` for
     the reserved ``dataset_ref`` key, ``DatasetLeafListV1`` for every corpus
-    key -- and validated against that definition (sol round 1 P1: the tags
+    key -- and validated against that definition (review round 1 P1: the tags
     were previously neither schema-validated nor named in the contract).
 
     Failures raise the fixed, content-free ``LEAF_LIST_SHAPE`` with NO
@@ -1126,7 +1126,7 @@ def _check_taxonomy_and_registry_pins(unsigned: dict[str, Any]) -> None:
 def _check_report_registry_identities(
     unsigned: dict[str, Any], composition: dict[str, Any], leakage_report: dict[str, Any]
 ) -> None:
-    """The reports' own registry identities are the manifest's (astra P2).
+    """The reports' own registry identities are the manifest's.
 
     ``composition.taxonomy`` and ``leakage_report.method_registry`` are
     signed, report-side copies of the identities the manifest pins, and
@@ -1266,7 +1266,7 @@ def _check_leakage_scope_pin(
     """Row 8b: the record's leakage scope IS the scope the caller asked about.
 
     ``expected_leakage_scope_ref`` was a caller pin the first draft never
-    compared to anything (sol round 1 P1), so a record could verify under a
+    compared to anything, so a record could verify under a
     leakage scope the relying party had not asked for -- every downstream
     disjointness statement then describes a different comparison universe
     than the one the caller believes it read. Unlike the commitment-ref pin
@@ -1392,7 +1392,7 @@ def _ds3_disjointness_established(
     leakage_report: dict[str, Any], corpora_leaves: dict[str, list[str]]
 ) -> bool:
     """Whether a POSITIVE, recomputed disjointness statement covers every
-    corpus pair DS3's claim is about (astra P1).
+    corpus pair DS3's claim is about.
 
     DS3 says the token lists for the corpora it names are disjoint. The
     first draft upgraded it on coverage alone -- every relevant corpus
@@ -1488,7 +1488,7 @@ def _collect_attestation_leaf_counts(
 def _check_cross_list_leaf_counts(
     leaf_counts_by_ref: dict[str, int], attestation_leaf_counts_by_ref: dict[str, int]
 ) -> None:
-    """T3 round 9 (captain-1/astra): compare the two signed lists' ``leaf_count``.
+    """T3 round 9: compare the two signed lists' ``leaf_count``.
 
     A corpus_ref legitimately appears in BOTH signed lists, but nothing else
     compares their signed claims about the SAME corpus_ref. This runs
@@ -1510,7 +1510,7 @@ def _check_corpus_ref_descriptors(
     attestation: dict[str, Any] | None,
 ) -> None:
     """Every finding ref resolves to a signed, re-derived corpus descriptor
-    (astra P1: finding refs retain an arbitrary content channel).
+   .
 
     ``_check_derived_refs`` re-derives the attestation's corpus refs and the
     refs of any leaf list the caller happened to SUPPLY -- never the refs a
@@ -1554,7 +1554,7 @@ def _check_corpus_ref_descriptors(
     signed record material only, so the fifth input has no bearing on it. That
     is also why the checks above must never move inside a ``leaf_lists``-gated
     branch elsewhere in this module -- doing so is exactly the defect class
-    three prior rounds (astra round 5, T3 round 6, T3 round 7) each closed one
+    three prior rounds each closed one
     instance of: a check on signed-only material that only ran when the
     caller happened to also supply the optional fifth input.
 
@@ -1595,7 +1595,7 @@ def _check_corpus_ref_descriptors(
       in ``_check_claim_support_rows`` that fires for any wire caller that
       bypasses schema validation and calls the verifier directly.
 
-    T3 round 8 P2/programmer attempt 11 -- mechanical inventory (sol
+    T3 round 8 P2/programmer attempt 11 -- mechanical inventory (review
     round-2 ask): every site in this module where a signed or
     signed-derived list is collapsed or selected by key (dict/set
     comprehension over a signed list, ``dict()``, ``.update(``,
@@ -1693,7 +1693,7 @@ def _check_leaf_generation_attestation(
         return False
     _check_attestation_digest_bindings(unsigned, leakage_report, attestation)
 
-    # The common-blind premise, checked rather than asserted (sol round 1
+    # The common-blind premise, checked rather than asserted (review round 1
     # P2). The first draft built a one-element set from the single top-level
     # field and compared its length to 1 -- a condition that cannot fire.
     # Every corpus now carries its own commitment and every one must equal
@@ -2200,7 +2200,7 @@ def _check_support_row(
         or refs[0]["evidence_digest"] != expected_digest
         or set(refs[0]) - {"evidence_kind", "evidence_digest"}
     ):
-        # The last disjunct is sol round 2 P1: a support row's evidence
+        # The last disjunct is review round 2 P1: a support row's evidence
         # ref may name the checked kind/digest and nothing else --
         # EvidenceRefV0's optional third key (``evidence_ref``) is
         # structurally forbidden here even though the shared v0
@@ -2300,7 +2300,7 @@ def _check_manifest_digest_and_signature(
     # The algorithm is SIGNED metadata: issuer_signature_algorithm sits inside
     # the manifest's coverage tuple, so the issuer states which algorithm this
     # manifest is signed under. The first draft verified with
-    # signature["algorithm"] and never compared the two (sol round 1 P2), so a
+    # signature["algorithm"] and never compared the two, so a
     # signature block could nominate a different primitive than the manifest
     # it accompanies -- the bytes then verify under an algorithm the signed
     # record does not claim.
@@ -2362,7 +2362,7 @@ def _derive_ds3(
     disjointness_evidence = "token_lists_only"
     ds3_basis = "client_declared"
     # DS3 upgrades only when EVERY corpus its claim is about was supplied,
-    # digest-checked AND attested (sol round 1 P1). The first draft skipped
+    # digest-checked AND attested. The first draft skipped
     # findings whose corpora were not supplied and skipped attestation
     # corpora with no supplied list, then upgraded DS3 if any leaf list plus
     # an attestation existed -- so a record could reach issuer_verified with
@@ -2378,7 +2378,7 @@ def _derive_ds3(
     )
     ds3_fully_covered = bool(ds3_relevant) and ds3_relevant <= (set(corpora_leaves) & attested_refs)
     # ...and only when the disjointness DS3 asserts was actually recomputed
-    # and came out empty for every pair the claim covers (astra P1). Coverage
+    # and came out empty for every pair the claim covers. Coverage
     # answers "were the lists there"; this answers "did they say what DS3
     # says they say".
     if (
@@ -2612,14 +2612,14 @@ def verify_dataset_record_certificate(
     the record's derived ``corpus_ref`` to that corpus's sorted leaf entries
     (see the module docstring for the entry shape). Its absence forces DS3 to
     abstain and DS2 to stay ``client_declared``; DS4 and DS5 never depend on
-    it (sol's over-abstention finding, D6).
+    it.
     """
     if not isinstance(context, DatasetRecordVerificationContext):
         _fail("CONTEXT")
     if type(bundle) is not dict:
         _fail("BUNDLE_SHAPE")
     # The catch-all is CLASSIFIED inside the handler and RAISED outside it
-    # (sol round 1 P2). ``raise ... from None`` sets __suppress_context__ but
+    #. ``raise ... from None`` sets __suppress_context__ but
     # leaves __context__ populated, so the suppressed exception -- which a
     # hostile fifth input could have filled with supplied material -- stays
     # reachable on the escaping error. Leaving the ``except`` block first

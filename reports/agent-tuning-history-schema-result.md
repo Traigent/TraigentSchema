@@ -1,8 +1,7 @@
 # Agent tuning-history browse contract — remediation result
 
-Current release governance: unified ChangeSession `cs_85af3e2677c82db1`
-admitted Schema packet `pkt_8b55a584db589f67` under release trail
-`st_7a0086093bb2` to remediate this candidate. Work under the admitted packet will
+Current release governance: a unified reviewed change
+admitted a Schema packet to remediate this candidate. Work under the admitted packet will
 verify the exact combined release diff before release. Admission occurred after the
 earlier candidate history and does not retroactively pre-authorize its historical
 commits.
@@ -25,7 +24,7 @@ Audit chronology (exact):
 4. `00fa4e8` — companion commit re-stamped the parity provenance hash for the
    `d319a9d` schema edit, so parity was fresh again going into this pass.
 5. **This pass (third remediation, two commits)** — a final narrow remediation after
-   an independent Codex Terra xhigh review, closing one residual redaction gap in the
+   an independent second-model review, closing one residual redaction gap in the
    strict error envelope. See "Third remediation pass" below.
    - **Primary commit** (packet `pkt_c88286ff11fd2edf`): the schema fix + decisive
      regression tests + this report + CHANGELOG.
@@ -38,14 +37,14 @@ Audit chronology (exact):
    (digest `0214a09c89ba…`, files=364).
 6. `fdbf599` / `f35d85d` — Wave A pass 3 (execution-group error envelope closed to
    finite enums) plus its companion parity re-stamp; this was the HEAD that then went
-   to a fresh Terra Backend gate.
+   to a later Backend gate.
 7. **This pass (fourth remediation, two commits)** — a fresh gpt-5.6-terra xhigh
    *Backend* review **BLOCKED** advancing to Backend continuation. The load-bearing
    reason: the frozen group-list ordering mandated `group_id` ascending as the
    group-list tie-breaker, but `group_id` is an opaque, non-reversible SHA-derived
    token, so exact SQL-bounded cursor pagination cannot portably sort by it without
    persistence/crypto-extension machinery. A first Backend band algorithm still
-   materialized **all** groups in the all-primary-tied case, and Terra BLOCKED it.
+   materialized **all** groups in the all-primary-tied case, and an independent review BLOCKED it.
    The tie-break carries no user-facing semantic value; deterministic, exact,
    visible-identity order does. This pass amends the unreleased tie-break to the
    group's canonical visible identity and nothing else. See "Fourth remediation pass"
@@ -63,7 +62,7 @@ Audit chronology (exact):
    lacked `503`; this pass adds one dedicated finite/redacted service-unavailable
    subtype, wires it to all four operations, and refreshes parity. See "Sixth
    remediation pass" below.
-9. **Terra exact-head BLOCK remediation (seventh pass)** — Terra BLOCKED Schema
+9. **Exact-head BLOCK remediation (seventh pass)** — an independent review BLOCKED Schema
    candidate `34aa89d` on two release defects: predicate string operands were
    effectively unbounded, and the July 18 `503` note had been inserted into the
    already released `4.9.0` section dated July 16. The seventh pass caps every
@@ -82,7 +81,7 @@ Audit chronology (exact):
 ## Scope
 
 Additive, read-only Wave A browse surface over experiment groups in
-`TraigentSchema`. The draft's *shape* was sound; Terra blocked it because the
+`TraigentSchema`. The draft's *shape* was sound; the review blocked it because the
 key contract invariants were asserted in prose but not **enforced structurally**,
 plus a duplicated-id provenance object that Draft 7 cannot honestly validate and
 missing safe-error responses. This pass makes each invariant enforceable in Draft
@@ -122,7 +121,7 @@ experiment-group contract test, CHANGELOG, this report, and the mechanically
 generated parity manifest. It remains within the admitted seven-path set;
 `tests/test_success_envelope_and_response_coverage.py` is unchanged.
 
-The **seventh** Terra remediation edits only
+The **seventh** remediation edits only
 `experiment_group_schema.json`, the focused contract test, CHANGELOG, this report,
 and the generated parity manifest. It is contained within current packet
 `pkt_8b55a584db589f67`; no endpoint, success DTO, group identity, or aggregation
@@ -132,7 +131,7 @@ The **eighth** hosted-analysis remediation edits only the focused contract test 
 this report. No schema, endpoint, changelog, parity, group identity, or aggregation
 logic changes.
 
-## Design decisions (per Terra finding)
+## Design decisions
 
 1. **Cursor invariants.** `CursorPage` gains a top-level `oneOf`: `has_more: true`
    requires a non-null `OpaqueCursor`; `has_more: false` requires `next_cursor:
@@ -187,7 +186,7 @@ logic changes.
 
 ## Second remediation pass (this commit)
 
-The fresh Terra review still blocked; this pass closes the remaining structural
+The fresh review still blocked; this pass closes the remaining structural
 gaps without widening the feature or changing group identity/compatibility.
 
 1. **Strict error subtype.** New `ExperimentGroupErrorEnvelope` definition. It stays
@@ -248,7 +247,7 @@ gaps without widening the feature or changing group identity/compatibility.
 
 ## Third remediation pass (this pass)
 
-The independent Codex Terra xhigh review found one residual redaction gap: the
+The independent second-model review found one residual redaction gap: the
 strict `ExperimentGroupErrorEnvelope` bounded its public strings by *character set*
 (`message`) and *token grammar* (`error_code`) rather than by a closed vocabulary,
 so the same benign-looking lowercase opaque token — e.g. `grp_secretvalue`, which is
@@ -298,7 +297,7 @@ group-list tie-breaker. `group_id` is an opaque, non-reversible SHA-derived toke
 exact SQL-bounded cursor pagination cannot portably ORDER BY / range-bound it without
 persistence or a crypto extension. A first Backend band algorithm, unable to
 keyset-paginate on the opaque token, still **materialized all groups** in the
-all-primary-tied case, and Terra BLOCKED it. The tie-break has no user-facing semantic
+all-primary-tied case, and an independent review BLOCKED it. The tie-break has no user-facing semantic
 value; deterministic, exact, visible-identity order does. This pass amends only the
 unreleased tie-break contract and nothing else (no feature widening, no identity
 change, no configuration-run row-tie-break change).
@@ -388,7 +387,7 @@ Edited (primary commit) this pass:
   edit invalidates the parity provenance hash; the companion commit refreshes it.
 
 Commit SHAs: primary `<PRIMARY_SHA>`; parity companion `<PARITY_SHA>` (recorded in the
-captain handoff; the report is inside the primary commit and so cannot embed its own
+the handoff; the report is inside the primary commit and so cannot embed its own
 SHA).
 
 ## Sixth remediation pass — finite redacted authentication-backend 503
@@ -422,7 +421,7 @@ public string, and asserts complete route coverage and redaction descriptions.
 
 ## Seventh remediation pass — bounded predicate strings and release-note hygiene
 
-Terra's exact-head review **BLOCKED** candidate `34aa89d` for two release defects.
+an exact-head review **BLOCKED** candidate `34aa89d` for two release defects.
 
 1. **P1 — finite predicate strings.** `ColumnPredicate` bounded set cardinality but
    admitted a 100,000-character string as either a scalar operand or an
@@ -494,15 +493,15 @@ combined digest is `00691d268772…` across the same 364 schema files, and
 
 ## Current governance metadata
 
-The unified ChangeSession `cs_85af3e2677c82db1` admitted current Schema remediation
-packet `pkt_8b55a584db589f67` under release trail `st_7a0086093bb2` after the earlier
+The unified reviewed change admitted current Schema remediation
+packet `pkt_8b55a584db589f67` after the earlier
 candidate history. It authorizes this bounded remediation; work under the admitted
 packet will verify the exact combined release diff before release. It does **not**
 retroactively pre-authorize the historical commits that produced the earlier
 candidate. Current remediation commits carry the unified session and trail in their
 trailers.
 
-The older ChangeSession `cs_dbd17dd6bfabeed7`, packet identifiers beginning with
+An older reviewed change, packet identifiers beginning with
 `pkt_c88286ff11fd2edf` / `pkt_1c3f2ce482d11d82`, and their associated trails remain
 only as an audit of how the contract reached its current state. They are superseded
 for release authority and must not be copied into a new PR body, receipt, gate, or
@@ -611,9 +610,9 @@ as explicit handoff risks, not proven behavior:
   and `--select E501` is clean). The repo lint gate (`ruff check traigent_schema/`)
   does not cover `tests/` and passes clean.
 - **Cross-repo propagation — acceptance handoff.** Current release coordination is
-  owned by unified ChangeSession `cs_85af3e2677c82db1`; this Schema work is packet
+  owned by a unified reviewed change; this Schema work is packet
   `pkt_8b55a584db589f67`. The older Backend, Frontend, and spine/evidence packet
-  assignments recorded under `cs_dbd17dd6bfabeed7` are superseded historical
+  assignments recorded under an earlier reviewed change are superseded historical
   routing, not current authority. Schema-to-SDK DTO propagation (Python `Traigent`
   and `traigent-js`) was inspected: the Wave A tie-break
   and browse contract add no success DTO field, and this sixth pass adds an HTTP error

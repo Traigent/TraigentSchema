@@ -49,7 +49,7 @@ The integration commit is:
 merge(schema): integrate develop contract gates into EvidenceCase
 ```
 
-It preserves the existing Spine-Trail claim: `st_21bd5a6dad95`.
+It preserves the existing Spine-Trail claim.
 
 ## Merge and generated artifacts
 
@@ -68,19 +68,16 @@ Result: `schemaFileCount=394`,
 Consumer references were refreshed from clean archives of each sibling's
 current `origin/develop` ref, then the reachability report was regenerated:
 
-Set `SIBLINGS_ROOT` to the directory that holds your local checkouts of the sibling repositories first:
-
 ```bash
-export SIBLINGS_ROOT=<path-to-sibling-checkouts>
 for repo in Traigent TraigentBackend TraigentFrontend traigent-js traigent-smartopt; do
-  git -C "$SIBLINGS_ROOT/$repo" fetch origin develop
+  git -C <workspace>/$repo fetch origin develop
 done
 python3 scripts/refresh_consumer_schema_references.py \
-  --repo Traigent="$SIBLINGS_ROOT/Traigent" \
-  --repo TraigentBackend="$SIBLINGS_ROOT/TraigentBackend" \
-  --repo TraigentFrontend="$SIBLINGS_ROOT/TraigentFrontend" \
-  --repo traigent-js="$SIBLINGS_ROOT/traigent-js" \
-  --repo traigent-smartopt="$SIBLINGS_ROOT/traigent-smartopt"
+  --repo Traigent=<workspace>/Traigent \
+  --repo TraigentBackend=<workspace>/TraigentBackend \
+  --repo TraigentFrontend=<workspace>/TraigentFrontend \
+  --repo traigent-js=<workspace>/traigent-js \
+  --repo traigent-smartopt=<workspace>/traigent-smartopt
 python3 scripts/schema_reachability.py --update
 python3 scripts/schema_reachability.py --check
 ```
@@ -195,8 +192,8 @@ Results:
 
   ```bash
   TRAIGENT_SCHEMA_REPO="$PWD" \
-    "$SIBLINGS_ROOT/Traigent/.venv/bin/python" \
-    "$SIBLINGS_ROOT/Traigent/scripts/generate_schema_types.py" \
+    <workspace>/Traigent/.venv/bin/python \
+    <workspace>/Traigent/scripts/generate_schema_types.py \
     --check
   ```
 

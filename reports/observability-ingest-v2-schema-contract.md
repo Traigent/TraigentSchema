@@ -3,7 +3,7 @@
 Publishes the **observability ingest v2** versioned-delta contract in TraigentSchema
 (`protocol_version` **"2.0"**), per
 `docs/architecture/cost-scale/14-observability-ingest-v2.md`. Schema-only PR — no SDK
-or backend code touched. `git push` / PR left to the captain.
+or backend code touched. `git push` / PR left to the release owner.
 
 ## Files added (5 schemas)
 
@@ -87,13 +87,13 @@ Re-verified on `origin/develop` @ 277ed95 (2026-07-25):
   `origin/develop`, which has no v2 schemas).
 - The literal §2.1 envelope example validates verbatim (provenance-anchored test).
 
-## Downstream pin note (NOT performed — captain/owner)
+## Downstream pin note
 
 Cross-repo rollout item 1 is this PR. Consumers will later need a `traigent-schema` pin bump
 (`pyproject.toml` / `requirements.txt`) once the SDK (item 2) and backend (item 3) adopt v2;
 the release gate must reconcile the differing schema pins. No pin edited here.
 
-## Open questions (minimal faithful choices — need owner/captain confirmation)
+## Open questions
 
 1. **Manifest-level state vocabulary.** The design enumerates the *per-event* admission state
    machine (§3.1) but not an aggregate manifest rollup. Chose `{ADMITTED, DISPATCHING,

@@ -4,7 +4,7 @@
 and Route 2 (measurement contract register) request/response schema
 contracts.
 
-These two routes had no owning story anywhere in the plan -- the captain
+These two routes had no owning story anywhere in the plan -- the release owner
 found this twice. `AgentRevisionRef` and `MeasurementContractRef` had no
 producer, and mutation rows 1-17's Schema-owned half could never reach 5/5
 without them. This module is the Schema-side proof that both producers now
@@ -161,7 +161,7 @@ class TestSchemaDiscoveryAndCrossFileRefs:
         """StableOpaqueRef/TypedOpaqueRef/StableSourceRef/AgentLifecycleRecordRef/
         ClientDeclaredIdentityDescriptor/ClientAttestedArtifactDescriptor/
         RequestOnlyRandomLabel all live only in agent_lifecycle_common_schema.json
-        (ALR-1102 Terra review P2-2's reuse-not-duplicate precedent, extended by
+        (ALR-1102 internal review P2-2's reuse-not-duplicate precedent, extended by
         ALR-1106 to the new Route 1/2 request-only wire types and the
         record-handle ref both Route 1's and Route 5's responses share). None of
         this story's four schemas duplicates any of these shapes locally."""

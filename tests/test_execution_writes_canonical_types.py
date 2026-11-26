@@ -113,23 +113,23 @@ def test_status_puts_bound_to_canonical_enum():
     # Canonical UPPER vocabulary (matches backend status_enums.py). Valid enum
     # accepted, invalid rejected, extra props rejected (additionalProperties:false).
     assert v.validate_request(
-        "/api/v1/configuration-runs/{config_run_id}/status",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status",
         "PUT",
         {"status": "RUNNING"},
     ) == []
     assert v.validate_request(
-        "/api/v1/configuration-runs/{config_run_id}/status",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status",
         "PUT",
         {"status": "PRUNED"},
     ) == []
     assert v.validate_request(
-        "/api/v1/configuration-runs/{config_run_id}/status",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status",
         "PUT",
         {"status": "not_a_status"},
     )
     # lowercase is the legacy outlier vocabulary and is now rejected (#172/#173)
     assert v.validate_request(
-        "/api/v1/configuration-runs/{config_run_id}/status",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status",
         "PUT",
         {"status": "running"},
     )
@@ -147,7 +147,7 @@ def test_status_puts_bound_to_canonical_enum():
 
 def test_summary_stats_put_references_summarystats():
     v = SchemaValidator(contract="backend")
-    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/summary-stats", "PUT",
+    assert v.validate_request("/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/summary-stats", "PUT",
                               {"summary_stats": {}}) == []
-    assert v.validate_request("/api/v1/configuration-runs/{config_run_id}/summary-stats", "PUT",
+    assert v.validate_request("/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/summary-stats", "PUT",
                               {"summary_stats": "not-an-object"})

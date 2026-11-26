@@ -1,0 +1,304 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/report_problem_schema.json",
+  "title": "Run Report Problem",
+  "description": "Closed RFC 9457 problem documents of experiment_run.get_run_report (application/problem+json). Each definition is one status/code/type combination of the backend problem catalogue (src/api_kit/problems.py PROBLEMS) with its fixed title, detail and server-minted problem_id (first 32 hex of sha256 of the type URN); nothing the client sent is echoed. NotFoundProblem is the one closed 404 for a missing, foreign, ungranted, revoked or retired run: identical bytes in every case. BadRequestProblem is a malformed experiment_run_ref (syntax is validated before any lookup). ServiceUnavailableProblem is the declared outcome when the report cannot be produced within its budget (response over 8 MiB, more eligible rows than the computation limit, deadline exhausted, or a required dependency down): the response is refused, never a partial report presented as complete. 429 and 503 may carry a Retry-After header.",
+  "definitions": {
+    "UnauthenticatedProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:unauthenticated",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Unauthorized",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 401,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "unauthenticated",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "Authentication is required.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "b7351f9e417dcb0f3b2afdfd70ffb1e4",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "ForbiddenProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 403,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "forbidden",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The credential is not allowed to perform this operation.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "de4a04360e276a7cefc6671cf759dfa3",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "NotFoundProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:not_found",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Not Found",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 404,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "not_found",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The requested resource was not found.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "2662cfb75ed0a8574c3d105e1a28dc67",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "BadRequestProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:bad_request",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Bad Request",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 400,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "bad_request",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The request could not be processed.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "85bc321f5be7a6bf86cb2d354c10a826",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "RateLimitedProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:rate_limited",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Too Many Requests",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 429,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "rate_limited",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "Too many requests. Retry later.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "c6d983b3899233ce34e3e9b9c0c19806",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "InternalErrorProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:internal_error",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Internal Server Error",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 500,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "internal_error",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The request could not be completed.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "2b75bc535867815580a4a559b16699a7",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    },
+    "ServiceUnavailableProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:service_unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Service Unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 503,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "service_unavailable",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The service is temporarily unavailable. Retry later.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "66fc702c29f90cf4f284ddbe9ecd8cfa",
+          "x-content-class": "opaque_ref"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/definitions/UnauthenticatedProblem"
+    },
+    {
+      "$ref": "#/definitions/ForbiddenProblem"
+    },
+    {
+      "$ref": "#/definitions/NotFoundProblem"
+    },
+    {
+      "$ref": "#/definitions/BadRequestProblem"
+    },
+    {
+      "$ref": "#/definitions/RateLimitedProblem"
+    },
+    {
+      "$ref": "#/definitions/InternalErrorProblem"
+    },
+    {
+      "$ref": "#/definitions/ServiceUnavailableProblem"
+    }
+  ]
+}

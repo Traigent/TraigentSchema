@@ -1617,7 +1617,7 @@ def _through_every_short_label_field(value):
 #: Content-shaped labels a free-form string would have leaked. Each is prose, PII,
 #: whitespace, a control character, a quote, or email text — never an identifier.
 _CONTENT_SHAPED_LABELS = (
-    "Alice Smith SSN 123-45-6789",  # Terra's example: a name + PII, carried as spaces + prose
+    "Alice Smith SSN 123-45-6789",  # a reviewer's example: a name + PII, carried as spaces + prose
     "patient note: see chart",  # plain prose with a colon
     "line one\nline two",  # embedded newline
     "accuracy\n",  # a valid id with a TRAILING newline — the `$`-only bypass
@@ -1639,7 +1639,7 @@ def test_short_label_rejects_content_shaped_values_through_every_consuming_field
     """Not free-form: a label carrying prose, PII, whitespace, control characters,
     quotes, or email text is rejected wherever a ShortLabel is consumed — so none of
     model_id, evaluator_version, objective, the sharing-policy version, the metric name,
-    or the source name is an egress channel for sensitive content. Terra's example
+    or the source name is an egress channel for sensitive content. a reviewer's example
     `Alice Smith SSN 123-45-6789` is rejected through all six."""
     for label in _CONTENT_SHAPED_LABELS:
         for field, payload, schema in _through_every_short_label_field(label):

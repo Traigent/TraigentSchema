@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/configuration_run_status_response_schema.json",
+  "title": "Configuration Run Status Response",
+  "description": "Success envelope for GET /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status: the current status of one configuration run. `data` carries the same two fields the run-owned status read returned, `status` and `error_message` (null when there is none). The message is fixed text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "const": "Configuration run status retrieved successfully."
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "error_message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_STARTED",
+            "RUNNING",
+            "COMPLETED",
+            "FAILED",
+            "UNKNOWN",
+            "CANCELLED",
+            "PRUNED"
+          ],
+          "description": "Status of the configuration run."
+        },
+        "error_message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The failure message recorded for the run, or null."
+        }
+      }
+    }
+  }
+}

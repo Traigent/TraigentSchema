@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/configuration_run_problem_schema.json",
+  "title": "Configuration Run Read Problems",
+  "description": "Closed RFC 9457 problem documents (application/problem+json) of the configuration run measurement and status reads. Each definition is one fixed status and code with fixed title and detail; nothing the client sent is echoed. NotFoundProblem (404, not_found) is the one answer for a missing, foreign, ungranted or wrong-parent configuration run: identical bytes in every case. BadRequestProblem (400, bad_request) is a query parameter that fails its declared format or range: a limit out of range, or a cursor that does not match the declared token format, or an unknown query parameter. InvalidCursorProblem (400, invalid_cursor) is a well-formed cursor that cannot be used: the stored results changed since it was issued, or it belongs to another configuration run or page shape.",
+  "definitions": {
+    "BadRequestProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:bad_request",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Bad Request",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 400,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "bad_request",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The request could not be processed.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "85bc321f5be7a6bf86cb2d354c10a826",
+          "x-content-class": "opaque_ref"
+        }
+      },
+      "description": "A query parameter fails its declared format or range (limit out of range, a cursor that does not match the declared token format) or is not declared."
+    },
+    "InvalidCursorProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:invalid_cursor",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Bad Request",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 400,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "invalid_cursor",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The cursor is not valid for this request.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "08264e9e27e2b651775ee2401912941c",
+          "x-content-class": "opaque_ref"
+        }
+      },
+      "description": "A well-formed cursor that cannot be used: the stored results changed since it was issued, or it belongs to another configuration run or page shape."
+    },
+    "NotFoundProblem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "problem_id"
+      ],
+      "x-privacy-classification": "aggregate_safe",
+      "properties": {
+        "type": {
+          "const": "urn:traigent:problem:not_found",
+          "x-content-class": "closed_enum"
+        },
+        "title": {
+          "const": "Not Found",
+          "x-content-class": "closed_enum"
+        },
+        "status": {
+          "const": 404,
+          "x-content-class": "closed_enum"
+        },
+        "code": {
+          "const": "not_found",
+          "x-content-class": "closed_enum"
+        },
+        "detail": {
+          "const": "The requested resource was not found.",
+          "x-content-class": "closed_enum"
+        },
+        "problem_id": {
+          "const": "2662cfb75ed0a8574c3d105e1a28dc67",
+          "x-content-class": "opaque_ref"
+        }
+      },
+      "description": "The configuration run is missing, foreign, ungranted or outside the named parent; identical bytes in every case."
+    }
+  }
+}

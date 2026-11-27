@@ -1,0 +1,301 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/optimization/release_candidate_schema.json",
+  "title": "ReleaseCandidate",
+  "description": "Closed contracts for reporting and reading an agent's candidates for release acceptance.",
+  "definitions": {
+    "ReleaseCandidateRef": {
+      "x-content-class": "opaque_ref",
+      "type": "string",
+      "pattern": "^release_candidate_[0-9a-f]{32}$",
+      "maxLength": 50,
+      "description": "Server-issued opaque reference to a recorded release candidate."
+    },
+    "ReleaseCandidateRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "best_config_id",
+        "best_config_version",
+        "candidate_fingerprint",
+        "gate_result_digest",
+        "configuration_space_digest",
+        "agent_code_version",
+        "gate_verdict"
+      ],
+      "properties": {
+        "environment": {
+          "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+        },
+        "best_config_id": {
+          "$ref": "./release_acceptance_schema.json#/definitions/CreateReleaseAcceptanceRequest/properties/best_config_id"
+        },
+        "best_config_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/CreateReleaseAcceptanceRequest/properties/best_config_version"
+        },
+        "candidate_fingerprint": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest"
+        },
+        "gate_result_digest": {
+          "$ref": "./release_acceptance_schema.json#/definitions/GateResultDigest"
+        },
+        "configuration_space_digest": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest"
+        },
+        "agent_code_version": {
+          "$ref": "./release_acceptance_schema.json#/definitions/AgentCodeVersion"
+        },
+        "gate_verdict": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "promote",
+            "reject",
+            "no_decision"
+          ],
+          "description": "Verdict reported by the client after evaluating the candidate. The fixed gate result no_gate_run is allowed only with no_decision."
+        }
+      },
+      "if": {
+        "properties": {
+          "gate_verdict": {
+            "enum": ["promote", "reject"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_result_digest": {
+            "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest"
+          }
+        }
+      },
+      "description": "Body of POST /api/v1/projects/{project_id}/agents/{agent_ref}/release-candidates. Reports a candidate for a person's release acceptance. Every field is required."
+    },
+    "ReleaseCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_ref",
+        "environment",
+        "best_config_id",
+        "best_config_version",
+        "candidate_fingerprint",
+        "gate_result_digest",
+        "configuration_space_digest",
+        "agent_code_version",
+        "gate_verdict",
+        "recorded_at",
+        "recorded_by_kind",
+        "state"
+      ],
+      "properties": {
+        "candidate_ref": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRef"
+        },
+        "environment": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/environment"
+        },
+        "best_config_id": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/best_config_id"
+        },
+        "best_config_version": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/best_config_version"
+        },
+        "candidate_fingerprint": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/candidate_fingerprint"
+        },
+        "gate_result_digest": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/gate_result_digest"
+        },
+        "configuration_space_digest": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/configuration_space_digest"
+        },
+        "agent_code_version": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/agent_code_version"
+        },
+        "gate_verdict": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest/properties/gate_verdict"
+        },
+        "recorded_at": {
+          "$ref": "./tvl_reactive_common_schema.json#/definitions/Timestamp"
+        },
+        "recorded_by_kind": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "person",
+            "api_key",
+            "service"
+          ],
+          "description": "Kind of authenticated principal that first recorded the candidate."
+        },
+        "state": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "enum": [
+            "open",
+            "accepted",
+            "released",
+            "superseded"
+          ],
+          "description": "The candidate's state, derived when the candidate is read, in this order: released if a matching acceptance was consumed; otherwise accepted if a matching acceptance is unexpired, not revoked, and its expected head generation equals the current head generation; otherwise superseded if a newer candidate exists for the same agent and environment; otherwise open. For accepted, revoked, expired and stale acceptances do not count; a consumed acceptance keeps the candidate released even after it expires or the head moves. The create response carries the same derived state."
+        }
+      },
+      "if": {
+        "properties": {
+          "gate_verdict": {
+            "enum": ["promote", "reject"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_result_digest": {
+            "$ref": "./tvl_reactive_common_schema.json#/definitions/Digest"
+          }
+        }
+      },
+      "description": "The reported release candidate with its server-assigned reference, time, principal kind and state."
+    },
+    "ReleaseCandidateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidate"
+        }
+      },
+      "description": "201 body of POST .../release-candidates and 200 body of GET .../release-candidates/{candidate_ref}."
+    },
+    "ReleaseCandidateListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "data"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": true
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidate"
+          }
+        }
+      },
+      "description": "200 body of GET .../release-candidates. Candidates of the agent, newest recorded_at first, at most 100."
+    },
+    "ReleaseCandidateNotFound": {
+      "allOf": [
+        {
+          "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+        },
+        {
+          "properties": {
+            "error_code": {
+              "x-content-class": "closed_enum",
+              "const": "reference_not_found"
+            }
+          }
+        }
+      ],
+      "description": "Masked 404 body for unknown, foreign or invisible references."
+    },
+    "ReleaseCandidateRateLimited": {
+      "allOf": [
+        {
+          "$ref": "../rate_limit_info_schema.json"
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "success": {},
+        "error_code": {},
+        "message": {
+          "x-content-class": "closed_enum",
+          "const": "Rate limit exceeded"
+        },
+        "error": {
+          "$ref": "../fleet_observe/fleet_observe_responses_schema.json#/definitions/RateLimitedBody/properties/error"
+        },
+        "details": {
+          "allOf": [
+            {
+              "$ref": "../rate_limit_info_schema.json#/allOf/1/properties/details"
+            }
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "x-content-class": "closed_enum",
+              "enum": ["global", "api", "tenant"]
+            },
+            "retry_after": {},
+            "limit": {},
+            "reset_time": {}
+          },
+          "if": {
+            "required": ["limit"]
+          },
+          "then": {
+            "properties": {
+              "limit": {
+                "pattern": "^[0-9]{1,20} per [0-9]{1,20} (?:second|minute|hour|day|month|year)s?(?![\\s\\S])"
+              }
+            }
+          }
+        }
+      },
+      "description": "429 body for release candidate routes, with closed rate-limit text and scope."
+    },
+    "ReleaseCandidateConflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "success",
+        "error",
+        "error_code",
+        "message"
+      ],
+      "properties": {
+        "success": {
+          "x-content-class": "closed_enum",
+          "type": "boolean",
+          "const": false
+        },
+        "error": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "const": "release_precondition_refused"
+        },
+        "error_code": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "const": "candidate_conflict"
+        },
+        "message": {
+          "x-content-class": "closed_enum",
+          "type": "string",
+          "const": "A different release candidate already exists for this best-config version."
+        }
+      },
+      "description": "409 body of POST .../release-candidates in the ReleaseRefusal envelope shape. Nothing from the request is echoed."
+    }
+  }
+}

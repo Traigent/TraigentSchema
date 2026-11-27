@@ -75,7 +75,7 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     ref = agents["paths"]["/api/v1/projects/{project_id}/agents/{agent_ref}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ref == "#/components/schemas/AgentDetailEnvelope", ref
     envelope = agents["components"]["schemas"]["AgentDetailEnvelope"]
-    assert envelope["properties"]["data"]["$ref"].endswith("agent_schema.json")
+    assert envelope["properties"]["data"]["$ref"] == "./agent_detail_schema.json"
     assert "data" in envelope["required"]
     # bare detail GETs reference the resource schema directly (the canonical experiment detail via
     # ExperimentRead, the resource with experiment_ref required)

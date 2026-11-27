@@ -81,17 +81,17 @@
               "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
             }
           },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "401": {"$ref": "#/components/responses/ProcessRecordUnauthorized"},
           "403": {"$ref": "#/components/responses/WriteForbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
+          "404": {"$ref": "#/components/responses/ProcessRecordNotFound"},
           "422": {"$ref": "#/components/responses/Unprocessable"},
           "409": {
             "description": "The requested receipt snapshot conflicts with current state.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordConflict"}}}
           },
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "413": {"$ref": "#/components/responses/ProcessRecordPayloadTooLarge"},
           "429": {"$ref": "#/components/responses/RateLimited"},
-          "500": {"$ref": "#/components/responses/InternalError"},
+          "500": {"$ref": "#/components/responses/ProcessRecordInternalError"},
           "503": {
             "description": "Receipt or authentication data is temporarily unavailable.",
             "content": {
@@ -193,7 +193,7 @@
               "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
             }
           },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "401": {"$ref": "#/components/responses/ProcessRecordUnauthorized"},
           "403": {
             "description": "The caller lacks read access to the project.",
             "content": {
@@ -323,9 +323,9 @@
               }
             }
           },
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "413": {"$ref": "#/components/responses/ProcessRecordPayloadTooLarge"},
           "429": {"$ref": "#/components/responses/RateLimited"},
-          "500": {"$ref": "#/components/responses/InternalError"},
+          "500": {"$ref": "#/components/responses/ProcessRecordInternalError"},
           "503": {
             "description": "The stored issuance could not be read or reconciled.",
             "content": {
@@ -507,9 +507,9 @@
               "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
             }
           },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "401": {"$ref": "#/components/responses/ProcessRecordUnauthorized"},
           "403": {"$ref": "#/components/responses/WriteForbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
+          "404": {"$ref": "#/components/responses/ProcessRecordNotFound"},
           "409": {
             "description": "Issuance conflicts with current state. A retry delay is returned when issuance is already in progress.",
             "headers": {
@@ -646,9 +646,9 @@
               }
             }
           },
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "413": {"$ref": "#/components/responses/ProcessRecordPayloadTooLarge"},
           "429": {"$ref": "#/components/responses/RateLimited"},
-          "500": {"$ref": "#/components/responses/InternalError"},
+          "500": {"$ref": "#/components/responses/ProcessRecordInternalError"},
           "503": {
             "description": "Issuance could not be completed or confirmed.",
             "content": {
@@ -774,7 +774,7 @@
               "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
             }
           },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "401": {"$ref": "#/components/responses/ProcessRecordUnauthorized"},
           "403": {
             "description": "The caller lacks read access.",
             "content": {
@@ -853,9 +853,9 @@
               }
             }
           },
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "413": {"$ref": "#/components/responses/ProcessRecordPayloadTooLarge"},
           "429": {"$ref": "#/components/responses/RateLimited"},
-          "500": {"$ref": "#/components/responses/InternalError"},
+          "500": {"$ref": "#/components/responses/ProcessRecordInternalError"},
           "503": {
             "description": "Authentication is temporarily unavailable.",
             "content": {
@@ -885,7 +885,7 @@
   },
   "components": {
     "responses": {
-      "PayloadTooLarge": {
+      "ProcessRecordPayloadTooLarge": {
         "description": "The request exceeds the size limit.",
         "content": {
           "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/RequestTooLarge"}}
@@ -903,7 +903,7 @@
           "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}}
         }
       },
-      "Unauthorized": {
+      "ProcessRecordUnauthorized": {
         "description": "Authentication required.",
         "content": {
           "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unauthorized"}}
@@ -913,11 +913,11 @@
         "description": "The caller lacks write access to the project.",
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordWriteForbidden"}}}
       },
-      "NotFound": {
+      "ProcessRecordNotFound": {
         "description": "No accessible matching scope was found. The code LINEAGE_UNMAPPED means the build session reference is valid but the build session is not yet finalized, so it does not resolve to an issuance; finalize the build session and retry.",
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordScopeNotFound"}}}
       },
-      "InternalError": {
+      "ProcessRecordInternalError": {
         "description": "An unexpected server error occurred.",
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordInternal"}}}
       }

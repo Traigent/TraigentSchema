@@ -1,0 +1,1 @@
+- The certification build-session and process-record contract files now use file-specific response component names, so they no longer clash with the existing certification contract's components; wire bodies are unchanged.

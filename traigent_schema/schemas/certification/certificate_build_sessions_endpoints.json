@@ -42,12 +42,12 @@
               }
             }
           },
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "409": {"$ref": "#/components/responses/Conflict"},
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "400": {"$ref": "#/components/responses/CertificateBuildSessionBadRequest"},
+          "401": {"$ref": "#/components/responses/CertificateBuildSessionUnauthorized"},
+          "403": {"$ref": "#/components/responses/CertificateBuildSessionForbidden"},
+          "404": {"$ref": "#/components/responses/CertificateBuildSessionNotFound"},
+          "409": {"$ref": "#/components/responses/CertificateBuildSessionConflict"},
+          "413": {"$ref": "#/components/responses/CertificateBuildSessionPayloadTooLarge"},
           "422": {"$ref": "#/components/responses/Unprocessable"},
           "429": {"$ref": "#/components/responses/RateLimited"},
           "500": {"$ref": "#/components/responses/AuthenticationError"},
@@ -99,10 +99,10 @@
             }
           },
           "400": {"$ref": "#/components/responses/ProviderCredentialRejected"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "401": {"$ref": "#/components/responses/CertificateBuildSessionUnauthorized"},
+          "403": {"$ref": "#/components/responses/CertificateBuildSessionForbidden"},
+          "404": {"$ref": "#/components/responses/CertificateBuildSessionNotFound"},
+          "413": {"$ref": "#/components/responses/CertificateBuildSessionPayloadTooLarge"},
           "422": {"$ref": "#/components/responses/Unprocessable"},
           "429": {"$ref": "#/components/responses/RateLimited"},
           "500": {"$ref": "#/components/responses/AuthenticationError"},
@@ -116,7 +116,7 @@
   },
   "components": {
     "responses": {
-      "PayloadTooLarge": {
+      "CertificateBuildSessionPayloadTooLarge": {
         "description": "The request exceeds the size limit.",
         "content": {
           "application/json": {
@@ -141,7 +141,7 @@
           "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}}
         }
       },
-      "BadRequest": {
+      "CertificateBuildSessionBadRequest": {
         "description": "Invalid build-session reference, unsupported content type, or provider credential rejected.",
         "content": {
           "application/json": {
@@ -161,7 +161,7 @@
           "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
         }
       },
-      "Unauthorized": {
+      "CertificateBuildSessionUnauthorized": {
         "description": "Authentication required.",
         "content": {
           "application/json": {
@@ -174,7 +174,7 @@
           }
         }
       },
-      "Forbidden": {
+      "CertificateBuildSessionForbidden": {
         "description": "Authorization denied.",
         "content": {
           "application/json": {
@@ -188,7 +188,7 @@
           }
         }
       },
-      "NotFound": {
+      "CertificateBuildSessionNotFound": {
         "description": "The project or build session was not found, or the route is unavailable.",
         "content": {"application/json": {"schema": {
               "anyOf": [
@@ -199,7 +199,7 @@
               ]
             }}}
       },
-      "Conflict": {
+      "CertificateBuildSessionConflict": {
         "description": "The issuance state conflicts with abandonment.",
         "content": {"application/json": {"schema": {"$ref": "./certificate_error_v0_schema.json#/definitions/StateConflictV0"}}}
       },

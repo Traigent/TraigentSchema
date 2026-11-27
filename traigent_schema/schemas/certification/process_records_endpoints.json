@@ -11,7 +11,7 @@
       "post": {
         "operationId": "certification_process_record.prepare_process_record",
         "summary": "Check receipt readiness for a process record",
-        "description": "Reports the receipts currently visible for an issued build session. This probe does not reserve issuance.",
+        "description": "Reports the receipts currently visible for a build session. Send the build_session_ref as process_record_ref. The response echoes that reference. This probe does not reserve issuance.",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -150,7 +150,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Opaque reference to the process record in this project.",
+            "description": "Use the build_session_ref issued for this project. An existing issuance can be retrieved with that same reference without calling prepare.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],
@@ -389,7 +389,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Opaque reference to the process record in this project.",
+            "description": "Use the build_session_ref issued for this project, also echoed by prepare.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],
@@ -1053,25 +1053,7 @@
           "headline": {"type": "string", "minLength": 1},
           "capture_basis": {"enum": ["state_observed_at_issuance", null]},
           "exhaustive_inventory": {"const": false},
-          "disclosures": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["unsigned_companion", "digest_scope", "bounded_claim", "capture_basis"],
-            "properties": {
-              "unsigned_companion": {
-                "const": "This assessment companion is retained with this issuance. It is outside the signed V1 bundle and is not authenticated by the V1 signature or verified by the V1 standalone verifier."
-              },
-              "digest_scope": {
-                "const": "This digest covers the candidate-ID list only; it does not authenticate the selected winner, scores, or original selection event."
-              },
-              "bounded_claim": {
-                "const": "This records reported measurements and selection; any comparison applies only to the enumerated comparable records under the declared policy. It certifies no performance threshold or deployment fitness."
-              },
-              "capture_basis": {
-                "const": "This is state observed at issuance, not a reconstruction of the state at the original selection, and it is a scope rather than an inventory. The selection receipt and the candidate records come from independent sources that can disagree, so a binding to the receipt is not a binding to the records this comparison used. No reconciliation between them is attempted or implied."
-              }
-            }
-          },
+          "disclosures": {"type": "object"},
           "not_assessed": {"$ref": "#/components/schemas/FrontClaimNotAssessed"},
           "schema_version": {
             "enum": [
@@ -1085,12 +1067,7 @@
             "additionalProperties": false,
             "required": ["process_record_ref", "unsigned_manifest_digest", "computed_at"],
             "properties": {
-              "process_record_ref": {
-                "allOf": [
-                  {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
-                  {"type": "string", "pattern": "^prr:[A-Za-z0-9_-]{16,128}(?![\\s\\S])"}
-                ]
-              },
+              "process_record_ref": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
               "unsigned_manifest_digest": {"$ref": "./process_record_request_schema.json#/definitions/Sha256Reference"},
               "computed_at": {"$ref": "#/components/schemas/FrontClaimTimestamp"}
             }
@@ -1209,21 +1186,54 @@
         "if": {"properties": {"supplement_present": {"const": true}}},
         "then": {
           "required": ["schema_version", "binding", "selection_binding", "authentication"],
-          "properties": {"not_assessed": {"properties": {"reason": {"not": {"const": "assessment_not_retained"}}}}}
+          "properties": {
+            "disclosures": {
+              "additionalProperties": false,
+              "required": ["unsigned_companion", "digest_scope", "bounded_claim", "capture_basis"],
+              "properties": {
+                "unsigned_companion": {
+                  "const": "This assessment companion is retained with this issuance. It is outside the signed V1 bundle and is not authenticated by the V1 signature or verified by the V1 standalone verifier."
+                },
+                "digest_scope": {
+                  "const": "This digest covers the candidate-ID list only; it does not authenticate the selected winner, scores, or original selection event."
+                },
+                "bounded_claim": {
+                  "const": "This records reported measurements and selection; any comparison applies only to the enumerated comparable records under the declared policy. It certifies no performance threshold or deployment fitness."
+                },
+                "capture_basis": {
+                  "const": "This is state observed at issuance, not a reconstruction of the state at the original selection, and it is a scope rather than an inventory. The selection receipt and the candidate records come from independent sources that can disagree, so a binding to the receipt is not a binding to the records this comparison used. No reconciliation between them is attempted or implied."
+                }
+              }
+            },
+            "not_assessed": {"properties": {"reason": {"not": {"const": "assessment_not_retained"}}}}
+          }
         },
         "else": {
           "required": ["not_assessed"],
+          "propertyNames": {
+            "enum": ["supplement_present", "assessment_state", "outcome", "headline", "capture_basis", "exhaustive_inventory", "disclosures", "not_assessed"]
+          },
           "properties": {
             "assessment_state": {"const": "not_assessed"},
             "outcome": {"const": "not_assessed"},
-            "capture_basis": {"const": null},
-            "exhaustive_inventory": {"const": false},
+            "disclosures": {
+              "additionalProperties": false,
+              "required": ["unsigned_companion"],
+              "properties": {
+                "unsigned_companion": {"const": "No unsigned assessment accompanies this issuance."}
+              }
+            },
             "not_assessed": {"properties": {"reason": {"const": "assessment_not_retained"}}}
           }
         }
       },
       "FrontClaimRecordReference": {
-        "description": "A closed record reference: a UUID, a positive decimal ID, or trial_ followed by 16-64 lowercase hex.",
+        "description": "Public configuration run reference. Use the same reference for each occurrence of the same configuration in the companion.",
+        "type": "string",
+        "pattern": "^configuration_run_[0-9a-f]{32}(?![\\s\\S])"
+      },
+      "FrontClaimExperimentRunReference": {
+        "description": "Reference to the experiment run associated with the build session.",
         "type": "string",
         "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[1-9][0-9]{0,18}|trial_[0-9a-f]{16,64})(?![\\s\\S])"
       },
@@ -1360,6 +1370,16 @@
             "additionalProperties": false,
             "required": ["reason", "detail"],
             "properties": {
+              "reason": {"const": "other"},
+              "detail": {"const": "The retained assessment records a refusal without a listed public reason."},
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
               "reason": {"const": "assessment_not_retained"},
               "detail": {"const": "No assessment is retained for this issuance and none is reconstructed."},
               "record": {"type": "null"}
@@ -1399,9 +1419,12 @@
         ],
         "properties": {
           "experiment_run_id": {
-            "anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]
+            "anyOf": [{"$ref": "#/components/schemas/FrontClaimExperimentRunReference"}, {"type": "null"}]
           },
-          "experiment_run_id_source": {"const": "request_field_resolved_within_project_scope"},
+          "experiment_run_id_source": {
+            "description": "The run associated with the build session within the project supplies the reference, including when finalize omits experiment_run_id. Null indicates that the source is unavailable.",
+            "enum": ["build_session_run_within_project_scope", null]
+          },
           "winner_trial_id": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]},
           "eligible_trial_ids_digest": {
             "anyOf": [{"$ref": "./process_record_request_schema.json#/definitions/Sha256Reference"}, {"type": "null"}]
@@ -1497,7 +1520,7 @@
             "properties": {
               "scope_kind": {"enum": ["experiment_run", "undeclared"]},
               "experiment_run_id": {
-                "anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]
+                "anyOf": [{"$ref": "#/components/schemas/FrontClaimExperimentRunReference"}, {"type": "null"}]
               },
               "scope_filters": {
                 "type": "array",
@@ -1516,6 +1539,7 @@
         }
       },
       "FrontClaimReportedValueText": {
+        "description": "Canonical decimal text represents the exact decimal value used in the comparison. Use the reported number's shortest round-trip decimal spelling, without a leading plus sign. Never round or change the value during normalization.",
         "type": ["string", "null"],
         "maxLength": 128,
         "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$",

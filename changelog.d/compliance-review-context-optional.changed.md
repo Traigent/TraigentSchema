@@ -1,0 +1,1 @@
+- Compliance freshness tokens are optional until the server issues and checks them: `Ingredient.review_context` may be present on `A` rows and `AttestationCreateRequest.review_context` may be omitted; the closed rules for kinds M, D and L are unchanged.

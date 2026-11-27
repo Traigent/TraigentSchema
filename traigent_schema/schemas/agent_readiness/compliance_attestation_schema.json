@@ -329,8 +329,7 @@
         "ingredient_id",
         "statement_digest",
         "outcome",
-        "review_period_days",
-        "review_context"
+        "review_period_days"
       ],
       "properties": {
         "agent_id": {
@@ -346,7 +345,7 @@
         "review_context": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Echo the review_context of the evidence read the signer reviewed. A stale value is refused with 409 stale_review_context and nothing is recorded. Opaque, server-issued and never derived from customer text."
+          "description": "Send back only a string token read from the evidence view; omit the field when the row has none or null. When the server checks freshness tokens, it refuses a stale value with 409 stale_review_context. Opaque and server-issued."
         },
         "outcome": {
           "$ref": "#/definitions/Outcome"

@@ -449,7 +449,7 @@
             }
           },
           "409": {
-            "description": "Conflict",
+            "description": "Conflict (stale_review_context applies when the server checks freshness tokens)",
             "content": {
               "application/json": {
                 "schema": {
@@ -511,7 +511,7 @@
             }
           },
           "503": {
-            "description": "The server cannot issue or verify the review context right now; nothing is recorded",
+            "description": "When the server checks freshness tokens and its key is unavailable: the server cannot issue or verify the review context right now; nothing is recorded",
             "content": {
               "application/json": {
                 "schema": {

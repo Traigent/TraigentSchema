@@ -883,7 +883,8 @@ def test_git_argv_is_built_only_from_fixed_lists(root: Path, monkeypatch: pytest
     cc._git(root, "exists", "changelog.d/a.added.md")
     cc._git(root, "show", "CHANGELOG.md")
     cc._git(root, "status")
-    prefix = [cc._GIT, "-c", "core.quotepath=off", "-C", str(root)]
+    assert [a[0] for a in seen] == ["git"] * 4
+    prefix = ["git", "-c", "core.quotepath=off", "-C", str(root)]
     assert [a[: len(prefix)] for a in seen] == [prefix] * 4
     assert [a[len(prefix):] for a in seen] == [
         ["rev-parse", "--show-toplevel"],
@@ -894,3 +895,13 @@ def test_git_argv_is_built_only_from_fixed_lists(root: Path, monkeypatch: pytest
             "--", "changelog.d", "CHANGELOG.md",
         ],
     ]
+
+
+def test_fragment_name_with_a_newline_gets_a_filename_diagnostic(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+    (root / "changelog.d" / "b\nc.added.md").write_text("- x\n")
+    commit_all(root)
+    assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
+    assert "contains an unsafe character" in capsys.readouterr().err

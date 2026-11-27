@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -86,7 +85,7 @@ def _check_body(name: str, body: str) -> str | None:
 
 # Closed table of git invocations. Every argument vector is built from these fixed
 # literals; the only caller-supplied value is one validated repository-relative path.
-_GIT = shutil.which("git") or "git"  # resolved once
+_GIT = "git"  # bare name as argv[0], never a shell
 _GIT_PREFIX = ("-c", "core.quotepath=off", "-C")
 _GIT_FIXED: dict[str, tuple[str, ...]] = {
     "toplevel": ("rev-parse", "--show-toplevel"),
@@ -131,10 +130,14 @@ def _fragment_inputs(root: Path) -> list[str]:
     inputs = [CHANGELOG_NAME]
     fragments_dir = root / FRAGMENTS_DIRNAME
     if fragments_dir.is_dir():
-        inputs += [
-            f"{FRAGMENTS_DIRNAME}/{p.name}" for p in sorted(fragments_dir.iterdir())
-            if p.name not in _IGNORED
-        ]
+        for p in sorted(fragments_dir.iterdir()):
+            if p.name in _IGNORED:
+                continue
+            if any(ch in p.name for ch in ("\n", "\r", "\\")):
+                raise ChangelogError(
+                    f"fragment name {p.name!r} contains an unsafe character"
+                )
+            inputs.append(f"{FRAGMENTS_DIRNAME}/{p.name}")
     return inputs
 
 

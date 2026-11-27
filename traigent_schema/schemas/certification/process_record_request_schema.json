@@ -7,7 +7,7 @@
     "ProcessRecordReference": {
       "type": "string",
       "pattern": "^bsn:[A-Za-z0-9_-]{43}(?![\\s\\S])",
-      "description": "Use the build_session_ref returned when the certificate build session was created, including for an existing issuance. Prepare echoes the same reference. Resolve it within the named project."
+      "description": "Use the build_session_ref returned when the certificate build session was created. These routes cover issuances created through a certificate build session. A certificate that carries a runlineage: reference is not addressed here and stays on the existing certification routes. Prepare echoes the same reference. Resolve it within the named project."
     },
     "Sha256Reference": {
       "allOf": [{"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"}],

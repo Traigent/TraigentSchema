@@ -150,7 +150,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Use the build_session_ref issued for this project. An existing issuance can be retrieved with that same reference without calling prepare.",
+            "description": "Use the build_session_ref issued for this project. An issuance created through a certificate build session can be retrieved with that same reference without calling prepare. A certificate carrying a runlineage: reference stays on the existing certification routes.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],
@@ -389,7 +389,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Use the build_session_ref issued for this project, also echoed by prepare.",
+            "description": "Use the build_session_ref issued for this project, also echoed by prepare. A certificate carrying a runlineage: reference stays on the existing certification routes.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],

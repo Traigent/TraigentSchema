@@ -851,50 +851,110 @@ def test_readme_does_not_advise_git_rm_for_compiling_files() -> None:
     assert ".compiling-" in text
 
 
-@pytest.mark.parametrize("rel", ["-x", "--output=/tmp/x", "changelog.d/a\nb.md", "a\x00b", "/etc/passwd", "../x", ""])
-def test_git_refuses_an_unsafe_path_before_running(
-    root: Path, monkeypatch: pytest.MonkeyPatch, rel: str
-) -> None:
-    def forbidden(*_a: object, **_k: object) -> None:
-        raise AssertionError("git must not run for an unsafe path")
-
-    monkeypatch.setattr(cc.subprocess, "run", forbidden)
-    with pytest.raises(cc.ChangelogError):
-        cc._git(root, "show", rel)
-
-
 def test_git_refuses_an_unknown_operation(root: Path) -> None:
-    with pytest.raises(cc.ChangelogError):
-        cc._git(root, "-c")
-    with pytest.raises(cc.ChangelogError):
-        cc._git(root, "show")
+    for op in ("-c", "show", "tree; rm", ""):
+        with pytest.raises(cc.ChangelogError):
+            cc._git(root, op)
 
 
-def test_git_argv_is_built_only_from_fixed_lists(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    seen: list[list[str]] = []
+def test_every_git_argv_is_a_constant_tuple_from_the_table(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[tuple[object, object]] = []
 
-    def record(argv: list[str], **kwargs: object) -> object:
-        seen.append(list(argv))
+    def record(argv: object, **kwargs: object) -> object:
+        seen.append((argv, kwargs.get("cwd")))
         assert kwargs.get("shell") is False
-        return subprocess.CompletedProcess(argv, 0, b"", b"")
+        return subprocess.CompletedProcess(argv, 0, b"", b"")  # type: ignore[arg-type]
 
     monkeypatch.setattr(cc.subprocess, "run", record)
-    cc._git(root, "toplevel")
-    cc._git(root, "exists", "changelog.d/a.added.md")
-    cc._git(root, "show", "CHANGELOG.md")
-    cc._git(root, "status")
-    assert [a[0] for a in seen] == ["git"] * 4
-    prefix = ["git", "-c", "core.quotepath=off", "-C", str(root)]
-    assert [a[: len(prefix)] for a in seen] == [prefix] * 4
-    assert [a[len(prefix):] for a in seen] == [
-        ["rev-parse", "--show-toplevel"],
-        ["cat-file", "-e", "HEAD:changelog.d/a.added.md"],
-        ["show", "HEAD:CHANGELOG.md"],
-        [
-            "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
-            "--", "changelog.d", "CHANGELOG.md",
-        ],
-    ]
+    ops = list(cc._GIT_ARGV)
+    for op in ops:
+        cc._git(root, op)
+    assert [a for a, _c in seen] == [cc._GIT_ARGV[op] for op in ops]
+    assert all(a is cc._GIT_ARGV[op] for (a, _c), op in zip(seen, ops))
+    assert all(c == root for _a, c in seen)
+    assert all(isinstance(x, str) and "-C" != x for a, _c in seen for x in a)  # type: ignore[union-attr]
+    assert all(a[0] == "git" for a, _c in seen)  # type: ignore[index]
+    assert cc._GIT_ARGV["tree"] == (
+        "git", "ls-tree", "-r", "-z", "--full-tree", "HEAD", "--", "changelog.d", "CHANGELOG.md",
+    )
+    assert cc._GIT_ARGV["toplevel"] == ("git", "rev-parse", "--show-toplevel")
+
+
+def test_untracked_fragment_refuses_through_the_hash_path(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+    commit_all(root)
+    frag(root, "b.added.md", "- new\n")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "b.added.md is untracked or ignored" in capsys.readouterr().err
+
+
+def test_ignored_fragment_refuses_through_the_hash_path(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+    (root / ".gitignore").write_text("changelog.d/b.added.md\n")
+    commit_all(root)
+    frag(root, "b.added.md", "- ignored\n")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "b.added.md is untracked or ignored" in capsys.readouterr().err
+
+
+def test_modified_fragment_refuses_through_the_hash_path(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    a = frag(root, "a.added.md")
+    commit_all(root)
+    a.write_text("- changed\n")
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "a.added.md differs from HEAD" in capsys.readouterr().err
+
+
+def test_root_that_is_not_the_toplevel_refuses(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    frag(root, "a.added.md")
+    commit_all(root)
+    nested = root / "sub"
+    nested.mkdir()
+    (nested / "CHANGELOG.md").write_text(BASE_CHANGELOG)
+    (nested / "changelog.d").mkdir()
+    (nested / "changelog.d" / "a.added.md").write_text("- x\n")
+    assert cc.main(["--root", str(nested), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "must be a git work tree" in capsys.readouterr().err
+
+
+def test_blob_id_matches_git_for_both_object_formats(tmp_path: Path) -> None:
+    data = b"- hello\n"
+    for fmt in ("sha1", "sha256"):
+        repo = tmp_path / fmt
+        init = subprocess.run(
+            [*GIT, "init", "-q", f"--object-format={fmt}", str(repo)], check=False
+        )
+        if init.returncode != 0:
+            pytest.skip(f"git cannot create a {fmt} repository")
+        f = repo / "x"
+        f.write_bytes(data)
+        expected = subprocess.run(
+            [*GIT, "-C", str(repo), "hash-object", "x"], capture_output=True, check=True
+        ).stdout.decode().strip()
+        assert cc._blob_id(fmt, data) == expected
+        assert cc._hash_function(repo) == fmt
+
+
+def test_sha256_repository_compiles_when_clean(tmp_path: Path) -> None:
+    repo = tmp_path / "r"
+    init = subprocess.run([*GIT, "init", "-q", "--object-format=sha256", str(repo)], check=False)
+    if init.returncode != 0:
+        pytest.skip("git cannot create a sha256 repository")
+    (repo / "CHANGELOG.md").write_text(BASE_CHANGELOG)
+    (repo / "changelog.d").mkdir()
+    (repo / "changelog.d" / "a.added.md").write_text("- x\n")
+    commit_all(repo)
+    assert cc.main(["--root", str(repo), "--version", "1.1.0", "--date", "2026-02-02"]) == 0
 
 
 def test_fragment_name_with_a_newline_gets_a_filename_diagnostic(

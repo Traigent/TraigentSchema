@@ -13,6 +13,7 @@ Exit codes: 0 success; 1 write, durability or delete failure after validation;
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import stat
@@ -83,46 +84,63 @@ def _check_body(name: str, body: str) -> str | None:
     return None
 
 
-# Closed table of git invocations. Every argument vector is built from these fixed
-# literals; the only caller-supplied value is one validated repository-relative path.
-_GIT = "git"  # bare name as argv[0], never a shell
-_GIT_PREFIX = ("-c", "core.quotepath=off", "-C")
-_GIT_FIXED: dict[str, tuple[str, ...]] = {
-    "toplevel": ("rev-parse", "--show-toplevel"),
+# Closed table of git invocations: every argument vector is a constant tuple, looked
+# up by operation name. No value from the command line or from a file name is ever
+# part of an argument vector; git runs with the repository root as its working
+# directory instead.
+_GIT_ARGV: dict[str, tuple[str, ...]] = {
+    "toplevel": ("git", "rev-parse", "--show-toplevel"),
+    "object-format": ("git", "rev-parse", "--show-object-format"),
     "status": (
-        "status", "--porcelain", "--untracked-files=all", "--ignored=matching",
-        "--", FRAGMENTS_DIRNAME, CHANGELOG_NAME,
+        "git", "status", "--porcelain=v1", "-z", "--untracked-files=all",
+        "--ignored=matching", "--", FRAGMENTS_DIRNAME, CHANGELOG_NAME,
+    ),
+    "tree": (
+        "git", "ls-tree", "-r", "-z", "--full-tree", "HEAD", "--",
+        FRAGMENTS_DIRNAME, CHANGELOG_NAME,
     ),
 }
-_GIT_HEAD_PATH: dict[str, tuple[str, ...]] = {
-    "exists": ("cat-file", "-e"),
-    "show": ("show",),
-}
 
 
-def _checked_rel(rel: str) -> str:
-    """Return ``rel`` when it is a plain relative path inside the repository."""
-    parts = rel.split("/")
-    if (
-        not rel
-        or rel.startswith(("-", "/"))
-        or any(ch in rel for ch in ("\x00", "\n", "\r", "\\"))
-        or any(part in ("", ".", "..") for part in parts)
-    ):
-        raise ChangelogError("refusing an unsafe repository path")
-    return rel
-
-
-def _git(root: Path, op: str, rel: str | None = None) -> subprocess.CompletedProcess[bytes]:
-    """Run one operation of the closed git table; ``rel`` only for the HEAD forms."""
-    if op in _GIT_FIXED:
-        tail = list(_GIT_FIXED[op])
-    elif op in _GIT_HEAD_PATH and rel is not None:
-        tail = [*_GIT_HEAD_PATH[op], f"HEAD:{_checked_rel(rel)}"]
-    else:
+def _git(root: Path, op: str) -> subprocess.CompletedProcess[bytes]:
+    """Run one operation of the closed git table in ``root``."""
+    argv = _GIT_ARGV.get(op)
+    if argv is None:
         raise ChangelogError("unknown git operation")
-    argv = [_GIT, *_GIT_PREFIX, str(root), *tail]
-    return subprocess.run(argv, capture_output=True, check=False, shell=False)  # noqa: S603
+    return subprocess.run(argv, cwd=root, capture_output=True, check=False, shell=False)  # noqa: S603
+
+
+def _hash_function(root: Path) -> str:
+    """Return the hashlib name of the repository's object format."""
+    result = _git(root, "object-format")
+    if result.returncode != 0:
+        return "sha1"  # git older than --show-object-format only knows sha1
+    name = result.stdout.decode().strip()
+    if name not in ("sha1", "sha256"):
+        raise ChangelogError(f"unsupported git object format {name!r}")
+    return name
+
+
+def _head_blobs(root: Path, message: str) -> dict[str, str]:
+    """Return ``{path: blob id}`` for the changelog inputs committed at HEAD."""
+    result = _git(root, "tree")
+    blobs: dict[str, str] = {}
+    if result.returncode != 0:
+        return blobs  # no commit yet: every input is untracked
+    for entry in result.stdout.split(b"\0"):
+        if not entry:
+            continue
+        meta, _tab, raw_path = entry.partition(b"\t")
+        fields = meta.decode().split()
+        if len(fields) != 3:
+            raise ChangelogError(f"{message} (unreadable git tree)")
+        blobs[raw_path.decode("utf-8", "surrogateescape")] = fields[2]
+    return blobs
+
+
+def _blob_id(algorithm: str, data: bytes) -> str:
+    header = b"blob %d\0" % len(data)
+    return hashlib.new(algorithm, header + data).hexdigest()
 
 
 def _fragment_inputs(root: Path) -> list[str]:
@@ -141,25 +159,26 @@ def _fragment_inputs(root: Path) -> list[str]:
     return inputs
 
 
-def _check_input_at_head(root: Path, rel: str, message: str) -> None:
+def _check_input_at_head(
+    root: Path, rel: str, message: str, blobs: dict[str, str], algorithm: str
+) -> None:
     path = root / rel
     if not path.is_file() or path.is_symlink():
         return  # reported by the regular validation
-    if _git(root, "exists", rel).returncode != 0:
+    if rel not in blobs:
         raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
-    committed = _git(root, "show", rel)
     try:
         current = path.read_bytes()
     except OSError as exc:
         raise ChangelogError(f"cannot read {rel}: {exc.strerror or exc}") from None
-    if committed.returncode != 0 or committed.stdout != current:
+    if _blob_id(algorithm, current) != blobs[rel]:
         raise ChangelogError(f"{message} ({rel} differs from HEAD)")
 
 
 def require_clean_git(root: Path) -> None:
     """Compile mode needs every input committed at HEAD and unmodified.
 
-    The per-file check (tracked at HEAD, working-tree bytes equal to HEAD's) is the
+    The per-file check (tracked at HEAD, working-tree bytes hash to HEAD's blob) is the
     guarantee; ``git status`` is only an extra refusal. Everything the compile removes
     is then recoverable from git.
     """
@@ -168,8 +187,10 @@ def require_clean_git(root: Path) -> None:
         top = _git(root, "toplevel")
         if top.returncode != 0 or os.path.realpath(top.stdout.decode().strip()) != os.path.realpath(root):
             raise ChangelogError(f"{message} (the repository root must be a git work tree)")
+        algorithm = _hash_function(root)
+        blobs = _head_blobs(root, message)
         for rel in _fragment_inputs(root):
-            _check_input_at_head(root, rel, message)
+            _check_input_at_head(root, rel, message, blobs, algorithm)
         status = _git(root, "status")
     except OSError:
         raise ChangelogError(f"{message} (git is not available)") from None

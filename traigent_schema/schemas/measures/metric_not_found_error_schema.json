@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_not_found_error_schema.json",
+  "title": "Metric Not Found Error",
+  "description": "Closed metric not found error body for the metric endpoints: fixed code and message, no details, and nothing from the request is echoed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "error",
+    "error_code"
+  ],
+  "properties": {
+    "success": {
+      "const": false
+    },
+    "message": {
+      "const": "Metric not found"
+    },
+    "error": {
+      "const": "not_found"
+    },
+    "error_code": {
+      "const": "not_found"
+    }
+  }
+}

@@ -10,6 +10,8 @@ import pytest
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
 
+from traigent_schema.validator import _FORMAT_CHECKER as DATE_TIME_FORMAT_CHECKER
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "traigent_schema" / "schemas"
 SCHEMA_PATH = SCHEMAS / "certification" / "process_record_v1_schema.json"
@@ -592,3 +594,56 @@ def test_utc_timestamp_pattern_is_anchored_and_rejects_malformed_variants() -> N
     assert _errors("2026-09-05T10:11:12.1234567Z", "UtcTimestampV1")
     # An empty fraction after the dot is not "1-6 digits".
     assert _errors("2026-09-05T10:11:12.Z", "UtcTimestampV1")
+
+
+# --------------------------------------------------------------------------
+# Request field schemas, reached through the public request document
+# --------------------------------------------------------------------------
+
+REQUEST_ID = "https://schemas.traigent.ai/certification/process_record_request_schema.json"
+
+
+def _field_is_valid(request_definition: str, field: str, value: object) -> bool:
+    """Validate one request field via a JSON pointer into the public request document."""
+    schema = {"$ref": f"{REQUEST_ID}#/definitions/{request_definition}/properties/{field}"}
+    validator = Draft7Validator(
+        schema, registry=REGISTRY, format_checker=DATE_TIME_FORMAT_CHECKER
+    )
+    return validator.is_valid(value)
+
+
+@pytest.mark.parametrize(
+    "request_definition", ["VerifyProcessRecordRequest", "FinalizeProcessRecordRequest"]
+)
+@pytest.mark.parametrize(
+    "field,value,valid",
+    [
+        ("build_session_ref", BUILD, True),
+        ("build_session_ref", BUILD + "\n", False),
+        ("project_ref", PROJECT, True),
+        ("project_ref", PROJECT + "\n", False),
+        ("agent_commitment_ref", SHA, True),
+        ("agent_commitment_ref", "sha256:" + "a" * 63, False),
+        ("agent_commitment_ref", "sha256:" + "a" * 65, False),
+        ("agent_commitment_ref", "sha256:" + "A" * 64, False),
+        ("agent_commitment_ref", SHA + "\n", False),
+    ],
+)
+def test_request_reference_fields_bound_their_shapes(
+    request_definition: str, field: str, value: str, valid: bool
+) -> None:
+    assert _field_is_valid(request_definition, field, value) is valid
+
+
+@pytest.mark.parametrize(
+    "value,valid",
+    [
+        ("2026-09-05T10:11:12.123456Z", True),
+        ("2026-09-05T10:11:12+00:00", False),
+        ("2026-02-30T10:11:12Z", False),
+        ("2026-09-05T10:11:12Z\n", False),
+        ("2026-09-05T10:11:12.1234567Z", False),
+    ],
+)
+def test_verification_time_is_strict_utc_timestamp(value: str, valid: bool) -> None:
+    assert _field_is_valid("VerifyProcessRecordRequest", "verification_time", value) is valid

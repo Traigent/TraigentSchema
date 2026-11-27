@@ -104,6 +104,7 @@ def _response() -> dict[str, Any]:
                 "group": "Transparency",
                 "title": "Example attestation",
                 "state": "NOT_ASSESSED",
+                "review_context": "b" * 64,
                 "links": [],
             },
         ],
@@ -156,6 +157,11 @@ def test_valid_populated_and_empty_packs() -> None:
         lambda r: r["ingredients"][0].update(group="Legal"),
         lambda r: r["ingredients"][0].update(producer_ref="free text"),
         lambda r: r["ingredients"][0].update(note="customer text"),
+        lambda r: r["ingredients"][1].pop("review_context"),  # required on A rows
+        lambda r: r["ingredients"][1].update(review_context="B" * 64),
+        lambda r: r["ingredients"][1].update(review_context="b" * 63),
+        lambda r: r["ingredients"][0].update(review_context="b" * 64),  # absent on non-A rows
+        lambda r: r["ingredients"][0].update(review_context=None),
         lambda r: r["ingredients"][0]["links"][0].update(relation="equal"),
         lambda r: r["ingredients"][0]["links"][0].update(relation="exact-ish"),
         lambda r: r["ingredients"][0]["links"][0].pop("limitations"),
@@ -328,3 +334,10 @@ def test_coverage_ingredient_ids_over_cap_is_rejected_shape_only() -> None:
     assert len(set(unique)) == 101
     assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique[:100]})) == []
     assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique})) != []
+
+
+def test_review_context_is_a_digest_or_null_on_attestation_rows() -> None:
+    instance = copy.deepcopy(_response())
+    assert _errors(instance) == []
+    instance["ingredients"][1]["review_context"] = None
+    assert _errors(instance) == []

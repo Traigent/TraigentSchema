@@ -11257,6 +11257,23 @@
       "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
     },
     {
+      "file": "agents/agents_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/get/responses/200/content/application/json/schema/properties/data/properties/agent_ref",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "0881379da9343ea95786055c3b4890a125dba49106e1727bee3d062934422848"
+        }
+      ],
+      "reason": "additive optional response field on the agent detail read: the server-issued release reference a portal needs to call the release routes. Payloads valid under the previous schema still validate. A client that validates responses against the previous closed schema can reject a response once the field is emitted; the Python SDK and the JS SDK do not read or validate the agent detail response.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/release-candidates)"
+    },
+    {
       "file": "execution/execution_endpoints.json",
       "rule": "endpoint_removed",
       "findings": [
@@ -11344,6 +11361,684 @@
       "reason": "BREAKING PUBLIC CHANGE (pre-release). The configuration-run operations move to the canonical project paths and the old flat paths are removed: GET/POST /api/v1/configuration-runs/runs/{experiment_run_id}/configurations become GET/POST /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs; GET/PUT/DELETE /api/v1/configuration-runs/{config_run_id} become GET/PUT/DELETE /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}; the status, summary-stats, workflow-metadata and cancel sub-routes move under that same path; PUT .../measures becomes PUT .../measurement and its operation id configuration_run.update_configuration_run_measures becomes configuration_run.update_configuration_run_measurement. Request and response bodies are unchanged; project_id and the opaque references come from the path. Consumers: the Python SDK and the Backend, updated in the same release.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/773"
+    },
+    {
+      "file": "analytics/analytics_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/evaluator-quality/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "866c40e17965dac7d2e2a9aa00352ea714f70137c5f5f930dc676b8e8f062ed3"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/observability-summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9bc5eba22e8d07ae9646bb6f8ca59d40da50919c76886adcdee5aee87d195200"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/optimization-overview/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "0bba9078a499a69542fa31dfe6b403b587d225df198d3f8f10f72a244c8e9aa9"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/dashboards/project-usage/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "9903b127744606f04f5b5ae5b4fa073a6e340ea17f611fd7f83bc0a8b2ff6b69"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/pricing-catalog/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "73cc4072147dea36181c7434c10516537d12b03ea3df1a54611fc34415a05421"
+        },
+        {
+          "pointer": "#/paths//api/v1/analytics/summary/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "25ef9d36aacecf4b878b57383b41e19317f138032ce0ef0eb65ce5aa51c150bd"
+        }
+      ],
+      "reason": "Route moved to its project-scoped canonical path with the same operation id; the backend retires the old path with a closed 404.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "endpoint_removed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/experiment-runs/runs/{experiment_run_id}/configurations/post",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "a63364a382b161b9b6ec7d92d8702ba910b5185f3c39d07b42b3f96f7142e873"
+        },
+        {
+          "pointer": "#/paths//api/v1/experiment-runs/runs/{run_id}/configurations/get",
+          "role": "request",
+          "subject": null,
+          "old": null,
+          "new": null,
+          "fingerprint": "067d354632010bc47e47f02c0fb1dc31688843b1732b29c4393d0a4876809f5f"
+        }
+      ],
+      "reason": "BREAKING PUBLIC CHANGE (pre-release). The run-owned configuration aliases are removed: POST /api/v1/experiment-runs/runs/{experiment_run_id}/configurations and GET /api/v1/experiment-runs/runs/{run_id}/configurations. They carried no operation id and duplicated the canonical collection; use POST and GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs (configuration_run.create_configuration_run and configuration_run.get_configuration_runs). Request and response bodies are those of the canonical operations. Consumers: the Python SDK and the Backend, updated in the same release.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/400/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "7d87c4f345c3a5be84c9d883d5a31ea0c666cfcedaf4bac6d20b60620b5dddbd"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/401/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "43c90ac3e06878bf9a37a1537097cd0c085a3bb7092aa8cef3271e8a23272294"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/403/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "615d20732cd1de4ea29c673bb53b554da370b29258493ca0694a0b82b5d6a5d3"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/404/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "613332c40972387de237c4d197c6a65b55dc1981397c68bce066219d91df3556"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/413/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "3853b048424b039e94db223c27a921edff65ef4d0b33bd1ea343e17eb3fa828a"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/422/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "292bd6f2072062bfc2bf80663d2ce0faf682ca63145ebf8a958dc2da48324b08"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/429/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "16c2f5bf042b662b8dac2367bf578069cadaf554ad6a3c8da00590b1121302c8"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/500/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "675245aca21574a389dd7a71be4e362e9d50ce7e4144916dcb3a1cd6b8a3ee1d"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/search/post/responses/503/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "7606280c3a76e3c83bc95a39d8cc7c1603f54d7a66264b433b8ca74705fce4d8"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/400/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "8d095f77c2b8a54d124cb638e2a941fd9b0e825a062c886b616df8e84e33991e"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/401/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "1b7fc04ec13a28215214f0eb68bccf5cbcb6d54bc9805a2b3bc6a1eb27ca6c71"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/403/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "91544acfb1074a37ba3d817a1dca0bcde6daa7cf96912919721ece96870af7e7"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/404/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "d8fb850903f26a4facfe67fd4aff6a53ac07ffe96a1a82eb231e6245d1d7b275"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/413/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "5fd17f6a77d8c014a4e13932b57ceb67f3e20b0f607d0cfe8d4450a7525238b4"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/422/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "da4d5d2932f23dc180e67f13fd433ba037cd62c90d3d91193f274a862f6a7f26"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/429/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "7b247d124b35a66e7b049c78d906c1f40956eff762b2cc683ac7912dfb242a9b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/500/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "1a2a11e639d99813eef4e205aae896d3517c84d496dde7eea135111df7a1e651"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/get/responses/503/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "c39bdfa91b8902043cf10f49a226a8e8fbe08c8169bdfd6c84c24dd486e0b000"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/400/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "88e1b77fce2a1db43ff5b11e4cbcb6683fa1a681345eac7e8df43b03ac42ef9c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/401/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "c7db5c442334e2461f3702a19d4ef661ce441791a43798a9b017bb5effe60886"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/403/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "d07d05856d9cb49b3a75febe4535f56b2a528143d4d6ed9890e1abf529c0d99c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/404/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "e7759edd3ccec92eff315e9553b15400cad6fb78bfcad09d5606e8ee076f1290"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/413/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "9f3e92a0fcb1c3ad8c6c8eb928e07aca20613dc3cbfe86875eca8d3c688fe9f5"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/422/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "97122563b746e220722266e39d1a28602feb5fde21305a10648d783783f87dd9"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/429/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "6dc5e5a461eb62de222f999b65daf751e57b2c7c1e1f9cca8957ce43be412b96"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/500/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "242a5f0b2ae9140ab72b4a3904ab386c1c564695c8aac78ef78d6f51e7454d44"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/get/responses/503/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "7ca462430d64f41bbc09a8af4b1536ce1989d6287e65f7f4aa7eb98cea1e8b53"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/400/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "667de2a0f513e1bfc1b9f8a492000ca107cd0b4f768d4c16c7b8fd749d441f1f"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/401/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "ffb8f9c2448cc3bfe3ac606233e273cf0def1e27fe3be3ea68e109f2cf2152ea"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/403/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "b2711370aebb4fa0e8e7e4c9bde5b053d52e142caa8fb44ce58d14a198f0c400"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/404/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "cb3babec7e66603e016e4944a06e8deb4a44aa873edbd099bc2a0ba7d940788b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/413/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "785b4ef53a5da6a15ab11a9d2479fbc1bb6767631425dc9b74e904b384121850"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/422/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "2b859e4d7ea96a470f34543708fc1c4a9f4f0bb495c1b53d875891b3811b2a58"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/429/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "70139d064acff30f7e6b712b2e39f6593a51de279d9697ffabea6359e2c8d4a1"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/500/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "79f7ac495cc6175dc44c378c0a1e4327700c48d8096d721f064f5f839fe4cac8"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/configuration-runs/query/post/responses/503/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "373227e056c7c3481f1efa016ff2fe648310b2b38d94984fb59ddd373fff0e96"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/400/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "1ab6ed56004c30ec3382b7b8339d1034cf417553c86c528ba3698b69d2649b1b"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/401/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "3a51a4ad35bdfd0989afc1910ce4bf542fd5b375ac8b609e3f4db18cad8888bd"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/403/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "44aaf6495613c2462e6de17776f73ff9bb49cc1ee2a8b30f509e9df818e17295"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/404/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "f9a554f94510b7129cfae2121da4f1d514f0293655bd616ce4623b2028e1a685"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/413/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "e250bb9867c6a21a47f650dde8b40d3643c4d217640323ba4436512b2815219c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/429/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "e315913caaae0a77dc2a7ce1407339e99e709525822ef3c032de4b1d93f2d556"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/500/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "e18e006ca6dd0e17fece7c084bcc2c0cf3ee38b277f178c2033ff83a2a2d3d40"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments/get/responses/503/content/application/problem+json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 11,
+          "new": 13,
+          "fingerprint": "ec128a935b76a77ae1f1f1f849a68bccec926f76402d2d9d21926328ffb2e05d"
+        }
+      ],
+      "reason": "The closed group problem union gains two variants, idempotency_conflict and idempotency_in_progress, so the group run query can declare its 409 responses. Every problem response that references the union lists the two additional closed variants; the branch count rises from 11 to 13 and no existing variant changes. The two variants are closed objects with fixed type, title, status, code and detail values.",
+      "version": "Unreleased",
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "property_added",
+      "reason": "Identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "type",
+      "reason": "Agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "oneOf_added",
+      "reason": "Measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "c2c202802ef166fe12c41966e7a8960bfb2add363eed5e59d2ea4f1f52d40a87"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 2,
+          "fingerprint": "5bffc6a818240984e45341594ac5454b9adca7db647b7d9db728128acf09b853"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "8bb10cbb9e6569b4711fcd5af2e1b3cc1a11b51e5624d79bbb42f5d3a86a0f97"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "2feb5cd4752257e876ead09eb984fc845d9bb1037b1a18ac18da1fe38c327481"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "03a373ee13a7171d53ec206ed1593226d31620c922fba229c3fbda6d6a9e217c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "321ccde360df3001a1746b09a20a1a2906ab8ccbcd0b8a3431a38b5e4908b322"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "222320e4a18804b3397e4fbde479f6d10b15a2c8989eac7ed86af592d630af1e"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "90d9d431c3f21e0887d9a4c4c410e099adec4283cbac95238419adc54258cecf"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "82343c77d722469d216256967b99f02824fac1d1bee2a120f7a6104a5a5f068c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"The agent or its standing attestation changed since it was displayed.\""
+            ]
+          },
+          "old": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "new": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The agent or its standing attestation changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "fingerprint": "bd00b9fee51a6575400df4a15d58584c1df0f473bff78b568d3b3b92ae112bcb"
+        }
+      ],
+      "reason": "The sign operation's 409 answers a new closed reason stale_review_context (with its fixed message) when the echoed review_context no longer matches the server's recomputation. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "788eb146d6735c892b13ac5c53c7c186d5edf6ec9e0186dc886b75de10002aa8"
+        }
+      ],
+      "reason": "Attestation signing must echo review_context, the keyed freshness token read from the evidence response, so a signature is bound to the subject the signer reviewed. Coordinated pre-release break: the feature is dark in production and no external client signs; backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/ingredients/items/properties/review_context",
+          "role": "response",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "4168aaf4afd50a070c88bb86d61e61f0a6ecc955a07d7aabcb54826ed89f0e6c"
+        }
+      ],
+      "reason": "A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
     },
     {
       "file": "observability/observability_endpoints.json",

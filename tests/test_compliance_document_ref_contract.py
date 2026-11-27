@@ -277,8 +277,43 @@ def test_endpoints_are_registered_and_wired() -> None:
         base,
         base + "/{reference_id}/withdrawals",
         "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs",
+        "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs/search",
     }
     for item in paths.values():
         for operation in item.values():
             assert operation["x-asserted-against-backend"] is False
             assert "429" in operation["responses"]
+
+
+def test_search_is_a_body_only_read_with_a_closed_request() -> None:
+    base = "/api/v1/projects/{project_id}/agents/{agent_ref}/compliance-document-refs"
+    paths = load_json(ENDPOINTS_PATH)["paths"]
+    assert set(paths[base + "/search"]) == {"post"}
+    operation = paths[base + "/search"]["post"]
+    assert operation["operationId"] == "project_compliance_document_refs.search_compliance_document_references"
+    assert [p["name"] for p in operation["parameters"]] == ["project_id", "agent_ref"]
+    assert operation["x-replay"] == "read"
+    assert [p["in"] for p in operation["parameters"]] == ["path", "path"]
+    request_ref = operation["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    assert request_ref.endswith("#/definitions/DocumentReferenceSearchRequest")
+    ok = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    assert ok == paths[base]["get"]["responses"]["200"]["content"]["application/json"]["schema"][
+        "$ref"
+    ]
+    assert {"400", "401", "403", "404", "429"} <= set(operation["responses"])
+    for valid in (
+        {"q": "tech"},
+        {"q": "x" * 200, "include_withdrawn": True, "page": 3, "per_page": 100},
+    ):
+        assert _errors("DocumentReferenceSearchRequest", valid) == []
+    for invalid in (
+        {},
+        {"q": ""},
+        {"q": "x" * 201},
+        {"q": 5},
+        {"q": "a", "page": 0},
+        {"q": "a", "per_page": 101},
+        {"q": "a", "include_withdrawn": "yes"},
+        {"q": "a", "url": "https://x.example.test"},
+    ):
+        assert _errors("DocumentReferenceSearchRequest", invalid) != [], invalid

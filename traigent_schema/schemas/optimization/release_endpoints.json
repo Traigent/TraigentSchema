@@ -1,11 +1,406 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Traigent Release Acceptance and Head Rollback Routes",
+    "title": "Traigent Release Candidate, Acceptance and Head Rollback Routes",
     "version": "1.0.0",
-    "description": "Project-scoped release acceptance, release and head rollback of the agent promotion head. Closed wire contracts: no free text crosses these routes. Planned routes; the Backend is asserted against these contracts when it ships them."
+    "description": "Project-scoped routes for reporting release candidates, recording acceptance, releasing an accepted candidate and rolling back the agent promotion head. Planned routes with closed wire contracts."
   },
   "paths": {
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/release-candidates": {
+      "post": {
+        "summary": "Record a candidate for release",
+        "description": "Planned route. Requires project editor access and agent WRITE as for publishing a best config. A signed-in person or an SDK API key with that access may report candidates. Service tokens are refused, even with project binding and write scope: the response is the closed release refusal, 401 `unauthenticated` or 403 `forbidden` depending on where authentication stops the request. The server resolves the best-config ID and version in the authenticated tenant and requested project and agent before recording the candidate. Unknown, foreign or invisible versions receive the same 404. A candidate_fingerprint that does not match the stored version is refused the same way. The deduplication key is (agent, environment, best_config_id, best_config_version, candidate_fingerprint). A replay of the same body returns 201 with the same candidate_ref and original recording metadata. At most one body may be recorded per (agent, environment, best_config_id, best_config_version). A different body for the same (agent, environment, best_config_id, best_config_version) returns 409 candidate_conflict; a fingerprint that does not match the stored version is the masked 404 instead, never a conflict.",
+        "operationId": "best_configs.create_release_candidate",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The stored candidate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Unknown, foreign or invisible references are indistinguishable. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateNotFound"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "candidate_conflict. Closed envelope. Nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateConflict"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRateLimited"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/Retry-After"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List release candidates of an agent",
+        "description": "Planned route. Requires project viewer access and agent READ. Newest recorded_at first, at most `limit` items. Errors use a closed refusal envelope or the closed rate-limit envelope.",
+        "operationId": "best_configs.list_release_candidates",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "description": "Closed run environment; absent means every environment.",
+            "schema": {
+              "$ref": "./session_capabilities_schema.json#/definitions/SessionEnvironment"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum items, default 50.",
+            "schema": {
+              "x-content-class": "number",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Candidates of the agent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid_request. Closed envelope; nothing is echoed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Unknown, foreign or invisible references are indistinguishable. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateNotFound"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRateLimited"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/Retry-After"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/agents/{agent_ref}/release-candidates/{candidate_ref}": {
+      "get": {
+        "summary": "Read one release candidate of an agent",
+        "description": "Planned route. Requires project viewer access and agent READ. The candidate must belong to the requested project and agent. Errors use a closed refusal envelope or the closed rate-limit envelope.",
+        "operationId": "best_configs.get_release_candidate",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "x-content-class": "key_material",
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Server-issued project id."
+            }
+          },
+          {
+            "name": "agent_ref",
+            "in": "path",
+            "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
+            "schema": {
+              "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
+            }
+          },
+          {
+            "name": "candidate_ref",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRef"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored candidate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthenticated. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "forbidden. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "reference_not_found. Unknown, foreign or invisible references are indistinguishable. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateNotFound"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests \u2014 rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_candidate_schema.json#/definitions/ReleaseCandidateRateLimited"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/Retry-After"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "../rate_limit_info_schema.json#/x-response-headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "500": {
+            "description": "internal_error. Closed envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./release_acceptance_schema.json#/definitions/ReleaseRefusal"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances": {
       "post": {
         "summary": "Record a person's acceptance of one candidate for release",
@@ -30,6 +425,7 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
             "schema": {
               "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
@@ -151,6 +547,7 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
             "schema": {
               "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
@@ -275,6 +672,7 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
             "schema": {
               "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }
@@ -398,6 +796,7 @@
             "name": "agent_ref",
             "in": "path",
             "required": true,
+            "description": "A portal reads this reference from the agent detail response's `agent_ref`.",
             "schema": {
               "$ref": "../labels/label_common_schema.json#/definitions/AgentRef"
             }

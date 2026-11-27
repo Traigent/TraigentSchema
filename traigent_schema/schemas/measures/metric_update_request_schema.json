@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_update_request_schema.json",
+  "title": "Metric Update Request",
+  "description": "Body of PATCH /api/v1/metrics/{metric_ref}. Partial update: send only the fields to change, at least one. Closed: the evaluator fields evaluation_method, criteria, python_packages and measure_parameters are rejected with a 422 validation_failed that names no keys or values.",
+  "type": "object",
+  "minProperties": 1,
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "measure_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 5000
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "value_type": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "maxItems": 1000
+    },
+    "target_aspect": {
+      "$ref": "./measure_schema.json#/definitions/TargetAspect"
+    },
+    "metric_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricType"
+    },
+    "output_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricOutputType"
+    },
+    "target_types": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/TargetType"
+      }
+    },
+    "allowed_score_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/AllowedScoreSource"
+      }
+    },
+    "agent_types": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/AgentType"
+      },
+      "minItems": 1
+    },
+    "domain_min": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "domain_max": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "inverse": {
+      "type": "boolean"
+    },
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 20,
+      "description": "Unit of the value, for example ms or $."
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 20,
+      "description": "Metric definition version, for example 1.0.0."
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_list_response_schema.json",
+  "title": "Metric List Response",
+  "description": "200 body of the metric list endpoints. Wrapped envelope with nested pagination; each item is a metric (metric_schema.json) carrying the metric_ref used to build the item URL and its scope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "pagination"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "./metric_schema.json"
+          }
+        },
+        "pagination": {
+          "$ref": "../pagination_schema.json"
+        }
+      }
+    }
+  }
+}

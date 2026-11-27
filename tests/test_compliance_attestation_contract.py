@@ -90,6 +90,7 @@ def _request() -> dict[str, Any]:
         "agent_id": "agent-1",
         "ingredient_id": "A1",
         "statement_digest": _DIGEST,
+        "review_context": "c" * 64,
         "outcome": "affirmed",
         "review_period_days": 90,
     }
@@ -151,6 +152,10 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
     ("definition", "factory", "mutate"),
     [
         # Server-derived fields are never accepted from the client.
+        ("AttestationCreateRequest", _request, lambda r: r.pop("review_context")),
+        ("AttestationCreateRequest", _request, lambda r: r.update(review_context=None)),
+        ("AttestationCreateRequest", _request, lambda r: r.update(review_context="C" * 64)),
+        ("AttestationCreateRequest", _request, lambda r: r.update(review_context="c" * 63)),
         ("AttestationCreateRequest", _request, lambda r: r.update(signer_user_id="u")),
         ("AttestationCreateRequest", _request, lambda r: r.update(recorded_at=_NOW)),
         ("AttestationCreateRequest", _request, lambda r: r.update(tenant_id="t")),
@@ -313,6 +318,7 @@ def test_evidence_response_accepts_an_attestation_summary_but_no_note() -> None:
         "title": "Example",
         "state": "SUPPORTED",
         "producer_ref": "ATTESTATION_RECORDS_V1",
+        "review_context": "d" * 64,
         "attestation": summary,
         "links": [],
     }
@@ -484,3 +490,13 @@ def test_an_exported_record_requires_the_marker_fields(missing: str) -> None:
     record = _exported("current", "wording")
     del record[missing]
     assert _errors("ExportedAttestationRecord", record) != []
+
+
+def test_sign_operation_declares_stale_review_context_and_503() -> None:
+    operation = load_json(ENDPOINTS_PATH)["paths"][
+        "/api/v1/projects/{project_id}/compliance-attestations"
+    ]["post"]["responses"]
+    body = operation["409"]["content"]["application/json"]["schema"]["properties"]
+    assert "stale_review_context" in body["error"]["enum"]
+    assert "stale_review_context" in body["error_code"]["enum"]
+    assert "503" in operation

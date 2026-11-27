@@ -123,7 +123,7 @@
           "description": "Head generation the person saw when accepting. A release is refused as head_generation_stale if the head has moved."
         }
       },
-      "description": "Body of POST /api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances. A person's decision to release one exact candidate; person only (an API key is refused). The server binds these fields immutably, stamps the decider from the authenticated person and sets the expiry from its own clock. Every field is required; there is no free text."
+      "description": "Body of POST /api/v1/projects/{project_id}/agents/{agent_ref}/release-acceptances. A person's decision to release one exact candidate; person only (an API key is refused). The server binds these fields immutably, stamps the decider from the authenticated person and sets the expiry from its own clock. Every field is required; there is no free text. The portal copies the shared fields from the selected release candidate and supplies the head generation it showed to the person, omitting candidate_ref."
     },
     "ReleaseAcceptance": {
       "type": "object",

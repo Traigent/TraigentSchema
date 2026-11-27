@@ -418,6 +418,9 @@
           "404": {
             "$ref": "#/components/responses/GroupsNotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/GroupsConflict"
+          },
           "413": {
             "$ref": "#/components/responses/GroupsPayloadTooLarge"
           },
@@ -568,36 +571,6 @@
         }
       }
     },
-    "/api/v1/experiment-runs/runs/{experiment_run_id}/configurations": {
-      "post": {
-        "summary": "Create configuration run from experiment run",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "../evaluation/configuration_run_create_request_schema.json"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Configuration run created successfully"
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/experiment-runs/runs/{run_id}": {
       "get": {
         "summary": "Get experiment run",
@@ -695,26 +668,6 @@
                 }
               }
             }
-          },
-          "429": {
-            "description": "Too many requests — rate limit exceeded.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "../rate_limit_info_schema.json"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/experiment-runs/runs/{run_id}/configurations": {
-      "get": {
-        "summary": "List configuration runs for an experiment run",
-        "responses": {
-          "200": {
-            "description": "Configuration runs retrieved successfully"
           },
           "429": {
             "description": "Too many requests — rate limit exceeded.",
@@ -1036,6 +989,77 @@
       }
     },
     "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/status": {
+      "get": {
+        "summary": "Get configuration run status",
+        "operationId": "configuration_run.get_configuration_run_status",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "configuration_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Configuration run reference: a server-issued `configuration_run_` reference; previously issued `trial_` references and configuration run ids are also accepted.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "expected_run_ref",
+            "in": "query",
+            "required": false,
+            "description": "Optional experiment run reference. When present and the configuration run does not belong to that experiment run, the answer is the same closed 404 as for an absent configuration run.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration run status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./configuration_run_status_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted or wrong-project configuration run, or a configuration run that does not belong to the experiment run named in expected_run_ref; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./configuration_run_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "summary": "Update configuration run status",
         "operationId": "configuration_run.update_configuration_run_status",
@@ -1106,6 +1130,107 @@
       }
     },
     "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/measurement": {
+      "get": {
+        "summary": "Get configuration run measurement",
+        "operationId": "configuration_run.get_configuration_run_measurement",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "configuration_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Configuration run reference: a server-issued `configuration_run_` reference; previously issued `trial_` references and configuration run ids are also accepted.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size for per-example measures; default 100, maximum 100. Ignored for flat measures. 0, 101, booleans and non-integers are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project and configuration run; at most 512 characters of base64url. Never a raw index.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,512}$",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration run measurement retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./configuration_run_measurement_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A query parameter fails its declared format or range (limit out of range, a cursor that does not match the declared token format) or is not declared: bad_request; echoes no client value. A well-formed cursor that cannot be used (the stored results changed since it was issued, or it belongs to another configuration run or page shape) is the closed invalid_cursor 400.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "./configuration_run_problem_schema.json#/definitions/BadRequestProblem"
+                    },
+                    {
+                      "$ref": "./configuration_run_problem_schema.json#/definitions/InvalidCursorProblem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted or wrong-project configuration run; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./configuration_run_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "summary": "Update configuration run measurement",
         "operationId": "configuration_run.update_configuration_run_measurement",
@@ -2655,6 +2780,76 @@
                 "maxLength": 32
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "title",
+              "status",
+              "code",
+              "detail",
+              "problem_id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "urn:traigent:problem:idempotency_conflict"
+              },
+              "title": {
+                "const": "Conflict"
+              },
+              "status": {
+                "const": 409
+              },
+              "code": {
+                "const": "idempotency_conflict"
+              },
+              "detail": {
+                "const": "The idempotency key was already used with a different request."
+              },
+              "problem_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "minLength": 32,
+                "maxLength": 32
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "title",
+              "status",
+              "code",
+              "detail",
+              "problem_id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "urn:traigent:problem:idempotency_in_progress"
+              },
+              "title": {
+                "const": "Conflict"
+              },
+              "status": {
+                "const": 409
+              },
+              "code": {
+                "const": "idempotency_in_progress"
+              },
+              "detail": {
+                "const": "A request with this idempotency key is still being processed."
+              },
+              "problem_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "minLength": 32,
+                "maxLength": 32
+              }
+            }
           }
         ]
       }
@@ -2742,6 +2937,16 @@
       },
       "GroupsInternalError": {
         "description": "An unhandled failure; closed problem, no detail",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupsProblem"
+            }
+          }
+        }
+      },
+      "GroupsConflict": {
+        "description": "The idempotency key was reused with a different request, or a request with the same key is still in progress (closed problem)",
         "content": {
           "application/problem+json": {
             "schema": {

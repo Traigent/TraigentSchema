@@ -1,8 +1,9 @@
 - **Project-scoped dataset paths.** Datasets, their examples, files, upload,
   example generation, public-benchmark marking and version content identity
   are declared under `/api/v1/projects/{project_id}/datasets/...`. Additive:
-  no existing path is removed; the unscoped dataset paths stay and are marked
-  deprecated, with removal unscheduled.
+  no existing path is removed; each unscoped dataset path that now has a
+  project-scoped replacement stays and is marked deprecated, with removal
+  unscheduled.
 - **Metric operations.** New `metric.*` operations: list and create a
   project's metrics at `/api/v1/projects/{project_id}/metrics`; list and
   create library metrics at `/api/v1/metrics`; and get, update (`PATCH`) and

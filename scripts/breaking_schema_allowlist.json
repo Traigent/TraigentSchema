@@ -11417,7 +11417,7 @@
       ],
       "reason": "Route moved to its project-scoped canonical path with the same operation id; the backend retires the old path with a closed 404.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema#TBD"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
     },
     {
       "file": "execution/execution_endpoints.json",
@@ -11442,7 +11442,7 @@
       ],
       "reason": "BREAKING PUBLIC CHANGE (pre-release). The run-owned configuration aliases are removed: POST /api/v1/experiment-runs/runs/{experiment_run_id}/configurations and GET /api/v1/experiment-runs/runs/{run_id}/configurations. They carried no operation id and duplicated the canonical collection; use POST and GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/configuration-runs (configuration_run.create_configuration_run and configuration_run.get_configuration_runs). Request and response bodies are those of the canonical operations. Consumers: the Python SDK and the Backend, updated in the same release.",
       "version": "Unreleased",
-      "pr": "pending"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
     },
     {
       "file": "execution/execution_endpoints.json",
@@ -11803,7 +11803,7 @@
       ],
       "reason": "The closed group problem union gains two variants, idempotency_conflict and idempotency_in_progress, so the group run query can declare its 409 responses. Every problem response that references the union lists the two additional closed variants; the branch count rises from 11 to 13 and no existing variant changes. The two variants are closed objects with fixed type, title, status, code and detail values.",
       "version": "Unreleased",
-      "pr": "Traigent/TraigentSchema#TBD"
+      "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
     }
   ]
 }

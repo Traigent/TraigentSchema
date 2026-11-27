@@ -1041,7 +1041,7 @@
           "supplement_present": {"type": "boolean"},
           "assessment_state": {"enum": ["assessed", "not_assessed"]},
           "outcome": {
-            "description": "Returned only for an outcome recorded at issuance whose references still resolve; an unresolvable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
+            "description": "The value candidate_not_retrievable is returned only for an outcome recorded at issuance whose references still resolve; an unresolvable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
               "non_dominated_within_scope",
               "dominated_within_scope",
               "no_comparable_peers",
@@ -1091,7 +1091,7 @@
           },
           "front_status": {"enum": ["asserted", "withheld_dominated", "not_assessed"]},
           "withheld_reason": {
-            "description": "Returned only for an outcome recorded at issuance whose references still resolve; an unresolvable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
+            "description": "The value candidate_not_retrievable is returned only for an outcome recorded at issuance whose references still resolve; an unresolvable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
               "dominated_by_member",
               "candidate_not_comparable",
               "no_comparable_peers",
@@ -1113,7 +1113,7 @@
             "properties": {
               "named": {"type": "integer", "minimum": 0},
               "resolved": {"type": "integer", "minimum": 0},
-              "unresolved_ids": {"description": "Always present. Normally empty: while historical configuration identities cannot be mapped, a historical configuration that cannot be resolved makes retrieve answer the declared closed 503 instead of listing it here.", "type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
+              "unresolved_ids": {"description": "Always present when set_completeness is present. Lists configurations recorded as unresolved at issuance that can be referenced at retrieval. If a referenced configuration cannot be mapped at retrieval, retrieve answers the declared closed 503 instead.", "type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
               "attested": {"const": false}
             }
           },
@@ -1258,7 +1258,7 @@
             "additionalProperties": false,
             "required": ["reason", "detail"],
             "properties": {
-              "reason": {"const": "no_experiment_run_reference", "description": "Not produced on these routes, because a finalized build session always carries its experiment run."},
+              "reason": {"const": "no_experiment_run_reference", "description": "New finalizations on these routes never generate this reason, because finalize takes the experiment run from the finalized build session; retrieve can still return it when a stored assessment carries it."},
               "detail": {
                 "const": "No experiment run was named for this issuance, so no selection receipt or candidate records could be located."
               },

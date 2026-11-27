@@ -1001,3 +1001,23 @@ def test_unexpected_object_format_still_refuses(root: Path, monkeypatch: pytest.
     monkeypatch.setattr(cc.subprocess, "run", fake)
     with pytest.raises(cc.ChangelogError):
         cc._hash_function(root)
+
+
+def test_mode_restore_failure_warns_and_the_compile_still_succeeds(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    a = frag(root, "a.added.md", "- alpha\n")
+    commit_all(root)
+
+    def refuse(*_a: object, **_k: object) -> None:
+        raise OSError(1, "Operation not permitted")
+
+    monkeypatch.setattr(cc.os, "chmod", refuse)
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 0
+    err = capsys.readouterr().err
+    assert "could not restore the original file mode of CHANGELOG.md" in err
+    assert "Operation not permitted" in err
+    assert "the content was written" in err
+    assert "## [1.1.0] - 2026-02-02" in (root / "CHANGELOG.md").read_text()
+    assert "- alpha" in (root / "CHANGELOG.md").read_text()
+    assert not a.exists()

@@ -406,8 +406,12 @@ def write_atomic(path: Path, text: str) -> None:
         raise
     try:  # restore the original mode after the replace, best effort
         os.chmod(path, stat.S_IMODE(mode))
-    except OSError:
-        pass
+    except OSError as exc:
+        print(
+            f"warning: could not restore the original file mode of {path.name}: "
+            f"{exc.strerror or exc}; the content was written",
+            file=sys.stderr,
+        )
 
 
 def _read_changelog(path: Path) -> str:
@@ -436,6 +440,15 @@ def _restore(temp: Path, path: Path) -> str:
     return "restored"
 
 
+def _try_unlink(temp: Path) -> bool:
+    """Delete ``temp``; report False (never raise) when it could not be deleted."""
+    try:
+        _unlink(temp)
+    except OSError:
+        return False
+    return True
+
+
 def _cleanup_one(path: Path, raw: bytes) -> tuple[str, str] | None:
     """Delete one compiled fragment safely.
 
@@ -452,12 +465,8 @@ def _cleanup_one(path: Path, raw: bytes) -> tuple[str, str] | None:
     except OSError:
         same = False
         unreadable_now = True
-    if same:
-        try:
-            _unlink(temp)
-            return None
-        except OSError:
-            pass
+    if same and _try_unlink(temp):
+        return None
     state = _restore(temp, path)
     if state == "both":
         return "both", f"{path} and {temp}"

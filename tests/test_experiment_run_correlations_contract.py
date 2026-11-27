@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import pytest
 from jsonschema import Draft7Validator, FormatChecker
@@ -93,7 +94,7 @@ def test_path_parameters_and_ref_pattern():
 
 
 def test_query_parameters_follow_the_backend_query_model():
-    # backend RunCorrelationsQuery: src/shared_infrastructure/schemas/run_analytics.py:79-84
+    # the backend correlations query model:
     # (method enum default pearson, min_sample int ge=2 le=10_000 default 3, extra="forbid").
     query = {p["name"]: p for p in OP["parameters"] if p["in"] == "query"}
     assert set(query) == {"method", "min_sample"}
@@ -150,10 +151,9 @@ def test_bad_query_problem_names_and_echoes_nothing():
     assert list(v.iter_errors({**_problem("400"), "detail": "min_sample must be >= 2"}))
 
 
-# builder field set: RunAnalyticsService.correlations (backend
-# src/services/analytics/run_analytics_service.py:803-832) returns run_id, method, sample_size,
-# measure_correlations, parameter_correlations, warnings. Measure rows x/y/r/p_value/strength are
-# built at :874-882, parameter rows parameter/measure/effect/confidence at :919-930.
+# builder field set: the backend correlations builder returns run_id, method, sample_size,
+# measure_correlations, parameter_correlations, warnings. Measure rows carry x/y/r/p_value/strength,
+# parameter rows parameter/measure/effect/confidence.
 DATA_FIELDS = {"method", "sample_size", "measure_correlations", "parameter_correlations", "warnings"}
 BUILDER_FIELDS = DATA_FIELDS | {"run_id"}
 
@@ -306,9 +306,9 @@ def test_dimension_cap_and_required_totals():
     assert "never truncated or partially analyzed" in OP["description"]
     assert "before either analysis loop" in OP["description"].lower()
     assert "work cap of 10000 scoped configuration rows" in OP["description"]
-    assert "src/schemas/traigent.py:54-63" in OP["description"]
+    assert "the backend accepts up to 100 search-space parameters" in OP["description"]
     assert "parses the query strictly" in OP["description"]
-    assert "query_params.py:64-97" in OP["description"]
+    assert "unlike the legacy adapter, which drops unknown keys" in OP["description"] and not re.search(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+", OP["description"])
     assert "tenant-selector" in OP["responses"]["400"]["description"]
 
 
@@ -332,7 +332,7 @@ def test_deprecated_path_points_at_the_successor():
     assert old["operationId"] == "analytics_runs.get_run_correlations"
     assert OP_ID in old["description"]
     assert "{experiment_run_ref}/correlations" in old["description"]
-    assert "beta" in old["description"] and "api_v1beta.py:111" in old["description"]
+    assert "beta" in old["description"] and ".py" not in old["description"]
     assert not OP.get("deprecated")
 
 
@@ -382,6 +382,6 @@ def test_parameter_scan_exclusion_and_key_cap_are_stated():
         assert "capped at 256" in text
         assert "closed 503 above it (never truncated)" in text
         assert "before any analysis loop" in text
-        assert "run_analytics_service.py:909-919, :3506-3529" in text
+        assert "importance loop scans every stored parameter key for each measure" in text and ".py" not in text
     assert "256 distinct stored parameter keys" in OP["responses"]["503"]["description"]
     assert "256 distinct stored parameter keys" in _load(PROBLEM_FILE)["description"]

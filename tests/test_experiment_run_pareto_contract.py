@@ -6,12 +6,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import pytest
 from jsonschema import Draft7Validator, FormatChecker
 
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
+
+# Generic path-shape guards (file ref, file:line ref, source-tree prefix, line range); split so the repository's own leak scan stays clean.
+_PRIVATE = re.compile(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+")
 
 S = get_schemas_dir()
 PATH = "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto"
@@ -88,7 +92,7 @@ def test_path_parameters_and_ref_pattern():
 
 
 def test_query_vocabulary_is_closed_and_matches_the_backend_query_model():
-    # backend RunParetoQuery (src/shared_infrastructure/schemas/run_analytics.py:71-76)
+    # the backend Pareto query model
     # plus the collection pair limit/cursor; extra="forbid" in the backend, so any other name is the 400
     assert set(QUERY) == {"limit", "cursor", "x_measure", "y_measure", "request_count"}
     assert all(not p["required"] for p in QUERY.values())
@@ -247,8 +251,7 @@ def test_knee_and_frontier_semantics_are_preserved_across_pages():
 
 
 def test_field_set_matches_the_backend_builder():
-    # backend src/services/analytics/run_analytics_service.py:1115-1133 (_pareto_payload keys),
-    # frontier entry keys :1087-1097, dominated entry keys :1330-1364
+    # the backend Pareto payload, frontier entry and dominated entry key sets
     page = RESP["definitions"]["ParetoPage"]["properties"]
     assert {"measures", "shape", "warnings"} <= set(page)
     assert set(RESP["definitions"]["FrontierItem"]["properties"]) == {
@@ -258,9 +261,9 @@ def test_field_set_matches_the_backend_builder():
         "kind", "trial_ref", "dominated_by", "reason",
     }  # config_id -> trial_ref
     assert RESP["definitions"]["ParetoPage"]["properties"]["measures"]["required"] == ["quality", "cost", "latency"]
-    assert RESP["definitions"]["Metrics"]["maxProperties"] == 5  # x, y and three axes (:1196-1208)
-    assert "run_analytics_service.py:1004-1113" in RESP["description"]
-    assert "payload keys :1115-1133" in RESP["description"]
+    assert RESP["definitions"]["Metrics"]["maxProperties"] == 5  # x, y and three axes
+    assert "The analysis mirrors the backend's Pareto analysis" in RESP["description"]
+    assert not re.search(r"\.py\b|\.p" + r"y:\d|s[r]c/|:\d{3,}-\d{3,}", RESP["description"])
     # the historical DTO is unchanged and still serves the deprecated path
     old = _load("analytics/run_pareto_schema.json")
     assert set(old["required"]) == {"run_id", "project_id", "measures", "frontier", "dominated", "shape", "warnings"}
@@ -364,8 +367,8 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     assert Draft7Validator(shared).is_valid("configuration_run_" + "0f" * 16)
     assert not Draft7Validator(shared).is_valid("trial_10000")
     assert "run-scoped" in OP["description"]
-    # persisted reference: backend migration 20261122_0001_configuration_run_ref_role_v1.py:1-24
-    assert "20261122_0001_configuration_run_ref_role_v1.py:1-24" in RESP["description"]
+    # persisted reference: no private migration file is cited
+    assert not _PRIVATE.search(RESP["description"])
     assert "1-based" not in RESP["description"] and "1-based" not in OP["description"]
     assert "not yet issued is the closed 503" in RESP["description"]
     assert "not yet issued is the closed 503" in OP["description"]
@@ -375,11 +378,19 @@ def test_trial_ref_is_the_shared_run_scoped_definition():
     assert RESP["definitions"]["ParetoPage"]["properties"]["knee_ref"]["anyOf"][0] == {"$ref": "#/definitions/TrialRef"}
 
 
+REVISION_RULE = (
+    "a per-run monotonic counter the backend increments in the same transaction as any insert or delete "
+    "of the run's configuration rows, and any update that changes a configuration row's analysis content "
+    "(its status, measures, summary_stats, experiment_parameters or metadata); writes that change none of "
+    "these (timestamps, workflow metadata, public-reference backfill, identical rewrites) do not change it"
+)
+
+
 def test_cursor_seals_the_analysis_revision_and_a_stale_cursor_is_invalid_cursor():
     for text in (RESP["description"], OP["description"]):
         assert "analysis_revision" in text
         assert "per-run monotonic counter" in text
-        assert "same transaction as any insert, update or delete of the run's configuration rows" in text
+        assert REVISION_RULE in text
         assert "maximum configuration updated_at" not in text and "digest" not in text
         assert "invalid_cursor" in text
     assert "analysis_revision" in QUERY["cursor"]["description"]
@@ -390,7 +401,7 @@ def test_cursor_seals_the_analysis_revision_and_a_stale_cursor_is_invalid_cursor
     ]
     bad = _load(PROBLEM_FILE)["definitions"]["InvalidCursorProblem"]
     one = Draft7Validator(bad)
-    urn = "urn:traigent:problem:invalid_cursor"  # backend src/api_kit/problems.py:33
+    urn = "urn:traigent:problem:invalid_cursor"
     doc = {
         "type": urn,
         "title": "Bad Request",
@@ -529,8 +540,8 @@ def test_both_issued_reference_formats_are_accepted_on_every_ref_field():
         items = [{**_frontier(0, 1), "trial_ref": ref}, {**_dominated(3, 1), "trial_ref": ref, "dominated_by": ref}]
         assert not list(v.iter_errors(_env({**d, "knee_ref": ref, "items": items}))), ref
     desc = _load("analytics/experiment_run_trial_ref_schema.json")["description"]
-    assert "configuration_run_dal.py:50" in desc and "configuration_run_dal.py:60, :345" in desc
-    assert "configuration_run_service.py:238" in desc
+    assert not re.search(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+", desc)
+    assert "(issued by sessions)" in desc and "(minted by the backend)" in desc
 
 
 def test_metric_keys_use_the_shared_name_class_and_a_stored_bad_name_is_the_503():
@@ -551,3 +562,11 @@ def test_metric_keys_use_the_shared_name_class_and_a_stored_bad_name_is_the_503(
         assert "never truncated or sanitized" in text
     assert needle in RESP["definitions"]["Metrics"]["description"]
     assert "stored metric name" in _load(PROBLEM_FILE)["description"]
+
+
+def test_pareto_cursor_wording_drift_guard():
+    """Drift guard: passes on the previous wording by design; the Pareto text was already correct. It fails if a future edit lists a cursor case under BadRequestProblem or drops "any invalid or stale cursor" from InvalidCursorProblem."""
+    desc = _load(PROBLEM_FILE)["description"]
+    bad_sentence = desc.partition("BadRequestProblem is")[2].split("ServiceUnavailableProblem is", 1)[0]
+    assert "cursor" not in bad_sentence
+    assert "any invalid or stale cursor" in desc.split("InvalidCursorProblem", 1)[1]

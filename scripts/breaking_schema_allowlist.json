@@ -11804,6 +11804,241 @@
       "reason": "The closed group problem union gains two variants, idempotency_conflict and idempotency_in_progress, so the group run query can declare its 409 responses. Every problem response that references the union lists the two additional closed variants; the branch count rises from 11 to 13 and no existing variant changes. The two variants are closed objects with fixed type, title, status, code and detail values.",
       "version": "Unreleased",
       "pr": "https://github.com/Traigent/TraigentSchema/pull/775"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "property_added",
+      "reason": "Identity_state is an explicit discriminator when present, with a closed enum of identified/unidentified and a strictly validated absent/legacy migration branch (expand-contract); rollout stays flag-off until Backend and strict consumers emit and handle it.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "execution/execution_endpoints.json",
+      "rule": "type",
+      "reason": "Agent_id is nullable only in the unidentified branch, with paired-null invariants, because inventing an agent would corrupt provenance; identified rows remain string-valued.",
+      "version": "5.6.0",
+      "pr": "#400"
+    },
+    {
+      "file": "optimization/session_submit_results_request_schema.json",
+      "rule": "oneOf_added",
+      "reason": "Measures and metadata.measures were a bare $ref to the flat MeasureResults dict, which only ever described HALF of what the backend's _validate_submission_measures dispatcher actually accepts -- it also routes a list of per-example ExampleMetrics results (the form carrying input_id/example_digest/output_digest/verified_match/signal_key_id) to validate_measures_list. A generated strict consumer built from the bare $ref would reject that list form even though the live backend accepts it. Replacing the bare $ref with oneOf [MeasureResults, array<ExampleMetrics>] makes the schema match the real dispatch contract instead of only documenting one branch of it. Confirmed non-breaking for existing map-form producers: test_submit_results_measures_inherit_measuresdict_contract and test_submit_results_legacy_metadata_measures_is_constrained (both pre-existing, unmodified) continue to pass -- a flat dict still validates via oneOf branch 0, and its bounds (max 50 keys, identifier keys, numeric|null values) are unchanged and still sourced from the single canonical MeasureResults definition, not duplicated.",
+      "version": "5.8.0",
+      "pr": "#437"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "additionalProperties",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "additionalProperties",
+          "old": "closed (false)",
+          "new": "open (true/absent)",
+          "fingerprint": "c2c202802ef166fe12c41966e7a8960bfb2add363eed5e59d2ea4f1f52d40a87"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "oneOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema/oneOf",
+          "role": "response",
+          "subject": "oneOf",
+          "old": 8,
+          "new": 2,
+          "fingerprint": "5bffc6a818240984e45341594ac5454b9adca7db647b7d9db728128acf09b853"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error",
+          "old": true,
+          "new": false,
+          "fingerprint": "8bb10cbb9e6569b4711fcd5af2e1b3cc1a11b51e5624d79bbb42f5d3a86a0f97"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "error_code",
+          "old": true,
+          "new": false,
+          "fingerprint": "2feb5cd4752257e876ead09eb984fc845d9bb1037b1a18ac18da1fe38c327481"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "message",
+          "old": true,
+          "new": false,
+          "fingerprint": "03a373ee13a7171d53ec206ed1593226d31620c922fba229c3fbda6d6a9e217c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": "success",
+          "old": true,
+          "new": false,
+          "fingerprint": "321ccde360df3001a1746b09a20a1a2906ab8ccbcd0b8a3431a38b5e4908b322"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_applicability_endpoints.json",
+      "rule": "type",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-applicability/post/responses/400/content/application/json/schema",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "<now unconstrained>"
+            ]
+          },
+          "old": [
+            "object"
+          ],
+          "new": null,
+          "fingerprint": "222320e4a18804b3397e4fbde479f6d10b15a2c8989eac7ed86af592d630af1e"
+        }
+      ],
+      "reason": "The applicability write's 400 now also admits the closed body RationaleRequiredError (reason rationale_required, fixed message, no obligation id, no client text), returned when a not_applicable decision has no non-blank rationale. The shared error envelope is unchanged. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, rationale_required; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "enum",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "90d9d431c3f21e0887d9a4c4c410e099adec4283cbac95238419adc54258cecf"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/error_code",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"stale_review_context\""
+            ]
+          },
+          "old": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_statement\""
+          ],
+          "new": [
+            "\"linked_reference_invalid\"",
+            "\"linked_reference_required\"",
+            "\"stale_fingerprints\"",
+            "\"stale_review_context\"",
+            "\"stale_statement\""
+          ],
+          "fingerprint": "82343c77d722469d216256967b99f02824fac1d1bee2a120f7a6104a5a5f068c"
+        },
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/responses/409/content/application/json/schema/properties/message",
+          "role": "response",
+          "subject": {
+            "direction": "added",
+            "values": [
+              "\"The agent or its standing attestation changed since it was displayed.\""
+            ]
+          },
+          "old": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "new": [
+            "\"A linked document reference is not valid for this agent.\"",
+            "\"A statement of this kind needs at least one linked document reference.\"",
+            "\"The agent changed since it was displayed.\"",
+            "\"The agent or its standing attestation changed since it was displayed.\"",
+            "\"The statement changed since it was displayed.\""
+          ],
+          "fingerprint": "bd00b9fee51a6575400df4a15d58584c1df0f473bff78b568d3b3b92ae112bcb"
+        }
+      ],
+      "reason": "The sign operation's 409 answers a new closed reason stale_review_context (with its fixed message) when the echoed review_context no longer matches the server's recomputation. Pre-release contract, feature dark in production, backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_attestation_endpoints.json",
+      "rule": "required",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/compliance-attestations/post/requestBody/content/application/json/schema",
+          "role": "request",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "788eb146d6735c892b13ac5c53c7c186d5edf6ec9e0186dc886b75de10002aa8"
+        }
+      ],
+      "reason": "Attestation signing must echo review_context, the keyed freshness token read from the evidence response, so a signature is bound to the subject the signer reviewed. Coordinated pre-release break: the feature is dark in production and no external client signs; backend and frontend change in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/properties/ingredients/items/properties/review_context",
+          "role": "response",
+          "subject": "review_context",
+          "old": false,
+          "new": true,
+          "fingerprint": "4168aaf4afd50a070c88bb86d61e61f0a6ecc955a07d7aabcb54826ed89f0e6c"
+        }
+      ],
+      "reason": "A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
+      "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
+      "pr": "pending (TraigentSchema, not yet opened)"
     }
   ]
 }

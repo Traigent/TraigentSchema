@@ -150,7 +150,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Use the build_session_ref issued for this project. An issuance created through a certificate build session can be retrieved with that same reference without calling prepare. A certificate carrying a runlineage: reference stays on the existing certification routes.",
+            "description": "Use the build_session_ref issued for this project. An issuance created through a certificate build session can be retrieved with that same reference without calling prepare. A certificate carrying a runlineage: reference is not addressed by these project-scoped routes.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],
@@ -389,7 +389,7 @@
             "name": "process_record_ref",
             "in": "path",
             "required": true,
-            "description": "Use the build_session_ref issued for this project, also echoed by prepare. A certificate carrying a runlineage: reference stays on the existing certification routes.",
+            "description": "Use the build_session_ref issued for this project, also echoed by prepare. A certificate carrying a runlineage: reference is not addressed by these project-scoped routes.",
             "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
           }
         ],
@@ -1041,7 +1041,7 @@
           "supplement_present": {"type": "boolean"},
           "assessment_state": {"enum": ["assessed", "not_assessed"]},
           "outcome": {
-            "enum": [
+            "description": "The value candidate_not_retrievable is reserved and not produced until historical configuration identities can be mapped; today an unmappable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
               "non_dominated_within_scope",
               "dominated_within_scope",
               "no_comparable_peers",
@@ -1091,7 +1091,7 @@
           },
           "front_status": {"enum": ["asserted", "withheld_dominated", "not_assessed"]},
           "withheld_reason": {
-            "enum": [
+            "description": "The value candidate_not_retrievable is reserved and not produced until historical configuration identities can be mapped; today an unmappable historical configuration makes retrieve answer the declared closed 503 instead.", "enum": [
               "dominated_by_member",
               "candidate_not_comparable",
               "no_comparable_peers",
@@ -1113,7 +1113,7 @@
             "properties": {
               "named": {"type": "integer", "minimum": 0},
               "resolved": {"type": "integer", "minimum": 0},
-              "unresolved_ids": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
+              "unresolved_ids": {"description": "Reserved. Not produced until historical configuration identities can be mapped; today an unmappable historical configuration makes retrieve answer the declared closed 503 instead.", "type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
               "attested": {"const": false}
             }
           },
@@ -1158,7 +1158,7 @@
               },
               {
                 "properties": {
-                  "outcome": {"const": "candidate_not_retrievable"},
+                  "outcome": {"const": "candidate_not_retrievable", "description": "Reserved. Not produced until historical configuration identities can be mapped; today an unmappable historical configuration makes retrieve answer the declared closed 503 instead."},
                   "headline": {
                     "const": "The selection receipt named a configuration whose record no longer resolves, so no comparison was possible. Nothing is wrong with the objectives; the evidence for the selected configuration itself is gone."
                   }
@@ -1258,7 +1258,7 @@
             "additionalProperties": false,
             "required": ["reason", "detail"],
             "properties": {
-              "reason": {"const": "no_experiment_run_reference"},
+              "reason": {"const": "no_experiment_run_reference", "description": "Not produced on these routes, because a finalized build session always carries its experiment run."},
               "detail": {
                 "const": "No experiment run was named for this issuance, so no selection receipt or candidate records could be located."
               },

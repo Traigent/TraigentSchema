@@ -93,3 +93,48 @@ def test_finalize_response_stop_reason_accepts_backend_reasons_and_null() -> Non
             )
             == []
         )
+
+
+# #696: optimization_outcome sets the terminal run status (the backend's
+# terminal outcome mapping); the request must declare it.
+OUTCOMES = {"completed", "failed", "cancelled"}
+
+
+def test_finalize_request_declares_optimization_outcome_enum() -> None:
+    endpoints = _load("optimization_endpoints.json")
+    req = endpoints["paths"]["/api/v1/sessions/{session_id}/finalize"]["post"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]["properties"]
+    assert set(req["optimization_outcome"]["enum"]) == OUTCOMES | {None}
+
+
+@pytest.mark.parametrize("outcome", sorted(OUTCOMES))
+def test_finalize_request_accepts_every_outcome(outcome: str) -> None:
+    errors = SchemaValidator(contract="sdk_tuning").validate_request(
+        FINALIZE_PATH, "POST", {"optimization_outcome": outcome}
+    )
+    assert errors == []
+
+
+@pytest.mark.parametrize("bad", ["running", "", "COMPLETED", 1])
+def test_finalize_request_rejects_unknown_optimization_outcome(bad: object) -> None:
+    assert SchemaValidator(contract="sdk_tuning").validate_request(
+        FINALIZE_PATH, "POST", {"optimization_outcome": bad}
+    )
+
+
+# optimization_outcome: null is accepted by the backend and means the same as absent.
+# validate_optimization_outcome(None) returns None in the backend;
+# the finalize route passes the raw value through; absent and None both resolve to "completed".
+def test_finalize_request_accepts_null_optimization_outcome_like_absent() -> None:
+    v = SchemaValidator(contract="sdk_tuning")
+    assert v.validate_request(FINALIZE_PATH, "POST", {"optimization_outcome": None}) == []
+    assert v.validate_request(FINALIZE_PATH, "POST", {}) == []
+
+
+def test_finalize_request_null_is_declared_in_the_schema_type() -> None:
+    endpoints = _load("optimization_endpoints.json")
+    req = endpoints["paths"]["/api/v1/sessions/{session_id}/finalize"]["post"]["requestBody"][
+        "content"
+    ]["application/json"]["schema"]["properties"]
+    assert req["optimization_outcome"]["type"] == ["string", "null"]

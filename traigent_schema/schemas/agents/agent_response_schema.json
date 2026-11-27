@@ -1,7 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Agent Response Schema",
-  "description": "Schema for agent responses following OpenAI API format",
   "version": "1.0.0",
   "definitions": {
     "NonStreamResponse": {

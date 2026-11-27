@@ -107,7 +107,7 @@
     },
     "retrieval_configs": {
       "type": "array",
-      "maxItems": 50,
+      "maxItems": 100,
       "items": {
         "type": "object",
         "additionalProperties": true
@@ -115,7 +115,7 @@
     },
     "model_parameters": {
       "type": "array",
-      "maxItems": 50,
+      "maxItems": 100,
       "items": {
         "type": "object",
         "additionalProperties": true

@@ -9,7 +9,9 @@ and the finalize response's fail-closed no-winner contract.
 
 from __future__ import annotations
 
-from traigent_schema import SchemaValidator
+import json
+
+from traigent_schema import SchemaValidator, get_schemas_dir
 
 # The REAL package validator and registry — review round 1 found a custom
 # filename-keyed registry here hid an unresolvable $ref; using the package
@@ -23,6 +25,60 @@ FINALIZE = "session_finalize_response_schema"
 
 def _errors(schema_name: str, instance: dict) -> list:
     return _VALIDATOR.validate_json(instance, schema_name)
+
+
+class TestPromotionPolicyBoundsMatchTvl:
+    """#580: the bounds TVL's validator (python/tvl/lints.py: invalid_alpha,
+    invalid_chance_threshold, invalid_chance_confidence) and the backend
+    normalizers (interactive_session_service.py: _normalize_policy_alpha,
+    _normalize_policy_min_effect, _normalize_chance_constraint) enforce."""
+
+    @staticmethod
+    def _policy(**fields) -> dict:
+        return {"dominance": "epsilon_pareto", **fields}
+
+    def test_alpha_is_open_interval(self) -> None:
+        assert _errors(POLICY, self._policy(alpha=0))
+        assert _errors(POLICY, self._policy(alpha=1))
+        assert not _errors(POLICY, self._policy(alpha=0.05))
+
+    def test_min_effect_is_non_negative(self) -> None:
+        assert _errors(POLICY, self._policy(min_effect={"latency": -0.1}))
+        assert not _errors(POLICY, self._policy(min_effect={"latency": 0}))
+        assert not _errors(POLICY, self._policy(min_effect={"latency.p95": 0.1}))
+
+    def test_chance_threshold_is_closed_unit_interval(self) -> None:
+        def cc(threshold, confidence=0.95):
+            return self._policy(
+                chance_constraints=[
+                    {"name": "slow_reply", "threshold": threshold, "confidence": confidence}
+                ]
+            )
+
+        assert _errors(POLICY, cc(1.5))
+        assert _errors(POLICY, cc(-0.1))
+        assert not _errors(POLICY, cc(0))
+        assert not _errors(POLICY, cc(1))
+        assert not _errors(POLICY, cc(0.05))
+
+    def test_chance_confidence_is_open_interval(self) -> None:
+        def cc(confidence):
+            return self._policy(
+                chance_constraints=[
+                    {"name": "slow_reply", "threshold": 0.05, "confidence": confidence}
+                ]
+            )
+
+        assert _errors(POLICY, cc(0))
+        assert _errors(POLICY, cc(1))
+        assert not _errors(POLICY, cc(0.95))
+
+    def test_threshold_is_described_as_violation_rate(self) -> None:
+        path = get_schemas_dir() / "optimization" / "promotion_policy_schema.json"
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        threshold = schema["definitions"]["ChanceConstraint"]["properties"]["threshold"]
+        assert "violation" in threshold["description"].lower()
+        assert "Minimum acceptable metric value" not in threshold["description"]
 
 
 class TestRequireCalibration:
@@ -206,3 +262,10 @@ class TestWirePathBindings:
             ],
         }
         assert not _errors(FINALIZE, response)
+
+
+def test_promotion_policy_version_bumped_for_580_constraint_tightening() -> None:
+    """#580 tightened alpha, min_effect, threshold and confidence, a contract change that must
+    move the schema's own version field (0.10.0 predates it; bumped to 0.11.0)."""
+    schema_path = get_schemas_dir() / "optimization" / "promotion_policy_schema.json"
+    assert json.loads(schema_path.read_text(encoding="utf-8"))["version"] == "0.11.0"

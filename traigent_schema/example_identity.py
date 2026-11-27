@@ -498,6 +498,8 @@ def _check_agent_revision(manifest: dict[str, Any]) -> None:
             raise ContentIdentityError(
                 "agent build manifest with a dirty code_revision needs source_digest"
             )
+    if "source_digest" in manifest:
+        _require_digest(manifest["source_digest"], "source_digest")
 
 
 def _check_agent_assets(assets: Any) -> None:

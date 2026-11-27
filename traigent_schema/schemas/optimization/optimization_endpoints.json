@@ -1278,6 +1278,20 @@
                     "x-content-class": "closed_enum",
                     "type": "boolean"
                   },
+                  "optimization_outcome": {
+                    "x-content-class": "closed_enum",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "completed",
+                      "failed",
+                      "cancelled",
+                      null
+                    ],
+                    "description": "OPTIONAL terminal outcome of the optimization. Sets the status of the run, its experiment and the session; absent means completed. A replay cannot change a recorded outcome."
+                  },
                   "metadata": {
                     "x-content-key-class": "legacy_content",
                     "x-content-class": "legacy_content",

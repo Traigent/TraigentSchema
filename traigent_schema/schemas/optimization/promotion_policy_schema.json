@@ -3,7 +3,7 @@
   "type": "object",
   "title": "Promotion Policy Schema",
   "description": "Defines the promotion policy for epsilon-Pareto selection of optimal configurations.",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "definitions": {
     "ChanceConstraint": {
       "type": "object",
@@ -18,20 +18,22 @@
           "x-content-class": "legacy_content",
           "x-content-note": "INV S1-23 (LEAK): name",
           "type": "string",
-          "description": "Name of the metric this constraint applies to",
+          "description": "Name of the violation event this constraint bounds",
           "pattern": "^[a-zA-Z_][a-zA-Z0-9_.-]*$"
         },
         "threshold": {
           "x-content-class": "number",
           "type": "number",
-          "description": "Minimum acceptable metric value"
+          "description": "Maximum acceptable violation rate (0 to 1): the constraint passes when the upper confidence bound on the share of violating trials is at or below this value",
+          "minimum": 0,
+          "maximum": 1
         },
         "confidence": {
           "x-content-class": "number",
           "type": "number",
-          "description": "Required probability of meeting the threshold (0 to 1)",
-          "minimum": 0,
-          "maximum": 1
+          "description": "Required probability of meeting the threshold (0 to 1, exclusive)",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
         }
       },
       "additionalProperties": false
@@ -51,8 +53,8 @@
       "x-content-class": "number",
       "type": "number",
       "description": "Significance level for statistical tests",
-      "minimum": 0,
-      "maximum": 1,
+      "exclusiveMinimum": 0,
+      "exclusiveMaximum": 1,
       "default": 0.05
     },
     "min_effect": {
@@ -63,7 +65,8 @@
       "patternProperties": {
         "^[a-zA-Z_][a-zA-Z0-9_.-]*$": {
           "x-content-class": "number",
-          "type": "number"
+          "type": "number",
+          "minimum": 0
         }
       },
       "additionalProperties": false

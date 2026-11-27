@@ -68,16 +68,19 @@ Result: `schemaFileCount=394`,
 Consumer references were refreshed from clean archives of each sibling's
 current `origin/develop` ref, then the reachability report was regenerated:
 
+Set `SIBLINGS_ROOT` to the directory containing the sibling checkouts before running the commands.
+
 ```bash
+: "${SIBLINGS_ROOT:?Set SIBLINGS_ROOT to the directory containing the sibling checkouts}"
 for repo in Traigent TraigentBackend TraigentFrontend traigent-js traigent-smartopt; do
-  git -C <workspace>/$repo fetch origin develop
+  git -C "$SIBLINGS_ROOT/$repo" fetch origin develop
 done
 python3 scripts/refresh_consumer_schema_references.py \
-  --repo Traigent=<workspace>/Traigent \
-  --repo TraigentBackend=<workspace>/TraigentBackend \
-  --repo TraigentFrontend=<workspace>/TraigentFrontend \
-  --repo traigent-js=<workspace>/traigent-js \
-  --repo traigent-smartopt=<workspace>/traigent-smartopt
+  --repo "Traigent=$SIBLINGS_ROOT/Traigent" \
+  --repo "TraigentBackend=$SIBLINGS_ROOT/TraigentBackend" \
+  --repo "TraigentFrontend=$SIBLINGS_ROOT/TraigentFrontend" \
+  --repo "traigent-js=$SIBLINGS_ROOT/traigent-js" \
+  --repo "traigent-smartopt=$SIBLINGS_ROOT/traigent-smartopt"
 python3 scripts/schema_reachability.py --update
 python3 scripts/schema_reachability.py --check
 ```
@@ -191,9 +194,10 @@ Results:
   Schema worktree fails and shows the missing field in the generated diff:
 
   ```bash
+  : "${SIBLINGS_ROOT:?Set SIBLINGS_ROOT to the directory containing the sibling checkouts}"
   TRAIGENT_SCHEMA_REPO="$PWD" \
-    <workspace>/Traigent/.venv/bin/python \
-    <workspace>/Traigent/scripts/generate_schema_types.py \
+    "$SIBLINGS_ROOT/Traigent/.venv/bin/python" \
+    "$SIBLINGS_ROOT/Traigent/scripts/generate_schema_types.py" \
     --check
   ```
 

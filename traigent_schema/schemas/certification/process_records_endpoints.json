@@ -87,7 +87,7 @@
           "422": {"$ref": "#/components/responses/Unprocessable"},
           "409": {
             "description": "The requested receipt snapshot conflicts with current state.",
-            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordStorageConflict"}}}
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordConflict"}}}
           },
           "413": {"$ref": "#/components/responses/PayloadTooLarge"},
           "429": {"$ref": "#/components/responses/RateLimited"},
@@ -110,9 +110,7 @@
                           "type": "string",
                           "enum": [
                             "AUTH_BACKEND_UNAVAILABLE",
-                            "SNAPSHOT_ISOLATION_FAILED",
-                            "STORAGE_UNAVAILABLE",
-                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "PROCESS_RECORD_UNAVAILABLE",
                             "UNKNOWN_STREAM_ID",
                             "UNKNOWN_STEP_ID",
                             "UNKNOWN_OBSERVATION_BASIS",
@@ -246,7 +244,7 @@
                       "required": ["success", "message", "error", "error_code"],
                       "properties": {
                         "success": {"const": false},
-                        "message": {"const": "process record storage refused the request"},
+                        "message": {"const": "process record request refused"},
                         "error": {"const": "tenant_context_missing"},
                         "error_code": {"const": "TENANT_CONTEXT_MISSING"}
                       }
@@ -257,7 +255,7 @@
                       "required": ["success", "message", "error", "error_code"],
                       "properties": {
                         "success": {"const": false},
-                        "message": {"const": "process record storage refused the request"},
+                        "message": {"const": "process record request refused"},
                         "error": {"const": "tenant_binding_failed"},
                         "error_code": {"const": "TENANT_BINDING_FAILED"}
                       }
@@ -346,9 +344,7 @@
                           "type": "string",
                           "enum": [
                             "AUTH_BACKEND_UNAVAILABLE",
-                            "SNAPSHOT_ISOLATION_FAILED",
-                            "STORAGE_UNAVAILABLE",
-                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "PROCESS_RECORD_UNAVAILABLE",
                             "UNKNOWN_STREAM_ID",
                             "UNKNOWN_STEP_ID",
                             "UNKNOWN_OBSERVATION_BASIS",
@@ -379,7 +375,7 @@
       "post": {
         "operationId": "certification_process_record.finalize_process_record",
         "summary": "Issue a process record certificate",
-        "description": "Issues and stores a signed certificate for the named build session. After an ambiguous storage failure, retrieve the record before retrying.",
+        "description": "Issues and stores a signed certificate for the named build session. After an ambiguous failure, retrieve the record before retrying.",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -523,7 +519,7 @@
               "application/json": {
                 "schema": {
                   "anyOf": [
-                    {"$ref": "#/components/schemas/ProcessRecordStorageConflict"},
+                    {"$ref": "#/components/schemas/ProcessRecordConflict"},
                     {
                       "type": "object",
                       "additionalProperties": false,
@@ -671,9 +667,7 @@
                           "type": "string",
                           "enum": [
                             "AUTH_BACKEND_UNAVAILABLE",
-                            "SNAPSHOT_ISOLATION_FAILED",
-                            "STORAGE_UNAVAILABLE",
-                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "PROCESS_RECORD_UNAVAILABLE",
                             "UNKNOWN_STREAM_ID",
                             "UNKNOWN_STEP_ID",
                             "UNKNOWN_OBSERVATION_BASIS",
@@ -1031,7 +1025,7 @@
         }
       },
       "FrontClaimCompanion": {
-        "description": "Optional unsigned assessment delivered beside the signed certificate bundle. Its absence is explicit when the assessment is served but was never retained.",
+        "description": "Optional unsigned assessment delivered beside the signed certificate bundle. It is a closed projection of the retained assessment. Its absence is explicit when the assessment is served but was never retained.",
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -1045,7 +1039,7 @@
         ],
         "properties": {
           "supplement_present": {"type": "boolean"},
-          "assessment_state": {"type": "string", "minLength": 1},
+          "assessment_state": {"enum": ["assessed", "not_assessed"]},
           "outcome": {
             "enum": [
               "non_dominated_within_scope",
@@ -1057,112 +1051,84 @@
             ]
           },
           "headline": {"type": "string", "minLength": 1},
-          "capture_basis": {"type": ["string", "null"]},
-          "exhaustive_inventory": {"type": "boolean"},
+          "capture_basis": {"enum": ["state_observed_at_issuance", null]},
+          "exhaustive_inventory": {"const": false},
           "disclosures": {
             "type": "object",
             "additionalProperties": false,
             "required": ["unsigned_companion", "digest_scope", "bounded_claim", "capture_basis"],
             "properties": {
-              "unsigned_companion": {"type": "string", "minLength": 1},
-              "digest_scope": {"type": "string", "minLength": 1},
-              "bounded_claim": {"type": "string", "minLength": 1},
-              "capture_basis": {"type": "string", "minLength": 1}
+              "unsigned_companion": {
+                "const": "This assessment companion is retained with this issuance. It is outside the signed V1 bundle and is not authenticated by the V1 signature or verified by the V1 standalone verifier."
+              },
+              "digest_scope": {
+                "const": "This digest covers the candidate-ID list only; it does not authenticate the selected winner, scores, or original selection event."
+              },
+              "bounded_claim": {
+                "const": "This records reported measurements and selection; any comparison applies only to the enumerated comparable records under the declared policy. It certifies no performance threshold or deployment fitness."
+              },
+              "capture_basis": {
+                "const": "This is state observed at issuance, not a reconstruction of the state at the original selection, and it is a scope rather than an inventory. The selection receipt and the candidate records come from independent sources that can disagree, so a binding to the receipt is not a binding to the records this comparison used. No reconciliation between them is attempted or implied."
+              }
             }
           },
-          "not_assessed": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["reason", "detail"],
-            "properties": {
-              "reason": {"type": "string", "minLength": 1},
-              "detail": {"type": "string", "minLength": 1},
-              "record": {"type": ["object", "null"]}
-            }
+          "not_assessed": {"$ref": "#/components/schemas/FrontClaimNotAssessed"},
+          "schema_version": {
+            "enum": [
+              "traigent.process_record.front_claim_supplement.v1",
+              "traigent.process_record.front_claim_supplement.v2",
+              "traigent.process_record.front_claim_supplement.v3"
+            ]
           },
-          "schema_version": {"type": "string", "minLength": 1},
           "binding": {
             "type": "object",
             "additionalProperties": false,
             "required": ["process_record_ref", "unsigned_manifest_digest", "computed_at"],
             "properties": {
-              "process_record_ref": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
-              "unsigned_manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
-              "computed_at": {"type": "string", "format": "date-time"}
+              "process_record_ref": {
+                "allOf": [
+                  {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
+                  {"type": "string", "pattern": "^prr:[A-Za-z0-9_-]{16,128}(?![\\s\\S])"}
+                ]
+              },
+              "unsigned_manifest_digest": {"$ref": "./process_record_request_schema.json#/definitions/Sha256Reference"},
+              "computed_at": {"$ref": "#/components/schemas/FrontClaimTimestamp"}
             }
           },
-          "selection_binding": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "experiment_run_id",
-              "experiment_run_id_source",
-              "winner_trial_id",
-              "eligible_trial_ids_digest",
-              "eligible_trial_ids_digest_scope",
-              "selection_receipt_store",
-              "selection_receipt_validated_against",
-              "candidate_rows_store",
-              "stores_reconciled"
-            ],
-            "properties": {
-              "experiment_run_id": {"type": ["string", "null"]},
-              "experiment_run_id_source": {"type": "string", "minLength": 1},
-              "winner_trial_id": {"type": ["string", "null"]},
-              "eligible_trial_ids_digest": {"type": ["string", "null"]},
-              "eligible_trial_ids_digest_scope": {"type": "string", "minLength": 1},
-              "selection_receipt_store": {"type": "string", "minLength": 1},
-              "selection_receipt_validated_against": {"type": "string", "minLength": 1},
-              "candidate_rows_store": {"type": "string", "minLength": 1},
-              "stores_reconciled": {"const": false}
-            }
-          },
+          "selection_binding": {"$ref": "#/components/schemas/FrontClaimSelectionBinding"},
           "authentication": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["inside_signed_v1_bundle", "covered_by_v1_issuer_signature", "verified_by_v1_standalone_verifier", "bound_by"],
+            "required": [
+              "inside_signed_v1_bundle",
+              "covered_by_v1_issuer_signature",
+              "verified_by_v1_standalone_verifier",
+              "bound_by"
+            ],
             "properties": {
               "inside_signed_v1_bundle": {"const": false},
               "covered_by_v1_issuer_signature": {"const": false},
               "verified_by_v1_standalone_verifier": {"const": false},
-              "bound_by": {"type": "string", "minLength": 1}
+              "bound_by": {"const": "issuance_digest_verified_on_read"}
             }
           },
-          "front_status": {"type": "string", "minLength": 1},
-          "withheld_reason": {"type": ["string", "null"]},
-          "candidate_id": {"type": ["string", "null"]},
-          "dominated_by": {"type": "array", "items": {"type": "string", "minLength": 1}},
-          "not_comparable": {"type": "array", "items": {"type": ["object", "string"]}},
+          "front_status": {"enum": ["asserted", "withheld_dominated", "not_assessed"]},
+          "withheld_reason": {
+            "enum": [
+              "dominated_by_member",
+              "candidate_not_comparable",
+              "no_comparable_peers",
+              "candidate_not_retrievable",
+              null
+            ]
+          },
+          "candidate_id": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]},
+          "dominated_by": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
+          "not_comparable": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
           "not_comparable_count": {"type": "integer", "minimum": 0},
-          "objectives": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "objective_id",
-                "direction",
-                "registration",
-                "measurement_scope",
-                "metric_key",
-                "unit",
-                "input_representation",
-                "declaration_source"
-              ],
-              "properties": {
-                "objective_id": {"type": ["string", "null"]},
-                "direction": {"type": ["string", "null"]},
-                "registration": {"type": ["string", "null"]},
-                "measurement_scope": {"type": ["string", "null"]},
-                "metric_key": {"type": ["string", "null"]},
-                "unit": {"type": ["string", "null"]},
-                "input_representation": {"type": ["string", "null"]},
-                "declaration_source": {"type": ["string", "null"]}
-              }
-            }
-          },
-          "objectives_source": {"type": ["object", "string", "null"]},
-          "value_resolution": {"type": ["object", "null"]},
+          "objectives": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimObjective"}},
+          "objectives_source": {"enum": ["mutable_metadata", null]},
+          "value_resolution": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimValueResolution"}, {"type": "null"}]},
           "set_completeness": {
             "type": "object",
             "additionalProperties": false,
@@ -1170,71 +1136,543 @@
             "properties": {
               "named": {"type": "integer", "minimum": 0},
               "resolved": {"type": "integer", "minimum": 0},
-              "unresolved_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
-              "attested": {"type": "boolean"}
+              "unresolved_ids": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimRecordReference"}},
+              "attested": {"const": false}
             }
           },
-          "population": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "scope",
-              "population_source",
-              "captured_at",
-              "scope_row_count",
-              "captured_member_count",
-              "unnamed_captured_count"
-            ],
-            "properties": {
-              "scope": {"type": "string", "minLength": 1},
-              "population_source": {"type": "string", "minLength": 1},
-              "captured_at": {"type": "string", "minLength": 1},
-              "scope_row_count": {"type": "integer", "minimum": 0},
-              "captured_member_count": {"type": "integer", "minimum": 0},
-              "unnamed_captured_count": {"type": "integer", "minimum": 0}
-            }
-          },
+          "population": {"$ref": "#/components/schemas/FrontClaimPopulation"},
           "member_count": {"type": "integer", "minimum": 0},
-          "members": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "record_id",
-                "status",
-                "named_in_receipt",
-                "values",
-                "omitted_objectives",
-                "scores_source",
-                "scores_source_wording",
-                "value_bases",
-                "metric_source_conflicts",
-                "source_boundary"
-              ],
-              "properties": {
-                "record_id": {"type": ["string", "null"]},
-                "status": {"type": ["string", "null"]},
-                "named_in_receipt": {"type": "boolean"},
-                "values": {"type": ["object", "null"]},
-                "omitted_objectives": {"type": ["array", "object", "null"]},
-                "scores_source": {"type": ["string", "null"]},
-                "scores_source_wording": {"type": ["string", "null"]},
-                "value_bases": {"type": ["object", "null"]},
-                "metric_source_conflicts": {"type": "object"},
-                "source_boundary": {"type": ["object", "null"]}
-              }
-            }
-          }
+          "members": {"type": "array", "items": {"$ref": "#/components/schemas/FrontClaimMember"}}
         },
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "properties": {
+                  "outcome": {"const": "non_dominated_within_scope"},
+                  "headline": {
+                    "const": "No enumerated comparable record in the declared scope dominates the selected configuration on every declared objective."
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {"const": "dominated_within_scope"},
+                  "headline": {
+                    "const": "At least one enumerated record in the declared scope is at least as good on every declared objective and strictly better on one. The records are listed."
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {"const": "no_comparable_peers"},
+                  "headline": {
+                    "const": "No record other than the selected configuration carried every declared objective, so no comparison was performed."
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {"const": "candidate_not_comparable"},
+                  "headline": {
+                    "const": "The selected configuration does not carry every declared objective, so it could not be placed against the other records."
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {"const": "candidate_not_retrievable"},
+                  "headline": {
+                    "const": "The selection receipt named a configuration whose record no longer resolves, so no comparison was possible. Nothing is wrong with the objectives; the evidence for the selected configuration itself is gone."
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "outcome": {"const": "not_assessed"},
+                  "headline": {
+                    "const": "No comparison was performed and none is claimed. The reason is recorded below."
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "if": {"properties": {"assessment_state": {"const": "not_assessed"}}},
+            "then": {
+              "required": ["not_assessed"],
+              "properties": {"outcome": {"const": "not_assessed"}, "capture_basis": {"const": null}}
+            },
+            "else": {"not": {"required": ["not_assessed"]}}
+          }
+        ],
         "if": {"properties": {"supplement_present": {"const": true}}},
-        "then": {"required": ["schema_version", "binding", "selection_binding", "authentication"]},
+        "then": {
+          "required": ["schema_version", "binding", "selection_binding", "authentication"],
+          "properties": {"not_assessed": {"properties": {"reason": {"not": {"const": "assessment_not_retained"}}}}}
+        },
         "else": {
           "required": ["not_assessed"],
-          "properties": {"outcome": {"const": "not_assessed"}, "capture_basis": {"const": null}, "exhaustive_inventory": {"const": false}}
+          "properties": {
+            "assessment_state": {"const": "not_assessed"},
+            "outcome": {"const": "not_assessed"},
+            "capture_basis": {"const": null},
+            "exhaustive_inventory": {"const": false},
+            "not_assessed": {"properties": {"reason": {"const": "assessment_not_retained"}}}
+          }
         }
       },
-      "ProcessRecordStorageConflict": {
+      "FrontClaimRecordReference": {
+        "description": "A closed record reference: a UUID, a positive decimal ID, or trial_ followed by 16-64 lowercase hex.",
+        "type": "string",
+        "pattern": "^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[1-9][0-9]{0,18}|trial_[0-9a-f]{16,64})(?![\\s\\S])"
+      },
+      "FrontClaimObjectiveReference": {
+        "description": "A known metric label, or objective-<positive ordinal> for a custom objective.",
+        "type": "string",
+        "pattern": "^(?:accuracy|total_cost|cost|latency|objective-[1-9][0-9]{0,8})(?![\\s\\S])"
+      },
+      "FrontClaimOmissionReason": {
+        "enum": ["metric_key_absent", "value_is_null", "value_is_bool", "value_not_numeric", "value_not_finite", "conversion_failed", "representation_undeclared", "representation_mismatch", "registered_bound_violation", "measurement_scope_mismatch", "measurement_scope_undeclared", "metric_source_conflict", "reported_count_invalid", "aggregation_semantics_undeclared"]
+      },
+      "FrontClaimTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "maxLength": 20,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      "FrontClaimNotAssessed": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "no_experiment_run_reference"},
+              "detail": {
+                "const": "No experiment run was named for this issuance, so no selection receipt or candidate records could be located."
+              },
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "experiment_run_not_in_scope"},
+              "detail": {
+                "const": "The named experiment run does not resolve within the request's tenant and project scope."
+              },
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "request_scope_unavailable"},
+              "detail": {
+                "const": "No tenant and project scope was bound to the request, so no scoped read was performed."
+              },
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "selection_receipt_unusable"},
+              "detail": {
+                "const": "No accepted, digest-checked selection receipt was usable for the named experiment run."
+              },
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "objectives_not_declarable"},
+              "detail": {
+                "const": "The declared objectives could not be used for a comparison. No objective was inferred or dropped."
+              },
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "objective_direction_conflict"},
+              "detail": {
+                "const": "A declared objective direction contradicts the metric semantics policy, so the comparison was withheld for the whole objective set."
+              },
+              "record": {"$ref": "#/components/schemas/FrontClaimDirectionConflict"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "claim_assertion_malformed"},
+              "detail": {"const": "The comparison inputs did not form a valid claim, so no assessment is claimed."},
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "claim_computation_failed"},
+              "detail": {"const": "The assessment could not be computed, so no assessment is claimed."},
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "supplement_exceeds_size_bound"},
+              "detail": {"const": "The assessment exceeds the size limit and was withheld whole rather than trimmed."},
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "assessment_not_configured"},
+              "detail": {"const": "No assessment was configured for this issuance, so none was attempted."},
+              "record": {"type": "null"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"const": "assessment_not_retained"},
+              "detail": {"const": "No assessment is retained for this issuance and none is reconstructed."},
+              "record": {"type": "null"}
+            }
+          }
+        ]
+      },
+      "FrontClaimDirectionConflict": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metric_key", "declared_direction", "expected_direction", "policy_version"],
+        "properties": {
+          "metric_key": {"enum": ["accuracy", "total_cost", "cost", "latency"]},
+          "declared_direction": {"enum": ["maximize", "minimize"]},
+          "expected_direction": {"enum": ["maximize", "minimize"]},
+          "policy_version": {
+            "enum": [
+              "traigent.certification.metric_semantics_policy.v1",
+              "traigent.certification.metric_semantics_policy.v2",
+              "traigent.certification.metric_semantics_policy.v3"
+            ]
+          }
+        }
+      },
+      "FrontClaimSelectionBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "experiment_run_id",
+          "experiment_run_id_source",
+          "winner_trial_id",
+          "eligible_trial_ids_digest",
+          "eligible_trial_ids_digest_scope",
+          "selection_validation_source",
+          "candidate_source",
+          "sources_reconciled"
+        ],
+        "properties": {
+          "experiment_run_id": {
+            "anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]
+          },
+          "experiment_run_id_source": {"const": "request_field_resolved_within_project_scope"},
+          "winner_trial_id": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]},
+          "eligible_trial_ids_digest": {
+            "anyOf": [{"$ref": "./process_record_request_schema.json#/definitions/Sha256Reference"}, {"type": "null"}]
+          },
+          "eligible_trial_ids_digest_scope": {
+            "const": "This digest covers the candidate-ID list only; it does not authenticate the selected winner, scores, or original selection event."
+          },
+          "selection_validation_source": {"const": "selection_session"},
+          "candidate_source": {"const": "configuration_run_records"},
+          "sources_reconciled": {"const": false}
+        }
+      },
+      "FrontClaimObjective": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "objective_id",
+          "direction",
+          "registration",
+          "measurement_scope",
+          "metric_key",
+          "unit",
+          "input_representation",
+          "declaration_source"
+        ],
+        "properties": {
+          "objective_id": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"},
+          "direction": {"enum": ["maximize", "minimize"]},
+          "registration": {"enum": ["registered", "explicitly_unregistered"]},
+          "measurement_scope": {
+            "enum": [
+              "undeclared",
+              "obj.accuracy.exact_match.v1",
+              "obj.accuracy.evaluator_score_mean.v1",
+              "obj.cost.mean_microusd_per_item.v1",
+              "obj.latency.mean_us.v1",
+              "obj.latency.p50_us.v1"
+            ]
+          },
+          "metric_key": {"enum": ["accuracy", "total_cost", "cost", "latency", null]},
+          "unit": {"enum": ["ppm", "microusd", "microseconds", null]},
+          "input_representation": {
+            "enum": [
+              "fraction_0_1",
+              "percentage_0_100",
+              "ppm_integer",
+              "usd",
+              "millidollars",
+              "microusd_integer",
+              "seconds",
+              "milliseconds",
+              "microseconds_integer",
+              "undeclared",
+              null
+            ]
+          },
+          "declaration_source": {"enum": ["caller_declared", "default_preset", null]}
+        }
+      },
+      "FrontClaimValueResolution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["policy_version", "copy_agreement_rule"],
+        "properties": {
+          "policy_version": {
+            "enum": [
+              "traigent.certification.metric_semantics_policy.v1",
+              "traigent.certification.metric_semantics_policy.v2",
+              "traigent.certification.metric_semantics_policy.v3",
+              "undeclared"
+            ]
+          },
+          "copy_agreement_rule": {"enum": ["exact_decimal_repr_equality", "undeclared"]},
+          "quantity_contract": {"enum": ["assumed_not_evidenced", "not_declared", "undeclared"]}
+        }
+      },
+      "FrontClaimPopulation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "population_source",
+          "captured_at",
+          "scope_record_count",
+          "captured_member_count",
+          "unnamed_captured_count"
+        ],
+        "properties": {
+          "scope": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scope_kind", "experiment_run_id", "scope_filters", "scope_enforcement", "declared"],
+            "properties": {
+              "scope_kind": {"enum": ["experiment_run", "undeclared"]},
+              "experiment_run_id": {
+                "anyOf": [{"$ref": "#/components/schemas/FrontClaimRecordReference"}, {"type": "null"}]
+              },
+              "scope_filters": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {"enum": ["tenant", "project", "experiment_run"]}
+              },
+              "scope_enforcement": {"enum": ["request_scope_fail_closed", "undeclared"]},
+              "declared": {"type": "boolean"}
+            }
+          },
+          "population_source": {"enum": ["scoped_configuration_run_records", "caller_supplied_records", "undisclosed"]},
+          "captured_at": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimTimestamp"}, {"const": "undeclared"}]},
+          "scope_record_count": {"type": ["integer", "null"], "minimum": 0},
+          "captured_member_count": {"type": "integer", "minimum": 0},
+          "unnamed_captured_count": {"type": "integer", "minimum": 0}
+        }
+      },
+      "FrontClaimReportedValueText": {
+        "type": ["string", "null"],
+        "maxLength": 128,
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$",
+        "not": {"type": "string", "pattern": "[\\r\\n]"}
+      },
+      "FrontClaimValueBasis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_basis",
+          "reported_value",
+          "reported_value_repr",
+          "value_supply",
+          "input_representation",
+          "derivation"
+        ],
+        "properties": {
+          "observation_basis": {"enum": ["backend_observed", "client_attested"]},
+          "reported_value": {"type": ["number", "null"]},
+          "reported_value_repr": {"$ref": "#/components/schemas/FrontClaimReportedValueText"},
+          "value_supply": {"enum": ["converted_from_reported_value", "supplied_as_integer"]},
+          "input_representation": {
+            "enum": [
+              "fraction_0_1",
+              "percentage_0_100",
+              "ppm_integer",
+              "usd",
+              "millidollars",
+              "microusd_integer",
+              "seconds",
+              "milliseconds",
+              "microseconds_integer",
+              "undeclared",
+              null
+            ]
+          },
+          "derivation": {"enum": ["server_transformed", "client_reported_mean", null]},
+          "source_shape": {"enum": ["flat_scalar", "nested_scalar", "describe_mean", "aggregation_scalar", null]},
+          "aggregation_kind": {"enum": ["mean_over_examples", "total_over_examples", "undeclared", null]},
+          "reported_count": {"type": ["integer", "null"], "minimum": 0},
+          "compared_source_count": {"type": ["integer", "null"], "minimum": 0},
+          "quantity_id": {"enum": ["traigent.certification.quantity.trial_total_cost_usd", null]},
+          "source_metric_name": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimObjectiveReference"}, {"type": "null"}]},
+          "equivalent_metric_names": {
+            "anyOf": [
+              {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"}
+              },
+              {"type": "null"}
+            ]
+          },
+          "absent_metric_names": {
+            "anyOf": [
+              {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"}
+              },
+              {"type": "null"}
+            ]
+          }
+        }
+      },
+      "FrontClaimConflictObservation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_shape", "reported_value", "reported_value_repr"],
+        "properties": {
+          "source_shape": {"enum": ["flat_scalar", "nested_scalar", "describe_mean", "aggregation_scalar", null]},
+          "reported_value": {"type": ["number", "null"]},
+          "reported_value_repr": {"$ref": "#/components/schemas/FrontClaimReportedValueText"}
+        }
+      },
+      "FrontClaimSourceBoundary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["selected_source", "excluded_sources", "rule"],
+        "properties": {
+          "selected_source": {"enum": ["primary_metrics", "secondary_metrics", "undeclared"]},
+          "excluded_sources": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"enum": ["primary_metrics", "secondary_metrics"]}
+          },
+          "rule": {"enum": ["primary_when_present_otherwise_secondary", "undeclared"]}
+        }
+      },
+      "FrontClaimMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "status",
+          "named_in_receipt",
+          "values",
+          "omitted_objectives",
+          "scores_source",
+          "scores_source_wording",
+          "value_bases",
+          "metric_source_conflicts",
+          "source_boundary"
+        ],
+        "properties": {
+          "record_id": {"$ref": "#/components/schemas/FrontClaimRecordReference"},
+          "status": {
+            "anyOf": [{"$ref": "../status_schema.json#/definitions/ConfigurationRunStatus"}, {"type": "null"}]
+          },
+          "named_in_receipt": {"type": "boolean"},
+          "values": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"},
+                "additionalProperties": {"type": "integer"}
+              },
+              {"type": "null"}
+            ]
+          },
+          "omitted_objectives": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"},
+                "additionalProperties": {"$ref": "#/components/schemas/FrontClaimOmissionReason"}
+              },
+              {"type": "null"}
+            ]
+          },
+          "scores_source": {"enum": ["backend_observed", "client_attested", "mixed_see_value_bases", null]},
+          "scores_source_wording": {
+            "enum": ["Server-observed", "Client-attested (client-reported)", "Mixed; see each value basis", null]
+          },
+          "value_bases": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"},
+                "additionalProperties": {"$ref": "#/components/schemas/FrontClaimValueBasis"}
+              },
+              {"type": "null"}
+            ]
+          },
+          "metric_source_conflicts": {
+            "type": "object",
+            "propertyNames": {"$ref": "#/components/schemas/FrontClaimObjectiveReference"},
+            "additionalProperties": {
+              "type": "array",
+              "minItems": 2,
+              "items": {"$ref": "#/components/schemas/FrontClaimConflictObservation"}
+            }
+          },
+          "source_boundary": {"anyOf": [{"$ref": "#/components/schemas/FrontClaimSourceBoundary"}, {"type": "null"}]}
+        }
+      },
+      "ProcessRecordConflict": {
         "anyOf": [
           {
             "type": "object",
@@ -1242,7 +1680,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request conflicts with current state"},
               "error": {"const": "session_project_conflict"},
               "error_code": {"const": "SESSION_PROJECT_CONFLICT"}
             }
@@ -1253,9 +1691,9 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
-              "error": {"const": "immutable_row"},
-              "error_code": {"const": "IMMUTABLE_ROW"}
+              "message": {"const": "process record request conflicts with current state"},
+              "error": {"const": "process_record_immutable"},
+              "error_code": {"const": "PROCESS_RECORD_IMMUTABLE"}
             }
           },
           {
@@ -1264,9 +1702,9 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
-              "error": {"const": "duplicate_seq"},
-              "error_code": {"const": "DUPLICATE_SEQ"}
+              "message": {"const": "process record request conflicts with current state"},
+              "error": {"const": "process_record_sequence_conflict"},
+              "error_code": {"const": "PROCESS_RECORD_SEQUENCE_CONFLICT"}
             }
           },
           {
@@ -1275,7 +1713,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request conflicts with current state"},
               "error": {"const": "duplicate_receipt_ref"},
               "error_code": {"const": "DUPLICATE_RECEIPT_REF"}
             }
@@ -1286,9 +1724,9 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
-              "error": {"const": "constraint_violation"},
-              "error_code": {"const": "CONSTRAINT_VIOLATION"}
+              "message": {"const": "process record request conflicts with current state"},
+              "error": {"const": "process_record_conflict"},
+              "error_code": {"const": "PROCESS_RECORD_CONFLICT"}
             }
           },
           {
@@ -1297,9 +1735,9 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
-              "error": {"const": "stream_overflow"},
-              "error_code": {"const": "STREAM_OVERFLOW"}
+              "message": {"const": "process record request conflicts with current state"},
+              "error": {"const": "process_record_receipt_limit"},
+              "error_code": {"const": "PROCESS_RECORD_RECEIPT_LIMIT"}
             }
           },
           {
@@ -1308,7 +1746,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request conflicts with current state"},
               "error": {"const": "lineage_scope_mismatch"},
               "error_code": {"const": "LINEAGE_SCOPE_MISMATCH"}
             }
@@ -1368,7 +1806,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request refused"},
               "error": {"const": "tenant_context_missing"},
               "error_code": {"const": "TENANT_CONTEXT_MISSING"}
             }
@@ -1379,7 +1817,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request refused"},
               "error": {"const": "tenant_binding_failed"},
               "error_code": {"const": "TENANT_BINDING_FAILED"}
             }
@@ -1408,7 +1846,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request refused"},
               "error": {"const": "unknown_scope_reference"},
               "error_code": {"const": "UNKNOWN_SCOPE_REFERENCE"}
             }
@@ -1419,7 +1857,7 @@
             "required": ["success", "message", "error", "error_code"],
             "properties": {
               "success": {"const": false},
-              "message": {"const": "process record storage refused the request"},
+              "message": {"const": "process record request refused"},
               "error": {"const": "lineage_unmapped"},
               "error_code": {"const": "LINEAGE_UNMAPPED"}
             }

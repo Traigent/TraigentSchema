@@ -1746,7 +1746,7 @@
       },
       "AgentDetailEnvelope": {
         "type": "object",
-        "description": "Success envelope {success, message, data} from response_handler.success_response; data is the agent (agent_routes.py get_agent).",
+        "description": "Success envelope {success, message, data} from response_handler.success_response; data is the agent plus the optional server-issued agent_ref (agent_routes.py get_agent).",
         "properties": {
           "success": {
             "type": "boolean"
@@ -1755,7 +1755,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "./agent_schema.json"
+            "$ref": "./agent_detail_schema.json"
           }
         },
         "additionalProperties": true,

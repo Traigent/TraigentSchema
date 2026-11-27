@@ -11257,6 +11257,23 @@
       "pr": "https://github.com/Traigent/TraigentSchema/pull/762"
     },
     {
+      "file": "agents/agents_endpoints.json",
+      "rule": "property_added",
+      "findings": [
+        {
+          "pointer": "#/paths//api/v1/projects/{project_id}/agents/{agent_ref}/get/responses/200/content/application/json/schema/properties/data/properties/agent_ref",
+          "role": "response",
+          "subject": "agent_ref",
+          "old": false,
+          "new": true,
+          "fingerprint": "0881379da9343ea95786055c3b4890a125dba49106e1727bee3d062934422848"
+        }
+      ],
+      "reason": "additive optional response field on the agent detail read: the server-issued release reference a portal needs to call the release routes. Payloads valid under the previous schema still validate. A client that validates responses against the previous closed schema can reject a response once the field is emitted; the Python SDK and the JS SDK do not read or validate the agent detail response.",
+      "version": "Unreleased",
+      "pr": "pending (TraigentSchema, feat/release-candidates)"
+    },
+    {
       "file": "execution/execution_endpoints.json",
       "rule": "endpoint_removed",
       "findings": [

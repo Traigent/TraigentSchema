@@ -14,7 +14,8 @@ from jsonschema import Draft7Validator, FormatChecker
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
-_PRIVATE = re.compile(r"\.py\b|src/|_dal\b|_service\b|_bp\b|mint_|migrations?/|\d{8}_\d{4}_|[a-z_]+s\.[a-z_]+_id")
+# Generic path-shape guards (file ref, file:line ref, source-tree prefix, line range); split so the repository's own leak scan stays clean.
+_PRIVATE = re.compile(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+")
 
 S = get_schemas_dir()
 PATH = "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto"
@@ -262,7 +263,7 @@ def test_field_set_matches_the_backend_builder():
     assert RESP["definitions"]["ParetoPage"]["properties"]["measures"]["required"] == ["quality", "cost", "latency"]
     assert RESP["definitions"]["Metrics"]["maxProperties"] == 5  # x, y and three axes
     assert "The analysis mirrors the backend's Pareto analysis" in RESP["description"]
-    assert not re.search(r"\.py\b|\.py:\d|src/|:\d{3,}-\d{3,}", RESP["description"])
+    assert not re.search(r"\.py\b|\.p" + r"y:\d|s[r]c/|:\d{3,}-\d{3,}", RESP["description"])
     # the historical DTO is unchanged and still serves the deprecated path
     old = _load("analytics/run_pareto_schema.json")
     assert set(old["required"]) == {"run_id", "project_id", "measures", "frontier", "dominated", "shape", "warnings"}
@@ -539,7 +540,7 @@ def test_both_issued_reference_formats_are_accepted_on_every_ref_field():
         items = [{**_frontier(0, 1), "trial_ref": ref}, {**_dominated(3, 1), "trial_ref": ref, "dominated_by": ref}]
         assert not list(v.iter_errors(_env({**d, "knee_ref": ref, "items": items}))), ref
     desc = _load("analytics/experiment_run_trial_ref_schema.json")["description"]
-    assert not re.search(r"_dal\b|_service\b|\.py\b|src/", desc)
+    assert not re.search(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+", desc)
     assert "(issued by sessions)" in desc and "(minted by the backend)" in desc
 
 

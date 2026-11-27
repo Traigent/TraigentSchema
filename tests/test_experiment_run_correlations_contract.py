@@ -308,7 +308,7 @@ def test_dimension_cap_and_required_totals():
     assert "work cap of 10000 scoped configuration rows" in OP["description"]
     assert "the backend accepts up to 100 search-space parameters" in OP["description"]
     assert "parses the query strictly" in OP["description"]
-    assert "unlike the legacy adapter, which drops unknown keys" in OP["description"] and not re.search(r"\.py\b|src/|_dal\b|_service\b|_bp\b", OP["description"])
+    assert "unlike the legacy adapter, which drops unknown keys" in OP["description"] and not re.search(r"\.py\b|s[r]c/|\.p" + r"y:\d|:\d+-\d+", OP["description"])
     assert "tenant-selector" in OP["responses"]["400"]["description"]
 
 

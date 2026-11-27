@@ -413,6 +413,8 @@ jobs:
         run: ruff check traigent_schema/
       - name: Run type checking
         run: mypy traigent_schema/ --ignore-missing-imports
+      - name: Validate changelog fragments
+        run: python scripts/compile_changelog.py --check
 
   test:
     # Gate expensive matrix tests behind the cheap lint/type job.

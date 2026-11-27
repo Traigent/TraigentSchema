@@ -1,0 +1,70 @@
+# Changelog fragments
+
+Pending release notes live here, one file per change, so that concurrent pull
+requests do not conflict on the `[Unreleased]` section of `CHANGELOG.md`.
+Fragments are combined into a dated `CHANGELOG.md` section at release time.
+
+## Adding a fragment
+
+Create `changelog.d/<slug>.<type>.md` in the same pull request as the change.
+
+- `<slug>` is lowercase letters, digits and hyphens, for example
+  `trial-number-on-grouped-run`. Fragments are sorted by slug within a type.
+- `<type>` is one of the values below and picks the heading the entry lands under.
+- The file holds one or more markdown bullet lines (continuation lines are
+  indented). It must not be empty.
+
+| type         | heading        |
+|--------------|----------------|
+| `breaking`   | `### Breaking`   |
+| `added`      | `### Added`      |
+| `changed`    | `### Changed`    |
+| `deprecated` | `### Deprecated` |
+| `removed`    | `### Removed`    |
+| `fixed`      | `### Fixed`      |
+
+Headings appear in the order of the table.
+
+Example `changelog.d/trial-number-on-grouped-run.added.md`:
+
+```markdown
+- **`trial_number` on `GroupedConfigurationRun`.** New optional, nullable
+  integer, purely additive.
+```
+
+## Checking and releasing
+
+```bash
+python scripts/compile_changelog.py --check                      # validate fragments (CI)
+python scripts/compile_changelog.py --version X.Y.Z --date YYYY-MM-DD --dry-run
+python scripts/compile_changelog.py --version X.Y.Z --date YYYY-MM-DD
+```
+
+The last command inserts a `## [X.Y.Z] - YYYY-MM-DD` section directly below the
+`[Unreleased]` pointer in `CHANGELOG.md` and deletes the compiled fragments. It
+refuses when that version already has a section.
+
+Precondition: compiling (not `--check` or `--dry-run`) requires the repository root to
+be a git work tree in which `CHANGELOG.md` and every file in `changelog.d/` are tracked
+at HEAD with working-tree bytes equal to HEAD's (untracked, ignored or modified inputs
+are refused, whatever `git status` is configured to show); otherwise it exits 2 with
+"commit or stash changelog changes before compiling". `CHANGELOG.md` must not be a
+symlink in any mode. Every file it rewrites or removes is then recoverable from git.
+Run it from a single process
+on a quiet checkout. `--check` also reports any leftover `.compiling-*` file from an
+interrupted compile.
+
+Exit codes: 0 success; 2 a validation or usage error; 1 a failure after validation:
+
+- CHANGELOG.md could not be written (it is left unchanged and the fragments are listed);
+- the directory could not be flushed to disk after the write (the fragments are kept
+  and listed);
+- a compiled fragment could not be deleted (the remaining paths are listed; once
+  `git diff` shows nothing new in them, remove them by hand);
+- a fragment could only be kept under its hidden `.compiling-` name, or could not be
+  read back (the path is listed; compare it with `git diff` and rename or remove it by
+  hand, never with `git rm`);
+- a fragment was edited while compiling (CHANGELOG.md has the earlier text, the edited
+  fragment is kept and listed, and its new text is not yet in CHANGELOG.md).
+
+Files kept under `.compiling-` names are listed as "kept under" their temporary names.

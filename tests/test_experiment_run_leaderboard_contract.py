@@ -581,8 +581,15 @@ def test_one_tie_rule_identical_in_all_four_places_and_no_other_tie_wording():
     import re
     from pathlib import Path
 
-    changelog = (Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(encoding="utf-8")
-    entry = next(l for l in changelog.splitlines() if l.startswith("- **`experiment_run.get_run_leaderboard`"))
+    root = Path(__file__).resolve().parents[1]
+    # The entry is in CHANGELOG.md once released, or in a changelog.d/ fragment before that.
+    sources = [root / "CHANGELOG.md", *sorted((root / "changelog.d").glob("*.md"))]
+    entry = next(
+        line
+        for source in sources
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- **`experiment_run.get_run_leaderboard`")
+    )
     composite = RESP["definitions"]["LeaderboardItem"]["properties"]["composite_score"]["description"]
     for text in (OP["description"], RESP["description"], composite, entry):
         assert text.count(TIE_RULE) == 1

@@ -122,7 +122,7 @@ kid            = "k" + hex(HKDF-Expand(PRK, info("traigent.content_identity.key_
   with high probability. Key lookups are therefore always **tenant-scoped** (`(tenant_id, kid)`,
   never `kid` alone). A `kid` collision among one tenant's key versions is a **hard error at
   key creation**: the Backend discards the new master and generates another.
-- The master must be exactly 32 bytes and SHOULD be unique per tenant (ruling D1).
+- The master must be exactly 32 bytes and SHOULD be unique per tenant (key custody rule).
 - The tenant id is bound into every HKDF `info` (review item F2, adopted 2026-09-23). If a
   master is ever reused by mistake across two tenants, their keys, `kid`s and ids are still
   unrelated. The `reused_master_other_tenant` vector pins this.
@@ -543,7 +543,7 @@ What the spec fixes:
 - The SDK receives **derived purpose keys**, never the master.
 
 Custody, rotation and the public-digest opt-in are settled by the owner rulings in section 16
-(D1 = A, D2 = A, D3 = A, 2026-09-23).
+(2026-09-23).
 
 ## 13. Statistical use
 
@@ -571,7 +571,7 @@ Custody, rotation and the public-digest opt-in are settled by the owner rulings 
 |---|---|---|
 | Equality leak inside a tenant | Anyone who sees ids | Equal inputs have equal ids. This is intended, because it is what makes overlap checks work |
 | Dictionary attack on low-entropy inputs ("yes", a 4-digit PIN) | Only holders of `K_example_id`, meaning the tenant's own SDK users and the Backend | Keyed ids stop outsiders, including other tenants and certificate readers, from confirming guesses. They do **not** hide low-entropy inputs from the tenant's own key holders. Ids are not encryption |
-| Key compromise | Whoever holds the key | Every id under that `kid` becomes open to dictionary attack. Rotate (D2), which changes every id |
+| Key compromise | Whoever holds the key | Every id under that `kid` becomes open to dictionary attack. Rotate (rotation rule), which changes every id |
 | Cross-tenant linkage | Nobody | Different masters, and a different `tenant_id` in the HKDF `info` even if a master were reused, make the ids unlinkable. `kid` links ids within one tenant only |
 | Unkeyed `exu1` digest | Anyone | Confirms guessed inputs. Opt-in, public benchmarks only (4.5) |
 | Member lists and counts | Readers of the record | Disclose dataset size, duplicate structure and conflict count. No content |
@@ -616,7 +616,7 @@ Custody, rotation and the public-digest opt-in are settled by the owner rulings 
 The three decisions this spec left open were ruled by the owner on 2026-09-23. The
 recommended option was taken in each case.
 
-**D1 = A: custody.** Each tenant has one random 32-byte master per key version.
+**Key custody.** Each tenant has one random 32-byte master per key version.
 - The Backend holds it in KMS/Vault (envelope-encrypted). It never leaves the Backend.
 - Authenticated SDK sessions receive only the two derived purpose keys plus `kid`. The SDK
   keeps them in memory and never on disk.
@@ -624,16 +624,16 @@ recommended option was taken in each case.
   can hash locally without content leaving the machine.
 - Not chosen: B (every tenant key derived from one platform root) and C (customer-held keys).
 
-**D2 = A: rotation.** Keys are rotated only on suspected compromise, not on a schedule.
+**Rotation.** Keys are rotated only on suspected compromise, not on a schedule.
 - On rotation, the Backend recomputes ids for stored content under the new `kid` and keeps an
   `old id → new id` map. SDK-local datasets are re-hashed by the SDK.
 - Certificates are never rewritten. They stay verifiable under the `kid` they carry.
 
-**D3 = A: public-benchmark opt-in.** A per-dataset flag, `public_benchmark: true`, settable by
+**Public-benchmark opt-in.** A per-dataset flag, `public_benchmark: true`, settable by
 a tenant admin. It gates the unkeyed `exu1` digest.
 - The flag is off by default. It never becomes tenant-wide.
 
-**F2 (review item), adopted with D1:** `tenant_id` is bound into every HKDF `info` (section 3).
+**Adopted with the key custody rule:** `tenant_id` is bound into every HKDF `info` (section 3).
 - This is defence in depth against a master reused by mistake.
 - It changed every derived key, id and vector. That was done before any adoption, still under
   `traigent.content_identity.v1`, because nothing had shipped.
@@ -732,8 +732,8 @@ is `tests/test_example_identity.py` ("Conformance vectors").
 
 **Backend**
 
-1. Implement key custody per ruling D1 (KMS/Vault, one master per tenant per key version),
-   rotation per D2, and the per-dataset `public_benchmark` flag per D3. Add a purpose-key
+1. Implement key custody (KMS/Vault, one master per tenant per key version),
+   rotation only on suspected compromise, and the per-dataset `public_benchmark` flag (public-benchmark opt-in). Add a purpose-key
    issuance endpoint that returns `{tenant_id, kid, example_id_key, example_version_key}`
    (`PurposeKeyGrantV1`, section 18) and a
    key registry
@@ -769,7 +769,7 @@ Backend's response to an authenticated session:
 - `encoding` is always `"hex"`. A consumer rejects any other value rather than guessing.
 - The two keys are **secrets**. They are never logged, written to disk, echoed in an error,
   exported or forwarded. SDKs hold them in memory only and redact them from every rendering.
-- The grant never contains the tenant master (ruling D1).
+- The grant never contains the tenant master (key custody rule).
 
 **Two envelopes.** Both carry `scheme` and `provenance: "declared"`. Everything in them is a
 client declaration: the Backend stores it, recomputes it and labels it (section 11). A declared

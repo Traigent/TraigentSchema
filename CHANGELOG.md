@@ -765,7 +765,7 @@ Unreleased changes are kept as fragments in changelog.d/; see changelog.d/README
   /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity` (new
   `HostedDatasetVersionContentIdentityV1`: available root + per-example map, or unavailable with a
   closed reason, incl. the creation-recorded `content_not_identifiable` / `keys_unavailable`), `GET /api/v1/datasets/versions/by-root/{dataset_root}` (DatasetVersionV1 list)
-  and `PUT /api/v1/datasets/{dataset_id}/public-benchmark` (ruling D3 opt-in). Request/response
+  and `PUT /api/v1/datasets/{dataset_id}/public-benchmark` (public-benchmark opt-in). Request/response
   schemas in `datasets/`; `purpose_key_grant_v1_schema.json` and `content_identity_v1_schema.json`
   are now reachable from the catalog graph. Additive; nothing existing changes.
 - **Content identity wire envelopes (M3 PR-S1).** `execution/content_identity_wire_v1_schema.json`
@@ -786,7 +786,7 @@ Unreleased changes are kept as fragments in changelog.d/; see changelog.d/README
   `traigent_schema/data/content_identity_v1_vectors.json` (generator + freshness check:
   `scripts/generate_content_identity_v1_vectors.py --check`). `example_id` = HMAC-SHA-256 over
   jcs_v1 of the INPUT (+ context) under a per-tenant HKDF-derived key (tenant_id bound into every HKDF info;
-  key custody, rotation and the public-digest opt-in follow owner rulings D1-D3 = A,
+  key custody, rotation and the public-digest opt-in follow the settled rules,
   2026-09-23); `example_version` = HMAC
   over example_id + expected output + version-relevant metadata; `dataset_root` /
   `evaluated_root` = RFC 9162 Merkle tree hash over sorted `[example_id, example_version, count]`

@@ -3,13 +3,13 @@
   "info": {
     "title": "Traigent Backend Content Identity Routes",
     "version": "1.0.0",
-    "description": "Content identity v1 routes (docs/identity/content-identity-v1.md; Backend milestone M3): the tenant purpose-key grant the SDKs need to mint example ids, the server-computed identity of a hosted dataset version, root-to-version resolution, and the per-dataset public-benchmark opt-in (ruling D3). Declared ahead of the Backend merge: each operation is x-asserted-against-backend false until the Backend branches (feat/content-identity-key-custody, feat/content-identity-dataset-root) land on develop with parity tests."
+    "description": "Content identity v1 routes (docs/identity/content-identity-v1.md): the tenant purpose-key grant the SDKs need to mint example ids, the server-computed identity of a hosted dataset version, root-to-version resolution, and the per-dataset public-benchmark opt-in. Each operation is x-asserted-against-backend false until the backend implementation lands with parity tests."
   },
   "paths": {
     "/api/v1/content-identity/purpose-keys": {
       "post": {
         "summary": "Issue the caller tenant's content-identity purpose keys",
-        "description": "TraigentBackend src/routes/content_identity_routes.py issue_purpose_keys. The tenant is the auth stack's binding (get_current_tenant_id), never a header or the body. Same permission as creating an optimization session (experiment.write); an API key stating a foreign X-Tenant-Id frame is answered 404. Every grant is audited (CONTENT_IDENTITY_PURPOSE_KEYS_ISSUED, kid only); a grant that cannot be audited is not issued (503). Rate limited per route (defaults 2/s, 30/min, 600/h, 5000/day). Excluded from the idempotency replay cache so key material is never persisted.",
+        "description": "The tenant is the authenticated binding, never a header or the body. Same permission as creating an optimization session (experiment.write); an API key stating a foreign X-Tenant-Id frame is answered 404. Every grant is audited (key id only); a grant that cannot be audited is not issued (503). Rate limited per route (defaults 2/s, 30/min, 600/h, 5000/day). Excluded from the idempotency replay cache so key material is never persisted.",
         "operationId": "issueContentIdentityPurposeKeys",
         "x-asserted-against-backend": false,
         "x-wrap-status": "bare",
@@ -39,7 +39,7 @@
             "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "403": {
-            "description": "Missing experiment.write (the auth stack's envelope), or no tenant context: the standard error envelope with error = error_code = tenant_context_required, sent with Cache-Control: no-store (TraigentBackend cc019c7a0).",
+            "description": "Missing experiment.write (the auth stack's envelope), or no tenant context: the standard error envelope with error = error_code = tenant_context_required, sent with Cache-Control: no-store.",
             "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "404": {
@@ -57,7 +57,7 @@
             "content": {"application/json": {"schema": {"$ref": "../error_envelope_schema.json"}}}
           },
           "503": {
-            "description": "Keys unavailable: custody not configured, a stored master that fails a custody check, or the grant's audit record could not be written. The standard error envelope with error = error_code = content_identity_keys_unavailable, sent with Cache-Control: no-store (TraigentBackend cc019c7a0); SDKs degrade to key_status unavailable. The internal custody reason (e.g. wrap_scheme_mismatch, wrapping_key_ref_mismatch, tenant_id_not_derivable) is logged and never sent: no other code and no details object is allowed. A rate limiter that cannot evaluate answers the masked 5xx envelope (error Internal server error, error_code RATE_LIMIT_UNAVAILABLE).",
+            "description": "Keys unavailable: custody not configured, a stored master that fails a custody check, or the grant's audit record could not be written. The standard error envelope with error = error_code = content_identity_keys_unavailable, sent with Cache-Control: no-store; SDKs degrade to key_status unavailable. The internal custody reason is logged and never sent: no other code and no details object is allowed. A rate limiter that cannot evaluate answers the masked 5xx envelope (error Internal server error, error_code RATE_LIMIT_UNAVAILABLE).",
             "content": {
               "application/json": {
                 "schema": {
@@ -97,7 +97,7 @@
         "summary": "Get a hosted dataset version's server-computed content identity",
         "deprecated": true,
         "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets/{dataset_id}/versions/{version_id}/content-identity. Removal is unscheduled.",
-        "description": "TraigentBackend src/routes/dataset_version_routes.py get_dataset_version_content_identity. Read access to the dataset (project viewer) through the owner-scoped parent load. Returns the identity under the tenant's ACTIVE key (root, counts, members_ref and the per-example map), re-verified on every read; or status unavailable with a reason. The version object (DatasetVersionV1) is unchanged.",
+        "description": "Read access to the dataset (project viewer) through the owner-scoped parent load. Returns the identity under the tenant's ACTIVE key (root, counts, members_ref and the per-example map), re-verified on every read; or status unavailable with a reason. The version object (DatasetVersionV1) is unchanged.",
         "operationId": "getDatasetVersionContentIdentity",
         "x-asserted-against-backend": false,
         "x-wrap-status": "wrapped",
@@ -119,7 +119,7 @@
     "/api/v1/datasets/versions/by-root/{dataset_root}": {
       "get": {
         "summary": "Resolve a dataset_root to the caller's dataset versions",
-        "description": "TraigentBackend src/routes/dataset_version_routes.py get_dataset_versions_by_root. Tenant from the canonical context; each match filtered through the owner-scoped parent dataset load.",
+        "description": "Tenant from the canonical context; each match filtered through the owner-scoped parent dataset load.",
         "operationId": "getDatasetVersionsByRoot",
         "x-asserted-against-backend": false,
         "x-wrap-status": "wrapped",
@@ -149,7 +149,7 @@
         "summary": "Set or clear the dataset's public-benchmark opt-in",
         "deprecated": true,
         "x-deprecated": "Use PUT /api/v1/projects/{project_id}/datasets/{dataset_id}/public-benchmark. Removal is unscheduled.",
-        "description": "TraigentBackend src/routes/dataset_version_routes.py set_dataset_public_benchmark. Requires dataset write access and project editor role, THEN tenant owner/admin (or platform admin) membership; API-key principals are refused even when the key's owner is a tenant admin. A refusal is audited (ACCESS_DENIED, reason tenant_admin_required); a change is audited (DATASET_PUBLIC_BENCHMARK_CHANGED) and not applied if the audit write fails. The Backend also emits the flag as public_benchmark on the dataset read (Benchmark.to_dict); dataset_schema.json is closed and does not declare it yet -- adding it is a separately acknowledged contract change (breaking_schema_check classifies it property_added on a closed schema).",
+        "description": "Requires dataset write access and project editor role, THEN tenant owner/admin (or platform admin) membership; API-key principals are refused even when the key's owner is a tenant admin. Refusals and changes are audited; a change is not applied if its audit write fails. The flag is also returned as public_benchmark on the dataset read; dataset_schema.json is closed and does not declare it yet, so adding it is a separate, acknowledged contract change.",
         "operationId": "setDatasetPublicBenchmark",
         "x-asserted-against-backend": false,
         "x-wrap-status": "wrapped",

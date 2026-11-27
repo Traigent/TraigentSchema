@@ -6,6 +6,7 @@
   "definitions": {
     "ProcessRecordReference": {
       "type": "string",
+      "maxLength": 47,
       "pattern": "^bsn:[A-Za-z0-9_-]{43}(?![\\s\\S])",
       "description": "Use the build_session_ref returned when the certificate build session was created. These routes cover issuances created through a certificate build session. A certificate that carries a runlineage: reference is not addressed here and stays on the existing certification routes. Prepare echoes the same reference. Resolve it within the named project."
     },
@@ -39,15 +40,15 @@
         "expected_project_ref"
       ],
       "properties": {
-        "expected_nonce": {"type": "string", "minLength": 1},
+        "expected_nonce": {"type": "string", "minLength": 1, "maxLength": 64},
         "expected_build_session_ref": {"$ref": "#/definitions/SignedReference"},
         "expected_issuer_key_ref": {"$ref": "#/definitions/SignedReference"},
-        "expected_issuer_algorithm": {"type": "string", "minLength": 1},
+        "expected_issuer_algorithm": {"type": "string", "minLength": 1, "enum": ["ecdsa_p256_sha256", "ed25519"]},
         "expected_trust_ring_ref": {"$ref": "#/definitions/SignedReference"},
         "expected_project_ref": {"$ref": "#/definitions/ProjectReference"},
-        "expected_client_key_ref": {"type": ["string", "null"]},
-        "expected_client_algorithm": {"type": ["string", "null"]},
-        "client_public_key_der_b64": {"type": ["string", "null"]}
+        "expected_client_key_ref": {"type": ["string", "null"], "maxLength": 47},
+        "expected_client_algorithm": {"type": ["string", "null"], "enum": ["ecdsa_p256_sha256", "ed25519", null]},
+        "client_public_key_der_b64": {"type": ["string", "null"], "maxLength": 512}
       },
       "oneOf": [
         {
@@ -60,9 +61,9 @@
         {
           "required": ["expected_client_key_ref", "expected_client_algorithm", "client_public_key_der_b64"],
           "properties": {
-            "expected_client_key_ref": {"type": "string", "minLength": 1},
-            "expected_client_algorithm": {"type": "string", "minLength": 1},
-            "client_public_key_der_b64": {"type": "string", "minLength": 1}
+            "expected_client_key_ref": {"type": "string", "minLength": 1, "maxLength": 47},
+            "expected_client_algorithm": {"type": "string", "minLength": 1, "enum": ["ecdsa_p256_sha256", "ed25519"]},
+            "client_public_key_der_b64": {"type": "string", "minLength": 1, "maxLength": 512}
           }
         }
       ]
@@ -92,23 +93,23 @@
         "verification_materials_v0": {"$ref": "./certificate_verification_materials_v0_schema.json"},
         "v0_context_kwargs": {"$ref": "#/definitions/VerificationContextV0"},
         "claim_id": {"enum": ["PROC1", null, ""], "default": "PROC1"},
-        "experiment_run_id": {"type": ["string", "null"], "minLength": 1},
+        "experiment_run_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 100},
         "openings": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "agent": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "dataset": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "config_space": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:primary": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r0": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r1": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r2": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r3": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r4": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r5": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r6": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"},
-            "evaluator:r7": {"type": "string", "pattern": "^[A-Za-z0-9+/]{43}=$"}
+            "agent": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "dataset": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "config_space": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:primary": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r0": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r1": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r2": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r3": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r4": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r5": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r6": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r7": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"}
           },
           "minProperties": 1
         }
@@ -160,7 +161,7 @@
           "properties": {
             "key_ref": {"$ref": "#/definitions/SignedReference"},
             "algorithm": {"enum": ["ed25519", "ecdsa_p256_sha256"]},
-            "public_key_der_b64": {"type": "string", "minLength": 1},
+            "public_key_der_b64": {"type": "string", "minLength": 1, "maxLength": 512},
             "public_key_digest": {"$ref": "#/definitions/Sha256Reference"}
           }
         },

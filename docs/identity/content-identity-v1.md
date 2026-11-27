@@ -644,34 +644,34 @@ a tenant admin. It gates the unkeyed `exu1` digest.
 ### Relay decisions 2026-09-23 (owner-delegated)
 
 The owner was unavailable and delegated these decisions to the relay coordinator. They come
-from the milestone M1 reviews: astra BLOCK, and Fable APPROVE with must-fixes. Each is recorded
+from the milestone M1 reviews: one reviewer BLOCK and another APPROVE with must-fixes. Each is recorded
 here as a relay decision, 2026-09-23 (owner-delegated).
 
-- **A: agent version coverage** (astra P1-1). `asset_digests` is required, with three
+- **A: agent version coverage**. `asset_digests` is required, with three
   categories: prompts, helper modules and tool definitions. `applied_config_digest` is required.
   `coverage` is required, `complete` or `partial`, and only `complete` is certifiable
   (section 8).
-- **B: evaluator version** (astra P1-2, Fable M2). `EvaluatorVersionManifestV1` and
+- **B: evaluator version**. `EvaluatorVersionManifestV1` and
   `evaluator_version_digest` are defined in this spec, covering efp2 code, judge, objectives and
   dependencies. fp2 and efp2 are unchanged (section 9).
-- **C: complete versus draft** (astra P1-3, Fable F2/F5). `record_state` is added to the run
+- **C: complete versus draft**. `record_state` is added to the run
   binding and to the dataset identity. A `complete` record requires `base_head_generation` and
   every candidate. `DatasetIdentityV1` gets `oneOf(members | members_ref)`. Only `complete`
   records are certifiable (section 10).
-- **D: ID1 linkage** (astra P1-4). The issuer binds only server-recorded linkage and
+- **D: ID1 linkage**. The issuer binds only server-recorded linkage and
   server-witnessed evaluator versions. Declared facts are labelled and cannot satisfy ID1.
   The issuer rules apply (section 11; made precise by decision I as issuance rules I1–I4 and claim rules C1–C6). Implemented in M3/M4.
-- **E: validation** (astra P2).
+- **E: validation**.
   - Full-string matching for `tenant_id` and every identifier pattern.
   - Number literals are judged by their exact decimal value before rounding.
   - `total_count` ≤ 2^53 − 1.
   - Rejection vectors pin each rule (sections 2, 3 and 5).
-- **F: in-memory big numbers** (Fable F1). `example_input` rejection vectors for `1e16` and
+- **F: in-memory big numbers**. `example_input` rejection vectors for `1e16` and
   `2^53`.
-- **G: kid** (Fable F3, astra P3). The kid is the second colon field. Consumers check it on the
+- **G: kid**. The kid is the second colon field. Consumers check it on the
   record, the roots and every member. Lookups are tenant-scoped, and a collision is a hard error
   at key creation (sections 3 and 5).
-- **I: re-review of `0c3c96fb`** (astra; items 1 and 3 were resolved there, and these three
+- **I: re-review of `0c3c96fb`** (a reviewer; items 1 and 3 were resolved there, and these three
   still blocked):
   - **Item 2:** `EvaluatorVersionManifestV1` requires `config_digest` (the bound configuration)
     and `helper_digests` (local helper contents; `{}` means none). Vectors show that a
@@ -683,9 +683,9 @@ here as a relay decision, 2026-09-23 (owner-delegated).
     `abs()` rounded under the 28-digit context and accepted `9007199254740991.0000000000001`.
     Vectors cover rejection of that value and its negative, and acceptance of a just-under
     value and of the limit with trailing zeros (the `json_text_accepted` section).
-- **J: re-review of `24961a9e`** (Fable APPROVE; a Node reimplementation built only from this
+- **J: re-review of `24961a9e`** (a reviewer APPROVE; a Node reimplementation built only from this
   doc passed ok=405 bad=0).
-  - **Fable F6:** `runtime` is a **required** part of `AgentBuildManifestV1`. The doc had
+  - **Reviewer F6:** `runtime` is a **required** part of `AgentBuildManifestV1`. The doc had
     listed it as optional; the doc is corrected. `compute_agent_build_digest` rejects a manifest
     without it, and a rejection vector pins this (section 8).
   - **Nit:** the vector constant `tenant_id_pattern` uses the `(?![\s\S])` end anchor, like
@@ -694,7 +694,7 @@ here as a relay decision, 2026-09-23 (owner-delegated).
     root is an issuance rule, not a per-claim rule, because a certificate whose dataset is only
     declared says nothing checkable. If narrow process certificates that carry no dataset are
     wanted later, I4 moves to the claim tier by a new decision.
-- **H: `supersedes`** (Fable F4). An optional annotation, never hashed, pinned by a vector
+- **H: `supersedes`**. An optional annotation, never hashed, pinned by a vector
   (section 7).
 
 ## 17. What each implementation must do next

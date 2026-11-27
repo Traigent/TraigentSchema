@@ -76,7 +76,7 @@ def compute_dataset_version_content_digest(preimage: Sequence[Mapping[str, Any]]
     list[str]), plus an optional ``expected_output`` (str or None). This
     function performs the projection AND the ordering itself: it sorts by
     ``(fp2._utf16_sort_key(example_id), jcs_v1(projection).encode("utf-8"))``
-    -- a public ``fp2.utf16_sort_key`` alias is a named follow-up (opus r3) --
+    -- a public ``fp2.utf16_sort_key`` alias is a named follow-up --
     UTF-16 code-unit order on the id, tied-broken by the canonical JCS
     bytes of the row's own projected ``{input_text, expected_output}``
     payload -- so the order is a pure function of content, never of input

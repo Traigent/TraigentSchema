@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
-"""C3 W11: experiment_run.compute_evaluator_quality on the canonical experiment-run URL."""
+"""experiment_run.compute_evaluator_quality on the canonical experiment-run URL."""
 
 from __future__ import annotations
 

@@ -329,7 +329,7 @@ def _build(
     if identity["dataset_identity_root"] is None and (
         identity_over is None or "dataset_ref" not in identity_over
     ):
-        # Null identity selects the item-set derivation (sol round 1 P1).
+        # Null identity selects the item-set derivation.
         dataset_ref = _derive_dataset_ref_from_item_set(identity["item_set_root"])
         identity["dataset_ref"] = dataset_ref
 
@@ -910,7 +910,7 @@ def test_fully_verified_bundle_reaches_dataset_record_verified() -> None:
 
 
 def test_absent_leaf_lists_abstain_ds3_only() -> None:
-    """Test 2. Regression guard for sol's over-abstention finding: DS4 and
+    """Test 2. Regression guard for a reviewer's over-abstention finding: DS4 and
     DS5 must remain issuer_verified, DS2 degrades to client_declared, only
     DS3 abstains."""
     built = _build(include_leaf_lists=False)
@@ -953,7 +953,7 @@ def test_dataset_commitment_ref_differing_from_the_caller_pin_fails() -> None:
 
 
 def test_two_builds_of_one_dataset_have_different_commitment_refs_but_one_identity_root() -> None:
-    """Test 6. Pins sol's P1: per-build blinds differ by construction, so
+    """Test 6. Pins a reviewer's P1: per-build blinds differ by construction, so
     DS1 must rest on dataset_identity_root, never on dataset_commitment_ref
     equality. A future 'simplification' that reads DS1 off
     dataset_commitment_ref fails here."""
@@ -1189,7 +1189,7 @@ def test_ds3_without_a_leaf_generation_attestation_is_client_declared_not_issuer
 
 
 def test_corpora_in_one_scope_with_different_blind_commitments_fail() -> None:
-    """Test 22. The 'disjoint tokens under two different blinds' attack sol
+    """Test 22. The 'disjoint tokens under two different blinds' attack a reviewer
     named -- an attestation whose own recomputed digest still matches, but
     whose declared corpus_ref no longer derives from the (tampered) scope
     binding, is caught by REF_NOT_DERIVED."""
@@ -1295,7 +1295,7 @@ def built_corpus_placeholder() -> str:
 
 
 def test_training_and_prior_output_contamination_verify_with_signed_corpus_descriptors() -> None:
-    """Positive control for the Tier-C issuer contract (F3, sol round-3 P2-1).
+    """Positive control for the Tier-C issuer contract.
 
     Test 25 proves the verifier REJECTS a Tier-C finding whose basis is
     wrong. It does not prove a conformant issuer can satisfy the tightened
@@ -1384,7 +1384,7 @@ def test_leaf_list_whose_length_disagrees_with_leaf_count_fails() -> None:
 
 
 def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() -> None:
-    """Test 28b (astra round 5 F1, executed and confirmed on head 876ee3f;
+    """Test 28b (review round 5 F1, executed and confirmed on head 876ee3f;
     relocated and re-scoped per T3 round 6 P2/P3-1).
 
     ``_check_leaf_list_digests`` built ``declared_by_ref`` with a dict
@@ -1419,7 +1419,7 @@ def test_duplicate_corpus_ref_descriptor_hides_a_contradictory_signed_count() ->
 def test_duplicate_corpus_ref_descriptor_rejected_without_any_leaf_lists_supplied() -> None:
     """Test 28b-2 (T3 round 6 P2, team-lead REVISE on 8494b06).
 
-    Reviewer probe, confirmed by captain-1 against 8494b06: a relying party
+    Reviewer probe, confirmed by an independent reviewer against 8494b06: a relying party
     holding NO leaf lists at all still reached
     ``DATASET_RECORD_VERIFIED_CLAIMS_PARTIAL`` on a bundle carrying two
     signed ``leaf_list_digests`` descriptors for one ``corpus_ref`` (leaf
@@ -1504,7 +1504,7 @@ def test_duplicate_attestation_corpus_ref_verdict_agrees_across_both_caller_mode
 
 
 def test_cross_list_leaf_count_disagreement_rejected_in_both_caller_modes() -> None:
-    """Test 28e (T3 round 9, captain-1 executing astra's predicted fifth
+    """Test 28e (T3 round 9, a reviewer executing a reviewer's predicted fifth
     bypass). ``corpus_a_ref`` legitimately appears in both signed lists --
     ``leakage_report.leaf_list_digests`` and
     ``leaf_generation_attestation.corpora`` -- the ordinary, expected shape
@@ -1547,7 +1547,7 @@ def test_cross_list_leaf_count_disagreement_rejected_in_both_caller_modes() -> N
 
 
 def test_orphaned_leakage_report_attestation_digest_fails_when_attestation_absent() -> None:
-    """Test 28c (astra round 5 F2, executed and confirmed on head 876ee3f).
+    """Test 28c.
 
     ``_check_leaf_generation_attestation``'s ``attestation is None`` branch
     checked only ``unsigned_manifest.leaf_generation_attestation_digest`` --
@@ -1636,7 +1636,7 @@ def _redigest_prereg_signature(built: _Built) -> None:
 
 
 def test_prereg_signed_by_a_different_key_fails() -> None:
-    """Test 33, repaired for astra's test-assurance finding.
+    """Test 33, repaired for a reviewer's test-assurance finding.
 
     The plan is genuinely signed by an impostor key over this exact plan's
     own canonical preimage, and every digest binding around that signature
@@ -1739,7 +1739,7 @@ def test_report_citing_a_policy_field_absent_from_the_plan_coverage_fails() -> N
 def test_each_of_the_nine_added_policy_fields_is_contained(
     field: str, new_value: object, expected_code: str
 ) -> None:
-    """Test 37, rewritten after sol round 1 P1 on policy completeness.
+    """Test 37, rewritten after review round 1 P1 on policy completeness.
 
     All nine now have a report-side echo (``efficiency_report.applied_policy``)
     inside the signed report digest, so each is a REAL plan-vs-report
@@ -1747,7 +1747,7 @@ def test_each_of_the_nine_added_policy_fields_is_contained(
     digest and signature legitimately recomputed around the edit, fails
     containment. The previous version asserted only that editing the PLAN
     changed the plan's own digest for four of these fields -- a restatement
-    of SHA-256, not a containment check, which is precisely what sol
+    of SHA-256, not a containment check, which is precisely what a reviewer
     flagged. The two weightings are schema consts, so a divergent echo is
     unrepresentable rather than merely rejected; that difference is the
     parametrised ``expected_code``, not an exemption.
@@ -2334,7 +2334,7 @@ def _sentinel_item_tags(field: str, count: int) -> list[str]:
 
 
 def test_item_content_sentinel_never_reaches_the_record() -> None:
-    """Test 67, repaired for astra's test-assurance finding.
+    """Test 67, repaired for a reviewer's test-assurance finding.
 
     The sentinel-bearing item content is now the ACTUAL preimage of the
     record's committed item leaves: ``_build(item_leaf_tags=...)`` derives
@@ -2366,7 +2366,7 @@ def test_item_content_sentinel_never_reaches_the_record() -> None:
 
 
 def test_reference_answer_sentinel_never_reaches_the_record() -> None:
-    """Test 68, repaired for astra's test-assurance finding. This is the
+    """Test 68, repaired for a reviewer's test-assurance finding. This is the
     field customers most fear leaking, and, as with test 67, the sentinel now
     reaches the record's committed leaves as their real preimage rather than
     sitting in a local variable the bundle never saw.
@@ -2687,7 +2687,7 @@ class _DirTraversable:
 
 
 # ---------------------------------------------------------------------------
-# Round-2 controls: the ten findings from sol's first review of this packet.
+# Round-2 controls: the ten findings from a reviewer's first review of this packet.
 # Every test below fails on the pre-review verifier for the reason named in
 # its docstring; none of them is satisfied by a shape check alone.
 # ---------------------------------------------------------------------------
@@ -2744,7 +2744,7 @@ def _declared_ds3_row(built: _Built) -> dict[str, Any]:
 
 
 def test_a_record_under_a_leakage_scope_the_caller_did_not_pin_fails() -> None:
-    """Test 87 (sol P1(a)). The record is internally perfect -- every corpus
+    """Test 87. The record is internally perfect -- every corpus
     ref derives, the attestation matches, the report's own scope ref agrees
     with the identity's -- but the whole thing describes a DIFFERENT leakage
     scope than the one the relying party asked about. Before this check the
@@ -2762,13 +2762,13 @@ def test_a_record_under_a_leakage_scope_the_caller_did_not_pin_fails() -> None:
 
 
 def test_ds3_cannot_verify_when_a_relevant_corpus_list_was_never_supplied() -> None:
-    """Test 88 (sol P1(b), supply half). Both disjointness findings name
+    """Test 88. Both disjointness findings name
     corpus B, but no leaf list for B is supplied, so the intersection that IS
     the DS3 claim was never recomputed. The row must not read
     issuer_verified.
 
     The record itself still declares corpus B in ``leaf_list_digests`` and in
-    the attestation (astra P1: every finding ref must resolve to a signed,
+    the attestation (review P1: every finding ref must resolve to a signed,
     re-derived descriptor); only the CALLER'S fifth input withholds B, which
     is exactly the condition this test is named for."""
     built = _build(supply_corpus_b_leaf_list=False)
@@ -2784,7 +2784,7 @@ def test_ds3_cannot_verify_when_a_relevant_corpus_list_was_never_supplied() -> N
 
 
 def test_ds3_cannot_verify_when_a_relevant_corpus_is_supplied_but_unattested() -> None:
-    """Test 89 (sol P1(b), attestation half). Corpus B's list is supplied and
+    """Test 89. Corpus B's list is supplied and
     digest-checked, but the leaf-generation attestation does not cover B --
     so for B the three premises the attestation exists to close (common
     blind, real preimages, completeness) are exactly as open as they were
@@ -2800,7 +2800,7 @@ def test_ds3_cannot_verify_when_a_relevant_corpus_is_supplied_but_unattested() -
 
 
 def test_ds3_cannot_verify_with_no_disjointness_finding_to_verify() -> None:
-    """Test 90 (sol P1(b), the vacuous case). A record whose only leakage
+    """Test 90. A record whose only leakage
     finding is a near-duplicate screen makes no token-list disjointness
     statement at all. A DS3 row reading 'issuer_verified / pass' over that is
     a pass printed about nothing."""
@@ -2831,7 +2831,7 @@ def test_ds3_cannot_verify_with_no_disjointness_finding_to_verify() -> None:
 
 
 def test_a_corpus_attested_under_a_different_blind_fails() -> None:
-    """Test 91 (sol P2(g)). The common-blind premise is now per-corpus and
+    """Test 91. The common-blind premise is now per-corpus and
     therefore violable: one corpus entry names a different scope-blind
     commitment than the attestation it sits in. The previous check built a
     one-element set from the single top-level field and compared its length
@@ -2847,7 +2847,7 @@ def test_a_corpus_attested_under_a_different_blind_fails() -> None:
 
 
 def test_manifest_signature_algorithm_must_equal_the_signed_manifests_own() -> None:
-    """Test 92 (sol P2(i)). issuer_signature_algorithm is inside the
+    """Test 92. issuer_signature_algorithm is inside the
     manifest's coverage tuple, so the issuer SIGNS a statement about which
     primitive signed it. The signature block here still verifies -- the bytes
     are a real ed25519 signature over this exact manifest -- but the manifest
@@ -2871,13 +2871,13 @@ def test_manifest_signature_algorithm_must_equal_the_signed_manifests_own() -> N
 def test_a_support_row_must_name_the_verifier_and_evidence_actually_used(
     claim_id: str, mutation: str, expected_code: str
 ) -> None:
-    """Test 93 (sol P2(f)). Before this, only evidence_basis was read, so a
+    """Test 93. Before this, only evidence_basis was read, so a
     row could name any verifier in the enum and cite any digest -- including
     an artifact no check for that claim consumed -- and still print as
     support.
 
     ``extra_evidence_ref``'s expected code moved from
-    ``CLAIM_SUPPORT_ROW_MISMATCH`` to ``SCHEMA`` with astra's second-review
+    ``CLAIM_SUPPORT_ROW_MISMATCH`` to ``SCHEMA`` with a reviewer's second-review
     finding (F9): ``DatasetRecordClaimSupportRowV1.evidence_refs`` advertised
     ``maxItems: 4`` while the verifier accepted exactly one, so a second ref
     was schema-LEGAL and rejected only by this module. The schema now says
@@ -2909,7 +2909,7 @@ def test_a_support_row_must_name_the_verifier_and_evidence_actually_used(
 
 
 def test_a_client_declared_row_where_the_verifier_abstained_fails() -> None:
-    """Test 94 (sol P2(f), the branch the first draft never compared). With
+    """Test 94. With
     no leaf lists DS3 ABSTAINS; a row that instead records a signed client
     declaration asserts a declaration the verifier never saw, and only the
     issuer_verified branch was checked, so it passed."""
@@ -2930,7 +2930,7 @@ def test_an_abstained_row_must_carry_the_abstention_this_verifier_reached() -> N
 
 
 def test_null_identity_dataset_ref_is_derived_from_the_item_set_not_supplied() -> None:
-    """Test 95 (sol P1(e)). dataset_ref stays required when the customer
+    """Test 95. dataset_ref stays required when the customer
     declines the identity blind, so before this it was the one dsr: value in
     the contract that nothing derived -- a free 43-character channel in the
     exact field DatasetRefV1 exists to close."""
@@ -2985,7 +2985,7 @@ def test_the_two_dataset_ref_derivations_are_domain_separated() -> None:
     ],
 )
 def test_the_fifth_input_is_validated_against_its_own_contract_artifact(mutation: str) -> None:
-    """Test 96 (sol P1(d)). The item-set leaf list is now
+    """Test 96. The item-set leaf list is now
     DatasetItemSetLeafListV1 and every supplied list is validated against its
     definition before a single cell root is recomputed. Previously the
     category/stratum tags beside each leaf were untyped caller input on an
@@ -3022,11 +3022,11 @@ def test_the_fifth_input_is_validated_against_its_own_contract_artifact(mutation
 
 
 def test_fail_from_inside_a_handler_carries_no_suppressed_context() -> None:
-    """Test 97 (sol P2(j), the general case). ``raise ... from None`` sets
+    """Test 97. ``raise ... from None`` sets
     __suppress_context__ and leaves __context__ populated, so the suppressed
     exception object -- and anything it was built from -- stays reachable on
     the escaping error. Every _fail() reachable from an except block had this
-    shape, not only the catch-all sol named."""
+    shape, not only the catch-all a reviewer named."""
     with pytest.raises(DatasetRecordVerificationError) as exc_info:
         try:
             raise ValueError(f"canonicalization of {SENTINEL} failed")
@@ -3060,7 +3060,7 @@ class _ExplodingLeafLists(Mapping):
 
 
 def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> None:
-    """Test 98 (sol P2(j), the case sol named). The generic
+    """Test 98. The generic
     VERIFICATION_FAILED is classified inside the handler and raised outside
     it, so the suppressed exception is not merely suppressed -- it is not
     there."""
@@ -3081,14 +3081,14 @@ def test_a_hostile_fifth_input_cannot_reach_the_generic_failures_context() -> No
 
 
 # ---------------------------------------------------------------------------
-# Round-3 controls: the three findings from sol's second review of this
-# packet (packet report pillar2-round2-sol-review-impl.txt). Every test below
+# Round-3 controls: the three findings from a reviewer's second review of this
+# packet. Every test below
 # fails on the pre-review verifier for the reason named in its docstring.
 # ---------------------------------------------------------------------------
 
 
 def test_a_support_row_evidence_ref_may_not_carry_the_optional_v0_locator() -> None:
-    """Test 99 (sol round 2 finding 1, P1). ``EvidenceRefV0`` admits an
+    """Test 99. ``EvidenceRefV0`` admits an
     OPTIONAL third key, ``evidence_ref`` -- a linkability/content channel by
     that type's own description in certificate_evidence_refs_v0_schema.json.
     Nothing forbade a Dataset Record support row from carrying it alongside
@@ -3112,7 +3112,7 @@ def test_a_support_row_evidence_ref_may_not_carry_the_optional_v0_locator() -> N
 
 
 def test_issuer_verified_row_must_name_the_pinned_verifier_version() -> None:
-    """Test 100 (sol round 2 finding 2, P2). The schema requires
+    """Test 100. The schema requires
     ``verifier_version`` on every issuer_verified row (a BoundedSemver
     token), but nothing in this module ever read or compared it -- any
     syntactically-valid version string passed, including one naming a
@@ -3182,7 +3182,7 @@ def _shrink_corpus_a(built: _Built, keep: int) -> None:
 
 
 def test_ds2_declines_issuer_verified_when_the_item_set_leaf_list_is_oversized() -> None:
-    """Test 101 (sol round 2 finding 3a, P2). Above ``_MAX_LEAF_LIST``,
+    """Test 101. Above ``_MAX_LEAF_LIST``,
     ``_check_leaf_list_input`` deliberately never schema-projects a supplied
     leaf list (the cap is answered by DS3's abstention, not a hard shape
     failure) -- but DS2's upgrade path, ``_check_cell_roots``, read the
@@ -3232,7 +3232,7 @@ def test_ds2_declines_issuer_verified_when_the_item_set_leaf_list_is_oversized()
 
 
 def test_ds3_reaches_issuer_verified_despite_an_oversized_irrelevant_leaf_list() -> None:
-    """Test 102 (sol round 2 finding 3b, P2). DS3's abstention inspected
+    """Test 102. DS3's abstention inspected
     EVERY key in the supplied ``leaf_lists`` -- including the reserved
     item-set key, which is never a member of ``_ds3_relevant_corpus_refs``
     (a ``dsr:`` ref can never equal a finding's ``cpr:`` corpus ref) --
@@ -3293,7 +3293,7 @@ def test_ds3_reaches_issuer_verified_despite_an_oversized_irrelevant_leaf_list()
 
 
 # ---------------------------------------------------------------------------
-# Round-4 controls: astra's independent review of this packet (F1-F9). Every
+# Round-4 controls: a reviewer's independent review of this packet (F1-F9). Every
 # test below FAILS on 6f56bb35b for the reason named in its docstring, with
 # the record fully re-signed AROUND the mutation unless the docstring says
 # otherwise and says why.
@@ -3319,7 +3319,7 @@ def _redigest_composition(built: _Built) -> None:
 
 
 def test_ds3_cannot_verify_without_a_positive_recomputed_disjointness_assertion() -> None:
-    """F1a (astra P1). DS3's upgrade rested on COVERAGE -- every corpus its
+    """F1a. DS3's upgrade rested on COVERAGE -- every corpus its
     findings name supplied, digest-checked and attested -- which is not its
     claim. Here the ``split_disjointness`` finding is simply dropped: the
     record then makes no disjointness assertion at all about the pair, every
@@ -3359,7 +3359,7 @@ def test_ds3_cannot_verify_without_a_positive_recomputed_disjointness_assertion(
 
 
 def test_a_split_disjointness_findings_own_overlap_count_is_recomputed() -> None:
-    """F1b (astra P1, second half). ``overlap_count`` is a required member of
+    """F1b. ``overlap_count`` is a required member of
     EVERY finding, but its recomputation was guarded on
     ``declared_corpus_overlap`` -- so the number a ``split_disjointness``
     finding published was one nothing reproduced. The two corpora here are
@@ -3381,7 +3381,7 @@ def test_a_split_disjointness_findings_own_overlap_count_is_recomputed() -> None
 
 
 def test_a_caller_prereg_pin_binds_at_every_declared_evidence_grade() -> None:
-    """F2 (astra P1). ``expected_prereg_digest`` was consulted only inside
+    """F2. ``expected_prereg_digest`` was consulted only inside
     the ``caller_pinned_before_results`` branch, so an issuer holding a
     different signed plan simply declared the WEAKER
     ``digest_bound_attestation`` grade and the substituted plan verified with
@@ -3415,7 +3415,7 @@ def test_a_caller_prereg_pin_binds_at_every_declared_evidence_grade() -> None:
 
 
 def test_a_finding_ref_that_resolves_to_no_signed_corpus_descriptor_fails() -> None:
-    """F3 (astra P1). A finding's ``corpus_a_ref``/``corpus_b_ref`` are
+    """F3. A finding's ``corpus_a_ref``/``corpus_b_ref`` are
     43-character pattern-conformant strings inside the signed leakage report
     and nothing re-derived them: ``_check_derived_refs`` examines the
     attestation and any SUPPLIED leaf list, never a finding's own refs. So an
@@ -3480,7 +3480,7 @@ def test_a_leaf_list_descriptor_must_derive_its_ref_from_its_own_digest() -> Non
 
 
 def test_an_included_attestation_is_authenticated_even_with_no_leaf_lists() -> None:
-    """F4a (astra P1). With no leaf lists supplied, ``bool(leaf_lists) and``
+    """F4a. With no leaf lists supplied, ``bool(leaf_lists) and``
     short-circuited ``_check_leaf_generation_attestation`` away entirely, so
     an attested ``leaf_count`` could be altered without updating a single
     digest or signature and the partial bundle stayed acceptable.
@@ -3558,7 +3558,7 @@ def test_the_manifests_attestation_digest_is_reconciled_with_no_leaf_lists() -> 
 
 
 def test_an_efficiency_report_naming_a_different_signed_plan_fails() -> None:
-    """F5 (astra P2). ``efficiency_report.prereg_digest`` is the report's own
+    """F5. ``efficiency_report.prereg_digest`` is the report's own
     statement of which plan produced it, and containment never compared it
     with the verified plan -- so the record could read "computed under plan
     X" while every containment comparison ran against plan Y.
@@ -3579,7 +3579,7 @@ def test_an_efficiency_report_naming_a_different_signed_plan_fails() -> None:
 
 
 def test_manifest_registry_identity_is_compared_as_a_whole_object() -> None:
-    """F6a (astra P2, manifest half). Only the two digest FIELDS were
+    """F6a. Only the two digest FIELDS were
     compared, so the ``*_id`` and ``*_version`` members beside them were
     manifest-supplied values nothing read.
 
@@ -3628,7 +3628,7 @@ def test_manifest_registry_identity_is_compared_as_a_whole_object() -> None:
 def test_a_report_registry_identity_contradicting_the_manifest_fails(
     target: str, code: str
 ) -> None:
-    """F6b (astra P2, report half -- the reachable one). Only MANIFEST
+    """F6b. Only MANIFEST
     registry digests were checked, so a re-signed composition could name a
     different ``taxonomy_digest``, or a re-signed leakage report a different
     ``registry_digest``, while verification went on using the installed
@@ -3665,7 +3665,7 @@ def test_a_report_registry_identity_contradicting_the_manifest_fails(
 
 
 def test_a_client_attested_attestation_corpus_is_schema_rejected() -> None:
-    """F7 (astra P2). ``DatasetLeafGenerationAttestationV1``'s corpus entry
+    """F7. ``DatasetLeafGenerationAttestationV1``'s corpus entry
     carried ``const: backend_observed`` as a SIBLING of ``$ref`` -- and
     draft-07 ignores a keyword sitting beside ``$ref``, so the restriction
     validated nothing and a corpus entry could carry ``client_attested``.
@@ -3692,7 +3692,7 @@ def test_a_client_attested_attestation_corpus_is_schema_rejected() -> None:
 
 
 def test_more_uninformative_items_than_the_dataset_has_items_fails() -> None:
-    """F8 (astra P2). Only ``inert_item_count`` received the
+    """F8. Only ``inert_item_count`` received the
     dataset-relative bound check, so a 60-item dataset could report
     ``uninformative_item_count = 61``. The schema's own 0..1_000_000 bound is
     dataset-INDEPENDENT and cannot express this -- it is the same defect the
@@ -3714,7 +3714,7 @@ def test_more_uninformative_items_than_the_dataset_has_items_fails() -> None:
 
 
 def test_a_second_evidence_ref_is_rejected_at_schema_validation() -> None:
-    """F9 (astra's second review). The schema advertised
+    """F9. The schema advertised
     ``evidence_refs.maxItems: 4`` while ``_check_support_rows`` accepts
     exactly one, so a producer following the schema could emit a record no
     relying party could verify -- a live compatibility defect. Closed by
@@ -3786,7 +3786,7 @@ def test_a_support_row_with_two_evidence_refs_is_rejected_directly() -> None:
 
 
 def test_six_claim_support_rows_with_the_id_set_preserved_is_schema_rejected() -> None:
-    """T3 round 8 P1-1 (sol round 2, captain-1 probe). The sweep table
+    """T3 round 8 P1-1. The sweep table
     previously claimed ``claim_support_rows`` is foreclosed because a
     duplicate ``claim_id`` collapses ``by_id`` and therefore drops a
     required id, which ``set(by_id) != set(_CLAIM_IDS)`` catches. That is
@@ -3812,9 +3812,9 @@ def test_six_claim_support_rows_with_the_id_set_preserved_is_schema_rejected() -
 
 
 def test_two_evidence_refs_on_one_support_row_is_schema_rejected() -> None:
-    """T3 round 8 P1-2 (sol round 2, captain-1 probe). Pinned alongside the
+    """T3 round 8 P1-2. Pinned alongside the
     ``claim_support_rows`` sixth-row regression above so both mechanisms
-    captain-1 hand-verified are regression-tested rather than folklore.
+    a reviewer hand-verified are regression-tested rather than folklore.
     Same fixture shape as
     ``test_a_second_evidence_ref_is_rejected_at_schema_validation``: the
     schema's ``evidence_refs.maxItems: 1`` rejects a two-ref row before

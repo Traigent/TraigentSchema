@@ -310,7 +310,7 @@ def test_edge_case_vectors_pin_the_frozen_behaviour() -> None:
 
 
 def test_publish_request_refusal_wording_does_not_promise_more_than_the_backend_does() -> None:
-    """The ingress "no echo" promise covers exactly what is implemented (sol F1c P3).
+    """The ingress "no echo" promise covers exactly what is implemented.
 
     The collision detector's own message is fixed; the protected path maps every refusal
     to the closed ``head_body_invalid`` response; the legacy path keeps its legacy

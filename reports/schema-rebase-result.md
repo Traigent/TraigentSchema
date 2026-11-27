@@ -49,7 +49,7 @@ The integration commit is:
 merge(schema): integrate develop contract gates into EvidenceCase
 ```
 
-It preserves the existing Spine-Trail claim: `st_21bd5a6dad95`.
+It preserves the existing Spine-Trail claim.
 
 ## Merge and generated artifacts
 
@@ -70,14 +70,14 @@ current `origin/develop` ref, then the reachability report was regenerated:
 
 ```bash
 for repo in Traigent TraigentBackend TraigentFrontend traigent-js traigent-smartopt; do
-  git -C /home/nimrod/TraigentProjects/$repo fetch origin develop
+  git -C <workspace>/$repo fetch origin develop
 done
 python3 scripts/refresh_consumer_schema_references.py \
-  --repo Traigent=/home/nimrod/TraigentProjects/Traigent \
-  --repo TraigentBackend=/home/nimrod/TraigentProjects/TraigentBackend \
-  --repo TraigentFrontend=/home/nimrod/TraigentProjects/TraigentFrontend \
-  --repo traigent-js=/home/nimrod/TraigentProjects/traigent-js \
-  --repo traigent-smartopt=/home/nimrod/TraigentProjects/traigent-smartopt
+  --repo Traigent=<workspace>/Traigent \
+  --repo TraigentBackend=<workspace>/TraigentBackend \
+  --repo TraigentFrontend=<workspace>/TraigentFrontend \
+  --repo traigent-js=<workspace>/traigent-js \
+  --repo traigent-smartopt=<workspace>/traigent-smartopt
 python3 scripts/schema_reachability.py --update
 python3 scripts/schema_reachability.py --check
 ```
@@ -192,8 +192,8 @@ Results:
 
   ```bash
   TRAIGENT_SCHEMA_REPO="$PWD" \
-    /home/nimrod/TraigentProjects/Traigent/.venv/bin/python \
-    /home/nimrod/TraigentProjects/core_project/develop/Traigent/scripts/generate_schema_types.py \
+    <workspace>/Traigent/.venv/bin/python \
+    <workspace>/Traigent/scripts/generate_schema_types.py \
     --check
   ```
 

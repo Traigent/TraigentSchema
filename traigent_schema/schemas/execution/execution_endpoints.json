@@ -418,6 +418,9 @@
           "404": {
             "$ref": "#/components/responses/GroupsNotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/GroupsConflict"
+          },
           "413": {
             "$ref": "#/components/responses/GroupsPayloadTooLarge"
           },
@@ -2655,6 +2658,76 @@
                 "maxLength": 32
               }
             }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "title",
+              "status",
+              "code",
+              "detail",
+              "problem_id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "urn:traigent:problem:idempotency_conflict"
+              },
+              "title": {
+                "const": "Conflict"
+              },
+              "status": {
+                "const": 409
+              },
+              "code": {
+                "const": "idempotency_conflict"
+              },
+              "detail": {
+                "const": "The idempotency key was already used with a different request."
+              },
+              "problem_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "minLength": 32,
+                "maxLength": 32
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "title",
+              "status",
+              "code",
+              "detail",
+              "problem_id"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "urn:traigent:problem:idempotency_in_progress"
+              },
+              "title": {
+                "const": "Conflict"
+              },
+              "status": {
+                "const": 409
+              },
+              "code": {
+                "const": "idempotency_in_progress"
+              },
+              "detail": {
+                "const": "A request with this idempotency key is still being processed."
+              },
+              "problem_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "minLength": 32,
+                "maxLength": 32
+              }
+            }
           }
         ]
       }
@@ -2742,6 +2815,16 @@
       },
       "GroupsInternalError": {
         "description": "An unhandled failure; closed problem, no detail",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/GroupsProblem"
+            }
+          }
+        }
+      },
+      "GroupsConflict": {
+        "description": "The idempotency key was reused with a different request, or a request with the same key is still in progress (closed problem)",
         "content": {
           "application/problem+json": {
             "schema": {

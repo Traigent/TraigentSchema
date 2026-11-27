@@ -965,3 +965,39 @@ def test_fragment_name_with_a_newline_gets_a_filename_diagnostic(
     commit_all(root)
     assert run(root, "--version", "1.1.0", "--date", "2026-02-02") == 2
     assert "contains an unsafe character" in capsys.readouterr().err
+
+
+def test_missing_committed_object_refuses(root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    a = frag(root, "a.added.md", "- unique text for a loose object\n")
+    commit_all(root)
+    blob = subprocess.run(
+        [*GIT, "-C", str(root), "hash-object", str(a)], capture_output=True, check=True
+    ).stdout.decode().strip()
+    loose = root / ".git" / "objects" / blob[:2] / blob[2:]
+    if not loose.exists():
+        pytest.skip("object is packed")
+    loose.chmod(0o644)
+    loose.unlink()
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 2
+    assert "is not readable at HEAD" in capsys.readouterr().err
+    assert a.exists()
+
+
+@pytest.mark.parametrize("echo", [b"--show-object-format\n", b"\n"])
+def test_old_git_object_format_response_falls_back_to_sha1(
+    root: Path, monkeypatch: pytest.MonkeyPatch, echo: bytes
+) -> None:
+    def fake(argv: object, **_k: object) -> object:
+        return subprocess.CompletedProcess(argv, 0, echo, b"")  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cc.subprocess, "run", fake)
+    assert cc._hash_function(root) == "sha1"
+
+
+def test_unexpected_object_format_still_refuses(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake(argv: object, **_k: object) -> object:
+        return subprocess.CompletedProcess(argv, 0, b"md5\n", b"")  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cc.subprocess, "run", fake)
+    with pytest.raises(cc.ChangelogError):
+        cc._hash_function(root)

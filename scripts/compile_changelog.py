@@ -8,6 +8,8 @@ Fragments are named ``<slug>.<type>.md`` (see ``changelog.d/README.md``).
 
 Exit codes: 0 success; 1 write, durability or delete failure after validation;
 2 validation or usage error.
+
+git is resolved through PATH and is run from the repository root.
 """
 
 from __future__ import annotations
@@ -95,6 +97,7 @@ _GIT_ARGV: dict[str, tuple[str, ...]] = {
         "git", "status", "--porcelain=v1", "-z", "--untracked-files=all",
         "--ignored=matching", "--", FRAGMENTS_DIRNAME, CHANGELOG_NAME,
     ),
+    "batch": ("git", "cat-file", "--batch"),
     "tree": (
         "git", "ls-tree", "-r", "-z", "--full-tree", "HEAD", "--",
         FRAGMENTS_DIRNAME, CHANGELOG_NAME,
@@ -102,12 +105,14 @@ _GIT_ARGV: dict[str, tuple[str, ...]] = {
 }
 
 
-def _git(root: Path, op: str) -> subprocess.CompletedProcess[bytes]:
-    """Run one operation of the closed git table in ``root``."""
+def _git(root: Path, op: str, stdin: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
+    """Run one operation of the closed git table in ``root``; ``stdin`` is data, not argv."""
     argv = _GIT_ARGV.get(op)
     if argv is None:
         raise ChangelogError("unknown git operation")
-    return subprocess.run(argv, cwd=root, capture_output=True, check=False, shell=False)  # noqa: S603
+    return subprocess.run(  # noqa: S603
+        argv, cwd=root, capture_output=True, check=False, shell=False, input=stdin
+    )
 
 
 def _hash_function(root: Path) -> str:
@@ -116,6 +121,8 @@ def _hash_function(root: Path) -> str:
     if result.returncode != 0:
         return "sha1"  # git older than --show-object-format only knows sha1
     name = result.stdout.decode().strip()
+    if name in ("", "--show-object-format"):
+        return "sha1"  # an old git echoes the unknown flag and exits 0
     if name not in ("sha1", "sha256"):
         raise ChangelogError(f"unsupported git object format {name!r}")
     return name
@@ -161,10 +168,11 @@ def _fragment_inputs(root: Path) -> list[str]:
 
 def _check_input_at_head(
     root: Path, rel: str, message: str, blobs: dict[str, str], algorithm: str
-) -> None:
+) -> tuple[str, str, bytes] | None:
+    """Return ``(rel, blob id, working-tree bytes)`` for a matching input."""
     path = root / rel
     if not path.is_file() or path.is_symlink():
-        return  # reported by the regular validation
+        return None  # reported by the regular validation
     if rel not in blobs:
         raise ChangelogError(f"{message} ({rel} is untracked or ignored)")
     try:
@@ -173,6 +181,30 @@ def _check_input_at_head(
         raise ChangelogError(f"cannot read {rel}: {exc.strerror or exc}") from None
     if _blob_id(algorithm, current) != blobs[rel]:
         raise ChangelogError(f"{message} ({rel} differs from HEAD)")
+    return rel, blobs[rel], current
+
+
+def _check_readable(root: Path, entries: list[tuple[str, str, bytes]], message: str) -> None:
+    """Require every committed blob to exist and to equal the working-tree bytes."""
+    if not entries:
+        return
+    stdin = b"".join(blob.encode() + b"\n" for _rel, blob, _data in entries)
+    result = _git(root, "batch", stdin)
+    out = result.stdout
+    pos = 0
+    for rel, blob, data in entries:
+        end = out.find(b"\n", pos)
+        fields = out[pos:end].split() if end >= 0 else []
+        if result.returncode != 0 or len(fields) != 3 or fields[0] != blob.encode() or fields[1] != b"blob":
+            raise ChangelogError(f"{message} ({rel} is not readable at HEAD)")
+        try:
+            size = int(fields[2])
+        except ValueError:
+            raise ChangelogError(f"{message} ({rel} is not readable at HEAD)") from None
+        start = end + 1
+        if size != len(data) or out[start : start + size] != data:
+            raise ChangelogError(f"{message} ({rel} differs from HEAD)")
+        pos = start + size + 1
 
 
 def require_clean_git(root: Path) -> None:
@@ -189,8 +221,11 @@ def require_clean_git(root: Path) -> None:
             raise ChangelogError(f"{message} (the repository root must be a git work tree)")
         algorithm = _hash_function(root)
         blobs = _head_blobs(root, message)
-        for rel in _fragment_inputs(root):
-            _check_input_at_head(root, rel, message, blobs, algorithm)
+        checked = [
+            entry for rel in _fragment_inputs(root)
+            if (entry := _check_input_at_head(root, rel, message, blobs, algorithm))
+        ]
+        _check_readable(root, checked, message)
         status = _git(root, "status")
     except OSError:
         raise ChangelogError(f"{message} (git is not available)") from None

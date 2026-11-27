@@ -11,7 +11,7 @@
       "post": {
         "operationId": "certification_process_record.prepare_process_record",
         "summary": "Check receipt readiness for a process record",
-        "description": "Reports the receipts currently visible for a build session. Send the build_session_ref as process_record_ref. The response echoes that reference. This probe does not reserve issuance.",
+        "description": "Reports the receipts currently visible for a build session. Send the build_session_ref as process_record_ref. The response echoes that reference. This probe does not reserve issuance. Until the build session is finalized, the reference does not yet resolve to an issuance and the call returns the declared 404 with code LINEAGE_UNMAPPED; finalize the build session first, then retry.",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -375,7 +375,7 @@
       "post": {
         "operationId": "certification_process_record.finalize_process_record",
         "summary": "Issue a process record certificate",
-        "description": "Issues and stores a signed certificate for the named build session. After an ambiguous failure, retrieve the record before retrying.",
+        "description": "Issues and stores a signed certificate for the named build session. After an ambiguous failure, retrieve the record before retrying. Until the build session is finalized, the reference does not yet resolve to an issuance and the call returns the declared 404 with code LINEAGE_UNMAPPED; finalize the build session first, then retry.",
         "x-asserted-against-backend": false,
         "parameters": [
           {
@@ -914,7 +914,7 @@
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordWriteForbidden"}}}
       },
       "NotFound": {
-        "description": "No accessible matching scope was found.",
+        "description": "No accessible matching scope was found. The code LINEAGE_UNMAPPED means the build session reference is valid but the build session is not yet finalized, so it does not resolve to an issuance; finalize the build session and retry.",
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordScopeNotFound"}}}
       },
       "InternalError": {
@@ -1626,7 +1626,7 @@
             "uniqueItems": true,
             "items": {"enum": ["primary_metrics", "secondary_metrics"]}
           },
-          "rule": {"enum": ["primary_when_present_otherwise_secondary", "undeclared"]}
+          "rule": {"description": "Primary metrics win when present. Present means a non-empty primary metric mapping; when the primary mapping is empty, the secondary metrics are used.", "enum": ["primary_when_present_otherwise_secondary", "undeclared"]}
         }
       },
       "FrontClaimMember": {

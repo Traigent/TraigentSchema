@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_validation_failed_error_schema.json",
+  "title": "Metric Validation Failed Error",
+  "description": "Closed metric validation failed error body for the metric endpoints: fixed code and message, no details, and nothing from the request is echoed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "error",
+    "error_code"
+  ],
+  "properties": {
+    "success": {
+      "const": false
+    },
+    "message": {
+      "const": "Validation failed"
+    },
+    "error": {
+      "const": "validation_failed"
+    },
+    "error_code": {
+      "const": "validation_failed"
+    }
+  }
+}

@@ -10,7 +10,7 @@ the schema pattern. These tests assert:
    MATCHES ``is_banned(cp)`` for every codepoint — i.e. the pattern is complete,
    not a hand-enumerated subset;
 3. the specific invisible/format controls that slipped past the hand-rolled
-   ranges (incl. sol's five escapees and the trailing-newline bypass) are
+   ranges are
    rejected, while visible RTL / international / emoji labels pass — verified
    through the actual ``PUT /api/v1/measures/{measure_id}`` request mapping.
 
@@ -90,7 +90,7 @@ def test_pattern_accept_reject_matches_category_predicate_exhaustively() -> None
 
 
 def test_sol_escapees_and_bypasses_rejected_through_put_mapping() -> None:
-    """sol's runtime escapees + the trailing-newline bypass, each rejected on the
+    """a reviewer's runtime escapees + the trailing-newline bypass, each rejected on the
     real PUT write path — both as the whole label and embedded."""
     v = SchemaValidator(contract="backend")
     escapees = {

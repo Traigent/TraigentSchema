@@ -89,12 +89,9 @@ OLD_DIALECT_BASE_ERROR = (
 SESSION_ID_PATTERN = "^(tv0_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 KEY_ID_PATTERN = "^[A-Za-z0-9_-]{22}$"
 BASE64URL_PATTERN = "^[A-Za-z0-9_-]+$"
-# ``<kind>ref_<32 lowercase hex>`` (Backend minting convention: ``_new_id(prefix)`` in
-# pillar_legend_service.py and ``opaque_ref`` in director/opaque_ref.py), with one kind or
-# a closed alternation of kinds.
+# ``<kind>ref_<32 lowercase hex>``, with one kind or a closed alternation of kinds.
 _KINDED_REF = re.compile(r"^\^(?:[a-z]+|\((?:[a-z]+\|)*[a-z]+\))ref_\[0-9a-f\]\{32\}\$$")
-# ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids
-# (enterprise_tenant.py, project.py).
+# ``tenant_<32 hex>`` / ``project_<32 hex>``: the Backend's default tenant and project ids.
 _PREFIXED_ID = re.compile(r"^\^(?:tenant|project)_\[0-9a-f\]\{32\}\$$")
 # Fixed-format tokens that are derived (keyed HMAC output, hash prefix, hex counter) rather
 # than chosen: they carry no customer text because the pattern admits none.
@@ -155,6 +152,7 @@ _FIXED_REF_PATTERNS = frozenset(
         "^[0-9a-f]{32}(?![\\s\\S])",  # per-request problem id (uuid4 hex) of a closed problem body
         # server-minted project id: random, tenant-derived default or personal-workspace form
         PROJECT_ID_PATTERN,
+        "^release_candidate_[0-9a-f]{32}$",  # server-minted release-candidate ref (bounded to 50 by the schema)
         # Fleet Observe: the signed pagination cursor (see CURSOR_PATTERN: accepted only at
         # CURSOR_LOCATIONS, checked in _check_cursor_site) and the 16-hex id of the customer-held
         # digest key (derived by HMAC, so it carries no text).

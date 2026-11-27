@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Traigent-Commercial
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
-"""C3-PR1c: the 33 unchanged analytics operations are declared once, with backend ids.
+"""The 33 unchanged analytics operations are declared once, with backend ids.
 
 The backend serves one blueprint (`src/routes/analytics_routes.py`) under three mounts
 (`analytics`, `legacy_analytics`, `project_analytics`). Eleven of its operations keep their
@@ -45,10 +45,28 @@ SUFFIXES = {
     "get_project_export_job": "/export-jobs/{job_id}",
 }
 
+# The first six reads moved to the project-scoped canonical path on the "analytics" family and
+# kept their operation ids; the other five stay under the original mount.
+MOVED_TO_PROJECT_PATH = {
+    "get_project_analytics_summary",
+    "get_project_pricing_catalog",
+    "get_project_optimization_overview_dashboard",
+    "get_project_evaluator_quality_dashboard",
+    "get_project_usage_dashboard",
+    "get_project_observability_summary_dashboard",
+}
+PROJECT_PREFIX = "/api/v1/projects/{project_id}/analytics"
+
+
+def _path(family: str, suffix: str) -> str:
+    prefix = PROJECT_PREFIX if family == "analytics" and suffix in MOVED_TO_PROJECT_PATH else FAMILIES[family]
+    return prefix + SUFFIXES[suffix]
+
+
 EXPECTED = sorted(
-    ("get", prefix + url, f"{family}.{suffix}")
-    for family, prefix in FAMILIES.items()
-    for suffix, url in SUFFIXES.items()
+    ("get", _path(family, suffix), f"{family}.{suffix}")
+    for family in FAMILIES
+    for suffix in SUFFIXES
 )
 
 # suffix -> response schema (envelope) stem
@@ -107,7 +125,7 @@ CATALOG = _load("analytics/analytics_endpoints.json")
 
 
 def _operation(family: str, suffix: str) -> dict:
-    return CATALOG["paths"][FAMILIES[family] + SUFFIXES[suffix]]["get"]
+    return CATALOG["paths"][_path(family, suffix)]["get"]
 
 
 def _all_cases():
@@ -162,16 +180,16 @@ def test_path_and_query_parameters_match_the_backend_query_models(family, suffix
     params = op["parameters"]
     path_names = {p["name"] for p in params if p["in"] == "path"}
     expected_path = set(PATH_PARAMS.get(suffix, set()))
-    if family == "project_analytics":
+    if "{project_id}" in _path(family, suffix):
         expected_path.add("project_id")
     assert path_names == expected_path
     assert all(p["required"] is True for p in params if p["in"] == "path")
-    assert ("{project_id}" in FAMILIES[family] + SUFFIXES[suffix]) == (
-        family == "project_analytics"
+    assert ("{project_id}" in _path(family, suffix)) == (
+        family == "project_analytics" or suffix in MOVED_TO_PROJECT_PATH and family == "analytics"
     )
     for p in params:
         if p["in"] == "path":
-            assert f"{{{p['name']}}}" in FAMILIES[family] + SUFFIXES[suffix]
+            assert f"{{{p['name']}}}" in _path(family, suffix)
 
     queries = {p["name"]: p for p in params if p["in"] == "query"}
     for name, (lo, hi, default) in BOUNDS.get(suffix, {}).items():

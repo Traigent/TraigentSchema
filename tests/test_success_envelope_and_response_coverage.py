@@ -50,7 +50,7 @@ DETAIL_GETS = {
     "execution/execution_endpoints.json": [
         "/api/v1/projects/{project_id}/experiments/{experiment_ref}",
         "/api/v1/experiment-runs/runs/{run_id}",
-        "/api/v1/configuration-runs/{config_run_id}",
+        "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}",
     ],
     "measures/measures_endpoints.json": ["/api/v1/measures/{measure_id}"],
 }
@@ -75,13 +75,13 @@ def test_detail_gets_use_the_resource_not_an_unrelated_response_schema():
     ref = agents["paths"]["/api/v1/projects/{project_id}/agents/{agent_ref}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     assert ref == "#/components/schemas/AgentDetailEnvelope", ref
     envelope = agents["components"]["schemas"]["AgentDetailEnvelope"]
-    assert envelope["properties"]["data"]["$ref"].endswith("agent_schema.json")
+    assert envelope["properties"]["data"]["$ref"] == "./agent_detail_schema.json"
     assert "data" in envelope["required"]
     # bare detail GETs reference the resource schema directly (the canonical experiment detail via
     # ExperimentRead, the resource with experiment_ref required)
     expected = {
         ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/experiments/{experiment_ref}"): "experiment_reads_schema.json#/definitions/ExperimentRead",
-        ("execution/execution_endpoints.json", "/api/v1/measures/{measure_id}".replace("measures", "configuration-runs").replace("measure_id", "config_run_id")): "configuration_run_schema.json",
+        ("execution/execution_endpoints.json", "/api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}"): "configuration_run_schema.json",
         ("measures/measures_endpoints.json", "/api/v1/measures/{measure_id}"): "measure_schema.json",
     }
     for (cat, path), stem in expected.items():
@@ -381,7 +381,7 @@ def test_example_set_read_responses_nest_pagination_under_data():
 
 # ---- #591 review: the analytics dashboard 200 must describe the WIRE body ----
 
-_OVERVIEW_V1 = "/api/v1/analytics/dashboards/optimization-overview"
+_OVERVIEW_V1 = "/api/v1/projects/{project_id}/analytics/dashboards/optimization-overview"
 _OVERVIEW_V1BETA = (
     "/api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview"
 )
@@ -457,7 +457,7 @@ def test_both_overview_mounts_declare_the_envelope_response():
     """One analytics handler serves both mounts, so both must declare the same body."""
     v1 = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1]["get"]
     # The planned catalog's path key is a path-item $ref to this same declaration
-    # (C3-PR1c); read the canonical item.
+    #; read the canonical item.
     v1beta = _load("analytics/analytics_endpoints.json")["paths"][_OVERVIEW_V1BETA]["get"]
 
     def ref(op):

@@ -6,6 +6,718 @@
     "description": "Canonical backend routes for example-scoring analytics, the terminal-first run-analytics surface (decision payload, Pareto, correlations, leaderboard, parameter insights, example insights) and the eleven unchanged project analytics reads and exports, declared once per mount: /api/v1/analytics, /api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics. Operation ids equal the backend register ids (analytics.*, legacy_analytics.*, project_analytics.*)."
   },
   "paths": {
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload": {
+      "get": {
+        "operationId": "experiment_run.get_run_decision_payload",
+        "summary": "Get the decision payload for one experiment run",
+        "description": "Pure read: returns the client-safe decision payload of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/decision-payload (and the legacy beta mounts of the same view). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 1 MiB; a payload that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Decision payload returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./run_decision_payload_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref (syntax is checked before any lookup).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The payload cannot be produced within its budget (over 1 MiB, over the computation limit, deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./decision_payload_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard": {
+      "get": {
+        "operationId": "experiment_run.get_run_leaderboard",
+        "summary": "Get the ranked configuration leaderboard of one experiment run, paginated",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the ranked configuration leaderboard of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/leaderboard. Query: limit (default 20, maximum 100; this replaces the backend's historical default 50 and maximum 200 of RunLeaderboardQuery, src/shared_infrastructure/schemas/run_analytics.py:86-91), cursor (opaque sealed string of at most 512 base64url characters), and the backend's own objective, weights, constraints and request_count (run_analytics.py:86-91); any other query parameter, including the retired page and offset, is rejected with the closed 400. Name policy: every measure name (weights and constraints keys, and stored metric names, wherever echoed in measures, ranking_basis, risk_flags and warnings) matches ^[^\\x00-\\x1f\\x7f]{1,128}$; a query key outside it is the closed 400 (no echo) and a stored metric name outside it is the closed 503 for the run, never truncated. Weights: each weight is a number in [0, 1000]; a negative or larger weight is the closed 400, which replaces the builder's silent exclusion of negative weights; the composite score is computed over the weights normalized to sum to 1, so it is finite. When weights is given at least one weight must be greater than 0: all-zero weights (for example {\"accuracy\": 0}) are the closed 400 with no echo, and omitting weights keeps the default objective path. Each measure's min-max normalization is computed without overflow (values scaled by the largest absolute finite value before subtracting, or an equivalent exact method), so equal values score equal; the composite is a convex combination of normalized terms in [0, 1]. The ranking sorts by the unrounded binary64 composite; equal composites are ordered by the raw values of the weighted measures in descending weight order, ties between equal weights broken by measure name ascending (lexicographic), each compared in that measure's better direction, with a missing raw value ordered after any present value at that step; any remaining tie is broken by ascending trial_ref (lexicographic). Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The ranking is computed over the full eligible population and then paginated, ordered by non-disqualified first, descending UNROUNDED composite_score (the displayed composite_score may be rounded), with ranks assigned after that order, so rank is a unique position across all pages; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any ranking-relevant configuration or metric write, read from the SAME snapshot as the ranked rows), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and label (internal id and its fallback), uses the shared persisted trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; default 20, maximum 100. 0, 101, booleans and non-integers are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (objective, weights, constraints, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision (a per-run monotonic counter).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,512}$",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "objective",
+            "in": "query",
+            "required": false,
+            "description": "Ranking objective (backend LeaderboardObjective, run_analytics.py:64-68): weighted (default) uses weights, the others rank by the resolved quality, cost or latency axis. An unknown value is the closed 400.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "weighted",
+                "quality",
+                "cost",
+                "latency"
+              ],
+              "default": "weighted"
+            }
+          },
+          {
+            "name": "weights",
+            "in": "query",
+            "required": false,
+            "description": "JSON-object string of measure name to weight (at most 50 keys; keys match ^[^\\x00-\\x1f\\x7f]{1,128}$, otherwise the closed 400 with no echo; backend _parse_numeric_map, run_analytics.py:24-56). Each weight is a number in [0, 1000]; a negative or larger weight is the closed 400 (replacing the builder's silent exclusion of negative weights); zero weights are dropped, but at least one weight must be greater than 0 (all-zero, e.g. {\"accuracy\": 0}, is the closed 400 with no echo; omit weights for the default objective path); the composite is computed over weights normalized to sum to 1. At most 8192 characters on the wire.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          {
+            "name": "constraints",
+            "in": "query",
+            "required": false,
+            "description": "JSON-object string of measure name to finite upper bound (at most 50 keys, keys match ^[^\\x00-\\x1f\\x7f]{1,128}$, otherwise the closed 400 with no echo); a configuration above a bound, or missing the measure, is disqualified and ranked after all the others. At most 8192 characters on the wire.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "description": "Backend RunLeaderboardQuery.request_count (1 to 1000000, default 1); display-only, the composite score does not use it (run_analytics_service.py:1727, 'no request_count in composite').",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the run's leaderboard returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_leaderboard_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, limit, cursor, objective, weights (including a weight outside [0, 1000] or all weights zero), constraints or request_count, a measure name outside the name policy, a cursor that does not belong to this caller, run and query, or an unknown or retired query parameter (page, offset and others); syntax is checked before any lookup and no value is echoed. A cursor whose analysis_revision no longer matches is the closed invalid_cursor 400.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "./leaderboard_problem_schema.json#/definitions/BadRequestProblem"
+                    },
+                    {
+                      "$ref": "./leaderboard_problem_schema.json#/definitions/InvalidCursorProblem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The leaderboard cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted), a configuration's trial_ref is not yet issued, a stored metric name is outside the name policy, or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./leaderboard_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto": {
+      "get": {
+        "operationId": "experiment_run.get_run_pareto",
+        "summary": "Get the Pareto analysis of one experiment run, paginated",
+        "description": "Pure read: returns one cursor page (items plus pagination) of the Pareto frontier analysis of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/pareto. Query: limit (default 20, maximum 100), cursor (opaque sealed string of at most 512 base64url characters), x_measure, y_measure, request_count; any other query parameter, including the retired page and offset, is rejected with the closed 400. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref, limit, cursor and the other query syntax (400 before any lookup, echoing no value), then resolve the reference under that project and enforce grants on every page. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The frontier, knee and shape are computed over the full population and then paginated; the cap of 10000 counts ALL the run's scoped configuration rows before any metric processing (above it the closed 503); frontier ties are broken by ascending trial_ref (lexicographic) before ranks are assigned and dominated entries are ordered by ascending trial_ref (lexicographic); the cursor seals caller, project, run, query and analysis_revision (a per-run monotonic counter the backend increments in the same transaction as any insert, update or delete of the run's configuration rows or their metrics), and a stale or foreign cursor is the closed 400 invalid_cursor; pagination.total is a required integer. The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits config_id and project_id (internal ids), uses the opaque run-scoped trial_ref (experiment_run_trial_ref_schema.json) instead, and data.run_id is the experiment_run_ref. The builder never writes, creates jobs or calls providers. A run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}$ (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; default 20, maximum 100. 0, 101, booleans and non-integers are rejected.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque sealed next_cursor of the previous page, bound to the caller, project, run and query (x_measure, y_measure, request_count); at most 512 characters of base64url. Never a raw primary key. The seal also carries the analysis_revision.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,512}$",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "x_measure",
+            "in": "query",
+            "required": false,
+            "description": "Measure or axis alias (quality, cost, latency) on the x axis (backend RunParetoQuery, src/shared_infrastructure/schemas/run_analytics.py:71-76). Control characters (U+0000-U+001F, U+007F) are rejected with the closed 400.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "cost",
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}$"
+            }
+          },
+          {
+            "name": "y_measure",
+            "in": "query",
+            "required": false,
+            "description": "Measure or axis alias on the y axis. Control characters (U+0000-U+001F, U+007F) are rejected with the closed 400.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "default": "quality",
+              "pattern": "^[^\\x00-\\x1f\\x7f]{1,100}$"
+            }
+          },
+          {
+            "name": "request_count",
+            "in": "query",
+            "required": false,
+            "description": "Display-only multiplier applied to the cost axis (1 to 1000000).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the run's Pareto analysis returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_pareto_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, limit or request_count, an x_measure or y_measure containing control characters, or an unknown or retired query parameter (page, offset and others); syntax is checked before any lookup and no value is echoed. Any invalid or stale cursor (malformed, over-long, not this caller's, project's, run's or query's, or whose analysis_revision no longer matches) is the closed invalid_cursor 400.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "./pareto_problem_schema.json#/definitions/BadRequestProblem"
+                    },
+                    {
+                      "$ref": "./pareto_problem_schema.json#/definitions/InvalidCursorProblem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Pareto analysis cannot be produced within its budget (the serialized envelope is over 1 MiB, more than 10000 scoped configuration rows, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success. A stored metric name outside the shared name class ^[^\\x00-\\x1f\\x7f]{1,100}$ (control characters, empty or over 100 characters) makes the run's response the closed 503, never truncated or sanitized.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./pareto_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations": {
+      "get": {
+        "operationId": "experiment_run.get_run_correlations",
+        "summary": "Get the correlation analysis for one experiment run",
+        "description": "Pure read: returns the client-safe enveloped correlation analysis of one experiment run addressed by its server-issued reference and an explicit project: measure-to-measure correlations (r, p_value, coarse strength) and parameter-to-measure effects (effect, coarse confidence) over the run's own measured aggregates. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/correlations. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax and the query (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. Query (backend RunCorrelationsQuery, src/shared_infrastructure/schemas/run_analytics.py:79-84, extra=forbid): method (pearson or spearman, default pearson) and min_sample (integer 2 to 10000, default 3, the minimum paired samples for a measure pair; pairs below it are dropped with an insufficient_samples warning). A malformed reference, an out-of-range or non-enumerated value or an unknown query parameter is the closed 400, which names no parameter and echoes no value. DIMENSIONS AND INPUT ARE BOUNDED: the analysis enumerates numeric measure dimensions (measure pairs, run_analytics_service.py:839-884) and numeric parameter dimensions times measures (:898-933), so a run is analyzed only with at most 128 numeric measure dimensions (the run-wide union of numeric measure keys) and at most 128 numeric parameter dimensions (the backend accepts up to 100 search-space parameters, src/schemas/traigent.py:54-63; booleans count as numeric parameters; the existing exclusion of string-valued parameters across completed configurations applies), giving at most 8128 measure pairs (128 choose 2) and 16384 parameter-measure rows. The dimensions are counted on the exact normalized inputs, after authorization and BEFORE either analysis loop; the counts are in the required meta.measure_dimensions_total and meta.parameter_dimensions_total. Input budget (the same as the Pareto contract): a work cap of 10000 scoped configuration rows, counted during the scoped read before materialization; sample_size is the exact count of measured configurations (at most 10000). Parameter scan: non-numeric (categorical, string-valued) parameters are excluded BEFORE the importance loop, because the backend's importance loop scans every stored parameter key for each measure before it omits categorical ones (run_analytics_service.py:909-919, :3506-3529); and the number of DISTINCT stored parameter keys scanned across the run's configurations is capped at 256, with the closed 503 above it (never truncated), counted with the other caps before any analysis loop. A run over the dimension limits or the input budget is refused with the closed 503, never truncated or partially analyzed (the backend does not enforce these limits today; backend obligation). Measure and parameter names are at most 256 characters of printable text (no control characters); Any STORED measure or parameter name that fails the name pattern (a control character such as a tab, or a length over 256) makes the response the closed 503, never truncated and never sanitized. Truncation or sanitizing could merge two names. The canonical handler parses the query strictly: unknown keys and tenant-selector keys are the closed 400, unlike the legacy adapter, which drops unknown keys and always drops tenant-selector keys (backend src/routes/query_params.py:64-97). The encoded response is at most 1 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. The canonical projection omits data.run_id (internal run id, emitted by the builder at run_analytics_service.py:823); the run is already identified by the experiment_run_ref in the URL. The builder never writes, creates jobs or calls providers.",
+        "x-max-response-bytes": 1048576,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "required": false,
+            "description": "Correlation method (default pearson).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pearson",
+                "spearman"
+              ],
+              "default": "pearson"
+            }
+          },
+          {
+            "name": "min_sample",
+            "in": "query",
+            "required": false,
+            "description": "Minimum paired samples for a measure pair (default 3).",
+            "schema": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000,
+              "default": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run correlation analysis returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_correlations_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref, or a query value outside its bounds, or an unknown or tenant-selector query parameter (strict parsing, checked before any lookup); the problem names no parameter and echoes no value.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The correlations cannot be produced within their budget (the serialized envelope is over 1 MiB, the run has more than 128 numeric measure dimensions or 128 numeric parameter dimensions, more than 10000 scoped configuration rows, more than 256 distinct stored parameter keys across the run's configurations, a stored measure or parameter name that fails the name pattern (a control character such as a tab, or over 256 characters), deadline exhausted) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./correlations_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/evaluator-quality/compute": {
       "post": {
         "operationId": "experiment_run.compute_evaluator_quality",
@@ -346,12 +1058,23 @@
         }
       }
     },
-    "/api/v1/analytics/summary": {
+    "/api/v1/projects/{project_id}/analytics/summary": {
       "get": {
         "summary": "Get the project analytics summary",
-        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_analytics_summary",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -404,12 +1127,24 @@
         }
       }
     },
-    "/api/v1/analytics/pricing-catalog": {
+    "/api/v1/projects/{project_id}/analytics/pricing-catalog": {
       "get": {
         "summary": "Get the project pricing catalog",
-        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_pricing_catalog",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Pricing catalog retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
@@ -446,12 +1181,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/optimization-overview": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/optimization-overview": {
       "get": {
         "summary": "Get the optimization overview dashboard",
-        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_optimization_overview_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -516,12 +1262,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/evaluator-quality": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/evaluator-quality": {
       "get": {
         "summary": "Get the evaluator quality dashboard",
-        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_evaluator_quality_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -586,12 +1343,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/project-usage": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/project-usage": {
       "get": {
         "summary": "Get the project usage dashboard",
-        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_usage_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -656,12 +1424,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/observability-summary": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/observability-summary": {
       "get": {
         "summary": "Get the observability summary dashboard",
-        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above.",
         "operationId": "analytics.get_project_observability_summary_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -2889,7 +3668,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/decision-payload (operationId experiment_run.get_run_decision_payload), addressed by an explicit project and a server-issued run reference; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/report": {
@@ -2967,7 +3748,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report (operationId experiment_run.get_run_report), addressed by an explicit project and a server-issued run reference; the same handler is also mounted on the two beta analytics mounts (/api/v1beta/analytics and /api/v1beta/projects/{project_id}/analytics, backend src/routes/api_v1beta.py:109-110), which are not declared in this contract and retire with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/pareto": {
@@ -3045,7 +3828,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/pareto (operationId experiment_run.get_run_pareto), addressed by an explicit project and a server-issued run reference and paginated (limit, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/pareto (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/correlations": {
@@ -3123,7 +3908,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/correlations (operationId experiment_run.get_run_correlations), addressed by an explicit project and a server-issued run reference, with bounded dimensions and a closed problem vocabulary; the same handler is also mounted on the project-scoped beta analytics mount (/api/v1beta/projects/{project_id}/analytics/runs/{run_id}/correlations, backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/leaderboard": {
@@ -3201,7 +3988,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "description": "DEPRECATED: replaced by GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/leaderboard (operationId experiment_run.get_run_leaderboard), addressed by an explicit project and a server-issued run reference and paginated (limit default 20, maximum 100, cursor, items, pagination); the same handler is also mounted on /api/v1beta/projects/{project_id}/analytics/runs/{run_id}/leaderboard (backend src/routes/api_v1beta.py:111), which is not declared in this contract and retires with it; removal follows the backend retirement PR after the client receipt."
       }
     },
     "/api/v1/analytics/runs/{run_id}/parameter-insights": {
@@ -3840,6 +4629,140 @@
           },
           "503": {
             "$ref": "#/components/responses/AnalyticsMwUnavailableGet"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report": {
+      "get": {
+        "operationId": "experiment_run.get_run_report",
+        "summary": "Get the report for one experiment run",
+        "description": "Pure read: returns the client-safe enveloped report of one experiment run addressed by its server-issued reference and an explicit project. Replaces the deprecated GET /api/v1/analytics/runs/{run_id}/report. Distinct from report.get_optimization_report_payload (bare response, feature gate, export audit), which is not changed here. Authorization order: authenticate, authorize the URL project, validate experiment_run_ref syntax (400 before any lookup), then resolve the reference under that project and enforce grants. A missing, foreign, ungranted, revoked or retired run is one closed 404 with identical bytes. The encoded response is at most 8 MiB, enforced on the serialized envelope (the handler measures the final serialized bytes, sends those same bytes, and over-limit = the closed 503); the schema gives no static byte bound. Rows beyond the collection caps are truncated server-side (meta.aggregated_results_total and meta.raw_example_results_total carry the untruncated counts), the canonical projection omits experiment_context.experiment_id, experiment_context.run_id, provenance.source_endpoints and report_id (internal ids), and uses the opaque run-scoped trial_ref instead of trial_id, and a report that cannot be produced within its budget is the closed 503 and never a partial success. No query parameters; the builder never writes, creates jobs or calls providers. A report of a run with any configuration whose trial_ref (configuration_run_ref) is not yet issued is the closed 503 until the backfill completes.",
+        "x-max-response-bytes": 8388608,
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "experiment_run_ref",
+            "in": "path",
+            "required": true,
+            "description": "Server-minted experiment run reference (experiment_run_ plus 32 lowercase hex), not the historical run id.",
+            "schema": {
+              "type": "string",
+              "pattern": "^experiment_run_[0-9a-f]{32}$",
+              "minLength": 47,
+              "maxLength": 47,
+              "x-identifier": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run report returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./experiment_run_report_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed experiment_run_ref (syntax is checked before any lookup).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/BadRequestProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/UnauthenticatedProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing permission or credential restriction.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/ForbiddenProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Closed 404: missing, foreign, ungranted, revoked or retired run, or denied project scope; identical bytes in every case.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/NotFoundProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/RateLimitedProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected failure.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/InternalErrorProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The report cannot be produced within its budget (the serialized envelope is over 8 MiB, over the computation limit, deadline exhausted, or a configuration whose trial_ref is not yet issued) or a required dependency is unavailable; never a partial success.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "./report_problem_schema.json#/definitions/ServiceUnavailableProblem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
           }
         }
       }

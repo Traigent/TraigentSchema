@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/measures/metric_schema.json",
+  "title": "Metric",
+  "description": "A metric definition as returned by the metric endpoints. It reuses the measure definition vocabulary and carries no evaluator fields (evaluation_method, criteria, python_packages, measure_parameters). Two owners' metrics with the same label, and a built-in with that label, are three distinct rows with three distinct metric_ref values. Projection of the stored row: metric_ref is the server-minted reference; scope is project, shared or builtin; project_id is the owning project for scope project and null otherwise; domain is the pair [min, max] with a null min meaning unbounded below and an unbounded max reported as the number 1e308; agent_types is a list of {agent_type_id, name, description} objects, [] when none; value_type is numeric when unset; categories, target_types and allowed_score_sources are [] when unset.",
+  "type": "object",
+  "required": [
+    "metric_ref",
+    "scope",
+    "project_id",
+    "label",
+    "measure_type"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "metric_ref": {
+      "type": "string",
+      "pattern": "^metric_[0-9a-f]{32}$",
+      "description": "Opaque reference to exactly one metric row. Never a bare name or id.",
+      "x-identifier": true
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "project",
+        "shared",
+        "builtin"
+      ],
+      "description": "project: owned by one project. shared: shared through the tenant library. builtin: shipped by the platform, read-only."
+    },
+    "project_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Owning project for scope project (required, non-null); null for shared and builtin."
+    },
+    "version": {
+      "type": "string",
+      "maxLength": 20,
+      "description": "Metric definition version, for example 1.0.0."
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "measure_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 5000
+    },
+    "category": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "value_type": {
+      "type": "string",
+      "maxLength": 255
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "maxItems": 1000
+    },
+    "target_aspect": {
+      "$ref": "./measure_schema.json#/definitions/TargetAspect"
+    },
+    "metric_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricType"
+    },
+    "output_type": {
+      "$ref": "./measure_schema.json#/definitions/MetricOutputType"
+    },
+    "target_types": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/TargetType"
+      }
+    },
+    "allowed_score_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "./measure_schema.json#/definitions/AllowedScoreSource"
+      }
+    },
+    "agent_types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agent_type_id",
+          "name"
+        ],
+        "properties": {
+          "agent_type_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "description": "Agent types the metric applies to; [] when none."
+    },
+    "inverse": {
+      "type": "boolean"
+    },
+    "is_custom": {
+      "type": "boolean"
+    },
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 20,
+      "description": "Unit of the value, for example ms or $; null when unitless."
+    },
+    "domain": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": [
+        {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "description": "[min, max]. A null min means unbounded below; an unbounded max is reported as 1e308 and is never null."
+    },
+    "created_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "updated_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "project"
+          }
+        },
+        "required": [
+          "scope"
+        ]
+      },
+      "then": {
+        "properties": {
+          "project_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "project_id": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

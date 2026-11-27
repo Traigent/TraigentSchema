@@ -1186,6 +1186,9 @@ def test_read_surfaces_expose_closed_problem_responses_for_every_declared_status
         # 422 is declared everywhere except the experiments listing.
         if not path.endswith("/experiments"):
             expected["422"] = "GroupsValidationFailed"
+        # Only the group run query is idempotent, so only it declares the 409.
+        if (method, path.rsplit("/", 1)[-1]) == ("post", "query"):
+            expected["409"] = "GroupsConflict"
         assert names == expected, (path, method)
 
     not_found = spec["components"]["responses"]["GroupsNotFound"]
@@ -1210,6 +1213,8 @@ _PROBLEM_FIXED_TEXT = {
     "service_unavailable": (503, "Service Unavailable"),
     "unauthenticated": (401, "Unauthorized"),
     "validation_failed": (422, "Unprocessable Content"),
+    "idempotency_conflict": (409, "Conflict"),
+    "idempotency_in_progress": (409, "Conflict"),
 }
 
 
@@ -1237,6 +1242,7 @@ def test_group_problem_bodies_are_application_problem_json_with_a_closed_code() 
         "GroupsForbidden",
         "GroupsRateLimited",
         "GroupsInternalError",
+        "GroupsConflict",
     }
     for name, response in responses.items():
         assert list(response["content"]) == ["application/problem+json"], name

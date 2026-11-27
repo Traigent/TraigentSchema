@@ -2,7 +2,7 @@
 # Copyright (c) 2024-2026 Traigent Ltd. Dual-licensed: AGPL-3.0 or commercial.
 """Routes the published SDKs call must be declared in a catalog they validate against.
 
-`GET /api/v1/analytics/dashboards/optimization-overview` is called by the Python
+`GET /api/v1/projects/{project_id}/analytics/dashboards/optimization-overview` is called by the Python
 SDK (`traigent/cloud/analytics_client.py`) and the JS SDK
 (`src/core-metrics/index.ts`, `src/analytics/analytics-client.ts`), and is served
 by the backend's `analytics_bp` under `/api/v1`. Only the project-scoped
@@ -28,13 +28,13 @@ UNVALIDATED = "UNVALIDATED_ENDPOINT"
 
 # (contract, method, concrete path as an SDK sends it)
 SDK_CALLED_ROUTES = [
-    ("backend", "GET", "/api/v1/analytics/dashboards/optimization-overview"),
+    ("backend", "GET", "/api/v1/projects/p1/analytics/dashboards/optimization-overview"),
     # Controls: neighbouring analytics routes the same SDK clients call.
     ("backend", "GET", "/api/v1/analytics/runs/r1/pareto"),
     ("backend", "GET", "/api/v1/analytics/runs/r1/leaderboard"),
 ]
 
-V1_OVERVIEW = "/api/v1/analytics/dashboards/optimization-overview"
+V1_OVERVIEW = "/api/v1/projects/{project_id}/analytics/dashboards/optimization-overview"
 V1BETA_OVERVIEW = "/api/v1beta/projects/{project_id}/analytics/dashboards/optimization-overview"
 
 
@@ -108,7 +108,9 @@ def test_v1_overview_declares_the_query_bounds_the_backend_enforces() -> None:
         "maximum": 25,
         "default": 5,
     }
-    assert all(not p["required"] for p in parameters.values())
+    assert parameters["project_id"]["in"] == "path"
+    assert parameters["project_id"]["required"] is True
+    assert all(not p["required"] for name, p in parameters.items() if name != "project_id")
 
 
 def test_v1beta_overview_entry_keeps_its_identity_and_payload() -> None:

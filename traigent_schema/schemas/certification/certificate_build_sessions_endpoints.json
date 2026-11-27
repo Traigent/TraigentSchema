@@ -1,0 +1,216 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Certificate Build Session Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped certificate build-session abandonment and issuance readiness."
+  },
+  "x-asserted-against-backend": false,
+  "paths": {
+    "/api/v1/projects/{project_id}/certificate-build-sessions/{bsn}/abandon": {
+      "post": {
+        "operationId": "certification_g1_sessions.abandon_certificate_build_session",
+        "summary": "Abandon certificate issuance through a build session",
+        "description": "Abandons pending issuance for the run linked to the build session. An already abandoned or timed-out session returns its current state. A finalized session is a conflict. Takes no request body.",
+        "x-wrap-status": "bare",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "bsn",
+            "in": "path",
+            "required": true,
+            "description": "The issued certificate build-session reference.",
+            "schema": {"type": "string", "pattern": "^bsn:[A-Za-z0-9_-]{43}$"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The terminal issuance state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["state"],
+                  "properties": {"state": {"type": "string", "enum": ["abandoned", "timed_out"]}}
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "422": {"$ref": "#/components/responses/Unprocessable"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/AuthenticationError"},
+          "503": {
+            "description": "Issuance or authentication is temporarily unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "./certificate_error_v0_schema.json#/definitions/ServiceUnavailableV0"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/certificate-build-sessions/readiness": {
+      "get": {
+        "operationId": "certification_g1_sessions.g1_issuance_readiness",
+        "summary": "Check G1 issuance readiness",
+        "description": "Reports whether G1 issuance is available. The probe does not issue or modify certificates.",
+        "x-wrap-status": "bare",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability of G1 issuance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["readiness_version", "g1_issuance"],
+                  "properties": {
+                    "readiness_version": {"type": "integer", "const": 1},
+                    "g1_issuance": {"type": "string", "enum": ["available", "unavailable"]}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"$ref": "#/components/responses/ProviderCredentialRejected"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "422": {"$ref": "#/components/responses/Unprocessable"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/AuthenticationError"},
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {"application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}}}
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "PayloadTooLarge": {
+        "description": "The request exceeds the size limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {"$ref": "./certificate_error_v0_schema.json#/definitions/RequestTooLargeV0"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/RequestTooLarge"}
+              ]
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "The request exceeded a rate limit.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/RateLimited"}}
+        }
+      },
+      "Unprocessable": {
+        "description": "Request validation or scope resolution failed.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}}
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid build-session reference, unsupported content type, or provider credential rejected.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {"$ref": "./certificate_error_v0_schema.json#/definitions/InvalidRequestV0"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/UnsupportedContentType"}
+              ]
+            }
+          },
+          "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+        }
+      },
+      "ProviderCredentialRejected": {
+        "description": "Provider credential rejected.",
+        "content": {
+          "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {"$ref": "./certificate_error_v0_schema.json#/definitions/AuthenticationRequiredV0"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/Unauthorized"}
+              ]
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authorization denied.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {"$ref": "./certificate_error_v0_schema.json#/definitions/AuthorizationDeniedV0"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/EntitlementRequired"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/OptimizationOnly"}
+              ]
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The project or build session was not found, or the route is unavailable.",
+        "content": {"application/json": {"schema": {
+              "anyOf": [
+                {"$ref": "./certificate_error_v0_schema.json#/definitions/NotFoundV0"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/RouteNotFound"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/ProjectNotFound"},
+                {"$ref": "../closed_request_error_schema.json#/definitions/ContextNotFound"}
+              ]
+            }}}
+      },
+      "Conflict": {
+        "description": "The issuance state conflicts with abandonment.",
+        "content": {"application/json": {"schema": {"$ref": "./certificate_error_v0_schema.json#/definitions/StateConflictV0"}}}
+      },
+      "AuthenticationError": {
+        "description": "Authentication or request handling failed unexpectedly.",
+        "content": {
+          "application/json": {
+            "schema": {"$ref": "../closed_request_error_schema.json#/definitions/InternalError"}
+          }
+        }
+      }
+    }
+  }
+}

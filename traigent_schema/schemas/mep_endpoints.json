@@ -133,6 +133,16 @@
       "paths_file": "./certification/certification_endpoints_v0.json"
     },
     {
+      "name": "Certificate Build Sessions",
+      "description": "Project-scoped certificate build-session abandonment and issuance readiness.",
+      "paths_file": "./certification/certificate_build_sessions_endpoints.json"
+    },
+    {
+      "name": "Process Records",
+      "description": "Project-scoped process record preparation, issuance, retrieval and verification.",
+      "paths_file": "./certification/process_records_endpoints.json"
+    },
+    {
       "name": "SmartOps Planner V2",
       "description": "Additive Planner V2 decision, receipt, lifecycle, private resolution, and service-only shadow routes.",
       "paths_file": "./smartops_v2/smartops_v2_endpoints.json"

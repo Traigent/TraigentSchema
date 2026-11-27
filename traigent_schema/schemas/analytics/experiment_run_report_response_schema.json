@@ -1,0 +1,736 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/analytics/experiment_run_report_response_schema.json",
+  "title": "Run Report Canonical Success Response",
+  "description": "Platform success envelope for GET /api/v1/projects/{project_id}/experiment-runs/{experiment_run_ref}/report. The report DTO (results/report_payload_response_schema.json) is mirrored under data by a closed definition (not re-used through allOf, because the shared DTO requires the internal trial_id on every row) that declares every field ExperimentReportService.generate_report_payload always emits (src/services/analytics/experiment_report_service.py:279-315: generated_at, experiment_context, methodology, example_index_map, provenance, aggregated_results, raw_example_results, insights, warnings), each bounded in shape. CANONICAL PROJECTION OMITS INTERNAL IDS (internal ids never appear in payloads): the canonical projection omits experiment_context.experiment_id: internal id; omits experiment_context.run_id: internal id; omits provenance.source_endpoints: its URLs embed the internal run id; omits report_id: it embeds the internal run id (report_<run_id>_<hash>, experiment_report_service.py:264). The closed branch rejects these properties. data.provenance.run_id is REQUIRED and is the experiment_run_ref (^experiment_run_[0-9a-f]{32}$); the canonical projection populates it from the resolved reference (backend obligation), never from the historical run id. trial_ref (an opaque persisted reference) and example_id are the row identity; trial_id is omitted (internal configuration-run id). config_params follows the sanitizer shapes (src/services/analytics/config_redaction.py:79-82, :111-172): nesting to depth 3, lists of at most 12 items, strings of at most 128 characters, at most 64 keys per object; empty objects and arrays are accepted at the depth limit, as the sanitizer emits them. Row identity is the opaque run-scoped trial_ref (^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$, defined once in experiment_run_trial_ref_schema.json: The configuration run's issued public reference (configuration_runs.configuration_run_ref; backend infrastructure/migrations/versions/20261122_0001_configuration_run_ref_role_v1.py:1-24: sessions issue trial_ plus 16 hex, an issued reference is never re-minted, UNIQUE (tenant_id, configuration_run_ref), NULL until the reference backfill). Two issued formats exist: trial_ plus 16 hex (issued by sessions; backend src/dal/configuration_run_dal.py:50) and configuration_run_ plus 32 hex (minted by mint_configuration_run_ref, configuration_run_dal.py:60, :345, called from src/services/configuration_run_service.py:238). Issued once, never re-minted, so it is stable across views, pages and deletion of other configurations. The internal id is never emitted. A canonical view of a run with any configuration whose reference is not yet issued is the closed 503 until the backfill completes (never a positional or synthetic stand-in). Shared by aggregate and example rows); trial_id (the internal configuration-run id, builder :1621-1629, :1707) is rejected. The projection must also scrub internal ids embedded in warnings, insight evidence and fallback config labels (backend obligation; builder :1621-1629, :1707, :1777, :1887-1891, :1933, :2288). SIZE: this schema gives NO static byte bound. The 8 MiB limit (x-max-response-bytes 8388608) is enforced on the serialized envelope: the handler measures the final serialized bytes, sends those same bytes, and returns the closed 503 when over the limit. Collection caps are realistic limits (aggregated_results 1000, raw_example_results 5000 with example_index_map the same displayed rows, insights 50 computed over the full population, warnings 1000 of at most 512 characters). Rows beyond a cap are truncated server-side, deterministically; meta.aggregated_results_total and meta.raw_example_results_total (required integers) carry the untruncated counts. meta and metadata are bounded maps of strings, booleans, null and safe-range integers. The historical envelope run_report_response_schema.json is unchanged and still serves the deprecated analytics path. The optimization report payload (report.get_optimization_report_payload, W8) is a different contract and is not merged here.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-max-response-bytes": 8388608,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "data": {
+      "$ref": "#/definitions/BoundedReport"
+    },
+    "meta": {
+      "$ref": "#/definitions/MetaMap"
+    },
+    "metadata": {
+      "$ref": "#/definitions/BoundedScalarMap"
+    }
+  },
+  "required": [
+    "success",
+    "message",
+    "data",
+    "meta"
+  ],
+  "definitions": {
+    "BoundedNumber": {
+      "type": "number",
+      "minimum": -1000000000000000.0,
+      "maximum": 1000000000000000.0
+    },
+    "MetricValue": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/BoundedNumber"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "BoundedScalarMap": {
+      "type": "object",
+      "maxProperties": 8,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        ]
+      }
+    },
+    "ConfigParams": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "description": "Sanitized configuration (config_redaction.py:79-82,111-172): nesting to depth 3 (objects and lists), lists of at most 12 items, strings of at most 128 characters, at most 64 keys per object.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth0Object"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth0List"
+          }
+        ]
+      }
+    },
+    "AggregatedResultRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_ref",
+        "config_label",
+        "config_hash",
+        "config_params"
+      ],
+      "properties": {
+        "trial_ref": {
+          "$ref": "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "config_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "config_hash": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 64
+        },
+        "config_params": {
+          "$ref": "#/definitions/ConfigParams"
+        },
+        "tool_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "param_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "text_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "score": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "latency_ms": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "sdk_total_cost_usd": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "fe_cost_usd": {
+          "$ref": "#/definitions/MetricValue"
+        }
+      }
+    },
+    "RawExampleResultRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trial_ref",
+        "example_id",
+        "config_label",
+        "config_hash"
+      ],
+      "properties": {
+        "trial_ref": {
+          "$ref": "https://schemas.traigent.ai/analytics/experiment_run_trial_ref_schema.json"
+        },
+        "example_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "example_num": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "config_label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "config_hash": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 64
+        },
+        "tool_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "param_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "text_accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "accuracy": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "score": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "latency_ms": {
+          "$ref": "#/definitions/MetricValue"
+        },
+        "cost_usd": {
+          "$ref": "#/definitions/MetricValue"
+        }
+      }
+    },
+    "ReportInsight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "severity",
+        "statement",
+        "evidence"
+      ],
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "error",
+            "critical"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_hash",
+        "run_id",
+        "source_counts",
+        "max_source_timestamp",
+        "generator_versions"
+      ],
+      "description": "source_endpoints is omitted: its URLs embed the internal run id.",
+      "properties": {
+        "data_hash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 47,
+          "maxLength": 47,
+          "pattern": "^experiment_run_[0-9a-f]{32}$",
+          "description": "The experiment_run_ref of the run this report covers; populated by the canonical projection from the resolved reference (backend obligation)."
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "source_counts": {
+          "$ref": "#/definitions/SourceCounts"
+        },
+        "max_source_timestamp": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "generator_versions": {
+          "$ref": "#/definitions/GeneratorVersions"
+        }
+      }
+    },
+    "BoundedReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "generated_at",
+        "experiment_context",
+        "methodology",
+        "provenance",
+        "aggregated_results",
+        "raw_example_results",
+        "example_index_map",
+        "insights",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 40
+        },
+        "experiment_context": {
+          "$ref": "#/definitions/ExperimentContext"
+        },
+        "methodology": {
+          "$ref": "#/definitions/Methodology"
+        },
+        "provenance": {
+          "$ref": "#/definitions/Provenance"
+        },
+        "aggregated_results": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "#/definitions/AggregatedResultRow"
+          }
+        },
+        "raw_example_results": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/definitions/RawExampleResultRow"
+          }
+        },
+        "example_index_map": {
+          "type": "array",
+          "maxItems": 5000,
+          "items": {
+            "$ref": "#/definitions/ExampleIndexEntry"
+          },
+          "description": "Index of the displayed raw_example_results rows only (consistent with the truncation of raw_example_results)."
+        },
+        "insights": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/definitions/ReportInsight"
+          },
+          "description": "Computed over the full report population, before any display truncation."
+        },
+        "warnings": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "SafeInteger": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "MetaMap": {
+      "type": "object",
+      "maxProperties": 8,
+      "required": [
+        "aggregated_results_total",
+        "raw_example_results_total"
+      ],
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "properties": {
+        "raw_example_results_total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Untruncated number of raw example rows the report covers; rows beyond the raw_example_results cap are truncated server-side."
+        },
+        "aggregated_results_total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Untruncated number of aggregate (trial) rows; rows beyond the aggregated_results cap are truncated server-side."
+        }
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        ]
+      }
+    },
+    "ExperimentContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "created_at",
+        "updated_at",
+        "completed_at"
+      ],
+      "description": "Canonical projection of experiment_context: experiment_id and run_id are omitted (internal ids).",
+      "properties": {
+        "status": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "created_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "updated_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        },
+        "completed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 40
+        }
+      }
+    },
+    "Methodology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accuracy_formula",
+        "score_formula",
+        "fe_cost_formula"
+      ],
+      "properties": {
+        "accuracy_formula": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "score_formula": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "fe_cost_formula": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    },
+    "SourceCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuration_runs",
+        "raw_example_rows",
+        "example_scores",
+        "dataset_quality_records"
+      ],
+      "properties": {
+        "configuration_runs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "raw_example_rows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "example_scores": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "dataset_quality_records": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "GeneratorVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "report_service",
+        "schema_version"
+      ],
+      "properties": {
+        "backend": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "report_service": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "schema_version": {
+          "type": "string",
+          "maxLength": 32
+        }
+      }
+    },
+    "ExampleIndexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "example_num",
+        "example_id"
+      ],
+      "properties": {
+        "example_num": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "example_id": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    "ConfigDepth2Object": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "type": "object",
+            "maxProperties": 0
+          },
+          {
+            "type": "array",
+            "maxItems": 0
+          }
+        ]
+      },
+      "description": "Deepest container the sanitizer keeps content in. Its children sit at the sanitizer depth limit: scalars, or an EMPTY object or array, which the sanitizer emits as {} and [] (config_redaction.py:157, :172); a non-empty container at that depth is dropped (:112-114, :157, :172), so it is rejected here."
+    },
+    "ConfigDepth2List": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "type": "object",
+            "maxProperties": 0
+          },
+          {
+            "type": "array",
+            "maxItems": 0
+          }
+        ]
+      },
+      "description": "Deepest container the sanitizer keeps content in. Its children sit at the sanitizer depth limit: scalars, or an EMPTY object or array, which the sanitizer emits as {} and [] (config_redaction.py:157, :172); a non-empty container at that depth is dropped (:112-114, :157, :172), so it is rejected here."
+    },
+    "ConfigDepth1Object": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth2Object"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth2List"
+          }
+        ]
+      }
+    },
+    "ConfigDepth1List": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth2Object"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth2List"
+          }
+        ]
+      }
+    },
+    "ConfigDepth0Object": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth1Object"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth1List"
+          }
+        ]
+      }
+    },
+    "ConfigDepth0List": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 128
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/definitions/BoundedNumber"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth1Object"
+          },
+          {
+            "$ref": "#/definitions/ConfigDepth1List"
+          }
+        ]
+      }
+    }
+  }
+}

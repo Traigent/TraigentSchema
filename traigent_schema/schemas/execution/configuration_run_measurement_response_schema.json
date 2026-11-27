@@ -1,0 +1,292 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/execution/configuration_run_measurement_response_schema.json",
+  "title": "Configuration Run Measurement Response",
+  "description": "Success envelope for GET /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/measurement: the stored results of one configuration run, read as one bounded page. `data.shape` says how they are stored. `flat` is a single map of measure names to numbers (or null), at most 50, returned whole in `measures`, with `pagination.total` the number of measures, `has_more` false and `next_cursor` null. `per_example` is the list of stored results (each a per-example item, or a bare measure map for results stored in the older form) (MeasurementItem: the per-example fields of the update request without input_id): one cursor page of `items`, in stored order, with the total across all pages in `pagination.total` (at most 1000). The cursor is a sealed opaque string bound to the caller, project and configuration run; a cursor is invalidated when the stored results change, and a stale or foreign cursor is the closed 400 invalid_cursor, so a page walk never mixes two versions. `has_more` is true if and only if `next_cursor` is non-null. The configuration run is addressed by `configuration_run_ref`; the internal id is never emitted. Measure names and values are exactly those the measurement update accepts (values are numbers or null); the message is fixed text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "success",
+    "message",
+    "data"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "const": true
+    },
+    "message": {
+      "type": "string",
+      "const": "Configuration run measurement retrieved successfully."
+    },
+    "data": {
+      "$ref": "#/definitions/MeasurementPage"
+    }
+  },
+  "definitions": {
+    "Cursor": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,512}$",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "Pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit",
+        "next_cursor",
+        "has_more",
+        "total"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Cursor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Opaque sealed cursor of the next page; null on the last page."
+        },
+        "has_more": {
+          "type": "boolean",
+          "description": "True if and only if next_cursor is non-null."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Number of stored per-example results (or measures, for the flat shape) across all pages. At most 1000, the stored per-example cap."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": true
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "has_more": {
+                "const": false
+              }
+            },
+            "required": [
+              "has_more"
+            ]
+          },
+          "then": {
+            "properties": {
+              "next_cursor": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "MeasurementPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configuration_run_ref",
+        "shape",
+        "pagination"
+      ],
+      "properties": {
+        "configuration_run_ref": {
+          "$ref": "#/definitions/ConfigurationRunRef"
+        },
+        "shape": {
+          "type": "string",
+          "enum": [
+            "flat",
+            "per_example"
+          ]
+        },
+        "measures": {
+          "$ref": "#/definitions/MeasureMap",
+          "description": "Present only when shape is flat."
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/MeasurementItem"
+              },
+              {
+                "$ref": "#/definitions/MeasureMap"
+              }
+            ]
+          },
+          "description": "Present only when shape is per_example: one page of stored results in stored order. Each item is a MeasurementItem, or, for results stored in the older form, a bare map of measure names to numbers with no example_id."
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "shape": {
+                "const": "flat"
+              }
+            },
+            "required": [
+              "shape"
+            ]
+          },
+          "then": {
+            "required": [
+              "measures",
+              "pagination"
+            ],
+            "not": {
+              "required": [
+                "items"
+              ]
+            },
+            "properties": {
+              "pagination": {
+                "properties": {
+                  "has_more": {
+                    "const": false
+                  },
+                  "next_cursor": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "has_more",
+                  "next_cursor"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "shape": {
+                "const": "per_example"
+              }
+            },
+            "required": [
+              "shape"
+            ]
+          },
+          "then": {
+            "required": [
+              "items"
+            ],
+            "not": {
+              "required": [
+                "measures"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "MeasurementItem": {
+      "type": "object",
+      "description": "One stored per-example result: example_id, metrics and the optional digest fields of the update request, without input_id (a client-supplied identifier is customer content and is never returned here).",
+      "required": [
+        "example_id",
+        "metrics"
+      ],
+      "properties": {
+        "example_id": {
+          "x-content-class": "opaque_ref",
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^ex_[a-f0-9]{8,12}_[0-9]+$",
+          "description": "Unique example identifier"
+        },
+        "metrics": {
+          "$ref": "#/definitions/MeasureMap",
+          "description": "Numeric measure scores for this example"
+        },
+        "example_digest": {
+          "x-content-class": "digest",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "A keyed, one-way, client-computed identity digest derived from the example's input and expected output. Its purpose is to let the same example be recognized across runs without transmitting the content itself. It is keyed to a client key version identified by the accompanying signal_key_id: the same content under a different key version, or different content under the same key version, each yield a different digest."
+        },
+        "output_digest": {
+          "x-content-class": "digest",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "A keyed, one-way, client-computed identity digest derived from the example's produced output. Its purpose is to let the same output be recognized across runs without transmitting the content itself. It is keyed to a client key version identified by the accompanying signal_key_id, the same as example_digest."
+        },
+        "verified_match": {
+          "x-content-class": "closed_enum",
+          "type": "number",
+          "enum": [
+            0.0,
+            1.0
+          ],
+          "description": "Whether the produced output matched the example's expected answer, determined client-side: 1.0 for a match, 0.0 for no match. Omitted entirely -- not sent as null or as 0.0 -- when the example has no usable expected answer to compare against. Absence therefore means \"not checked\", which is not the same as \"checked and failed\"."
+        },
+        "signal_key_id": {
+          "x-content-class": "opaque_ref",
+          "type": "string",
+          "pattern": "^[0-9a-f]{12}$",
+          "description": "A short tag identifying which client key version example_digest and output_digest on this row were computed under. Its purpose is to let digests computed under different key versions be told apart rather than conflated as if they belonged to the same identity space. Present only alongside the digests it tags."
+        }
+      },
+      "additionalProperties": false
+    },
+    "MeasureMap": {
+      "x-content-key-class": "legacy_content",
+      "x-content-note": "Measure names are client-chosen identifiers; values are numbers or null.",
+      "type": "object",
+      "description": "Measure name to numeric value (or null), exactly the shape the measurement update accepts: names are identifiers of letters, digits, underscore, dot and hyphen starting with a letter or underscore; at most 50 per map.",
+      "maxProperties": 50,
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_.-]*$": {
+          "x-content-class": "number",
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Score for a specific measure (numeric values only)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ConfigurationRunRef": {
+      "type": "string",
+      "pattern": "^(trial_[0-9a-f]{16}|configuration_run_[0-9a-f]{32})$",
+      "minLength": 22,
+      "maxLength": 50,
+      "description": "The public reference of the configuration run: a server-issued trial_ or configuration_run_ reference."
+    }
+  }
+}

@@ -344,6 +344,9 @@ def test_routes_are_registered_with_operation_ids_and_closed_bodies():
     assert ops == {
         (base + "/release-acceptances", "post"): "best_configs.create_release_acceptance",
         (base + "/release-acceptances", "get"): "best_configs.list_release_acceptances",
+        (base + "/release-candidates", "post"): "best_configs.create_release_candidate",
+        (base + "/release-candidates", "get"): "best_configs.list_release_candidates",
+        (base + "/release-candidates/{candidate_ref}", "get"): "best_configs.get_release_candidate",
         (base + "/best-config-head/release", "post"): "best_configs.release_agent_head",
         (base + "/best-config-head/rollback", "post"): "best_configs.rollback_agent_head",
     }

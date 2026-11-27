@@ -29,7 +29,7 @@ def _load_planned_projects_spec() -> dict:
 
 
 def _resolve_path_item(item: dict) -> dict:
-    """Follow a path-item `$ref` into the canonical analytics catalog (C3-PR1c).
+    """Follow a path-item `$ref` into the canonical analytics catalog.
 
     The eleven project analytics operations are declared once in
     `analytics/analytics_endpoints.json`; this catalog keeps its path keys and

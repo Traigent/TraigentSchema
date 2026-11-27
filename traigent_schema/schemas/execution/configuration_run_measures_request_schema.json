@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://schemas.traigent.ai/execution/configuration_run_measures_request_schema.json",
   "title": "Configuration Run Measures Request",
-  "description": "PUT /api/v1/configuration-runs/{config_run_id}/measures. The backend accepts a {\"measures\": ...} body where measures is either a flat MeasuresDict or a list of per-example results (validate_measures_dict/list).",
+  "description": "PUT /api/v1/projects/{project_id}/configuration-runs/{configuration_run_ref}/measurement. The backend accepts a {\"measures\": ...} body where measures is either a flat MeasuresDict or a list of per-example results (validate_measures_dict/list).",
   "type": "object",
   "required": [
     "measures"

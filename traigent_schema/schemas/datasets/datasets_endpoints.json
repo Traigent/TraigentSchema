@@ -9,6 +9,8 @@
     "/api/v1/datasets": {
       "get": {
         "summary": "List datasets",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Datasets retrieved successfully"
@@ -27,6 +29,8 @@
       },
       "post": {
         "summary": "Create dataset",
+        "deprecated": true,
+        "x-deprecated": "Use POST /api/v1/projects/{project_id}/datasets. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -47,6 +51,8 @@
     "/api/v1/datasets/{dataset_id}": {
       "get": {
         "summary": "Get dataset",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets/{dataset_id}. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Dataset retrieved successfully",
@@ -72,6 +78,8 @@
       },
       "put": {
         "summary": "Update dataset",
+        "deprecated": true,
+        "x-deprecated": "Use PUT /api/v1/projects/{project_id}/datasets/{dataset_id}. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -100,6 +108,8 @@
       },
       "delete": {
         "summary": "Delete dataset",
+        "deprecated": true,
+        "x-deprecated": "Use DELETE /api/v1/projects/{project_id}/datasets/{dataset_id}. Removal is unscheduled.",
         "responses": {
           "204": {
             "description": "Dataset deleted successfully"
@@ -120,6 +130,8 @@
     "/api/v1/datasets/{dataset_id}/examples": {
       "get": {
         "summary": "List examples in a dataset",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets/{dataset_id}/examples. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Dataset examples retrieved successfully"
@@ -138,6 +150,8 @@
       },
       "post": {
         "summary": "Add example to a dataset",
+        "deprecated": true,
+        "x-deprecated": "Use POST /api/v1/projects/{project_id}/datasets/{dataset_id}/examples. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -281,6 +295,8 @@
     "/api/v1/datasets/{dataset_id}/upload": {
       "post": {
         "summary": "Upload examples into a dataset",
+        "deprecated": true,
+        "x-deprecated": "Use POST /api/v1/projects/{project_id}/datasets/{dataset_id}/upload. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Dataset examples uploaded successfully"
@@ -301,6 +317,8 @@
     "/api/v1/datasets/{dataset_id}/examples/{example_id}": {
       "delete": {
         "summary": "Delete example from a dataset",
+        "deprecated": true,
+        "x-deprecated": "Use DELETE /api/v1/projects/{project_id}/datasets/{dataset_id}/examples/{example_id}. Removal is unscheduled.",
         "responses": {
           "204": {
             "description": "Dataset example deleted successfully"
@@ -319,6 +337,8 @@
       },
       "put": {
         "summary": "Update a dataset example",
+        "deprecated": true,
+        "x-deprecated": "Use PUT /api/v1/projects/{project_id}/datasets/{dataset_id}/examples/{example_id}. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -376,6 +396,8 @@
     "/api/v1/datasets/{dataset_id}/generate-examples": {
       "post": {
         "summary": "Generate examples for a dataset (async)",
+        "deprecated": true,
+        "x-deprecated": "Use POST /api/v1/projects/{project_id}/datasets/{dataset_id}/generate-examples. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -433,6 +455,8 @@
     "/api/v1/datasets/{dataset_id}/files": {
       "get": {
         "summary": "List dataset files",
+        "deprecated": true,
+        "x-deprecated": "Use GET /api/v1/projects/{project_id}/datasets/{dataset_id}/files. Removal is unscheduled.",
         "responses": {
           "200": {
             "description": "Dataset files.",
@@ -468,6 +492,8 @@
       },
       "post": {
         "summary": "Add a file to a dataset",
+        "deprecated": true,
+        "x-deprecated": "Use POST /api/v1/projects/{project_id}/datasets/{dataset_id}/files. Removal is unscheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -527,6 +553,829 @@
     "/api/v1/datasets/{dataset_id}/files/{file_id}": {
       "delete": {
         "summary": "Delete a dataset file",
+        "deprecated": true,
+        "x-deprecated": "Use DELETE /api/v1/projects/{project_id}/datasets/{dataset_id}/files/{file_id}. Removal is unscheduled.",
+        "responses": {
+          "200": {
+            "description": "File deleted."
+          },
+          "404": {
+            "description": "File not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets": {
+      "get": {
+        "operationId": "dataset.get_datasets",
+        "summary": "List datasets",
+        "description": "Project-scoped form of GET /api/v1/datasets. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Datasets retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "dataset.create_dataset",
+        "summary": "Create dataset",
+        "description": "Project-scoped form of POST /api/v1/datasets. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_create_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dataset created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "../billing/quota_exceeded_error_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}": {
+      "get": {
+        "operationId": "dataset.get_dataset",
+        "summary": "Get dataset",
+        "description": "Project-scoped form of GET /api/v1/datasets/{dataset_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./dataset_detail_response_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "dataset.update_dataset",
+        "summary": "Update dataset",
+        "description": "Project-scoped form of PUT /api/v1/datasets/{dataset_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_update_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dataset updated successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "dataset.delete_dataset",
+        "summary": "Delete dataset",
+        "description": "Project-scoped form of DELETE /api/v1/datasets/{dataset_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dataset deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/examples": {
+      "get": {
+        "operationId": "dataset.get_dataset_examples",
+        "summary": "List examples in a dataset",
+        "description": "Project-scoped form of GET /api/v1/datasets/{dataset_id}/examples. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset examples retrieved successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "dataset.add_dataset_examples",
+        "summary": "Add example to a dataset",
+        "description": "Project-scoped form of POST /api/v1/datasets/{dataset_id}/examples. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dataset example created successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/examples/{example_id}": {
+      "put": {
+        "operationId": "dataset.update_dataset_example",
+        "summary": "Update a dataset example",
+        "description": "Project-scoped form of PUT /api/v1/datasets/{dataset_id}/examples/{example_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "example_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetExample"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Example updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetExample"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Example not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "dataset.delete_dataset_example",
+        "summary": "Delete example from a dataset",
+        "description": "Project-scoped form of DELETE /api/v1/datasets/{dataset_id}/examples/{example_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "example_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dataset example deleted successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/generate-examples": {
+      "post": {
+        "operationId": "dataset.generate_dataset_examples",
+        "summary": "Generate examples for a dataset (async)",
+        "description": "Project-scoped form of POST /api/v1/datasets/{dataset_id}/generate-examples. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./dataset_generate_examples_request_schema.json"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Generation job accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./generation_job_response_schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "../rate_limit_info_schema.json"
+                    },
+                    {
+                      "$ref": "../billing/quota_exceeded_error_schema.json"
+                    },
+                    {
+                      "$ref": "../auth/auth_rate_limit_response_schema.json"
+                    },
+                    {
+                      "$ref": "../analytics/evaluator_promotion_rate_limit_schema.json"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/files": {
+      "get": {
+        "operationId": "dataset.get_dataset_files",
+        "summary": "List dataset files",
+        "description": "Project-scoped form of GET /api/v1/datasets/{dataset_id}/files. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset files.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./dataset_files_response_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "dataset.upload_dataset_files",
+        "summary": "Add a file to a dataset",
+        "description": "Project-scoped form of POST /api/v1/datasets/{dataset_id}/files. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "File metadata / upload payload."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./evaluation_set_schema.json#/definitions/EvaluationSetFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dataset not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../error_envelope_schema.json"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/upload": {
+      "post": {
+        "operationId": "dataset.upload_dataset_files_post",
+        "summary": "Upload examples into a dataset",
+        "description": "Project-scoped form of POST /api/v1/datasets/{dataset_id}/upload. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset examples uploaded successfully"
+          },
+          "429": {
+            "description": "Too many requests — rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../rate_limit_info_schema.json"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/datasets/{dataset_id}/files/{file_id}": {
+      "delete": {
+        "operationId": "dataset.delete_dataset_file",
+        "summary": "Delete a dataset file",
+        "description": "Project-scoped form of DELETE /api/v1/datasets/{dataset_id}/files/{file_id}. Same request, response and error bodies. The server binds project_id from the URL and checks that the dataset belongs to that project.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "File deleted."

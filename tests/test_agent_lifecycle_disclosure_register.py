@@ -1,4 +1,4 @@
-"""ALR-1102 (Terra review P1-2, 2026-08-10) / ALR-1106 (Route 1/2 packet,
+"""ALR-1102 / ALR-1106 (Route 1/2 packet,
 2026-08-10): the client-boundary disclosure register for all nine
 property-bearing Part 1 roots named at PART1_CONTRACT_FREEZE_DRAFT.md:406-408.
 
@@ -24,7 +24,7 @@ docstring said so explicitly). ``tests/data/agent_lifecycle_record/
 disclosure_manifest.json`` is extended in lockstep with the new exact
 overrides each of the five newly in-scope documents needs.
 
-P1 correction (Terra review, 2026-08-10): an earlier revision of this module
+P1 correction: an earlier revision of this module
 resolved ``$ref`` only when it appeared inside an ``allOf`` branch, so every
 *bare* ``$ref`` use site -- record_response_schema.json's
 ``governance_profile``/``identity_state``/``comparability_verdict``/
@@ -206,7 +206,7 @@ _CLOSED_VOCAB_PROPERTY_NAMES = {
     "governance_profile",
     "identity_state",
     "comparability_verdict",
-    # ALR-1106 P1 fix (Terra review, 2026-08-10): the closed-vocabulary
+    # ALR-1106 P1 fix: the closed-vocabulary
     # discriminator scalar inside every axis-value oneOf branch
     # (GovernanceProfileAxisValue/IdentityStateAxisValue/
     # ComparabilityVerdictAxisValue.value), newly reachable now the walker
@@ -253,7 +253,7 @@ _CONTAINER_PROPERTY_NAMES = {
     "item_keys",
     "evidence_episodes",
     "bindings",
-    # ALR-1106 P1 fix (Terra review, 2026-08-10): BindingProjection's four
+    # ALR-1106 P1 fix: BindingProjection's four
     # named fp2 version slots, newly reachable now the walker resolves
     # bare $ref -- each is a closed structural container (schema/state/ref
     # fields, already independently annotated on ArtifactVersionSlotBase).
@@ -418,7 +418,7 @@ def _iter_property_positions(
     """Yield (document, pointer, node, property_name) for every reachable
     property position under `node`. Resolves EVERY local or cross-file $ref
     wherever it appears -- not only inside allOf branches (ALR-1106 P1 fix,
-    Terra review 2026-08-10: the prior version only resolved $ref inside
+    internal review 2026-08-10: the prior version only resolved $ref inside
     allOf, so record_response_schema.json's governance_profile/identity_
     state/measurement_coverage/pending_episode/comparability_verdict/
     bindings-items/evidence_episodes-items (all bare $ref), Route 1's own

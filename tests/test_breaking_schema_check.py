@@ -1467,7 +1467,7 @@ def test_exact_identity_rejects_same_pointer_semantic_drift() -> None:
 def test_exact_allow_entry_immune_to_unrelated_same_file_rule_appends() -> None:
     """(file, rule) is not unique, so selection must key on the full identity.
 
-    Guards the Terra finding directly: this allowlist already carries several
+    Guards the review finding directly: this allowlist already carries several
     entries sharing (file, rule) -- see the PR #439 vs #447 root branch-count
     identities pinned in this same test below. Appending unrelated entries with
     that identical (file, rule), including one with no findings at all and

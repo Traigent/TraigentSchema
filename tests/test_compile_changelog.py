@@ -1021,3 +1021,32 @@ def test_mode_restore_failure_warns_and_the_compile_still_succeeds(
     assert "## [1.1.0] - 2026-02-02" in (root / "CHANGELOG.md").read_text()
     assert "- alpha" in (root / "CHANGELOG.md").read_text()
     assert not a.exists()
+
+
+def test_failing_warning_output_does_not_stop_fsync_and_cleanup(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a = frag(root, "a.added.md", "- alpha\n")
+    commit_all(root)
+
+    def refuse(*_a: object, **_k: object) -> None:
+        raise OSError(1, "Operation not permitted")
+
+    class BrokenStderr:
+        def write(self, _text: str) -> int:
+            raise OSError(28, "No space left on device")
+
+        def flush(self) -> None:
+            raise OSError(28, "No space left on device")
+
+    synced: list[Path] = []
+    real_fsync_dir = cc._fsync_dir
+    monkeypatch.setattr(cc.os, "chmod", refuse)
+    monkeypatch.setattr(cc.sys, "stderr", BrokenStderr())
+    monkeypatch.setattr(cc, "_fsync_dir", lambda p: (synced.append(p), real_fsync_dir(p))[1])
+    assert cc.main(["--root", str(root), "--version", "1.1.0", "--date", "2026-02-02"]) == 0
+    text = (root / "CHANGELOG.md").read_text()
+    assert "## [1.1.0] - 2026-02-02" in text
+    assert "- alpha" in text
+    assert synced == [root]
+    assert not a.exists()

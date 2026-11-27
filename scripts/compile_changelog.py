@@ -15,6 +15,7 @@ git is resolved through PATH and is run from the repository root.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import os
 import re
@@ -407,11 +408,12 @@ def write_atomic(path: Path, text: str) -> None:
     try:  # restore the original mode after the replace, best effort
         os.chmod(path, stat.S_IMODE(mode))
     except OSError as exc:
-        print(
-            f"warning: could not restore the original file mode of {path.name}: "
-            f"{exc.strerror or exc}; the content was written",
-            file=sys.stderr,
-        )
+        with contextlib.suppress(OSError):  # a failing warning must not stop the compile
+            print(
+                f"warning: could not restore the original file mode of {path.name}: "
+                f"{exc.strerror or exc}; the content was written",
+                file=sys.stderr,
+            )
 
 
 def _read_changelog(path: Path) -> str:

@@ -1,0 +1,1518 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Traigent Process Record Routes",
+    "version": "1.0.0",
+    "description": "Project-scoped preparation, retrieval, issuance and verification of process record certificates."
+  },
+  "x-asserted-against-backend": false,
+  "paths": {
+    "/api/v1/projects/{project_id}/process-records": {
+      "post": {
+        "operationId": "certification_process_record.prepare_process_record",
+        "summary": "Check receipt readiness for a process record",
+        "description": "Reports the receipts currently visible for an issued build session. This probe does not reserve issuance.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"allOf": [{"$ref": "./process_record_request_schema.json#/definitions/PrepareProcessRecordRequest"}]}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt readiness calculated.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PrepareProcessRecordResponse"}}}
+          },
+          "400": {
+            "description": "Invalid request body, process record reference or tenant context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/UnsupportedContentType"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "INVALID_BODY"},
+                        "error_code": {"const": "INVALID_BODY"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "MALFORMED_PROCESS_RECORD_REF"},
+                        "error_code": {"const": "MALFORMED_PROCESS_RECORD_REF"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "TENANT_CONTEXT_MISSING"},
+                        "error_code": {"const": "TENANT_CONTEXT_MISSING"}
+                      }
+                    }
+                  ]
+                }
+              },
+              "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/WriteForbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "422": {"$ref": "#/components/responses/Unprocessable"},
+          "409": {
+            "description": "The requested receipt snapshot conflicts with current state.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordStorageConflict"}}}
+          },
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {
+            "description": "Receipt or authentication data is temporarily unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Internal server error"},
+                        "error": {"const": "Internal server error"},
+                        "error_code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_BACKEND_UNAVAILABLE",
+                            "SNAPSHOT_ISOLATION_FAILED",
+                            "STORAGE_UNAVAILABLE",
+                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "UNKNOWN_STREAM_ID",
+                            "UNKNOWN_STEP_ID",
+                            "UNKNOWN_OBSERVATION_BASIS",
+                            "UNKNOWN_REGISTERED_KEY",
+                            "EMPTY_REGISTERED_VALUES",
+                            "NON_INTEGER_REGISTERED_VALUE",
+                            "NUMERIC_BOUND_VIOLATION",
+                            "RECEIPT_PROJECTION_TOO_LARGE"
+                          ]
+                        }
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/process-records/{process_record_ref}": {
+      "get": {
+        "operationId": "certification_process_record.retrieve_process_record",
+        "summary": "Retrieve an issued process record",
+        "description": "Returns the stored certificate after checked re-verification. Optional companions are separate from the signed bundle.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "process_record_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque reference to the process record in this project.",
+            "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issued process record retrieved.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/RetrieveProcessRecordResponse"}}}
+          },
+          "400": {
+            "description": "Invalid process-record reference or tenant context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "MALFORMED_PROCESS_RECORD_REF"},
+                        "error_code": {"const": "MALFORMED_PROCESS_RECORD_REF"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "TENANT_CONTEXT_MISSING"},
+                        "error_code": {"const": "TENANT_CONTEXT_MISSING"}
+                      }
+                    }
+                  ]
+                }
+              },
+              "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {
+            "description": "The caller lacks read access to the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ProjectAccessDenied"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ContextForbidden"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/OptimizationOnly"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "no project context bound to this request"},
+                        "error": {"const": "PROJECT_CONTEXT_REQUIRED"},
+                        "error_code": {"const": "PROJECT_CONTEXT_REQUIRED"}
+                      }
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["success", "message", "error", "error_code", "details"],
+                          "properties": {
+                            "success": {"const": false},
+                            "message": {"const": "Missing required permissions: harness.read"},
+                            "error": {"const": "INSUFFICIENT_PERMISSIONS"},
+                            "error_code": {"const": "INSUFFICIENT_PERMISSIONS"},
+                            "details": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["missing_permissions"],
+                              "properties": {
+                                "missing_permissions": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                              }
+                            }
+                          }
+                        },
+                        {"$ref": "../closed_request_error_schema.json#/definitions/EntitlementRequired"}
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record storage refused the request"},
+                        "error": {"const": "tenant_context_missing"},
+                        "error_code": {"const": "TENANT_CONTEXT_MISSING"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record storage refused the request"},
+                        "error": {"const": "tenant_binding_failed"},
+                        "error_code": {"const": "TENANT_BINDING_FAILED"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No accessible issuance was found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ProjectNotFound"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ContextNotFound"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Resource not found"},
+                        "error": {"const": "Not found"},
+                        "error_code": {"const": "NOT_FOUND"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "no process record certificate has been minted for this build session"},
+                        "error": {"const": "PROCESS_RECORD_NOT_FOUND"},
+                        "error_code": {"const": "PROCESS_RECORD_NOT_FOUND"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The stored certificate failed checked re-verification.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {"$ref": "#/components/schemas/ProcessRecordVerificationFailure"},
+                        {
+                          "properties": {
+                            "message": {"const": "checked re-verification of the stored certificate failed"},
+                            "error_code": {"enum": ["REVOCATION_STATUS_UNAVAILABLE", "KEY_REVOKED", "CERTIFICATE_REVOKED"]}
+                          }
+                        }
+                      ]
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}
+                  ]
+                }
+              }
+            }
+          },
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {
+            "description": "The stored issuance could not be read or reconciled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Internal server error"},
+                        "error": {"const": "Internal server error"},
+                        "error_code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_BACKEND_UNAVAILABLE",
+                            "SNAPSHOT_ISOLATION_FAILED",
+                            "STORAGE_UNAVAILABLE",
+                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "UNKNOWN_STREAM_ID",
+                            "UNKNOWN_STEP_ID",
+                            "UNKNOWN_OBSERVATION_BASIS",
+                            "UNKNOWN_REGISTERED_KEY",
+                            "EMPTY_REGISTERED_VALUES",
+                            "NON_INTEGER_REGISTERED_VALUE",
+                            "NUMERIC_BOUND_VIOLATION",
+                            "RECEIPT_PROJECTION_TOO_LARGE",
+                            "ISSUANCE_RECORD_CORRUPT",
+                            "FRONT_CLAIM_SUPPLEMENT_CORRUPT",
+                            "ISSUANCE_RECONCILIATION_FAILED",
+                            "ISSUANCE_RECORD_TOO_LARGE",
+                            "COMMITMENT_LINKAGE_CORRUPT"
+                          ]
+                        }
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/process-records/{process_record_ref}/finalize": {
+      "post": {
+        "operationId": "certification_process_record.finalize_process_record",
+        "summary": "Issue a process record certificate",
+        "description": "Issues and stores a signed certificate for the named build session. After an ambiguous storage failure, retrieve the record before retrying.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          },
+          {
+            "name": "process_record_ref",
+            "in": "path",
+            "required": true,
+            "description": "Opaque reference to the process record in this project.",
+            "schema": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"allOf": [{"$ref": "./process_record_request_schema.json#/definitions/FinalizeProcessRecordRequest"}]}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signed process record issued.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FinalizeProcessRecordResponse"}}}
+          },
+          "400": {
+            "description": "Invalid request body, reference, or issuance inputs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/UnsupportedContentType"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "INVALID_BODY"},
+                        "error_code": {"const": "INVALID_BODY"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "MALFORMED_PROCESS_RECORD_REF"},
+                        "error_code": {"const": "MALFORMED_PROCESS_RECORD_REF"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "TENANT_CONTEXT_MISSING"},
+                        "error_code": {"const": "TENANT_CONTEXT_MISSING"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "MISSING_FIELD"},
+                        "error_code": {"const": "MISSING_FIELD"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "invalid_request"},
+                        "error_code": {"const": "invalid_request"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "missing_project_id"},
+                        "error_code": {"const": "MISSING_PROJECT_ID"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "commitment_linkage_disabled"},
+                        "error_code": {"const": "COMMITMENT_LINKAGE_DISABLED"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "commitment_linkage_opening_shape"},
+                        "error_code": {"const": "COMMITMENT_LINKAGE_OPENING_SHAPE"}
+                      }
+                    }
+                  ]
+                }
+              },
+              "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/WriteForbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {
+            "description": "Issuance conflicts with current state. A retry delay is returned when issuance is already in progress.",
+            "headers": {
+              "Retry-After": {"description": "Seconds to wait when issuance is in progress.", "schema": {"type": "integer", "const": 2}}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "#/components/schemas/ProcessRecordStorageConflict"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "receipt_snapshot_stale"},
+                        "error_code": {"const": "RECEIPT_SNAPSHOT_STALE"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "duplicate_issuance"},
+                        "error_code": {"const": "DUPLICATE_ISSUANCE"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "session_project_conflict"},
+                        "error_code": {"const": "SESSION_PROJECT_CONFLICT"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "issuance_in_progress"},
+                        "error_code": {"const": "ISSUANCE_IN_PROGRESS"}
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Issuance inputs or assembled certificate failed verification.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code", "details"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "no_receipts_visible"},
+                        "error_code": {"const": "NO_RECEIPTS_VISIBLE"},
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["_global"],
+                          "properties": {
+                            "_global": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code", "details"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "issuer_key_binding_mismatch"},
+                        "error_code": {"const": "ISSUER_KEY_BINDING_MISMATCH"},
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["_global"],
+                          "properties": {
+                            "_global": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code", "details"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "process record issuance refused the request"},
+                        "error": {"const": "commitment_linkage_unavailable"},
+                        "error_code": {"const": "COMMITMENT_LINKAGE_UNAVAILABLE"},
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["_global"],
+                          "properties": {
+                            "_global": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "allOf": [
+                        {"$ref": "#/components/schemas/ProcessRecordVerificationFailure"},
+                        {
+                          "properties": {"message": {"const": "self-verification of the assembled bundle failed"}}
+                        }
+                      ]
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}
+                  ]
+                }
+              }
+            }
+          },
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {
+            "description": "Issuance could not be completed or confirmed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Internal server error"},
+                        "error": {"const": "Internal server error"},
+                        "error_code": {
+                          "type": "string",
+                          "enum": [
+                            "AUTH_BACKEND_UNAVAILABLE",
+                            "SNAPSHOT_ISOLATION_FAILED",
+                            "STORAGE_UNAVAILABLE",
+                            "UNCLASSIFIED_INTEGRITY_VIOLATION",
+                            "UNKNOWN_STREAM_ID",
+                            "UNKNOWN_STEP_ID",
+                            "UNKNOWN_OBSERVATION_BASIS",
+                            "UNKNOWN_REGISTERED_KEY",
+                            "EMPTY_REGISTERED_VALUES",
+                            "NON_INTEGER_REGISTERED_VALUE",
+                            "NUMERIC_BOUND_VIOLATION",
+                            "RECEIPT_PROJECTION_TOO_LARGE",
+                            "ISSUANCE_RECORD_CORRUPT",
+                            "FRONT_CLAIM_SUPPLEMENT_CORRUPT",
+                            "ISSUANCE_RECONCILIATION_FAILED",
+                            "ISSUANCE_RECORD_TOO_LARGE",
+                            "COMMITMENT_LINKAGE_CORRUPT",
+                            "DEDICATED_ISSUER_KEY_ABSENT",
+                            "TEST_SIGNER_FORBIDDEN_IN_PRODUCTION",
+                            "ISSUER_SIGNER_UNAVAILABLE",
+                            "DEDICATED_ANCHOR_KEY_ABSENT",
+                            "TRUST_STATUS_SNAPSHOT_INVALID",
+                            "TRUST_STATUS_SOURCE_UNAVAILABLE",
+                            "ANCHOR_KEY_NOT_DISTINCT_FROM_ISSUER_KEY",
+                            "MALFORMED_OPAQUE_REF"
+                          ]
+                        }
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/process-records/verify": {
+      "post": {
+        "operationId": "certification_process_record.verify_process_record",
+        "summary": "Verify a process record certificate",
+        "description": "Checks a supplied bundle against the caller's independent pins and trust-status evidence without reading a stored issuance.",
+        "x-asserted-against-backend": false,
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "The project id.",
+            "schema": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {"schema": {"allOf": [{"$ref": "./process_record_request_schema.json#/definitions/VerifyProcessRecordRequest"}]}}
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bundle and trust status verified.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/VerifyProcessRecordResponse"}}}
+          },
+          "400": {
+            "description": "Request body or verification inputs are malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/UnsupportedContentType"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "INVALID_BODY"},
+                        "error_code": {"const": "INVALID_BODY"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "MISSING_FIELD"},
+                        "error_code": {"const": "MISSING_FIELD"}
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Request could not be processed"},
+                        "error": {"const": "invalid_request"},
+                        "error_code": {"const": "invalid_request"}
+                      }
+                    }
+                  ]
+                }
+              },
+              "application/problem+json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/ProviderCredentialRejected"}}
+            }
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {
+            "description": "The caller lacks read access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ProjectAccessDenied"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ContextForbidden"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/OptimizationOnly"},
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code", "details"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Missing required permissions: harness.read"},
+                        "error": {"const": "INSUFFICIENT_PERMISSIONS"},
+                        "error_code": {"const": "INSUFFICIENT_PERMISSIONS"},
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": ["missing_permissions"],
+                          "properties": {
+                            "missing_permissions": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                          }
+                        }
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/EntitlementRequired"}
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No accessible matching scope was found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Resource not found"},
+                        "error": {"const": "Not found"},
+                        "error_code": {"const": "NOT_FOUND"}
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ProjectNotFound"},
+                    {"$ref": "../closed_request_error_schema.json#/definitions/ContextNotFound"}
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Cryptographic, scope or trust-status verification failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {"$ref": "#/components/schemas/ProcessRecordVerificationFailure"},
+                        {
+                          "properties": {"message": {"const": "verification failed"}}
+                        }
+                      ]
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}
+                  ]
+                }
+              }
+            }
+          },
+          "413": {"$ref": "#/components/responses/PayloadTooLarge"},
+          "429": {"$ref": "#/components/responses/RateLimited"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "503": {
+            "description": "Authentication is temporarily unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["success", "message", "error", "error_code"],
+                      "properties": {
+                        "success": {"const": false},
+                        "message": {"const": "Internal server error"},
+                        "error": {"const": "Internal server error"},
+                        "error_code": {"type": "string", "enum": ["AUTH_BACKEND_UNAVAILABLE"]}
+                      }
+                    },
+                    {"$ref": "../closed_request_error_schema.json#/definitions/Unavailable"}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "PayloadTooLarge": {
+        "description": "The request exceeds the size limit.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/RequestTooLarge"}}
+        }
+      },
+      "RateLimited": {
+        "description": "The request exceeded a rate limit.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/RateLimited"}}
+        }
+      },
+      "Unprocessable": {
+        "description": "Request validation or scope resolution failed.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unprocessable"}}
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required.",
+        "content": {
+          "application/json": {"schema": {"$ref": "../closed_request_error_schema.json#/definitions/Unauthorized"}}
+        }
+      },
+      "WriteForbidden": {
+        "description": "The caller lacks write access to the project.",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordWriteForbidden"}}}
+      },
+      "NotFound": {
+        "description": "No accessible matching scope was found.",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordScopeNotFound"}}}
+      },
+      "InternalError": {
+        "description": "An unexpected server error occurred.",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ProcessRecordInternal"}}}
+      }
+    },
+    "schemas": {
+      "PrepareProcessRecordResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message", "data"],
+        "properties": {
+          "success": {"const": true},
+          "message": {
+            "type": "string",
+            "enum": ["build session ready for issuance", "build session has no visible receipts; finalize will refuse"]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["process_record_ref", "status", "stream_counts", "present_count", "issuable"],
+            "properties": {
+              "process_record_ref": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
+              "status": {"const": "prepared"},
+              "stream_counts": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["decision_stream", "receipt_event_stream", "transition_stream"],
+                "properties": {
+                  "decision_stream": {"type": "integer", "minimum": 0},
+                  "receipt_event_stream": {"type": "integer", "minimum": 0},
+                  "transition_stream": {"type": "integer", "minimum": 0}
+                }
+              },
+              "present_count": {"type": "integer", "minimum": 0, "maximum": 5},
+              "issuable": {"type": "boolean"}
+            }
+          }
+        },
+        "if": {"properties": {"data": {"properties": {"present_count": {"const": 0}}}}},
+        "then": {
+          "properties": {
+            "message": {"const": "build session has no visible receipts; finalize will refuse"},
+            "data": {"properties": {"issuable": {"const": false}}}
+          }
+        },
+        "else": {
+          "properties": {"message": {"const": "build session ready for issuance"}, "data": {"properties": {"issuable": {"const": true}}}}
+        }
+      },
+      "FinalizeProcessRecordResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message", "data"],
+        "properties": {
+          "success": {"const": true},
+          "message": {"const": "process record certificate minted"},
+          "data": {"$ref": "./process_record_v1_schema.json"},
+          "commitment_linkage": {"$ref": "./commitment_linkage_v1_schema.json#/definitions/CommitmentLinkageEnvelopeV1"}
+        }
+      },
+      "RetrieveProcessRecordResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message", "data"],
+        "properties": {
+          "success": {"const": true},
+          "message": {"const": "process record certificate"},
+          "data": {"$ref": "./process_record_v1_schema.json"},
+          "front_claim": {"$ref": "#/components/schemas/FrontClaimCompanion"},
+          "commitment_linkage": {"$ref": "./commitment_linkage_v1_schema.json#/definitions/CommitmentLinkageEnvelopeV1"}
+        }
+      },
+      "VerifyProcessRecordResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message", "data"],
+        "properties": {
+          "success": {"const": true},
+          "message": {"const": "verification verdict"},
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "valid",
+              "code",
+              "trust_status_evidence",
+              "present_count",
+              "missing_count",
+              "receipt_count",
+              "receipt_bundle_digest",
+              "process_report_digest",
+              "unsigned_manifest_digest"
+            ],
+            "properties": {
+              "valid": {"const": true},
+              "code": {"const": "PROCESS_RECORD_VERIFIED"},
+              "trust_status_evidence": {"const": "checked_active"},
+              "present_count": {"type": "integer", "minimum": 0, "maximum": 5},
+              "missing_count": {"type": "integer", "minimum": 0, "maximum": 5},
+              "receipt_count": {"type": "integer", "minimum": 0},
+              "receipt_bundle_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+              "process_report_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+              "unsigned_manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"}
+            }
+          }
+        }
+      },
+      "FrontClaimCompanion": {
+        "description": "Optional unsigned assessment delivered beside the signed certificate bundle. Its absence is explicit when the assessment is served but was never retained.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "supplement_present",
+          "assessment_state",
+          "outcome",
+          "headline",
+          "capture_basis",
+          "exhaustive_inventory",
+          "disclosures"
+        ],
+        "properties": {
+          "supplement_present": {"type": "boolean"},
+          "assessment_state": {"type": "string", "minLength": 1},
+          "outcome": {
+            "enum": [
+              "non_dominated_within_scope",
+              "dominated_within_scope",
+              "no_comparable_peers",
+              "candidate_not_comparable",
+              "candidate_not_retrievable",
+              "not_assessed"
+            ]
+          },
+          "headline": {"type": "string", "minLength": 1},
+          "capture_basis": {"type": ["string", "null"]},
+          "exhaustive_inventory": {"type": "boolean"},
+          "disclosures": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["unsigned_companion", "digest_scope", "bounded_claim", "capture_basis"],
+            "properties": {
+              "unsigned_companion": {"type": "string", "minLength": 1},
+              "digest_scope": {"type": "string", "minLength": 1},
+              "bounded_claim": {"type": "string", "minLength": 1},
+              "capture_basis": {"type": "string", "minLength": 1}
+            }
+          },
+          "not_assessed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason", "detail"],
+            "properties": {
+              "reason": {"type": "string", "minLength": 1},
+              "detail": {"type": "string", "minLength": 1},
+              "record": {"type": ["object", "null"]}
+            }
+          },
+          "schema_version": {"type": "string", "minLength": 1},
+          "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["process_record_ref", "unsigned_manifest_digest", "computed_at"],
+            "properties": {
+              "process_record_ref": {"$ref": "./process_record_request_schema.json#/definitions/ProcessRecordReference"},
+              "unsigned_manifest_digest": {"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"},
+              "computed_at": {"type": "string", "format": "date-time"}
+            }
+          },
+          "selection_binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "experiment_run_id",
+              "experiment_run_id_source",
+              "winner_trial_id",
+              "eligible_trial_ids_digest",
+              "eligible_trial_ids_digest_scope",
+              "selection_receipt_store",
+              "selection_receipt_validated_against",
+              "candidate_rows_store",
+              "stores_reconciled"
+            ],
+            "properties": {
+              "experiment_run_id": {"type": ["string", "null"]},
+              "experiment_run_id_source": {"type": "string", "minLength": 1},
+              "winner_trial_id": {"type": ["string", "null"]},
+              "eligible_trial_ids_digest": {"type": ["string", "null"]},
+              "eligible_trial_ids_digest_scope": {"type": "string", "minLength": 1},
+              "selection_receipt_store": {"type": "string", "minLength": 1},
+              "selection_receipt_validated_against": {"type": "string", "minLength": 1},
+              "candidate_rows_store": {"type": "string", "minLength": 1},
+              "stores_reconciled": {"const": false}
+            }
+          },
+          "authentication": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["inside_signed_v1_bundle", "covered_by_v1_issuer_signature", "verified_by_v1_standalone_verifier", "bound_by"],
+            "properties": {
+              "inside_signed_v1_bundle": {"const": false},
+              "covered_by_v1_issuer_signature": {"const": false},
+              "verified_by_v1_standalone_verifier": {"const": false},
+              "bound_by": {"type": "string", "minLength": 1}
+            }
+          },
+          "front_status": {"type": "string", "minLength": 1},
+          "withheld_reason": {"type": ["string", "null"]},
+          "candidate_id": {"type": ["string", "null"]},
+          "dominated_by": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "not_comparable": {"type": "array", "items": {"type": ["object", "string"]}},
+          "not_comparable_count": {"type": "integer", "minimum": 0},
+          "objectives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "objective_id",
+                "direction",
+                "registration",
+                "measurement_scope",
+                "metric_key",
+                "unit",
+                "input_representation",
+                "declaration_source"
+              ],
+              "properties": {
+                "objective_id": {"type": ["string", "null"]},
+                "direction": {"type": ["string", "null"]},
+                "registration": {"type": ["string", "null"]},
+                "measurement_scope": {"type": ["string", "null"]},
+                "metric_key": {"type": ["string", "null"]},
+                "unit": {"type": ["string", "null"]},
+                "input_representation": {"type": ["string", "null"]},
+                "declaration_source": {"type": ["string", "null"]}
+              }
+            }
+          },
+          "objectives_source": {"type": ["object", "string", "null"]},
+          "value_resolution": {"type": ["object", "null"]},
+          "set_completeness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["named", "resolved", "unresolved_ids", "attested"],
+            "properties": {
+              "named": {"type": "integer", "minimum": 0},
+              "resolved": {"type": "integer", "minimum": 0},
+              "unresolved_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "attested": {"type": "boolean"}
+            }
+          },
+          "population": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scope",
+              "population_source",
+              "captured_at",
+              "scope_row_count",
+              "captured_member_count",
+              "unnamed_captured_count"
+            ],
+            "properties": {
+              "scope": {"type": "string", "minLength": 1},
+              "population_source": {"type": "string", "minLength": 1},
+              "captured_at": {"type": "string", "minLength": 1},
+              "scope_row_count": {"type": "integer", "minimum": 0},
+              "captured_member_count": {"type": "integer", "minimum": 0},
+              "unnamed_captured_count": {"type": "integer", "minimum": 0}
+            }
+          },
+          "member_count": {"type": "integer", "minimum": 0},
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_id",
+                "status",
+                "named_in_receipt",
+                "values",
+                "omitted_objectives",
+                "scores_source",
+                "scores_source_wording",
+                "value_bases",
+                "metric_source_conflicts",
+                "source_boundary"
+              ],
+              "properties": {
+                "record_id": {"type": ["string", "null"]},
+                "status": {"type": ["string", "null"]},
+                "named_in_receipt": {"type": "boolean"},
+                "values": {"type": ["object", "null"]},
+                "omitted_objectives": {"type": ["array", "object", "null"]},
+                "scores_source": {"type": ["string", "null"]},
+                "scores_source_wording": {"type": ["string", "null"]},
+                "value_bases": {"type": ["object", "null"]},
+                "metric_source_conflicts": {"type": "object"},
+                "source_boundary": {"type": ["object", "null"]}
+              }
+            }
+          }
+        },
+        "if": {"properties": {"supplement_present": {"const": true}}},
+        "then": {"required": ["schema_version", "binding", "selection_binding", "authentication"]},
+        "else": {
+          "required": ["not_assessed"],
+          "properties": {"outcome": {"const": "not_assessed"}, "capture_basis": {"const": null}, "exhaustive_inventory": {"const": false}}
+        }
+      },
+      "ProcessRecordStorageConflict": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "session_project_conflict"},
+              "error_code": {"const": "SESSION_PROJECT_CONFLICT"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "immutable_row"},
+              "error_code": {"const": "IMMUTABLE_ROW"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "duplicate_seq"},
+              "error_code": {"const": "DUPLICATE_SEQ"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "duplicate_receipt_ref"},
+              "error_code": {"const": "DUPLICATE_RECEIPT_REF"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "constraint_violation"},
+              "error_code": {"const": "CONSTRAINT_VIOLATION"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "stream_overflow"},
+              "error_code": {"const": "STREAM_OVERFLOW"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "lineage_scope_mismatch"},
+              "error_code": {"const": "LINEAGE_SCOPE_MISMATCH"}
+            }
+          }
+        ]
+      },
+      "ProcessRecordInternal": {"$ref": "../closed_request_error_schema.json#/definitions/InternalError"},
+      "ProcessRecordWriteForbidden": {
+        "anyOf": [
+          {"$ref": "../closed_request_error_schema.json#/definitions/ProjectAccessDenied"},
+          {"$ref": "../closed_request_error_schema.json#/definitions/ContextForbidden"},
+          {"$ref": "../closed_request_error_schema.json#/definitions/OptimizationOnly"},
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "no project context bound to this request"},
+              "error": {"const": "PROJECT_CONTEXT_REQUIRED"},
+              "error_code": {"const": "PROJECT_CONTEXT_REQUIRED"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code", "details"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "Missing required permissions: harness.write"},
+              "error": {"const": "INSUFFICIENT_PERMISSIONS"},
+              "error_code": {"const": "INSUFFICIENT_PERMISSIONS"},
+              "details": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["missing_permissions"],
+                "properties": {
+                  "missing_permissions": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "project access forbidden"},
+              "error": {"const": "project access forbidden"},
+              "error_code": {"const": "PROJECT_FORBIDDEN"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "tenant_context_missing"},
+              "error_code": {"const": "TENANT_CONTEXT_MISSING"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "tenant_binding_failed"},
+              "error_code": {"const": "TENANT_BINDING_FAILED"}
+            }
+          },
+          {"$ref": "../closed_request_error_schema.json#/definitions/EntitlementRequired"}
+        ]
+      },
+      "ProcessRecordScopeNotFound": {
+        "anyOf": [
+          {"$ref": "../closed_request_error_schema.json#/definitions/ProjectNotFound"},
+          {"$ref": "../closed_request_error_schema.json#/definitions/ContextNotFound"},
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "Resource not found"},
+              "error": {"const": "Not found"},
+              "error_code": {"const": "NOT_FOUND"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "unknown_scope_reference"},
+              "error_code": {"const": "UNKNOWN_SCOPE_REFERENCE"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["success", "message", "error", "error_code"],
+            "properties": {
+              "success": {"const": false},
+              "message": {"const": "process record storage refused the request"},
+              "error": {"const": "lineage_unmapped"},
+              "error_code": {"const": "LINEAGE_UNMAPPED"}
+            }
+          }
+        ]
+      },
+      "ProcessRecordVerificationFailure": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["success", "message", "error", "error_code", "details"],
+        "properties": {
+          "success": {"const": false},
+          "message": {
+            "enum": [
+              "verification failed",
+              "self-verification of the assembled bundle failed",
+              "checked re-verification of the stored certificate failed"
+            ]
+          },
+          "error": {"type": "string"},
+          "error_code": {"type": "string"},
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["_global"],
+            "properties": {"_global": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}}
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {"error": {"const": "ASSERTION_DIGEST_MISMATCH"}, "error_code": {"const": "ASSERTION_DIGEST_MISMATCH"}}
+          },
+          {
+            "properties": {"error": {"const": "BASE_CERTIFICATE_INVALID"}, "error_code": {"const": "BASE_CERTIFICATE_INVALID"}}
+          },
+          {
+            "properties": {"error": {"const": "BASE_MANIFEST_DIGEST_MISMATCH"}, "error_code": {"const": "BASE_MANIFEST_DIGEST_MISMATCH"}}
+          },
+          {"properties": {"error": {"const": "BUNDLE_SHAPE"}, "error_code": {"const": "BUNDLE_SHAPE"}}},
+          {"properties": {"error": {"const": "CANONICALIZATION"}, "error_code": {"const": "CANONICALIZATION"}}},
+          {"properties": {"error": {"const": "CAPTURE_POLICY_MISMATCH"}, "error_code": {"const": "CAPTURE_POLICY_MISMATCH"}}},
+          {"properties": {"error": {"const": "CERTIFICATE_REVOKED"}, "error_code": {"const": "CERTIFICATE_REVOKED"}}},
+          {"properties": {"error": {"const": "CLAIM_NOT_VERIFIED"}, "error_code": {"const": "CLAIM_NOT_VERIFIED"}}},
+          {
+            "properties": {"error": {"const": "CLAIM_SUPPORT_ROW_MISMATCH"}, "error_code": {"const": "CLAIM_SUPPORT_ROW_MISMATCH"}}
+          },
+          {"properties": {"error": {"const": "COMMITMENT_REF_MISMATCH"}, "error_code": {"const": "COMMITMENT_REF_MISMATCH"}}},
+          {"properties": {"error": {"const": "CONTEXT"}, "error_code": {"const": "CONTEXT"}}},
+          {
+            "properties": {"error": {"const": "ISSUER_SIGNATURE_INVALID"}, "error_code": {"const": "ISSUER_SIGNATURE_INVALID"}}
+          },
+          {"properties": {"error": {"const": "KEY_REVOKED"}, "error_code": {"const": "KEY_REVOKED"}}},
+          {"properties": {"error": {"const": "KEY_RING_MISMATCH"}, "error_code": {"const": "KEY_RING_MISMATCH"}}},
+          {
+            "properties": {"error": {"const": "RECEIPT_BUNDLE_DIGEST_MISMATCH"}, "error_code": {"const": "RECEIPT_BUNDLE_DIGEST_MISMATCH"}}
+          },
+          {"properties": {"error": {"const": "RECEIPT_DIGEST_MISMATCH"}, "error_code": {"const": "RECEIPT_DIGEST_MISMATCH"}}},
+          {"properties": {"error": {"const": "RECEIPT_DUPLICATE"}, "error_code": {"const": "RECEIPT_DUPLICATE"}}},
+          {"properties": {"error": {"const": "RECEIPT_LIMIT_EXCEEDED"}, "error_code": {"const": "RECEIPT_LIMIT_EXCEEDED"}}},
+          {"properties": {"error": {"const": "RECEIPT_ORDER"}, "error_code": {"const": "RECEIPT_ORDER"}}},
+          {"properties": {"error": {"const": "RECEIPT_SIZE_EXCEEDED"}, "error_code": {"const": "RECEIPT_SIZE_EXCEEDED"}}},
+          {"properties": {"error": {"const": "RECEIPT_STREAM_MISMATCH"}, "error_code": {"const": "RECEIPT_STREAM_MISMATCH"}}},
+          {"properties": {"error": {"const": "REPORT_MISMATCH"}, "error_code": {"const": "REPORT_MISMATCH"}}},
+          {
+            "properties": {"error": {"const": "REVOCATION_STATUS_UNAVAILABLE"}, "error_code": {"const": "REVOCATION_STATUS_UNAVAILABLE"}}
+          },
+          {"properties": {"error": {"const": "SCHEMA"}, "error_code": {"const": "SCHEMA"}}},
+          {"properties": {"error": {"const": "SCHEMA_DEPENDENCY"}, "error_code": {"const": "SCHEMA_DEPENDENCY"}}},
+          {"properties": {"error": {"const": "SCOPE_MISMATCH"}, "error_code": {"const": "SCOPE_MISMATCH"}}},
+          {"properties": {"error": {"const": "STREAM_INDEX_MISMATCH"}, "error_code": {"const": "STREAM_INDEX_MISMATCH"}}},
+          {"properties": {"error": {"const": "STRICT_INTEGER"}, "error_code": {"const": "STRICT_INTEGER"}}},
+          {"properties": {"error": {"const": "TRUST_ANCHOR_MISMATCH"}, "error_code": {"const": "TRUST_ANCHOR_MISMATCH"}}},
+          {"properties": {"error": {"const": "TRUST_POLICY_MISMATCH"}, "error_code": {"const": "TRUST_POLICY_MISMATCH"}}},
+          {
+            "properties": {"error": {"const": "TRUST_STATUS_DIGEST_MISMATCH"}, "error_code": {"const": "TRUST_STATUS_DIGEST_MISMATCH"}}
+          },
+          {"properties": {"error": {"const": "TRUST_STATUS_SCHEMA"}, "error_code": {"const": "TRUST_STATUS_SCHEMA"}}},
+          {"properties": {"error": {"const": "TRUST_STATUS_SHAPE"}, "error_code": {"const": "TRUST_STATUS_SHAPE"}}},
+          {
+            "properties": {"error": {"const": "TRUST_STATUS_SIGNATURE_INVALID"}, "error_code": {"const": "TRUST_STATUS_SIGNATURE_INVALID"}}
+          },
+          {
+            "properties": {
+              "error": {"const": "UNSIGNED_MANIFEST_DIGEST_MISMATCH"},
+              "error_code": {"const": "UNSIGNED_MANIFEST_DIGEST_MISMATCH"}
+            }
+          },
+          {
+            "properties": {"error": {"const": "UNSIGNED_MANIFEST_MISMATCH"}, "error_code": {"const": "UNSIGNED_MANIFEST_MISMATCH"}}
+          },
+          {"properties": {"error": {"const": "VERIFICATION_FAILED"}, "error_code": {"const": "VERIFICATION_FAILED"}}}
+        ]
+      }
+    }
+  }
+}

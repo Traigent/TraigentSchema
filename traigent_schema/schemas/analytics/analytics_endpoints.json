@@ -1058,12 +1058,23 @@
         }
       }
     },
-    "/api/v1/analytics/summary": {
+    "/api/v1/projects/{project_id}/analytics/summary": {
       "get": {
         "summary": "Get the project analytics summary",
-        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Aggregate entity counts, status breakdowns, usage and measure summaries for the active project over a look-back window. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_analytics_summary",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -1116,12 +1127,24 @@
         }
       }
     },
-    "/api/v1/analytics/pricing-catalog": {
+    "/api/v1/projects/{project_id}/analytics/pricing-catalog": {
       "get": {
         "summary": "Get the project pricing catalog",
-        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "The static model pricing catalog available to the active project. Takes no query parameters. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_pricing_catalog",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Pricing catalog retrieved successfully. The body is the success envelope {success, message, data} with the payload under data.",
@@ -1158,12 +1181,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/optimization-overview": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/optimization-overview": {
       "get": {
         "summary": "Get the optimization overview dashboard",
-        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt optimization overview dashboard for the active project: summary cards, cost source breakdown and the most recent experiments. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_optimization_overview_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -1228,12 +1262,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/evaluator-quality": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/evaluator-quality": {
       "get": {
         "summary": "Get the evaluator quality dashboard",
-        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt evaluator quality dashboard for the active project. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_evaluator_quality_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -1298,12 +1343,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/project-usage": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/project-usage": {
       "get": {
         "summary": "Get the project usage dashboard",
-        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Prebuilt usage dashboard for the active project. Read access to experiments and project role viewer or above.",
         "operationId": "analytics.get_project_usage_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",
@@ -1368,12 +1424,23 @@
         }
       }
     },
-    "/api/v1/analytics/dashboards/observability-summary": {
+    "/api/v1/projects/{project_id}/analytics/dashboards/observability-summary": {
       "get": {
         "summary": "Get the observability summary dashboard",
-        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above. The project is resolved in order: credential-bound project, then the X-Project-Id header, then the tenant default.",
+        "description": "Observability summary dashboard for the active project, built from trace metadata (identifiers, names, cost and token counts). A read, plus a required durable admission audit record: an API key needs the explicit observability read grant in addition to the ordinary read permission, and the project role must be viewer or above.",
         "operationId": "analytics.get_project_observability_summary_dashboard",
         "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "description": "Project identifier.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
           {
             "name": "days",
             "in": "query",

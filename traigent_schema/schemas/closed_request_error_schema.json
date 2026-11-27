@@ -1,0 +1,496 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/closed_request_error_schema.json",
+  "title": "Closed Request Error Bodies",
+  "description": "Fixed response bodies for request handling and project resolution.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "ProjectNotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "project not found"},
+        "error": {"const": "PROJECT_NOT_FOUND"},
+        "error_code": {"enum": ["PROJECT_NOT_FOUND"]}
+      }
+    },
+    "ProjectAccessDenied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {
+          "enum": [
+            "API key is not scoped to the requested project",
+            "Authenticated principal is not scoped to the requested project",
+            "API key project scope is invalid",
+            "Authenticated principal project scope is invalid",
+            "credential-bound project is invalid"
+          ]
+        },
+        "error": {"const": "PROJECT_ACCESS_DENIED"},
+        "error_code": {"enum": ["PROJECT_ACCESS_DENIED"]}
+      }
+    },
+    "ContextNotFound": {
+      "anyOf": [
+        {
+          "allOf": [
+            {"$ref": "./fleet_observe/fleet_observe_responses_schema.json#/definitions/ErrorBody"},
+            {"properties": {"error": {"const": "not_found"}}}
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Resource not found"},
+            "error": {"const": "RESOURCE_NOT_FOUND"},
+            "error_code": {"enum": ["RESOURCE_NOT_FOUND"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {
+              "enum": [
+                "Tenant context is invalid for this request",
+                "credential-bound tenant does not exist",
+                "requested tenant does not exist",
+                "configured deployment tenant does not exist"
+              ]
+            },
+            "error": {"const": "TENANT_NOT_FOUND"},
+            "error_code": {"enum": ["TENANT_NOT_FOUND"]}
+          }
+        }
+      ]
+    },
+    "RouteNotFound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "error", "code"],
+      "properties": {
+        "success": {"const": false},
+        "error": {"const": "Not Found"},
+        "code": {"enum": ["NOT_FOUND"]}
+      }
+    },
+    "BadRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "error", "code"],
+      "properties": {
+        "success": {"const": false},
+        "error": {"const": "Bad Request"},
+        "code": {"enum": ["BAD_REQUEST"]}
+      }
+    },
+    "PayloadTooLarge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "error", "code"],
+      "properties": {
+        "success": {"const": false},
+        "error": {"const": "Request Entity Too Large"},
+        "code": {"enum": ["REQUEST_ENTITY_TOO_LARGE"]}
+      }
+    },
+    "RequestTooLarge": {
+      "anyOf": [
+        {"$ref": "./analytics/body_too_large_schema.json"},
+        {"$ref": "./analytics/payload_too_large_schema.json"},
+        {"$ref": "#/definitions/PayloadTooLarge"}
+      ]
+    },
+    "Unauthorized": {
+      "anyOf": [
+        {"$ref": "./fleet_observe/fleet_observe_responses_schema.json#/definitions/AuthErrorBody"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "error", "code"],
+          "properties": {
+            "success": {"const": false},
+            "error": {"const": "Unauthorized"},
+            "code": {"enum": ["UNAUTHORIZED"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Authentication required"},
+            "error": {"const": "authenticated user no longer exists"},
+            "error_code": {"enum": ["AUTHENTICATION_REQUIRED"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {
+              "enum": [
+                "Tenant context is invalid for this request",
+                "token tenant claim does not match requested tenant",
+                "credential tenant does not match deployment tenant"
+              ]
+            },
+            "error": {"const": "INVALID_TOKEN"},
+            "error_code": {"enum": ["INVALID_TOKEN"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Authentication required"},
+            "error": {"const": "CSRF_VALIDATION_FAILED"},
+            "error_code": {"const": "CSRF_VALIDATION_FAILED"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Session ended after a period of inactivity."},
+            "error": {"const": "SESSION_IDLE_EXPIRED"},
+            "error_code": {"const": "SESSION_IDLE_EXPIRED"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Session reached its maximum lifetime."},
+            "error": {"const": "SESSION_ABSOLUTE_EXPIRED"},
+            "error_code": {"const": "SESSION_ABSOLUTE_EXPIRED"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Session is not valid."},
+            "error": {"const": "SESSION_INVALID"},
+            "error_code": {"const": "SESSION_INVALID"}
+          }
+        }
+      ]
+    },
+    "EntitlementRequired": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "details"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Your access period has ended. Choose a plan to continue using Traigent."},
+        "error": {"enum": ["entitlement_required"]},
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason"],
+          "properties": {"reason": {"enum": ["access_period_ended", "no_active_plan"]}}
+        }
+      }
+    },
+    "OptimizationOnly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "This workspace is limited to optimization; this operation is not available."},
+        "error": {"const": "optimization_only"},
+        "error_code": {"enum": ["optimization_only"]}
+      }
+    },
+    "RateLimited": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["success", "message", "error", "error_code", "details"],
+      "properties": {
+        "success": {"const": false},
+        "message": {"const": "Rate limit exceeded"},
+        "error": {"const": "Too many requests"},
+        "error_code": {"enum": ["RATE_LIMIT_EXCEEDED"]},
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["scope", "retry_after"],
+          "properties": {
+            "scope": {"enum": ["api", "tenant", "global"]},
+            "retry_after": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "Unavailable": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Internal server error"},
+            "error": {"const": "Internal server error"},
+            "error_code": {
+              "enum": [
+                "AUTH_BACKEND_UNAVAILABLE",
+                "RATE_LIMIT_UNAVAILABLE",
+                "TENANT_CONTEXT_UNAVAILABLE",
+                "TENANT_OVERRIDE_AUDIT_UNAVAILABLE",
+                "TENANT_PROVISION_FAILED",
+                "SESSION_ACTIVITY_UNAVAILABLE"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Access status is temporarily unavailable"},
+            "error": {"const": "ACCESS_DECISION_UNAVAILABLE"},
+            "error_code": {"enum": ["ACCESS_DECISION_UNAVAILABLE"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "error", "code"],
+          "properties": {
+            "success": {"const": false},
+            "error": {"const": "Internal server error"},
+            "code": {"enum": ["INTERNAL_ERROR"]}
+          }
+        }
+      ]
+    },
+    "InternalError": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Internal server error"},
+            "error": {"const": "Internal server error"},
+            "error_code": {
+              "enum": [
+                "AUTHENTICATION_ERROR",
+                "INTERNAL_ERROR",
+                "INTERNAL_SERVER_ERROR",
+                "SECURITY_MIDDLEWARE_ERROR"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "error", "code"],
+          "properties": {
+            "success": {"const": false},
+            "error": {"const": "Internal server error"},
+            "code": {"enum": ["INTERNAL_ERROR"]}
+          }
+        },
+        {"$ref": "./analytics/middleware_message_error_schema.json"}
+      ]
+    },
+    "ContextForbidden": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {
+              "enum": [
+                "Tenant context is invalid for this request",
+                "requested tenant is not accessible to this user"
+              ]
+            },
+            "error": {"const": "TENANT_ACCESS_DENIED"},
+            "error_code": {"enum": ["TENANT_ACCESS_DENIED"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code"],
+          "properties": {
+            "success": {"const": false},
+            "message": {
+              "enum": [
+                "Tenant context is invalid for this request",
+                "Single sign-on is required for this tenant"
+              ]
+            },
+            "error": {"const": "SSO_REQUIRED"},
+            "error_code": {"enum": ["SSO_REQUIRED"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "error", "code"],
+          "properties": {
+            "success": {"const": false},
+            "error": {"const": "Forbidden"},
+            "code": {"enum": ["FORBIDDEN"]}
+          }
+        }
+      ]
+    },
+    "Unprocessable": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "error", "code"],
+          "properties": {
+            "success": {"const": false},
+            "error": {"const": "Unprocessable Entity"},
+            "code": {"enum": ["UNPROCESSABLE_ENTITY"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code", "details"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"enum": ["Tenant context is invalid for this request", "tenant context required"]},
+            "error": {"const": "TENANT_CONTEXT_REQUIRED"},
+            "error_code": {"enum": ["TENANT_CONTEXT_REQUIRED"]},
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["_global"],
+              "properties": {
+                "_global": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"const": "Invalid request"}}
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code", "details"],
+          "properties": {
+            "success": {"const": false},
+            "message": {"const": "Request body is nested too deeply"},
+            "error": {"const": "body: Request body is nested too deeply"},
+            "error_code": {"enum": ["VALIDATION_ERROR"]},
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["body"],
+              "properties": {
+                "body": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {"const": "Request body is nested too deeply"}
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["success", "message", "error", "error_code", "details"],
+          "properties": {
+            "success": {"const": false},
+            "message": {
+              "const": "Request contains a string with a NUL character or an unpaired surrogate, which cannot be stored"
+            },
+            "error": {
+              "const": "body: Request contains a string with a NUL character or an unpaired surrogate, which cannot be stored"
+            },
+            "error_code": {"enum": ["VALIDATION_ERROR"]},
+            "details": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["body"],
+              "properties": {
+                "body": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "const": "Request contains a string with a NUL character or an unpaired surrogate, which cannot be stored"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ProviderCredentialRejected": {
+      "allOf": [
+        {"$ref": "./agents/agent_import_credential_error_schema.json"},
+        {
+          "properties": {
+            "message": {
+              "const": "Provider credentials are not accepted by the API. Configure them in the deployment environment or secret storage."
+            },
+            "detail": {
+              "const": "Provider credentials are not accepted by the API. Configure them in the deployment environment or secret storage."
+            }
+          }
+        }
+      ]
+    },
+    "UnsupportedContentType": {
+      "allOf": [
+        {"$ref": "./analytics/unsupported_content_type_schema.json"},
+        {
+          "properties": {
+            "allowed_content_types": {
+              "items": {
+                "enum": [
+                  "application/json",
+                  "application/x-protobuf",
+                  "application/x-www-form-urlencoded",
+                  "multipart/form-data",
+                  "text/plain"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

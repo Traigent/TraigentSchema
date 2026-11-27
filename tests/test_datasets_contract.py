@@ -2,6 +2,8 @@
 admits the portal's client fields (#135/#123), score/confidence 0-1 unit (#139)."""
 import json
 
+import pytest
+
 from traigent_schema import SchemaValidator
 from traigent_schema.utils import get_schemas_dir
 
@@ -202,3 +204,144 @@ def test_standalone_model_parameters_route_binds_its_own_request_schema():
     assert v.validate_request(
         "/api/v1/model-parameters", "POST", {"agentId": "a1", "modelParameters": []}
     )
+
+
+# ---------------------------------------------------------------------------
+# Project-scoped dataset paths: additive canonical routes, old routes deprecated
+# ---------------------------------------------------------------------------
+
+_SCOPED = "/api/v1/projects/{project_id}/datasets"
+# (method, old suffix == new suffix, canonical operationId)
+_SCOPED_OPS = [
+    ("get", "", "dataset.get_datasets"),
+    ("post", "", "dataset.create_dataset"),
+    ("get", "/{dataset_id}", "dataset.get_dataset"),
+    ("put", "/{dataset_id}", "dataset.update_dataset"),
+    ("delete", "/{dataset_id}", "dataset.delete_dataset"),
+    ("get", "/{dataset_id}/examples", "dataset.get_dataset_examples"),
+    ("post", "/{dataset_id}/examples", "dataset.add_dataset_examples"),
+    ("put", "/{dataset_id}/examples/{example_id}", "dataset.update_dataset_example"),
+    ("delete", "/{dataset_id}/examples/{example_id}", "dataset.delete_dataset_example"),
+    ("post", "/{dataset_id}/generate-examples", "dataset.generate_dataset_examples"),
+    ("get", "/{dataset_id}/files", "dataset.get_dataset_files"),
+    ("post", "/{dataset_id}/files", "dataset.upload_dataset_files"),
+    ("post", "/{dataset_id}/upload", "dataset.upload_dataset_files_post"),
+    ("delete", "/{dataset_id}/files/{file_id}", "dataset.delete_dataset_file"),
+    (
+        "get",
+        "/{dataset_id}/versions/{version_id}/content-identity",
+        "dataset_version.get_dataset_version_content_identity",
+    ),
+    ("put", "/{dataset_id}/public-benchmark", "dataset_version.set_dataset_public_benchmark"),
+]
+_CONTENT_IDENTITY_SUFFIXES = {
+    "/{dataset_id}/versions/{version_id}/content-identity",
+    "/{dataset_id}/public-benchmark",
+}
+_UNSCOPED_STAYS = [
+    "/api/v1/datasets/versions/by-root/{dataset_root}",
+    "/api/v1/content-identity/purpose-keys",
+    "/api/v1/example-sets",
+    "/api/v1/example-sets/{set_id}/examples",
+]
+
+
+def _scoped_paths(suffix):
+    name = "content_identity_endpoints.json" if suffix in _CONTENT_IDENTITY_SUFFIXES else "datasets_endpoints.json"
+    return _load(name)["paths"]
+
+
+@pytest.mark.parametrize("method,suffix,op_id", _SCOPED_OPS)
+def test_scoped_dataset_operation_mirrors_the_unscoped_one(method, suffix, op_id):
+    import re
+
+    paths = _scoped_paths(suffix)
+    old = paths["/api/v1/datasets" + suffix][method]
+    new = paths[_SCOPED + suffix][method]
+    assert new["operationId"] == op_id
+    assert new["x-asserted-against-backend"] is False
+    assert "deprecated" not in new
+    assert old["deprecated"] is True
+    assert old["x-deprecated"] == f"Use {method.upper()} {_SCOPED}{suffix}. Removal is unscheduled."
+    assert old["x-deprecated"].endswith("Removal is unscheduled.")
+    assert new.get("requestBody") == old.get("requestBody")
+    assert [p["name"] for p in new["parameters"]] == re.findall(r"\{(\w+)\}", _SCOPED + suffix)
+    assert all(p["in"] == "path" and p["required"] for p in new["parameters"])
+    project = new["parameters"][0]
+    assert project["schema"] == {"type": "string", "minLength": 1, "maxLength": 128}
+    assert set(new["responses"]) >= set(old["responses"])
+    for status, resp in old["responses"].items():
+        if status != "429":
+            assert new["responses"][status] == resp
+
+
+_DEFERRED = [
+    ("post", "/{dataset_id}/archive"),
+    ("post", "/{dataset_id}/unarchive"),
+    ("post", "/generate"),
+    ("get", "/generation-sessions/{session_id}/status"),
+    ("get", "/{dataset_id}/versions"),
+    ("post", "/{dataset_id}/versions"),
+    ("get", "/{dataset_id}/versions/{version_id}"),
+    ("get", "/{dataset_id}/versions/{version_id}/snapshot"),
+]
+
+
+def _actual_scoped_operations():
+    found = []
+    for name in ("datasets_endpoints.json", "content_identity_endpoints.json"):
+        for path, item in _load(name)["paths"].items():
+            if path.startswith(_SCOPED):
+                for method, op in item.items():
+                    found.append((method, path[len(_SCOPED):], op["operationId"]))
+    return found
+
+
+def test_scoped_dataset_operation_set_equals_the_spec_and_ids_are_distinct():
+    actual = _actual_scoped_operations()
+    assert len(actual) == len({op_id for _, _, op_id in actual})
+    assert sorted(actual) == sorted(_SCOPED_OPS)
+    assert len(actual) == 16
+
+
+def test_deferred_dataset_operations_are_all_absent():
+    assert len(_DEFERRED) == 8
+    actual = {(method, suffix) for method, suffix, _ in _actual_scoped_operations()}
+    for deferred in _DEFERRED:
+        assert deferred not in actual, deferred
+    declared_scoped_paths = {
+        path
+        for name in ("datasets_endpoints.json", "content_identity_endpoints.json")
+        for path in _load(name)["paths"]
+        if path.startswith(_SCOPED)
+    }
+    for _, suffix in _DEFERRED:
+        assert _SCOPED + suffix not in declared_scoped_paths, suffix
+
+
+_EXAMPLE_ROUTES = [
+    ("PUT", "/api/v1/datasets/ds-1/examples/ex-1"),
+    ("PUT", "/api/v1/projects/p-1/datasets/ds-1/examples/ex-1"),
+]
+
+
+@pytest.mark.parametrize("method,route", _EXAMPLE_ROUTES)
+def test_example_put_route_validates_through_the_fragment_ref(method, route):
+    v = SchemaValidator(contract="backend")
+    template = "/api/v1/projects/{project_id}/datasets/{dataset_id}/examples/{example_id}"
+    if "projects" not in route:
+        template = "/api/v1/datasets/{dataset_id}/examples/{example_id}"
+    assert v._endpoint_schemas[f"{method}:{template}"].endswith("#/definitions/EvaluationSetExample")
+    valid = {"example_id": "ex-1", "input_text": "What is 2+2?", "expected_output": "4"}
+    assert v.validate_request(route, method, valid) == []
+    errors = v.validate_request(route, method, {"example_id": "ex-1", "score": 5})
+    assert errors and not any("Schema not found" in e for e in errors)
+
+
+def test_unscoped_dataset_routes_stay_undeprecated():
+    all_paths = {**_scoped_paths(""), **_scoped_paths("/{dataset_id}/public-benchmark")}
+    for path in _UNSCOPED_STAYS:
+        for op in all_paths[path].values():
+            assert not op.get("deprecated")
+    assert not any(path.startswith(_SCOPED + "/generate") or "/archive" in path for path in all_paths)
+    assert not any("/versions" in p and p.startswith(_SCOPED) and "content-identity" not in p for p in all_paths)

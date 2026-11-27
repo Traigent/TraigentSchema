@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://schemas.traigent.ai/certification/process_record_request_schema.json",
+  "title": "Process Record Requests",
+  "description": "Request bodies and reference types for the project-scoped process record routes.",
+  "definitions": {
+    "ProcessRecordReference": {
+      "type": "string",
+      "maxLength": 47,
+      "pattern": "^bsn:[A-Za-z0-9_-]{43}(?![\\s\\S])",
+      "description": "Use the build_session_ref returned when the certificate build session was created. These routes cover issuances created through a certificate build session. A certificate that carries a runlineage: reference is not addressed here and stays on the existing certification routes. Prepare echoes the same reference. Resolve it within the named project."
+    },
+    "Sha256Reference": {
+      "allOf": [{"$ref": "./certification_common_v0_schema.json#/definitions/Sha256Digest"}],
+      "maxLength": 71
+    },
+    "SignedReference": {
+      "allOf": [{"$ref": "./certification_common_v0_schema.json#/definitions/OpaqueRef"}],
+      "not": {"pattern": "[\\r\\n\\u2028\\u2029]"}
+    },
+    "ProjectReference": {
+      "allOf": [{"$ref": "./certification_common_v0_schema.json#/definitions/ProjectRefV0"}],
+      "not": {"pattern": "[\\r\\n\\u2028\\u2029]"}
+    },
+    "PrepareProcessRecordRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_record_ref"],
+      "properties": {"process_record_ref": {"$ref": "#/definitions/ProcessRecordReference"}}
+    },
+    "VerificationContextV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_nonce",
+        "expected_build_session_ref",
+        "expected_issuer_key_ref",
+        "expected_issuer_algorithm",
+        "expected_trust_ring_ref",
+        "expected_project_ref"
+      ],
+      "properties": {
+        "expected_nonce": {"type": "string", "minLength": 1, "maxLength": 64},
+        "expected_build_session_ref": {"$ref": "#/definitions/SignedReference"},
+        "expected_issuer_key_ref": {"$ref": "#/definitions/SignedReference"},
+        "expected_issuer_algorithm": {"type": "string", "minLength": 1, "enum": ["ecdsa_p256_sha256", "ed25519"]},
+        "expected_trust_ring_ref": {"$ref": "#/definitions/SignedReference"},
+        "expected_project_ref": {"$ref": "#/definitions/ProjectReference"},
+        "expected_client_key_ref": {"type": ["string", "null"], "maxLength": 47},
+        "expected_client_algorithm": {"type": ["string", "null"], "enum": ["ecdsa_p256_sha256", "ed25519", null]},
+        "client_public_key_der_b64": {"type": ["string", "null"], "maxLength": 512}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "expected_client_key_ref": {"type": "null"},
+            "expected_client_algorithm": {"type": "null"},
+            "client_public_key_der_b64": {"type": "null"}
+          }
+        },
+        {
+          "required": ["expected_client_key_ref", "expected_client_algorithm", "client_public_key_der_b64"],
+          "properties": {
+            "expected_client_key_ref": {"type": "string", "minLength": 1, "maxLength": 47},
+            "expected_client_algorithm": {"type": "string", "minLength": 1, "enum": ["ecdsa_p256_sha256", "ed25519"]},
+            "client_public_key_der_b64": {"type": "string", "minLength": 1, "maxLength": 512}
+          }
+        }
+      ]
+    },
+    "FinalizeProcessRecordRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_ref",
+        "build_session_ref",
+        "agent_commitment_ref",
+        "dataset_commitment_ref",
+        "evaluator_commitment_ref",
+        "build_definition_commitment_ref",
+        "base_certificate_v0",
+        "verification_materials_v0",
+        "v0_context_kwargs"
+      ],
+      "properties": {
+        "project_ref": {"$ref": "#/definitions/ProjectReference"},
+        "build_session_ref": {"$ref": "#/definitions/SignedReference"},
+        "agent_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "dataset_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "evaluator_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "build_definition_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "base_certificate_v0": {"$ref": "./agent_certificate_v0_schema.json"},
+        "verification_materials_v0": {"$ref": "./certificate_verification_materials_v0_schema.json"},
+        "v0_context_kwargs": {"$ref": "#/definitions/VerificationContextV0"},
+        "claim_id": {"enum": ["PROC1", null, ""], "default": "PROC1"},
+        "experiment_run_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 100},
+        "openings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "agent": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "dataset": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "config_space": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:primary": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r0": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r1": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r2": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r3": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r4": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r5": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r6": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"},
+            "evaluator:r7": {"type": "string", "maxLength": 44, "pattern": "^[A-Za-z0-9+/]{43}=$"}
+          },
+          "minProperties": 1
+        }
+      }
+    },
+    "VerifyProcessRecordRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_ref",
+        "build_session_ref",
+        "agent_commitment_ref",
+        "dataset_commitment_ref",
+        "evaluator_commitment_ref",
+        "build_definition_commitment_ref",
+        "bundle",
+        "verification_materials_v0",
+        "v0_context_kwargs",
+        "trust_anchor",
+        "trust_status"
+      ],
+      "properties": {
+        "project_ref": {"$ref": "#/definitions/ProjectReference"},
+        "build_session_ref": {"$ref": "#/definitions/SignedReference"},
+        "agent_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "dataset_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "evaluator_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "build_definition_commitment_ref": {"$ref": "#/definitions/Sha256Reference"},
+        "bundle": {"$ref": "./process_record_v1_schema.json"},
+        "verification_materials_v0": {
+          "type": "object",
+          "required": ["materials_digest", "certificate_ref"],
+          "properties": {
+            "materials_digest": {"$ref": "#/definitions/Sha256Reference"},
+            "certificate_ref": {"$ref": "#/definitions/SignedReference"}
+          },
+          "description": "Verification materials for the base certificate. Verification uses only the materials digest and certificate reference."
+        },
+        "v0_context_kwargs": {"$ref": "#/definitions/VerificationContextV0"},
+        "verification_time": {
+          "allOf": [{"$ref": "./process_record_v1_schema.json#/definitions/UtcTimestampV1"}],
+          "format": "date-time",
+          "not": {"pattern": "[\\r\\n]"}
+        },
+        "trust_anchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["key_ref", "algorithm", "public_key_der_b64", "public_key_digest"],
+          "properties": {
+            "key_ref": {"$ref": "#/definitions/SignedReference"},
+            "algorithm": {"enum": ["ed25519", "ecdsa_p256_sha256"]},
+            "public_key_der_b64": {"type": "string", "minLength": 1, "maxLength": 512},
+            "public_key_digest": {"$ref": "#/definitions/Sha256Reference"}
+          }
+        },
+        "trust_status": {"$ref": "./process_record_v1_schema.json#/definitions/TrustStatusEnvelopeV1"}
+      }
+    }
+  }
+}

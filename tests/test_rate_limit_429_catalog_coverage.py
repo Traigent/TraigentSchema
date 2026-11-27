@@ -94,6 +94,24 @@ PROBLEM_JSON_429 = {
     ("execution/execution_endpoints.json", "get", "/api/v1/projects/{project_id}/experiment-groups/{group_ref}/experiments"),
 }
 
+# Project-scoped dataset operations whose 429 is one of several bodies (rate limit, quota, legacy
+# limiter, shared provider limiter). Declared as an ``anyOf`` of exactly these refs.
+_RL = "../rate_limit_info_schema.json"
+_QUOTA = "../billing/quota_exceeded_error_schema.json"
+ANYOF_429 = {
+    ("datasets/datasets_endpoints.json", "post", "/api/v1/projects/{project_id}/datasets"): [_RL, _QUOTA],
+    (
+        "datasets/datasets_endpoints.json",
+        "post",
+        "/api/v1/projects/{project_id}/datasets/{dataset_id}/generate-examples",
+    ): [
+        _RL,
+        _QUOTA,
+        "../auth/auth_rate_limit_response_schema.json",
+        "../analytics/evaluator_promotion_rate_limit_schema.json",
+    ],
+}
+
 # The v1 envelope, plus the v2 observability API's own error envelope (pre-existing on
 # POST /api/v2/observability/events; that API family uses one error schema for every 4xx).
 CANONICAL_429_ENVELOPES = {
@@ -161,6 +179,13 @@ def test_fixed_catalogs_429_points_at_the_canonical_rate_limit_envelope(rel: str
             continue
         if (rel, method, path) in PROBLEM_JSON_429:
             assert op["responses"]["429"] == {"$ref": "#/components/responses/GroupsRateLimited"}
+            continue
+        if (rel, method, path) in ANYOF_429:
+            schema = op["responses"]["429"]["content"]["application/json"]["schema"]
+            assert [s["$ref"] for s in schema["anyOf"]] == ANYOF_429[(rel, method, path)]
+            assert set(schema) == {"anyOf"}
+            for r in ANYOF_429[(rel, method, path)]:
+                assert (SCHEMAS / posixpath.normpath(posixpath.join(posixpath.dirname(rel), r))).is_file()
             continue
         ref = op["responses"]["429"]["content"]["application/json"]["schema"]["$ref"]
         resolved = posixpath.normpath(posixpath.join(posixpath.dirname(rel), ref))

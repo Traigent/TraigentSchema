@@ -10,11 +10,11 @@
     "reachableByRule": {
       "allowlist": 0,
       "consumerReference": 33,
-      "refOrEndpointGraph": 583
+      "refOrEndpointGraph": 598
     },
-    "reachableCount": 616,
-    "schemaFileCount": 679,
-    "unreachableCount": 63
+    "reachableCount": 631,
+    "schemaFileCount": 692,
+    "unreachableCount": 61
   },
   "unreachableSchemas": [
     "agent_lifecycle_record/agent_lifecycle_agent_revision_register_request_schema.json",
@@ -34,10 +34,8 @@
     "certification/certificate_registry_agent_revision_v0_schema.json",
     "certification/certificate_registry_measurement_contract_v0_schema.json",
     "certification/certificate_rejection_v0_schema.json",
-    "certification/commitment_linkage_v1_schema.json",
     "certification/dataset_record_v1_schema.json",
     "certification/evaluator_quality_v1_schema.json",
-    "certification/process_record_v1_schema.json",
     "certification/prohibited_register_baseline_v1_schema.json",
     "connectors/connector_run_summary.json",
     "connectors/correlation_summary.json",

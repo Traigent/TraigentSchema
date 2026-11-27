@@ -210,14 +210,10 @@
         "review_context": {
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Present on an `A` ingredient only (a string, or null when the agent configuration or the statement cannot be resolved, or the server has no key to issue it). An opaque, server-issued freshness token, keyed and never derived from customer text. A signer echoes it unchanged in AttestationCreateRequest.review_context; the server refuses a stale value with 409 stale_review_context. It is not evidence: never store, log or export it."
+          "description": "Present on an `A` ingredient when the server issues freshness tokens; absent or null otherwise (readers treat both alike). When the server checks freshness tokens, a stale value sent back on signing is refused with 409 stale_review_context. An opaque, server-issued, keyed token, never derived from free text. It is not evidence: never store, log or export it."
         }
       },
       "allOf": [
-        {
-          "if": { "properties": { "kind": { "const": "A" } }, "required": ["kind"] },
-          "then": { "required": ["review_context"] }
-        },
         {
           "if": { "properties": { "kind": { "enum": ["M", "D", "L"] } }, "required": ["kind"] },
           "then": { "not": { "required": ["review_context"] } }

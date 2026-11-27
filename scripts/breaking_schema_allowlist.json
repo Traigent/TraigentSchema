@@ -12039,6 +12039,23 @@
       "reason": "A rows of the evidence response gain the review_context freshness token (string or null), a closed additive field that the signer echoes on sign. Pre-release contract; the backend is the only producer and the frontend reads it in the same slice.",
       "version": "Unreleased pending (TraigentSchema, review_context; backend change pending)",
       "pr": "pending (TraigentSchema, not yet opened)"
+    },
+    {
+      "file": "agent_readiness/compliance_evidence_response_schema.json",
+      "rule": "allOf_branch_count_changed",
+      "findings": [
+        {
+          "pointer": "#/properties/ingredients/items/allOf",
+          "role": "response",
+          "subject": "allOf",
+          "old": 2,
+          "new": 1,
+          "fingerprint": "9ffc86621dadac8da734bd4e02ebee79dcaeec95861a11c317bd6670d5fc202c"
+        }
+      ],
+      "reason": "Freshness tokens become optional until the server issues and checks them; the closed rules for kinds M, D and L are unchanged; readers treat an absent value like null.",
+      "version": "Unreleased pending (TraigentSchema, review_context optional)",
+      "pr": "pending (TraigentSchema, not yet opened)"
     }
   ]
 }

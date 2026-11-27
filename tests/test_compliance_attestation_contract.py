@@ -112,6 +112,12 @@ def test_schema_is_valid_draft7_and_discoverable() -> None:
     Draft7Validator.check_schema(_SCHEMA)
 
 
+def test_review_context_is_optional_on_the_sign_request() -> None:
+    request = _request()
+    request.pop("review_context")
+    assert _errors("AttestationCreateRequest", request) == []
+
+
 def test_schema_is_closed_everywhere() -> None:
     _walk_closed(_SCHEMA)
     _walk_closed(load_json(ENDPOINTS_PATH)["paths"])
@@ -152,7 +158,6 @@ def test_valid_examples_conform(definition: str, factory: Any) -> None:
     ("definition", "factory", "mutate"),
     [
         # Server-derived fields are never accepted from the client.
-        ("AttestationCreateRequest", _request, lambda r: r.pop("review_context")),
         ("AttestationCreateRequest", _request, lambda r: r.update(review_context=None)),
         ("AttestationCreateRequest", _request, lambda r: r.update(review_context="C" * 64)),
         ("AttestationCreateRequest", _request, lambda r: r.update(review_context="c" * 63)),

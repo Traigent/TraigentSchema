@@ -157,7 +157,6 @@ def test_valid_populated_and_empty_packs() -> None:
         lambda r: r["ingredients"][0].update(group="Legal"),
         lambda r: r["ingredients"][0].update(producer_ref="free text"),
         lambda r: r["ingredients"][0].update(note="customer text"),
-        lambda r: r["ingredients"][1].pop("review_context"),  # required on A rows
         lambda r: r["ingredients"][1].update(review_context="B" * 64),
         lambda r: r["ingredients"][1].update(review_context="b" * 63),
         lambda r: r["ingredients"][0].update(review_context="b" * 64),  # absent on non-A rows
@@ -334,6 +333,21 @@ def test_coverage_ingredient_ids_over_cap_is_rejected_shape_only() -> None:
     assert len(set(unique)) == 101
     assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique[:100]})) == []
     assert _errors(_with_ids(**{**_ALL_EMPTY, "supported": unique})) != []
+
+
+@pytest.mark.parametrize("kind", ["M", "D", "L"])
+def test_review_context_is_refused_on_non_attestation_rows(kind: str) -> None:
+    instance = copy.deepcopy(_response())
+    instance["ingredients"][0]["kind"] = kind
+    assert _errors(instance) == []
+    instance["ingredients"][0]["review_context"] = "b" * 64
+    assert _errors(instance) != []
+
+
+def test_review_context_is_optional_on_attestation_rows() -> None:
+    instance = copy.deepcopy(_response())
+    instance["ingredients"][1].pop("review_context")
+    assert _errors(instance) == []
 
 
 def test_review_context_is_a_digest_or_null_on_attestation_rows() -> None:

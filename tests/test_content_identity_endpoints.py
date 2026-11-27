@@ -5,7 +5,7 @@ Four Backend routes (M3; declared ahead of the Backend merge):
 * POST /api/v1/content-identity/purpose-keys -> bare PurposeKeyGrantV1, no-store;
 * GET  /api/v1/datasets/{dataset_id}/versions/{version_id}/content-identity;
 * GET  /api/v1/datasets/versions/by-root/{dataset_root};
-* PUT  /api/v1/datasets/{dataset_id}/public-benchmark (ruling D3).
+* PUT  /api/v1/datasets/{dataset_id}/public-benchmark (public-benchmark opt-in).
 
 The valid bodies below mirror the Backend's own serializers
 (HostedDatasetIdentityView.to_wire / unavailable_wire, DatasetVersion.to_dict,

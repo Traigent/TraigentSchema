@@ -37,7 +37,7 @@
         },
         "public_input_digest": {
           "$ref": "content_identity_v1_schema.json#/definitions/PublicInputDigestV1",
-          "description": "OPT-IN, UNKEYED exu1 digest of the example's input. Present ONLY while the parent dataset's public_benchmark flag is set (ruling D3; PUT /api/v1/datasets/{dataset_id}/public-benchmark); never stored, computed per read from the snapshot. Absent in every other case, including on every other dataset read surface."
+          "description": "OPT-IN, UNKEYED exu1 digest of the example's input. Present ONLY while the parent dataset's public_benchmark flag is set (public-benchmark opt-in; PUT /api/v1/datasets/{dataset_id}/public-benchmark); never stored, computed per read from the snapshot. Absent in every other case, including on every other dataset read surface."
         }
       }
     },
